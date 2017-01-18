@@ -8,8 +8,8 @@ import Rel8
 import OpaleyeStub (Connection)
 
 data TestTable f = TestTable
-  { testColumnA :: C f ('Column "a" 'NoDefault 'NotNullable 'PGInteger)
-  , testColumnB :: C f ('Column "b" 'HasDefault 'Nullable 'PGInteger)
+  { testColumnA :: C f ('Column "a" 'NoDefault Int)
+  , testColumnB :: C f ('Column "b" 'HasDefault (Maybe Int))
   } deriving (Generic)
 
 instance BaseTable TestTable where

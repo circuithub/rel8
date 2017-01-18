@@ -16,7 +16,6 @@ module Rel8
     Column(..)
   , HasDefault(..)
   , Nullable(..)
-  , PGType(..)
   , C
   , BaseTable(..)
 
@@ -45,9 +44,6 @@ module Rel8
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
-
-    -- * Lower level details
-  , AsHaskell
   ) where
 
 import Data.Tagged (Tagged(..))
@@ -99,11 +95,10 @@ data Nullable
       Employee { employeeName :: C f ('Column "employee_name" 'NoDefault 'NotNullable 'PGText) }
     @
 -}
-data Column schema = Column
+data Column t = Column
   { _columnName :: Symbol
   , _columnHasDefault :: HasDefault
-  , _columnNullable :: Nullable
-  , _columnType :: schema
+  , _columnType :: t
   }
 
 --------------------------------------------------------------------------------
@@ -198,32 +193,9 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 
 --------------------------------------------------------------------------------
 type family C (f :: Column a -> *) (c :: Column a) :: * where
-  C Expr ('Column _name _def 'Nullable t) = Expr ('Null t)
-  C Expr ('Column _name _def 'NotNullable t) = Expr t
-
-  C QueryResult ('Column _name _def 'Nullable t) = AsHaskell ('Null t)
-  C QueryResult ('Column _name _def 'NotNullable t) = AsHaskell t
-
-  C Schema ('Column name _def _null _t) = Tagged name String
-
---------------------------------------------------------------------------------
--- TODO We really want this to be open, but that breaks the instance of
--- res ~ AsHaskell a => Table (Expr a) (Col res)
-
--- This is because knowing `Col res` *must* let you know `Expr a`, but if
--- `AsHaskell` were open (and hence not necessarily injective), we can't work out
--- what `a` would be. Bummer.
-type family AsHaskell (t :: k) :: *
-type instance AsHaskell 'PGInteger = Int
-type instance AsHaskell 'PGBoolean = Bool
-type instance AsHaskell ('Null a) = Maybe (AsHaskell a)
-
---------------------------------------------------------------------------------
-data PGType
-  = PGInteger
-  | PGBoolean
-  | PGText
-  | PGReal
+  C Expr ('Column _name _def t) = Expr t
+  C QueryResult ('Column _name _def t) = t
+  C Schema ('Column name _def _t) = Tagged name String
 
 --------------------------------------------------------------------------------
 data QueryResult column
@@ -255,7 +227,7 @@ instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
   rowParser (l, r) = liftA2 (,) (rowParser l) (rowParser r)
 
 --------------------------------------------------------------------------------
-data MaybeRow row = MaybeRow (Expr 'PGBoolean) row
+data MaybeRow row = MaybeRow (Expr Bool) row
 
 instance (Table expr haskell) =>
          Table (MaybeRow expr) (Maybe haskell) where
@@ -271,15 +243,13 @@ instance (Table expr haskell) =>
       then return Nothing
       else fmap Just (rowParser r)
 
-data Null a = Null a
-
-(?) :: MaybeRow a -> (a -> Expr b) -> Expr ('Null b)
+(?) :: MaybeRow a -> (a -> Expr b) -> Expr (Maybe b)
 MaybeRow _ row ? f = case f row of Expr a -> Expr a
 
 --------------------------------------------------------------------------------
 leftJoin
   :: (Table lExpr lHaskell, Table rExpr rHaskell)
-  => (lExpr -> rExpr -> Expr 'PGBoolean)
+  => (lExpr -> rExpr -> Expr Bool)
   -> O.Query lExpr
   -> O.Query rExpr
   -> O.Query (lExpr,MaybeRow rExpr)
@@ -295,18 +265,16 @@ leftJoin condition l r =
          Expr e -> O.Column e)
 
 --------------------------------------------------------------------------------
-class haskell ~ AsHaskell expr =>
-      Lit haskell expr | haskell -> expr, expr -> haskell where
-  lit :: haskell -> Expr expr
+class Lit a where
+  lit :: a -> Expr a
 
-instance Lit Bool 'PGBoolean where
+instance Lit Bool where
   lit = Expr . O.ConstExpr . O.BoolLit
 
-instance Lit Int 'PGInteger where
+instance Lit Int where
   lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
 
-instance (AsHaskell a ~ b, Lit b a) =>
-         Lit (Maybe b) ('Null a) where
+instance Lit a => Lit (Maybe a) where
   lit Nothing = Expr (O.ConstExpr O.NullLit)
   lit (Just a) =
     case lit a of
@@ -315,17 +283,17 @@ instance (AsHaskell a ~ b, Lit b a) =>
 --------------------------------------------------------------------------------
 newtype Col a = Col a
 
-instance (FromField haskell, Lit haskell a) =>
-         Table (Expr a) (Col haskell) where
+instance (FromField a) =>
+         Table (Expr a) (Col a) where
   unpackColumns =
     O.Unpackspec (O.PackMap (\f (Expr prim) -> fmap Expr (f prim)))
   rowParser _ = fmap Col field
 
 --------------------------------------------------------------------------------
-(^/=^) :: Expr a -> Expr a -> Expr 'PGBoolean
+(^/=^) :: Expr a -> Expr a -> Expr Bool
 a ^/=^ b = undefined
 
-toNullable :: Expr a -> Expr ('Null a)
+toNullable :: Expr a -> Expr (Maybe a)
 toNullable (Expr a) = Expr a
 
 {- $intro
