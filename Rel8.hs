@@ -340,6 +340,7 @@ instance (FromField a) =>
   rowParser _ = fmap Col field
 
 --------------------------------------------------------------------------------
+-- | The @<>@ (not equal) operator.
 (^/=^) :: Expr a -> Expr a -> Expr Bool
 a ^/=^ b = undefined
 
