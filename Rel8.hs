@@ -54,7 +54,7 @@ module Rel8
   , Connection, Stream, Of, Generic
   ) where
 
-import Control.Applicative ((<$), liftA2)
+import Control.Applicative (liftA2)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Int (Int64)
@@ -137,11 +137,11 @@ instance KnownSymbol name =>
 data Schema a
 
 --------------------------------------------------------------------------------
-class ToPrimExpr a where
-  toPrimExpr :: a -> O.PrimExpr
+class MapPrimExpr s where
+  mapPrimExpr :: Functor f => (O.PrimExpr -> f O.PrimExpr) -> s -> f s
 
-instance ToPrimExpr (Expr column) where
-  toPrimExpr (Expr a) = a
+instance MapPrimExpr (Expr column) where
+  mapPrimExpr f (Expr a) = fmap Expr (f a)
 
 --------------------------------------------------------------------------------
 -- TODO Unsure if we want to assume this type of table
@@ -155,7 +155,7 @@ class KnownSymbol name =>
 
   default queryTable :: ( ADTRecord (table Expr)
                         , ADTRecord (table Schema)
-                        , Constraints (table Expr) ToPrimExpr
+                        , Constraints (table Expr) MapPrimExpr
                         , Constraints (table Schema) WitnessSchema
                         , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))) =>
     O.Query (table Expr)
@@ -164,7 +164,7 @@ class KnownSymbol name =>
       (O.ColumnMaker
          (O.PackMap
             (\f ->
-               gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s)))))
+               gtraverse (For :: For MapPrimExpr) (mapPrimExpr f))))
       (O.Table
          (symbolVal (Proxy :: Proxy name))
          (O.TableProperties
@@ -192,19 +192,19 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser _ = head (createA (For :: For FromField) [field])
 
   unpackColumns :: O.Unpackspec expr expr
-  default unpackColumns :: ( Constraints expr ToPrimExpr
+  default unpackColumns :: ( Constraints expr MapPrimExpr
                            , ADTRecord expr) =>
     O.Unpackspec expr expr
   unpackColumns =
     O.Unpackspec
       (O.PackMap
          (\f ->
-            gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s))))
+            gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)))
 
 instance {-# OVERLAPPABLE #-}
          ( ADTRecord (table Expr)
          , ADTRecord (table QueryResult)
-         , Constraints (table Expr) ToPrimExpr
+         , Constraints (table Expr) MapPrimExpr
          , Constraints (table QueryResult) FromField
          ) => Table (table Expr) (table QueryResult)
 
