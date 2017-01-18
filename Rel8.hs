@@ -21,7 +21,7 @@ module Rel8
     -- * Tables
   , Table(..)
   , leftJoin
-  , MaybeRow(..)
+  , MaybeTable(..)
   , Col
 
     -- * Expressions
@@ -224,37 +224,42 @@ instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
   rowParser (l, r) = liftA2 (,) (rowParser l) (rowParser r)
 
 --------------------------------------------------------------------------------
-data MaybeRow row = MaybeRow (Expr Bool) row
+-- | Indicates that a given 'Table' might be @null@. This is the result of a
+-- @LEFT JOIN@ between tables.
+data MaybeTable row = MaybeTable (Expr Bool) row
 
 instance (Table expr haskell) =>
-         Table (MaybeRow expr) (Maybe haskell) where
+         Table (MaybeTable expr) (Maybe haskell) where
   unpackColumns =
     dimap
-      (\(MaybeRow tag row) -> (tag, row))
-      (\(prim, expr) -> MaybeRow (Expr prim) expr)
+      (\(MaybeTable tag row) -> (tag, row))
+      (\(prim, expr) -> MaybeTable (Expr prim) expr)
       (O.Unpackspec (O.PackMap (\f (Expr tag) -> f tag)) ***! unpackColumns)
 
-  rowParser (MaybeRow _ r) = do
+  rowParser (MaybeTable _ r) = do
     isNull <- field
     if fromMaybe True isNull
       then return Nothing
       else fmap Just (rowParser r)
 
-(?) :: MaybeRow a -> (a -> Expr b) -> Expr (Maybe b)
-MaybeRow _ row ? f = case f row of Expr a -> Expr a
+-- | Project an expression out of a 'MaybeTable', preserving the fact that this
+-- column might be @null@.
+(?) :: MaybeTable a -> (a -> Expr b) -> Expr (Maybe b)
+MaybeTable _ row ? f = case f row of Expr a -> Expr a
 
 --------------------------------------------------------------------------------
+-- | Take the @LEFT JOIN@ of two tables.
 leftJoin
   :: (Table lExpr lHaskell, Table rExpr rHaskell)
-  => (lExpr -> rExpr -> Expr Bool)
-  -> O.Query lExpr
-  -> O.Query rExpr
-  -> O.Query (lExpr,MaybeRow rExpr)
+  => (lExpr -> rExpr -> Expr Bool) -- ^ The condition to join upon.
+  -> O.Query lExpr -- ^ The left table
+  -> O.Query rExpr -- ^ The right table
+  -> O.Query (lExpr,MaybeTable rExpr)
 leftJoin condition l r =
   O.leftJoinExplicit
     unpackColumns
     (unpackColumns ***! unpackColumns)
-    (O.NullMaker (\(tag, t) -> MaybeRow tag t))
+    (O.NullMaker (\(tag, t) -> MaybeTable tag t))
     l
     (liftA2 (,) (pure (lit False)) r)
     (\(a, (_, b)) ->
