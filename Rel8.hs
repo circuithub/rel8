@@ -27,8 +27,8 @@ module Rel8
     -- * Expressions
   , Expr
 
-    -- * Literals
-  , Lit(..)
+    -- * DBTypeerals
+  , DBType(..)
 
     -- ** Operators
   , (^/=^)
@@ -286,16 +286,18 @@ leftJoin condition l r =
          Expr e -> O.Column e)
 
 --------------------------------------------------------------------------------
-class Lit a where
+-- | The class of Haskell values that can be mapped to database types.
+class DBType a where
+  -- | Lift a Haskell value into a literal database expression.
   lit :: a -> Expr a
 
-instance Lit Bool where
+instance DBType Bool where
   lit = Expr . O.ConstExpr . O.BoolLit
 
-instance Lit Int where
+instance DBType Int where
   lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
 
-instance Lit a => Lit (Maybe a) where
+instance DBType a => DBType (Maybe a) where
   lit Nothing = Expr (O.ConstExpr O.NullLit)
   lit (Just a) =
     case lit a of
