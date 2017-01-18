@@ -213,6 +213,7 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
   C Schema name _def _t = Tagged name String
 
 --------------------------------------------------------------------------------
+-- | Interpret a 'Table' as Haskell values.
 data QueryResult column
 
 --------------------------------------------------------------------------------
