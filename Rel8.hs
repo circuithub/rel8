@@ -156,6 +156,13 @@ class KnownSymbol name =>
                         ((op0 (For :: For WitnessSchema) schema :: table Schema))))))))
 
 --------------------------------------------------------------------------------
+-- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
+-- 'Expr' columns, and when this table is queried using 'select' it returns
+-- the type @haskell@.
+--
+-- 'Table's are not necessarily concrete tables within a database. For example,
+-- the join of two 'Table's (as witness by tuple construction) is itself a
+-- 'Table'.
 class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser :: expr -> RowParser haskell
   default rowParser :: ( ADTRecord haskell
