@@ -167,13 +167,12 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser :: expr -> RowParser haskell
   default rowParser :: ( ADTRecord haskell
                        , Constraints haskell FromField
-                       , Generic haskell) =>
+                       ) =>
     expr -> RowParser haskell
   rowParser _ = head (createA (For :: For FromField) [field])
 
   unpackColumns :: O.Unpackspec expr expr
-  default unpackColumns :: ( Generic expr
-                           , Constraints expr ToPrimExpr
+  default unpackColumns :: ( Constraints expr ToPrimExpr
                            , ADTRecord expr) =>
     O.Unpackspec expr expr
   unpackColumns =
@@ -183,9 +182,7 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
             gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s))))
 
 instance {-# OVERLAPPABLE #-}
-         ( Generic (table Expr)
-         , Generic (table QueryResult)
-         , ADTRecord (table Expr)
+         ( ADTRecord (table Expr)
          , ADTRecord (table QueryResult)
          , Constraints (table Expr) ToPrimExpr
          , Constraints (table QueryResult) FromField
