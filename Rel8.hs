@@ -88,8 +88,6 @@ data Nullable
   | NotNullable
 
 --------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
 -- | Database-side PostgreSQL expressions of a given type.
 newtype Expr (t :: *) = Expr O.PrimExpr
 
@@ -193,8 +191,7 @@ instance {-# OVERLAPPABLE #-}
          , ADTRecord (table QueryResult)
          , Constraints (table Expr) ToPrimExpr
          , Constraints (table QueryResult) FromField
-         ) =>
-         Table (table Expr) (table QueryResult)
+         ) => Table (table Expr) (table QueryResult)
 
 --------------------------------------------------------------------------------
 {-| All metadata about a column in a table.
