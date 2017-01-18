@@ -302,6 +302,33 @@ instance Lit a => Lit (Maybe a) where
       Expr e -> Expr e
 
 --------------------------------------------------------------------------------
+{- | A one column 'Table' of type @a@. This type is required for queries that
+   return only one column (for reasons of preserving type inference). It can
+   also be used to build "anonymous" tables, by joining multiple tables with
+   tupling.
+
+   === Example: Querying a single column
+
+   @
+   data TestTable f = TestTable { col :: Col f "col" 'NoDefault Int}
+
+   oneCol :: Stream (Of (Col Int))
+   oneCol = select connection $ testColumn <$> queryTable
+   @
+
+   === Example: Building tables out of single columns
+
+   @
+   data T1 f = TestTable { col1 :: Col f "col" 'NoDefault Int}
+   data T2 f = TestTable { col2 :: Col f "col" 'NoDefault Bool}
+
+   q :: Stream (Of (Col Int, Col Bool))
+   q = select connection $ proc () -> do
+     t1 <- queryTable -< ()
+     t2 <- queryTable -< ()
+     returnA -< (col1 t1, col2 t2)
+   @
+-}
 newtype Col a = Col a
 
 instance (FromField a) =>
