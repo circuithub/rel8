@@ -182,6 +182,16 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
          (\f ->
             gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s))))
 
+instance {-# OVERLAPPABLE #-}
+         ( Generic (table Expr)
+         , Generic (table QueryResult)
+         , ADTRecord (table Expr)
+         , ADTRecord (table QueryResult)
+         , Constraints (table Expr) ToPrimExpr
+         , Constraints (table QueryResult) FromField
+         ) =>
+         Table (table Expr) (table QueryResult)
+
 --------------------------------------------------------------------------------
 {-| All metadata about a column in a table.
 
