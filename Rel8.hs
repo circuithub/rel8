@@ -215,6 +215,8 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
 data QueryResult column
 
 --------------------------------------------------------------------------------
+-- | Given a database query, execute this query and return a 'Stream' of
+-- results.
 select
   :: (MonadIO m, Table rows results)
   => Connection -> O.Query rows -> Stream (Of results) m ()
