@@ -8,14 +8,11 @@ import Rel8
 import OpaleyeStub (Connection)
 
 data TestTable f = TestTable
-  { testColumnA :: C f ('Column "a" 'NoDefault Int)
-  , testColumnB :: C f ('Column "b" 'HasDefault (Maybe Int))
+  { testColumnA :: C f "a" 'NoDefault Int
+  , testColumnB :: C f "b" 'HasDefault (Maybe Int)
   } deriving (Generic)
 
-instance BaseTable TestTable where
-  tableName _ = "test_table"
-
-instance Table (TestTable Expr) (TestTable QueryResult)
+instance BaseTable "Part" TestTable
 
 testQuery :: Stream (Of (TestTable QueryResult, TestTable QueryResult)) IO ()
 testQuery = select testConn $
