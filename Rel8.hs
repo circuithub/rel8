@@ -349,6 +349,7 @@ instance DBType a => DBType (Maybe a) where
    @
 -}
 newtype Col a = Col a
+  deriving (Show)
 
 instance (FromField a) =>
          Table (Expr a) (Col a) where
