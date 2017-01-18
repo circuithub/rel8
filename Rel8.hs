@@ -344,6 +344,7 @@ instance (FromField a) =>
 (^/=^) :: Expr a -> Expr a -> Expr Bool
 a ^/=^ b = undefined
 
+-- | Lift an 'Expr' to be nullable. Like the 'Just' constructor.
 toNullable :: Expr a -> Expr (Maybe a)
 toNullable (Expr a) = Expr a
 
