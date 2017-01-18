@@ -19,7 +19,7 @@ library
   exposed-modules:     Rel8, OpaleyeStub
   -- other-modules:       
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
-  build-depends:       base >=4.10 && <4.11, tagged >=0.8 && <0.9, profunctors >=5.2 && <5.3, product-profunctors >=0.7 && <0.8, one-liner >=0.6 && <0.7, streaming >=0.1 && <0.2
+  build-depends:       base >=4.09 && <4.11, tagged >=0.8 && <0.9, profunctors >=5.2 && <5.3, product-profunctors >=0.7 && <0.8, one-liner >=0.6 && <0.7, streaming >=0.1 && <0.2
   -- hs-source-dirs:      
   default-language:    Haskell2010
   ghc-options:         -Wall
