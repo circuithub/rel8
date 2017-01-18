@@ -13,10 +13,9 @@ module Rel8
   ( -- $intro
 
     -- * Defining Tables
-    Column(..)
+    C
   , HasDefault(..)
   , Nullable(..)
-  , C
   , BaseTable(..)
 
     -- * Tables
@@ -82,28 +81,10 @@ data Nullable
   | NotNullable
 
 --------------------------------------------------------------------------------
-{-| All metadata about a column in a table.
-
-    'Column' is used to specify information about individual columns in base
-    tables. While it is defined as a record, you construct 'Column's at the
-    type level where record syntax is unfortunately not available.
-
-    === __Example__
-
-    @
-    data Employee f =
-      Employee { employeeName :: C f ('Column "employee_name" 'NoDefault 'NotNullable 'PGText) }
-    @
--}
-data Column t = Column
-  { _columnName :: Symbol
-  , _columnHasDefault :: HasDefault
-  , _columnType :: t
-  }
 
 --------------------------------------------------------------------------------
 -- | Database-side PostgreSQL expressions of a given type.
-newtype Expr schema = Expr O.PrimExpr
+newtype Expr (t :: *) = Expr O.PrimExpr
 
 --------------------------------------------------------------------------------
 -- | Map a schema definition into a set of expressions that would select those
@@ -145,9 +126,13 @@ instance ToPrimExpr (Expr column) where
 --------------------------------------------------------------------------------
 -- TODO Unsure if we want to assume this type of table
 
-class BaseTable (table :: (Column a -> *) -> *) where
-  tableName :: proxy table -> String
+-- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
+-- the record type @record@ specifies the columns of that table.
+class KnownSymbol name =>
+      BaseTable (name :: Symbol) (table :: (* -> *) -> *) | table -> name where
+  -- | Query all rows in a table
   queryTable :: O.Query (table Expr)
+
   default queryTable :: ( ADTRecord (table Expr)
                         , ADTRecord (table Schema)
                         , Constraints (table Expr) ToPrimExpr
@@ -161,15 +146,14 @@ class BaseTable (table :: (Column a -> *) -> *) where
             (\f ->
                gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s)))))
       (O.Table
-         (tableName (Proxy :: Proxy table))
+         (symbolVal (Proxy :: Proxy name))
          (O.TableProperties
             (O.Writer (O.PackMap (\_ _ -> pure ())))
             (O.View
                (to
                   (baseTableAttrExpr
                      (from
-                        (
-                           (op0 (For :: For WitnessSchema) schema :: table Schema))))))))
+                        ((op0 (For :: For WitnessSchema) schema :: table Schema))))))))
 
 --------------------------------------------------------------------------------
 class Table expr haskell | expr -> haskell, haskell -> expr where
@@ -192,10 +176,23 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
             gtraverse (For :: For ToPrimExpr) (\s -> s <$ f (toPrimExpr s))))
 
 --------------------------------------------------------------------------------
-type family C (f :: Column a -> *) (c :: Column a) :: * where
-  C Expr ('Column _name _def t) = Expr t
-  C QueryResult ('Column _name _def t) = t
-  C Schema ('Column name _def _t) = Tagged name String
+{-| All metadata about a column in a table.
+
+    'C' is used to specify information about individual columns in base
+    tables. While it is defined as a record, you construct 'Column's at the
+    type level where record syntax is unfortunately not available.
+
+    === __Example__
+
+    @
+    data Employee f =
+      Employee { employeeName :: C f ('Column "employee_name" 'NoDefault 'NotNullable 'PGText) }
+    @
+-}
+type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (columnType :: t) :: * where
+  C Expr _name _def t = Expr t
+  C QueryResult _name _def t = t
+  C Schema name _def _t = Tagged name String
 
 --------------------------------------------------------------------------------
 data QueryResult column
@@ -342,21 +339,20 @@ toNullable (Expr a) = Expr a
 
    In order to query a database of existing tables, we need to let @rel8@ know
    about these tables, and the schema for each table. This is done by defining
-   a Haskell /record/ for each table in the database. These records should be
-   parameterised by a type variable @f@, and each column is a field in this
-   record, of type @C f ('Column ...)@. Let's see how that looks with some
+   a Haskell /record/ for each table in the database. These records should have
+   a type of the form @C f name hasDefault t@. Let's see how that looks with some
    example tables:
 
    @
    data Part f =
-     Part { partId     :: 'C' f (''Column' \"PID\" ''HasDefault' ''NotNullable' ''PGInteger')
-          , partName   :: 'C' f (''Column' \"PName\" ''NoDefault' ''NotNullable' ''PGText')
-          , partColor  :: 'C' f (''Column' \"Color\" ''NoDefault' ''NotNullable' ''PGInteger')
-          , partWeight :: 'C' f (''Column' \"Weight\" ''NoDefault' ''NotNullable' ''PGReal')
-          , partCity   :: 'C' f (''Column' \"City\" ''NoDefault' ''NotNullable' ''PGText')
+     Part { partId     :: 'C' f \"PID\" ''HasDefault' Int
+          , partName   :: 'C' f \"PName\" ''NoDefault' Text
+          , partColor  :: 'C' f \"Color\" ''NoDefault' Int
+          , partWeight :: 'C' f \"Weight\" ''NoDefault' Double
+          , partCity   :: 'C' f \"City\" ''NoDefault' Text
           } deriving (Generic)
 
-   instance 'BaseTable' Part where tableName = "Part"
+   instance 'BaseTable' "part" Part
    @
 
    The @Part@ table has 5 columns, each defined with the @C f ('Column ...)@
@@ -368,6 +364,12 @@ toNullable (Expr a) = Expr a
       managed by the database.
    3. Whether or not the column can take @null@ values.
    4. The type of the column.
+
+   After defining the table, we finally need to make an instance of 'BaseTable'
+   so @rel8@ can query this table. By using @deriving (Generic)@, we simply need
+   to write @instance BaseTable "part" Part@. The string @"part"@ here is the
+   name of the table in the database (which could differ from the name of the
+   type @Part@).
 
    === Querying tables
 
