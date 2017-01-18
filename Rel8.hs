@@ -50,6 +50,10 @@ module Rel8
   , select
   , QueryResult
 
+    -- * Modifying tables
+  , insert, Default(..)
+  , update
+
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
   ) where
@@ -59,7 +63,7 @@ import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Int (Int64)
 import Data.Maybe (fromMaybe)
-import Data.Profunctor (dimap)
+import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Tagged (Tagged(..))
@@ -74,6 +78,7 @@ import Generics.OneLiner
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
+import qualified Opaleye.Manipulation as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
@@ -84,7 +89,7 @@ import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
 import qualified Opaleye.RunQuery as O
-import qualified Opaleye.Table as O
+import qualified Opaleye.Table as O hiding (required)
 import qualified Prelude
 import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
 import Streaming (Of, Stream)
@@ -126,6 +131,36 @@ instance InferBaseTableAttrExpr (K1 i (Tagged name String)) (K1 i (Expr a)) wher
   baseTableAttrExpr (K1 (Tagged name)) = K1 (Expr (O.BaseTableAttrExpr name))
 
 --------------------------------------------------------------------------------
+class Writer schema expr where
+  columnWriter :: schema a -> O.Writer (expr a) ()
+
+instance (Writer schema expr) =>
+         Writer (M1 i c schema) (M1 i c expr) where
+  columnWriter (M1 s) = lmap (\(M1 a) -> a) (columnWriter s)
+
+instance (Writer fSchema fExpr, Writer gSchema gExpr) =>
+         Writer (fSchema :*: gSchema) (fExpr :*: gExpr) where
+  columnWriter (l :*: r) =
+    dimap (\(l' :*: r') -> (l', r')) fst (columnWriter l ***! columnWriter r)
+
+instance Writer (K1 i (Tagged name String)) (K1 i (Expr a)) where
+  columnWriter (K1 (Tagged name)) =
+    dimap
+      (\(K1 (Expr a)) -> O.Column a)
+      (const ())
+      (O.required name)
+
+instance Writer (K1 i (Tagged name String)) (K1 i (Default (Expr a))) where
+  columnWriter (K1 (Tagged name)) =
+    dimap
+      (\(K1 def) ->
+         case def of
+           InsertDefault -> O.Column O.DefaultInsertExpr
+           OverrideDefault (Expr a) -> O.Column a)
+      (const ())
+      (O.required name)
+
+--------------------------------------------------------------------------------
 -- | Witness the schema definition for table columns.
 class WitnessSchema a where
   schema :: a
@@ -165,15 +200,50 @@ class KnownSymbol name =>
          (O.PackMap
             (\f ->
                gtraverse (For :: For MapPrimExpr) (mapPrimExpr f))))
-      (O.Table
+      tableDefinition
+
+  tableDefinition :: O.Table (table Insert) (table Expr)
+  default tableDefinition :: ( ADTRecord (table Expr)
+                             , ADTRecord (table Schema)
+                             , Constraints (table Expr) MapPrimExpr
+                             , Constraints (table Schema) WitnessSchema
+                             , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
+                             , Writer (Rep (table Schema)) (Rep (table Insert))
+                             , Generic (table Insert)
+                             )
+    => O.Table (table Insert) (table Expr)
+  tableDefinition =
+    O.Table
          (symbolVal (Proxy :: Proxy name))
          (O.TableProperties
-            (O.Writer (O.PackMap (\_ _ -> pure ())))
-            (O.View
-               (to
-                  (baseTableAttrExpr
-                     (from
-                        ((op0 (For :: For WitnessSchema) schema :: table Schema))))))))
+            (case lmap from (columnWriter (from tableSchema)) of
+               O.Writer f -> O.Writer f)
+            (O.View (to (baseTableAttrExpr (from tableSchema)))))
+    where
+      tableSchema :: table Schema
+      tableSchema = op0 (For :: For WitnessSchema) schema
+
+  -- TODO Would really like to reconcile this with tableDefinition
+  tableDefinitionUpdate :: O.Table (table Expr) (table Expr)
+  default tableDefinitionUpdate :: ( ADTRecord (table Expr)
+                             , ADTRecord (table Schema)
+                             , Constraints (table Expr) MapPrimExpr
+                             , Constraints (table Schema) WitnessSchema
+                             , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
+                             , Writer (Rep (table Schema)) (Rep (table Expr))
+                             , Generic (table Insert)
+                             )
+    => O.Table (table Expr) (table Expr)
+  tableDefinitionUpdate =
+    O.Table
+         (symbolVal (Proxy :: Proxy name))
+         (O.TableProperties
+            (case lmap from (columnWriter (from tableSchema)) of
+               O.Writer f -> O.Writer f)
+            (O.View (to (baseTableAttrExpr (from tableSchema)))))
+    where
+      tableSchema :: table Schema
+      tableSchema = op0 (For :: For WitnessSchema) schema
 
 --------------------------------------------------------------------------------
 -- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
@@ -226,6 +296,12 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
   C Expr _name _def t = Expr t
   C QueryResult _name _def t = t
   C Schema name _def _t = Tagged name String
+  C Insert name 'HasDefault t = Default (Expr t)
+  C Insert name 'NoDefault t = Expr t
+
+data Default a
+  = OverrideDefault a
+  | InsertDefault
 
 --------------------------------------------------------------------------------
 -- | Interpret a 'Table' as Haskell values.
@@ -484,6 +560,30 @@ aggregate
   => O.Query table -> O.Query result
 aggregate = O.aggregate aggregator
 
+--------------------------------------------------------------------------------
+data Insert a
+
+insert
+  :: (BaseTable tableName table, MonadIO m)
+  => Connection -> [table Insert] -> m Int64
+insert conn rows =
+  liftIO (O.runInsertMany conn tableDefinition rows)
+
+update
+  :: (BaseTable tableName table, Predicate bool, MonadIO m)
+  => Connection
+  -> (table Expr -> Expr bool)
+  -> (table Expr -> table Expr)
+  -> m Int64
+update conn f up =
+  liftIO $
+  O.runUpdate
+    conn
+    tableDefinitionUpdate
+    up
+    (\rel ->
+       case f rel of
+         Expr a -> O.Column a)
 
 {- $intro
 
