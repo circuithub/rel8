@@ -63,22 +63,32 @@ import Data.Profunctor (dimap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Tagged (Tagged(..))
--- import Database.PostgreSQL.Simple (Connection)
--- import Database.PostgreSQL.Simple.FromField (FromField)
--- import Database.PostgreSQL.Simple.FromRow (RowParser, field)
+import Database.PostgreSQL.Simple (Connection)
+import Database.PostgreSQL.Simple.FromField (FromField)
+import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, op0)
+import qualified Opaleye.Aggregate as O
+import qualified Opaleye.Internal.Aggregate as O
+import qualified Opaleye.Internal.Column as O
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.Internal.Join as O
+import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.QueryArr as O
+import qualified Opaleye.Internal.RunQuery as O
+import qualified Opaleye.Internal.Table as O
+import qualified Opaleye.Internal.TableMaker as O
+import qualified Opaleye.Internal.Unpackspec as O
+import qualified Opaleye.Join as O
+import qualified Opaleye.RunQuery as O
+import qualified Opaleye.Table as O
+import qualified Prelude
+import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
-
-import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
-import qualified Prelude
-
-import qualified OpaleyeStub as O
-import OpaleyeStub (Connection, RowParser, field, FromField)
 
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
