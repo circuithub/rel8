@@ -5,6 +5,7 @@ import Control.Arrow
 import Control.Category
 import Data.Profunctor
 import Data.Profunctor.Product
+import Data.Int
 
 -- import qualified Opaleye.Internal.Column as O
 -- import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -117,7 +118,50 @@ data PGBool
 class FromField a
 instance FromField Bool
 instance FromField Int
+instance FromField Int64
 instance FromField a => FromField (Maybe a)
 
 field :: FromField a => RowParser a
 field = undefined
+
+aggregate :: Aggregator a b -> Query a -> Query b
+aggregate = undefined
+
+newtype Aggregator a b =
+  Aggregator (PackMap (Maybe (AggrOp, [OrderExpr]), PrimExpr) PrimExpr a b)
+
+instance Profunctor Aggregator
+instance ProductProfunctor Aggregator
+
+data AggrOp
+  = AggrCount
+  | AggrSum
+  | AggrAvg
+  | AggrMin
+  | AggrMax
+  | AggrStdDev
+  | AggrStdDevP
+  | AggrVar
+  | AggrVarP
+  | AggrBoolOr
+  | AggrBoolAnd
+  | AggrArr
+  | AggrStringAggr PrimExpr
+  | AggrOther String
+
+data OrderExpr =
+  OrderExpr OrderOp
+            PrimExpr
+
+data OrderNulls
+  = NullsFirst
+  | NullsLast
+
+data OrderDirection
+  = OpAsc
+  | OpDesc
+
+data OrderOp = OrderOp
+  { orderDirection :: OrderDirection
+  , orderNulls :: OrderNulls
+  }

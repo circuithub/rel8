@@ -2,6 +2,9 @@
       Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
       MultiParamTypeClasses #-}
 
+{-# LANGUAGE RecordWildCards #-}
+
+import Data.Int
 import Prelude hiding (not, (/=))
 import Control.Arrow
 import Control.Applicative
@@ -35,6 +38,11 @@ testLeftJoin =
     (\l r -> toNullable (testColumnA l) /= testColumnB r)
     queryTable
     queryTable
+
+testAggregate :: Stream (Of (Col Int, Col Int64)) IO ()
+testAggregate = select testConn $ aggregate $ proc _ -> do
+  TestTable{..} <- queryTable -< ()
+  returnA -< (groupBy testColumnA, count testColumnB)
 
 testConn :: Connection
 testConn = undefined

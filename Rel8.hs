@@ -42,6 +42,10 @@ module Rel8
   , toNullable
   , (?)
 
+    -- * Aggregation
+  , AggregateTable, aggregate
+  , count, groupBy
+
     -- * Querying Tables
   , select
   , QueryResult
@@ -50,14 +54,15 @@ module Rel8
   , Connection, Stream, Of, Generic
   ) where
 
-import Data.Tagged (Tagged(..))
 import Control.Applicative ((<$), liftA2)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Data.Int (Int64)
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
+import Data.Tagged (Tagged(..))
 -- import Database.PostgreSQL.Simple (Connection)
 -- import Database.PostgreSQL.Simple.FromField (FromField)
 -- import Database.PostgreSQL.Simple.FromRow (RowParser, field)
@@ -439,6 +444,35 @@ instance Booleanish (Expr (Maybe Bool)) where
 
 unsafeCoerceExpr :: forall b a. Expr a -> Expr b
 unsafeCoerceExpr (Expr a) = Expr a
+
+--------------------------------------------------------------------------------
+-- | Used to tag 'Expr's that are the result of aggregation
+data Aggregate a = Aggregate (Maybe O.AggrOp) O.PrimExpr
+
+count :: Expr a -> Aggregate Int64
+count (Expr a) = Aggregate (Just O.AggrCount) a
+
+groupBy :: Expr a -> Aggregate a
+groupBy (Expr a) = Aggregate Nothing a
+
+class AggregateTable columns result | columns -> result where
+  aggregator :: O.Aggregator columns result
+
+instance AggregateTable (Aggregate a) (Expr a) where
+  aggregator =
+    O.Aggregator
+      (O.PackMap
+         (\f (Aggregate op ex) -> fmap Expr (f (liftA2 (,) op (pure []), ex))))
+
+instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
+         AggregateTable (a1, a2) (b1, b2) where
+  aggregator = aggregator ***! aggregator
+
+aggregate
+  :: AggregateTable table result
+  => O.Query table -> O.Query result
+aggregate = O.aggregate aggregator
+
 
 {- $intro
 
