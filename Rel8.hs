@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -5,6 +6,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -27,11 +29,14 @@ module Rel8
     -- * Expressions
   , Expr
 
+    -- ** Equality
+  , Eq, (==), (/=), DBEq
+
+    -- ** Boolean-valued expressions
+  , (&&), (||), not
+
     -- * DBTypeerals
   , DBType(..)
-
-    -- ** Operators
-  , (^/=^)
 
     -- ** Null
   , toNullable
@@ -64,6 +69,8 @@ import Generics.OneLiner
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 
+import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
+import qualified Prelude
 
 import qualified OpaleyeStub as O
 import OpaleyeStub (Connection, RowParser, field, FromField)
@@ -266,8 +273,8 @@ MaybeTable _ row ? f = case f row of Expr a -> Expr a
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two tables.
 leftJoin
-  :: (Table lExpr lHaskell, Table rExpr rHaskell)
-  => (lExpr -> rExpr -> Expr Bool) -- ^ The condition to join upon.
+  :: (Table lExpr lHaskell, Table rExpr rHaskell, Predicate bool)
+  => (lExpr -> rExpr -> Expr bool) -- ^ The condition to join upon.
   -> O.Query lExpr -- ^ The left table
   -> O.Query rExpr -- ^ The right table
   -> O.Query (lExpr,MaybeTable rExpr)
@@ -337,13 +344,103 @@ instance (FromField a) =>
   rowParser _ = fmap Col field
 
 --------------------------------------------------------------------------------
--- | The @<>@ (not equal) operator.
-(^/=^) :: Expr a -> Expr a -> Expr Bool
-a ^/=^ b = undefined
-
 -- | Lift an 'Expr' to be nullable. Like the 'Just' constructor.
 toNullable :: Expr a -> Expr (Maybe a)
-toNullable (Expr a) = Expr a
+toNullable = unsafeCoerceExpr
+
+class Predicate a where
+instance Predicate Bool where
+instance Predicate (Maybe Bool) where
+
+--------------------------------------------------------------------------------
+data Origin = Rel8 | OtherType
+
+type family OriginOf (a :: *) :: Origin where
+  OriginOf (Expr a) = 'Rel8
+  OriginOf _ = 'OtherType
+
+--------------------------------------------------------------------------------
+-- | Prelude's 'Prelude.Eq' constraint.
+type Eq a = (OriginOf a ~ 'OtherType, HEq a Bool)
+
+-- | Overloaded equality. This equality can be used as a drop in for normal
+-- equality as provided by Prelude, but has special behavior for 'Expr':
+--
+-- * @(==) :: Expr a -> Expr a -> Expr Bool@
+-- * @(==) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)@
+class HEq operand result | operand -> result where
+  (==) :: operand -> operand -> result
+  (/=) :: operand -> operand -> result
+
+instance HEqHelper operand result (OriginOf operand) => HEq operand result where
+  (==) = eq (Proxy :: Proxy (OriginOf operand))
+  {-# INLINE (==) #-}
+
+  (/=) = neq (Proxy :: Proxy (OriginOf operand))
+  {-# INLINE (/=) #-}
+
+class HEqHelper operand result origin | operand origin -> result where
+  eq :: proxy origin -> operand -> operand -> result
+  neq :: proxy origin -> operand -> operand -> result
+
+instance Prelude.Eq a => HEqHelper a Bool 'OtherType where
+  eq _ = (Prelude.==)
+  {-# INLINE eq #-}
+
+  neq _ = (Prelude./=)
+  {-# INLINE neq #-}
+
+instance (Booleanish (Expr result), NullableEq operand result (IsMaybe operand)) =>
+         HEqHelper (Expr operand) (Expr result) 'Rel8 where
+  eq _ = nullableEq (Proxy :: Proxy (IsMaybe operand))
+  {-# INLINE eq #-}
+
+  neq _ = \a b -> not (nullableEq (Proxy :: Proxy (IsMaybe operand)) a b)
+  {-# INLINE neq #-}
+
+type family IsMaybe (a :: *) :: Bool where
+  IsMaybe (Maybe a) = 'True
+  IsMaybe _ = 'False
+
+class NullableEq operand result (isNull :: Bool) | operand isNull -> result where
+  nullableEq :: proxy isNull -> Expr operand -> Expr operand -> Expr result
+
+instance DBEq a => NullableEq (Maybe a) (Maybe Bool) 'True where
+  nullableEq _ (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
+  {-# INLINE nullableEq #-}
+
+instance NullableEq a Bool 'False where
+  nullableEq _ (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
+  {-# INLINE nullableEq #-}
+
+-- | The class of types that can be compared for equality within the database.
+class DBEq a
+instance DBEq Int
+instance DBEq Bool
+
+--------------------------------------------------------------------------------
+class Booleanish a where
+  not :: a -> a
+  (&&) :: a -> a -> a
+  (||) :: a -> a -> a
+
+instance Booleanish Bool where
+  not = Prelude.not
+  (&&) = (Prelude.&&)
+  (||) = (Prelude.||)
+
+instance Booleanish (Expr Bool) where
+  not (Expr a) = Expr (O.UnExpr O.OpNot a)
+  Expr a && Expr b = Expr (O.BinExpr O.OpAnd a b)
+  Expr a || Expr b = Expr (O.BinExpr O.OpOr a b)
+
+instance Booleanish (Expr (Maybe Bool)) where
+  not = unsafeCoerceExpr . not . unsafeCoerceExpr @Bool
+  a && b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a && unsafeCoerceExpr @Bool b)
+  a || b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a || unsafeCoerceExpr @Bool b)
+
+unsafeCoerceExpr :: forall b a. Expr a -> Expr b
+unsafeCoerceExpr (Expr a) = Expr a
 
 {- $intro
 

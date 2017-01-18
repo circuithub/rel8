@@ -39,6 +39,15 @@ data Literal
 data PrimExpr
   = ConstExpr Literal
   | BaseTableAttrExpr String
+  | BinExpr Operator PrimExpr PrimExpr
+  | UnExpr UnOp PrimExpr
+
+data UnOp = OpNot
+
+data Operator
+  = (:==)
+  | OpAnd
+  | OpOr
 
 newtype Column pgType = Column PrimExpr
 

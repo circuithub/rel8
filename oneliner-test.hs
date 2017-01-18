@@ -2,6 +2,7 @@
       Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
       MultiParamTypeClasses #-}
 
+import Prelude hiding (not, (/=))
 import Control.Arrow
 import Control.Applicative
 import Rel8
@@ -31,7 +32,7 @@ testLeftJoin =
   select testConn $
   fmap (\(l,r) -> (l, r ? testColumnA)) $
   leftJoin
-    (\l r -> toNullable (testColumnA l) ^/=^ testColumnB r)
+    (\l r -> toNullable (testColumnA l) /= testColumnB r)
     queryTable
     queryTable
 
