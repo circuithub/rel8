@@ -31,10 +31,10 @@ module Rel8
   , Expr
 
     -- ** Equality
-  , Eq, (==), (/=), DBEq
+  , (==.), (?=.)
 
     -- ** Boolean-valued expressions
-  , (&&), (||), not
+  , (&&.), (||.), not
 
     -- ** Literals
   , DBType(..)
@@ -104,8 +104,7 @@ import qualified Opaleye.Manipulation as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.RunQuery as O
 import qualified Opaleye.Table as O hiding (required)
-import qualified Prelude
-import Prelude hiding (Eq, (==), (&&), (||), not, (/=), (.), id)
+import Prelude hiding (not, (.), id)
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
@@ -473,70 +472,18 @@ instance Predicate (Maybe Bool) where
   toNullableBool = id
 
 --------------------------------------------------------------------------------
-data Origin = Rel8 | OtherType
-
-type family OriginOf (a :: *) :: Origin where
-  OriginOf (Expr a) = 'Rel8
-  OriginOf _ = 'OtherType
-
---------------------------------------------------------------------------------
--- | Prelude's 'Prelude.Eq' constraint.
-type Eq a = (OriginOf a ~ 'OtherType, HEq a Bool)
-
--- | Overloaded equality. This equality can be used as a drop in for normal
--- equality as provided by Prelude, but has special behavior for 'Expr':
---
--- * @(==) :: Expr a -> Expr a -> Expr Bool@
--- * @(==) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)@
-class HEq operand result | operand -> result where
-  (==) :: operand -> operand -> result
-  (/=) :: operand -> operand -> result
-
-instance HEqHelper operand result (OriginOf operand) => HEq operand result where
-  (==) = eq (Proxy :: Proxy (OriginOf operand))
-  {-# INLINE (==) #-}
-
-  (/=) = neq (Proxy :: Proxy (OriginOf operand))
-  {-# INLINE (/=) #-}
-
-class HEqHelper operand result origin | operand origin -> result where
-  eq :: proxy origin -> operand -> operand -> result
-  neq :: proxy origin -> operand -> operand -> result
-
-instance Prelude.Eq a => HEqHelper a Bool 'OtherType where
-  eq _ = (Prelude.==)
-  {-# INLINE eq #-}
-
-  neq _ = (Prelude./=)
-  {-# INLINE neq #-}
-
-instance (Booleanish (Expr result), NullableEq operand result (IsMaybe operand)) =>
-         HEqHelper (Expr operand) (Expr result) 'Rel8 where
-  eq _ = nullableEq (Proxy :: Proxy (IsMaybe operand))
-  {-# INLINE eq #-}
-
-  neq _ = \a b -> not (nullableEq (Proxy :: Proxy (IsMaybe operand)) a b)
-  {-# INLINE neq #-}
-
 type family IsMaybe (a :: *) :: Bool where
   IsMaybe (Maybe a) = 'True
   IsMaybe _ = 'False
 
-class NullableEq operand result (isNull :: Bool) | operand isNull -> result where
-  nullableEq :: proxy isNull -> Expr operand -> Expr operand -> Expr result
-
-instance DBEq a => NullableEq (Maybe a) (Maybe Bool) 'True where
-  nullableEq _ a b = toNullable (eqExpr (unsafeCoerceExpr @a a) (unsafeCoerceExpr @a b))
-  {-# INLINE nullableEq #-}
-
-instance NullableEq a Bool 'False where
-  nullableEq _ (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
-  {-# INLINE nullableEq #-}
-
+--------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
 class DBEq a where
-  eqExpr :: Expr a -> Expr a -> Expr Bool
-  eqExpr (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
+  (==.) :: Expr a -> Expr a -> Expr Bool
+  Expr a ==. Expr b = Expr (O.BinExpr (O.:==) a b)
+
+  (?=.) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
+  a ?=. b = toNullable (unsafeCoerceExpr @a a ==. unsafeCoerceExpr @a b)
 
 instance DBEq Int
 instance DBEq Bool
@@ -544,23 +491,18 @@ instance DBEq Bool
 --------------------------------------------------------------------------------
 class Booleanish a where
   not :: a -> a
-  (&&) :: a -> a -> a
-  (||) :: a -> a -> a
-
-instance Booleanish Bool where
-  not = Prelude.not
-  (&&) = (Prelude.&&)
-  (||) = (Prelude.||)
+  (&&.) :: a -> a -> a
+  (||.) :: a -> a -> a
 
 instance Booleanish (Expr Bool) where
   not (Expr a) = Expr (O.UnExpr O.OpNot a)
-  Expr a && Expr b = Expr (O.BinExpr O.OpAnd a b)
-  Expr a || Expr b = Expr (O.BinExpr O.OpOr a b)
+  Expr a &&. Expr b = Expr (O.BinExpr O.OpAnd a b)
+  Expr a ||. Expr b = Expr (O.BinExpr O.OpOr a b)
 
 instance Booleanish (Expr (Maybe Bool)) where
   not = unsafeCoerceExpr . not . unsafeCoerceExpr @Bool
-  a && b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a && unsafeCoerceExpr @Bool b)
-  a || b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a || unsafeCoerceExpr @Bool b)
+  a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
+  a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
 
 unsafeCoerceExpr :: forall b a. Expr a -> Expr b
 unsafeCoerceExpr (Expr a) = Expr a
