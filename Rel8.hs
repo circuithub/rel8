@@ -69,6 +69,9 @@ module Rel8
 
     -- * Unsafe routines
   , unsafeCoerceExpr
+  , dbFunction
+  , nullaryFunction
+  , dbBinOp
   ) where
 
 import Control.Category ((.), id)
@@ -707,6 +710,26 @@ ilike :: Expr Text -> Expr Text -> Expr Bool
 Expr a `ilike` Expr b =
   case O.binOp (O.OpOther "ILIKE") (O.Column a) (O.Column b) of
     O.Column c -> Expr c
+
+--------------------------------------------------------------------------------
+class Function arg res where
+  -- | Build a function of multiple arguments.
+  mkFunctionGo :: ([O.PrimExpr] -> O.PrimExpr) -> arg -> res
+
+instance (DBType a, arg ~ Expr a) =>
+         Function arg (Expr res) where
+  mkFunctionGo mkExpr (Expr a) = Expr (mkExpr [a])
+
+instance (DBType a, arg ~ Expr a, Function args res) =>
+         Function arg (args -> res) where
+  mkFunctionGo f (Expr a) = mkFunctionGo (f . (a :))
+
+dbFunction :: Function args result => String -> args -> result
+dbFunction = mkFunctionGo . O.FunExpr
+
+nullaryFunction :: DBType a => String -> Expr a
+nullaryFunction name = Expr (O.FunExpr name [])
+
 -- | Eliminate 'PGNull' from the type of an 'Expr'. Like 'maybe' for Haskell
 -- values.
 nullable
@@ -719,6 +742,11 @@ nullable (Expr a) f (Expr e) =
               Expr x' -> O.Column x')
          (O.Column e) of
     O.Column b -> Expr b
+
+dbBinOp :: String -> Expr a -> Expr b -> Expr c
+dbBinOp op (Expr a) (Expr b) =
+  case O.binOp (O.OpOther op) (O.Column a) (O.Column b) of
+    O.Column c -> Expr c
 
 {- $intro
 
