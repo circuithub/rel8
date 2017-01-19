@@ -1,3 +1,4 @@
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -39,8 +40,7 @@ module Rel8
   , DBType(..)
 
     -- ** Null
-  , toNullable
-  , (?)
+  , toNullable , (?), isNull
 
     -- * Aggregation
   , AggregateTable, aggregate
@@ -54,6 +54,7 @@ module Rel8
   , label
   , distinct
   , where_
+  , filterQuery
 
     -- * Modifying tables
   , insert, insert1Returning, insertReturning
@@ -64,17 +65,19 @@ module Rel8
   , Connection, Stream, Of, Generic
   ) where
 
-import Data.Maybe (fromJust)
+import Control.Category ((.), id)
 import Control.Applicative (liftA2)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Int (Int16, Int32, Int64)
+import Data.Maybe (fromJust)
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..))
+import Data.Text (Text, unpack)
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
@@ -95,14 +98,14 @@ import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
 import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Internal.Unpackspec as O
-import qualified Opaleye.Operators as O
 import qualified Opaleye.Join as O
 import Opaleye.Label (label)
 import qualified Opaleye.Manipulation as O
+import qualified Opaleye.Operators as O
 import qualified Opaleye.RunQuery as O
 import qualified Opaleye.Table as O hiding (required)
 import qualified Prelude
-import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
+import Prelude hiding (Eq, (==), (&&), (||), not, (/=), (.), id)
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
@@ -357,8 +360,8 @@ instance (Table expr haskell) =>
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@.
-(?) :: MaybeTable a -> (a -> Expr b) -> Expr (Maybe b)
-MaybeTable _ row ? f = case f row of Expr a -> Expr a
+(?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
+MaybeTable _ row ? f = toNullable (f row)
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two tables.
@@ -400,6 +403,9 @@ instance DBType a => DBType (Maybe a) where
     case lit a of
       Expr e -> Expr e
 
+instance DBType Text where
+  lit = Expr . O.ConstExpr . O.StringLit . unpack
+
 --------------------------------------------------------------------------------
 {- | A one column 'Table' of type @a@. This type is required for queries that
    return only one column (for reasons of preserving type inference). It can
@@ -438,8 +444,24 @@ instance (FromField a) =>
 
 --------------------------------------------------------------------------------
 -- | Lift an 'Expr' to be nullable. Like the 'Just' constructor.
-toNullable :: Expr a -> Expr (Maybe a)
-toNullable = unsafeCoerceExpr
+--
+-- If an Expr is already nullable, then this acts like the identity function.
+-- This is useful as it allows projecting an already-nullable column from a left
+-- join.
+class ToNullable a maybeA | a -> maybeA where
+  toNullable :: Expr a -> Expr maybeA
+
+instance ToNullableHelper a maybeA (IsMaybe a) => ToNullable a maybeA where
+  toNullable = toNullableHelper (Proxy :: Proxy (IsMaybe a))
+
+class ToNullableHelper a maybeA join | join a -> maybeA where
+  toNullableHelper :: proxy join -> Expr a -> Expr maybeA
+
+instance ToNullableHelper a (Maybe a) 'False where
+  toNullableHelper _ = unsafeCoerceExpr @(Maybe a)
+
+instance ToNullableHelper (Maybe a) (Maybe a) 'True where
+  toNullableHelper _ = id
 
 class Predicate a where
   toNullableBool :: Expr a -> Expr (Maybe Bool)
@@ -683,8 +705,17 @@ updateReturning conn f up =
          id
      each r
 
-where_ :: Expr Bool -> O.Query ()
-where_ (Expr a) = O.keepWhen (\_ -> O.Column a)
+where_ :: Predicate bool => O.QueryArr (Expr bool) ()
+where_ = lmap toNullableBool (lmap (\(Expr a) -> O.Column a) O.restrict)
+
+filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
+filterQuery f q = proc _ -> do
+  row <- q -< ()
+  where_ -< f row
+  id -< row
+
+isNull :: Expr (Maybe a) -> Expr Bool
+isNull = undefined
 
 {- $intro
 

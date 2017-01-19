@@ -1,8 +1,8 @@
 {-# LANGUAGE
       Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
-      MultiParamTypeClasses #-}
+      MultiParamTypeClasses, OverloadedStrings #-}
 
-{-# LANGUAGE RecordWildCards, StandaloneDeriving #-}
+{-# LANGUAGE RecordWildCards, StandaloneDeriving, ApplicativeDo #-}
 
 import Data.Int
 import Prelude hiding (not, (/=), (==))
@@ -12,9 +12,11 @@ import Rel8
 import Database.PostgreSQL.Simple
 import System.IO.Unsafe
 import qualified Streaming.Prelude as S
+import Data.Text (Text)
 
 data Part f = Part
   { partId :: C f "id" 'HasDefault Int
+  , partDescription :: C f "description" 'NoDefault (Maybe Text)
   } deriving (Generic)
 
 instance BaseTable "part" Part
@@ -23,11 +25,11 @@ deriving instance Show (Part QueryResult)
 allParts :: Stream (Of (Part QueryResult)) IO ()
 allParts = select testConn queryTable
 
-testQuery :: Stream (Of (Part QueryResult, Part QueryResult)) IO ()
-testQuery = select testConn $
-  proc _ -> do
-    (l,r) <- liftA2 (,) queryTable queryTable -< ()
-    returnA -< (l,r)
+testQueryApDo :: Stream (Of (Part QueryResult, Part QueryResult)) IO ()
+testQueryApDo = select testConn $
+  do l <- queryTable
+     r <- queryTable
+    return (l,r)
 
 test1Col :: Stream (Of (Col Int)) IO ()
 test1Col = select testConn $
@@ -57,7 +59,16 @@ testConn =
     {connectUser = "circuithub", connectDatabase = "circuithub"}
 
 testInsert :: IO Int64
-testInsert = insert testConn [Part {partId = InsertDefault}]
+testInsert =
+  insert testConn
+         [Part {partId = InsertDefault
+               ,partDescription = lit (Just "Hello")}]
 
 testUpdate :: IO Int64
 testUpdate = update testConn (\Part{..} -> partId == lit 9538091) id
+
+testWhere :: Stream (Of (Col Int)) IO ()
+testWhere = select testConn $ do
+  Part{..} <- queryTable -< ()
+  where_ -< isNull partDescription
+  return partId
