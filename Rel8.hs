@@ -99,6 +99,7 @@ import Control.Monad (replicateM_)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LazyByteString
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
@@ -110,7 +111,9 @@ import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..), proxy)
 import Data.Text (Text)
-import Data.Time (UTCTime)
+import qualified Data.Text.Lazy as LazyText
+import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
+import Data.UUID (UUID)
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
@@ -577,6 +580,24 @@ instance DBType ByteString where
 
 instance DBType UTCTime where
   lit = columnToExpr . O.pgUTCTime
+
+instance DBType LazyText.Text where
+  lit = columnToExpr . O.pgLazyText
+
+instance DBType LazyByteString.ByteString where
+  lit = columnToExpr . O.pgLazyByteString
+
+instance DBType UUID where
+  lit = columnToExpr . O.pgUUID
+
+instance DBType Day where
+  lit = columnToExpr . O.pgDay
+
+instance DBType LocalTime where
+  lit = columnToExpr . O.pgLocalTime
+
+instance DBType TimeOfDay where
+  lit = columnToExpr . O.pgTimeOfDay
 
 columnToExpr :: O.Column a -> Expr b
 columnToExpr (O.Column a) = Expr a
