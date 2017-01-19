@@ -369,12 +369,46 @@ queryRunner =
 
 
 --------------------------------------------------------------------------------
-instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
-         Table (lExpr, rExpr) (lHaskell, rHaskell) where
-  traversePrimExprs f (l, r) =
-    liftA2 (,) (traversePrimExprs f l) (traversePrimExprs f r)
 
-  rowParser = liftA2 (,) rowParser rowParser
+-- TODO Template Haskell to generate these
+
+-- TODO HList / Cons-list for n-ary
+
+instance (Table a a', Table b b') =>
+         Table (a, b) (a', b') where
+  traversePrimExprs f (a, b) =
+    (,) <$> traversePrimExprs f a
+        <*> traversePrimExprs f b
+
+  rowParser =
+    (,) <$> rowParser
+        <*> rowParser
+
+instance (Table a a', Table b b', Table c c') =>
+         Table (a, b, c) (a', b', c') where
+  traversePrimExprs f (a, b, c) =
+    (,,) <$> traversePrimExprs f a
+         <*> traversePrimExprs f b
+         <*> traversePrimExprs f c
+
+  rowParser =
+    (,,) <$> rowParser
+         <*> rowParser
+         <*> rowParser
+
+instance (Table a a', Table b b', Table c c', Table d d') =>
+         Table (a, b, c, d) (a', b', c', d') where
+  traversePrimExprs f (a, b, c, d) =
+    (,,,) <$> traversePrimExprs f a
+          <*> traversePrimExprs f b
+          <*> traversePrimExprs f c
+          <*> traversePrimExprs f d
+
+  rowParser =
+    (,,,) <$> rowParser
+          <*> rowParser
+          <*> rowParser
+          <*> rowParser
 
 --------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
