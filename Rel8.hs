@@ -116,6 +116,11 @@ import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
 
+infix 4 ==.
+infix 4 ?=.
+infixr 2 ||.
+infixr 2 &&.
+
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
 data HasDefault
