@@ -503,10 +503,12 @@ class DBType a => DBEq a where
 
 instance DBEq Bool where
 instance DBEq Char where
+instance DBEq Double where
+instance DBEq Float where
 instance DBEq Int16 where
 instance DBEq Int32 where
 instance DBEq Int64 where
-instance DBEq Double where
+instance DBEq Text where
 
 --------------------------------------------------------------------------------
 class Booleanish a where
