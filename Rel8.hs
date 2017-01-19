@@ -494,7 +494,7 @@ type family IsMaybe (a :: *) :: Bool where
 
 --------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
-class DBEq a where
+class DBType a => DBEq a where
   (==.) :: Expr a -> Expr a -> Expr Bool
   Expr a ==. Expr b = Expr (O.BinExpr (O.:==) a b)
 
