@@ -803,6 +803,15 @@ class DBEq a => DBOrd a where
   (>=.) :: Expr a -> Expr a -> Expr Bool
   a >=. b = not (a <. b)
 
+instance DBOrd Bool where
+instance DBOrd Char where
+instance DBOrd Double where
+instance DBOrd Float where
+instance DBOrd Int16 where
+instance DBOrd Int32 where
+instance DBOrd Int64 where
+instance DBOrd Text where
+
 --------------------------------------------------------------------------------
 newtype PGOrdering a =
   PGOrdering (a -> [(O.OrderOp, O.PrimExpr)])
