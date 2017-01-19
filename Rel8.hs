@@ -501,8 +501,12 @@ class DBEq a where
   (?=.) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
   a ?=. b = toNullable (unsafeCoerceExpr @a a ==. unsafeCoerceExpr @a b)
 
-instance DBEq Int
-instance DBEq Bool
+instance DBEq Bool where
+instance DBEq Char where
+instance DBEq Int16 where
+instance DBEq Int32 where
+instance DBEq Int64 where
+instance DBEq Double where
 
 --------------------------------------------------------------------------------
 class Booleanish a where
