@@ -79,6 +79,7 @@ import Control.Applicative (liftA2)
 import Control.Monad (void)
 import Data.List (foldl')
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Data.ByteString (ByteString)
 import Data.Int (Int16, Int32, Int64)
 import Data.Maybe (fromJust)
 import Data.Maybe (fromMaybe)
@@ -87,7 +88,8 @@ import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..))
-import Data.Text (Text, unpack)
+import Data.Text (Text)
+import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
@@ -97,9 +99,11 @@ import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
 import qualified Opaleye.Aggregate as O
+import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
+import qualified Opaleye.PGTypes as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
@@ -403,7 +407,7 @@ class DBType a where
   lit :: a -> Expr a
 
 instance DBType Bool where
-  lit = Expr . O.ConstExpr . O.BoolLit
+  lit = columnToExpr . O.pgBool
 
 instance DBType Char where
   lit = Expr . O.ConstExpr . O.StringLit . pure
@@ -412,13 +416,16 @@ instance DBType Int16 where
   lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
 
 instance DBType Int32 where
-  lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+  lit = columnToExpr . O.pgInt4 . fromIntegral
 
 instance DBType Int64 where
-  lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+  lit = columnToExpr . O.pgInt8
 
 instance DBType Double where
-  lit = Expr . O.ConstExpr . O.DoubleLit
+  lit = columnToExpr . O.pgDouble
+
+instance DBType Float where
+  lit = Expr . O.ConstExpr . O.DoubleLit . realToFrac
 
 instance DBType a => DBType (Maybe a) where
   lit Nothing = Expr (O.ConstExpr O.NullLit)
@@ -427,7 +434,16 @@ instance DBType a => DBType (Maybe a) where
       Expr e -> Expr e
 
 instance DBType Text where
-  lit = Expr . O.ConstExpr . O.StringLit . unpack
+  lit = columnToExpr . O.pgStrictText
+
+instance DBType ByteString where
+  lit = columnToExpr . O.pgStrictByteString
+
+instance DBType UTCTime where
+  lit = columnToExpr . O.pgUTCTime
+
+columnToExpr :: O.Column a -> Expr b
+columnToExpr (O.Column a) = Expr a
 
 --------------------------------------------------------------------------------
 {- | A one column 'Table' of type @a@. This type is required for queries that
