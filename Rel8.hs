@@ -35,6 +35,9 @@ module Rel8
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
 
+    -- ** Ordering
+  , DBOrd, (>.), (>=.), (<.), (<=.)
+
     -- ** Boolean-valued expressions
   , (&&.), (||.), not
 
@@ -137,10 +140,8 @@ import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
 
-infix 4 ==.
-infix 4 ?=.
-infixr 2 ||.
-infixr 2 &&.
+infix 4 ==. , ?=. , <. , <=. , >. , >=.
+infixr 2 ||.,  &&.
 
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
@@ -783,6 +784,25 @@ dbBinOp op (Expr a) (Expr b) =
 
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
+
+--------------------------------------------------------------------------------
+class DBEq a => DBOrd a where
+  -- | The PostgreSQL @<@ operator.
+  (<.) :: Expr a -> Expr a -> Expr Bool
+  a <. b = not (a >=. b)
+
+  -- | The PostgreSQL @<=@ operator.
+  (<=.) :: Expr a -> Expr a -> Expr Bool
+  a <=. b = not (a >. b)
+
+  -- | The PostgreSQL @>@ operator.
+  (>.) :: Expr a -> Expr a -> Expr Bool
+  a >. b = not (a <=. b)
+
+  -- | The PostgreSQL @>@ operator.
+  (>=.) :: Expr a -> Expr a -> Expr Bool
+  a >=. b = not (a <. b)
+
 --------------------------------------------------------------------------------
 newtype PGOrdering a =
   PGOrdering (a -> [(O.OrderOp, O.PrimExpr)])
