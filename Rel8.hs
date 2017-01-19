@@ -35,7 +35,7 @@ module Rel8
     -- ** Boolean-valued expressions
   , (&&), (||), not
 
-    -- * DBTypeerals
+    -- ** Literals
   , DBType(..)
 
     -- ** Null
