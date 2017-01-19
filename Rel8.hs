@@ -85,7 +85,7 @@ import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), createA, gtraverse, op0)
+       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
@@ -225,7 +225,7 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
             (O.View (to (baseTableAttrExpr (from tableSchema)))))
     where
       tableSchema :: table Schema
-      tableSchema = op0 (For :: For WitnessSchema) schema
+      tableSchema = nullaryOp (For :: For WitnessSchema) schema
 
   -- TODO Would really like to reconcile this with tableDefinition
   tableDefinitionUpdate :: O.Table (table Expr) (table Expr)
@@ -246,7 +246,7 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
             (O.View (to (baseTableAttrExpr (from tableSchema)))))
     where
       tableSchema :: table Schema
-      tableSchema = op0 (For :: For WitnessSchema) schema
+      tableSchema = nullaryOp (For :: For WitnessSchema) schema
 
 --------------------------------------------------------------------------------
 -- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
