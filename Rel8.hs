@@ -397,8 +397,17 @@ instance DBType Bool where
 instance DBType Char where
   lit = Expr . O.ConstExpr . O.StringLit . pure
 
-instance DBType Int where
+instance DBType Int16 where
   lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+
+instance DBType Int32 where
+  lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+
+instance DBType Int64 where
+  lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+
+instance DBType Double where
+  lit = Expr . O.ConstExpr . O.DoubleLit
 
 instance DBType a => DBType (Maybe a) where
   lit Nothing = Expr (O.ConstExpr O.NullLit)
@@ -522,7 +531,7 @@ groupBy :: Expr a -> Aggregate a
 groupBy (Expr a) = Aggregate Nothing a
 
 countStar :: Aggregate Int64
-countStar = count (lit @Int 0)
+countStar = count (lit @Int64 0)
 
 class DBAvg a res | a -> res where
   avg :: Expr a -> Aggregate res
