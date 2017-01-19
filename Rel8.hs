@@ -89,9 +89,10 @@ module Rel8
   , dbBinOp
   ) where
 
-import Control.Applicative (liftA2)
+import Control.Applicative (Const(..), liftA2)
 import Control.Arrow (first)
 import Control.Category ((.), id)
+import Control.Monad (replicateM_)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)
@@ -99,11 +100,12 @@ import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
 import Data.Maybe (fromMaybe)
+import Data.Monoid (Sum(..))
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
-import Data.Tagged (Tagged(..))
+import Data.Tagged (Tagged(..), proxy)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple (Connection)
@@ -285,6 +287,12 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
       tableSchema = nullaryOp (For :: For WitnessSchema) schema
 
 --------------------------------------------------------------------------------
+class FieldCount a where
+  fieldCount :: Const (Sum Int) a
+
+instance FieldCount a where fieldCount = Const (Sum 1)
+
+--------------------------------------------------------------------------------
 -- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
 -- 'Expr' columns, and when this table is queried using 'select' it returns
 -- the type @haskell@.
@@ -294,13 +302,19 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
 -- 'Table'.
 class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser :: RowParser haskell
+  columnCount :: Tagged haskell Int
+  traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
+
+  default columnCount :: (ADTRecord haskell, Constraints haskell FieldCount)
+                      => Tagged haskell Int
+  columnCount = Tagged (getSum (getConst (head (createA (For :: For FieldCount) [fieldCount]) :: Const (Sum Int) haskell)))
+
   default rowParser :: ( ADTRecord haskell
                        , Constraints haskell FromField
                        ) =>
     RowParser haskell
   rowParser = head (createA (For :: For FromField) [field])
 
-  traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
   default traversePrimExprs :: ( Constraints expr MapPrimExpr
                                , ADTRecord expr
                                , Applicative f
@@ -316,6 +330,7 @@ instance {-# OVERLAPPABLE #-}
          , ADTRecord (table QueryResult)
          , Constraints (table Expr) MapPrimExpr
          , Constraints (table QueryResult) FromField
+         , Constraints (table QueryResult) FieldCount
          ) => Table (table Expr) (table QueryResult)
 
 --------------------------------------------------------------------------------
@@ -377,6 +392,10 @@ queryRunner =
 
 instance (Table a a', Table b b') =>
          Table (a, b) (a', b') where
+  columnCount = Tagged
+    $ proxy columnCount (Proxy @a')
+    + proxy columnCount (Proxy @b')
+
   traversePrimExprs f (a, b) =
     (,) <$> traversePrimExprs f a
         <*> traversePrimExprs f b
@@ -387,6 +406,11 @@ instance (Table a a', Table b b') =>
 
 instance (Table a a', Table b b', Table c c') =>
          Table (a, b, c) (a', b', c') where
+  columnCount = Tagged
+    $ proxy columnCount (Proxy @a')
+    + proxy columnCount (Proxy @b')
+    + proxy columnCount (Proxy @c')
+
   traversePrimExprs f (a, b, c) =
     (,,) <$> traversePrimExprs f a
          <*> traversePrimExprs f b
@@ -399,6 +423,12 @@ instance (Table a a', Table b b', Table c c') =>
 
 instance (Table a a', Table b b', Table c c', Table d d') =>
          Table (a, b, c, d) (a', b', c', d') where
+  columnCount = Tagged
+    $ proxy columnCount (Proxy @a')
+    + proxy columnCount (Proxy @b')
+    + proxy columnCount (Proxy @c')
+    + proxy columnCount (Proxy @d')
+
   traversePrimExprs f (a, b, c, d) =
     (,,,) <$> traversePrimExprs f a
           <*> traversePrimExprs f b
@@ -419,13 +449,16 @@ data MaybeTable row = MaybeTable (Expr Bool) row
 
 instance (Table expr haskell) =>
          Table (MaybeTable expr) (Maybe haskell) where
+  columnCount = Tagged
+    $ 1 + proxy columnCount (Proxy @haskell)
+
   traversePrimExprs f (MaybeTable (Expr tag) row) =
     MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
 
   rowParser = do
     isNull <- field
     if fromMaybe True isNull
-      then return Nothing
+      then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
       else fmap Just rowParser
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
@@ -556,6 +589,7 @@ newtype Col a = Col a
 
 instance (FromField a) =>
          Table (Expr a) (Col a) where
+  columnCount = Tagged 1
   traversePrimExprs f (Expr a) = Expr <$> f a
   rowParser = fmap Col field
 
