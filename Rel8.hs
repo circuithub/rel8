@@ -446,6 +446,29 @@ instance (Table a a', Table b b', Table c c', Table d d') =>
           <*> rowParser
           <*> rowParser
 
+instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
+         Table (a, b, c, d, e) (a', b', c', d', e') where
+  columnCount = Tagged
+    $ proxy columnCount (Proxy @a')
+    + proxy columnCount (Proxy @b')
+    + proxy columnCount (Proxy @c')
+    + proxy columnCount (Proxy @d')
+    + proxy columnCount (Proxy @e')
+
+  traversePrimExprs f (a, b, c, d, e) =
+    (,,,,) <$> traversePrimExprs f a
+           <*> traversePrimExprs f b
+           <*> traversePrimExprs f c
+           <*> traversePrimExprs f d
+           <*> traversePrimExprs f e
+
+  rowParser =
+    (,,,,) <$> rowParser
+           <*> rowParser
+           <*> rowParser
+           <*> rowParser
+           <*> rowParser
+
 --------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
