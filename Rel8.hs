@@ -496,10 +496,7 @@ inlineLeftJoin q =
         (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
         ((tag, renamed), ljPEsB) =
           O.run
-            (O.runUnpackspec
-               unpackColumns
-               (O.extractLeftJoinFields 2 t')
-               right)
+            (O.runUnpackspec unpackColumns (O.extractLeftJoinFields 2 t') right)
     in ( MaybeTable tag renamed
        , PrimQuery.Join
            PrimQuery.LeftJoin
