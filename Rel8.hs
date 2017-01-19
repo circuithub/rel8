@@ -31,7 +31,7 @@ module Rel8
   , Expr
 
     -- ** Equality
-  , DBEq, (==.), (?=.), in_
+  , DBEq, (==.), (?=.), in_, ilike
 
     -- ** Boolean-valued expressions
   , (&&.), (||.), not
@@ -696,6 +696,10 @@ isNull = undefined
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
 
+ilike :: Expr Text -> Expr Text -> Expr Bool
+Expr a `ilike` Expr b =
+  case O.binOp (O.OpOther "ILIKE") (O.Column a) (O.Column b) of
+    O.Column c -> Expr c
 -- | Eliminate 'PGNull' from the type of an 'Expr'. Like 'maybe' for Haskell
 -- values.
 nullable
