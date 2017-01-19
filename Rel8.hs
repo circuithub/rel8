@@ -55,11 +55,14 @@ module Rel8
   , distinct
   , where_
   , filterQuery
+  , O.Query
+  , Predicate
 
     -- * Modifying tables
   , insert, insert1Returning, insertReturning
   , update, updateReturning
-  , Default(..)
+  , delete
+  , Default(..), Insert
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
@@ -646,6 +649,20 @@ updateReturning conn f up =
               Expr a -> O.Column a)
          id
      each r
+
+-- | Given a 'BaseTable' and a predicate, @DELETE@ all rows that match.
+delete
+  :: (BaseTable name table, Predicate bool)
+  => Connection
+  -> (table Expr -> Expr bool)
+  -> IO Int64
+delete conn f =
+  O.runDelete
+    conn
+    tableDefinition
+    (\rel ->
+       case toNullableBool (f rel) of
+         Expr a -> O.Column a)
 
 where_ :: Predicate bool => O.QueryArr (Expr bool) ()
 where_ = lmap toNullableBool (lmap (\(Expr a) -> O.Column a) O.restrict)
