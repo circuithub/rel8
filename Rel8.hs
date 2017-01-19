@@ -52,10 +52,10 @@ module Rel8
   , toNullable , (?), isNull, nullable
 
     -- * Aggregation
-  , AggregateTable, aggregate
+  , AggregateTable(..), aggregate
   , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
   , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
-  , countRows
+  , countRows, Aggregate
 
     -- * Querying Tables
   , O.Query
@@ -357,6 +357,7 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
   C Schema name _def _t = Tagged name String
   C Insert name 'HasDefault t = Default (Expr t)
   C Insert name 'NoDefault t = Expr t
+  C Aggregate name _ t = Aggregate t
 
 data Default a
   = OverrideDefault a
