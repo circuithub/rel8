@@ -66,6 +66,9 @@ module Rel8
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
+
+    -- * Unsafe routines
+  , unsafeCoerceExpr
   ) where
 
 import Control.Category ((.), id)
