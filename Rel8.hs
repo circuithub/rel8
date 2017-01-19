@@ -188,12 +188,9 @@ class KnownSymbol name =>
   -- | Query all rows in a table
   queryTable :: O.Query (table Expr)
 
-  default queryTable :: ( ADTRecord (table Expr)
-                        , ADTRecord (table Schema)
-                        , Constraints (table Expr) MapPrimExpr
-                        , Constraints (table Schema) WitnessSchema
-                        , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))) =>
-    O.Query (table Expr)
+  default
+    queryTable :: ( ADTRecord (table Expr) , Constraints (table Expr) MapPrimExpr)
+               => O.Query (table Expr)
   queryTable =
     O.queryTableExplicit
       (O.ColumnMaker
@@ -203,15 +200,15 @@ class KnownSymbol name =>
       tableDefinition
 
   tableDefinition :: O.Table (table Insert) (table Expr)
-  default tableDefinition :: ( ADTRecord (table Expr)
-                             , ADTRecord (table Schema)
-                             , Constraints (table Expr) MapPrimExpr
-                             , Constraints (table Schema) WitnessSchema
-                             , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
-                             , Writer (Rep (table Schema)) (Rep (table Insert))
-                             , Generic (table Insert)
-                             )
-    => O.Table (table Insert) (table Expr)
+  default
+    tableDefinition :: ( ADTRecord (table Expr)
+                       , ADTRecord (table Schema)
+                       , Constraints (table Schema) WitnessSchema
+                       , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
+                       , Writer (Rep (table Schema)) (Rep (table Insert))
+                       , Generic (table Insert)
+                       )
+                    => O.Table (table Insert) (table Expr)
   tableDefinition =
     O.Table
          (symbolVal (Proxy :: Proxy name))
@@ -225,15 +222,14 @@ class KnownSymbol name =>
 
   -- TODO Would really like to reconcile this with tableDefinition
   tableDefinitionUpdate :: O.Table (table Expr) (table Expr)
-  default tableDefinitionUpdate :: ( ADTRecord (table Expr)
+  default
+    tableDefinitionUpdate :: ( ADTRecord (table Expr)
                              , ADTRecord (table Schema)
-                             , Constraints (table Expr) MapPrimExpr
                              , Constraints (table Schema) WitnessSchema
                              , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
                              , Writer (Rep (table Schema)) (Rep (table Expr))
-                             , Generic (table Insert)
                              )
-    => O.Table (table Expr) (table Expr)
+                          => O.Table (table Expr) (table Expr)
   tableDefinitionUpdate =
     O.Table
          (symbolVal (Proxy :: Proxy name))
@@ -375,7 +371,7 @@ leftJoin condition l r =
     l
     (liftA2 (,) (pure (lit False)) r)
     (\(a, (_, b)) ->
-       case condition a b of
+       case toNullableBool (condition a b) of
          Expr e -> O.Column e)
 
 --------------------------------------------------------------------------------
@@ -439,8 +435,13 @@ toNullable :: Expr a -> Expr (Maybe a)
 toNullable = unsafeCoerceExpr
 
 class Predicate a where
+  toNullableBool :: Expr a -> Expr (Maybe Bool)
+
 instance Predicate Bool where
+  toNullableBool = toNullable
+
 instance Predicate (Maybe Bool) where
+  toNullableBool = id
 
 --------------------------------------------------------------------------------
 data Origin = Rel8 | OtherType
@@ -496,7 +497,7 @@ class NullableEq operand result (isNull :: Bool) | operand isNull -> result wher
   nullableEq :: proxy isNull -> Expr operand -> Expr operand -> Expr result
 
 instance DBEq a => NullableEq (Maybe a) (Maybe Bool) 'True where
-  nullableEq _ (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
+  nullableEq _ a b = toNullable (eqExpr (unsafeCoerceExpr @a a) (unsafeCoerceExpr @a b))
   {-# INLINE nullableEq #-}
 
 instance NullableEq a Bool 'False where
@@ -504,7 +505,10 @@ instance NullableEq a Bool 'False where
   {-# INLINE nullableEq #-}
 
 -- | The class of types that can be compared for equality within the database.
-class DBEq a
+class DBEq a where
+  eqExpr :: Expr a -> Expr a -> Expr Bool
+  eqExpr (Expr a) (Expr b) = Expr (O.BinExpr (O.:==) a b)
+
 instance DBEq Int
 instance DBEq Bool
 
@@ -582,7 +586,7 @@ update conn f up =
     tableDefinitionUpdate
     up
     (\rel ->
-       case f rel of
+       case toNullableBool (f rel) of
          Expr a -> O.Column a)
 
 {- $intro
