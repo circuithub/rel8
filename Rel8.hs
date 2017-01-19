@@ -25,7 +25,7 @@ module Rel8
   , Table(..)
   , leftJoin
   , MaybeTable(..)
-  , Col
+  , Col(..)
 
     -- * Expressions
   , Expr
