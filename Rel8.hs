@@ -44,28 +44,36 @@ module Rel8
 
     -- * Aggregation
   , AggregateTable, aggregate
-  , count, groupBy
+  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
+  , boolAnd, boolOr, stringAgg, arrayAgg
+  , countRows
 
     -- * Querying Tables
   , select
   , QueryResult
+  , label
+  , distinct
+  , where_
 
     -- * Modifying tables
-  , insert, Default(..)
-  , update
+  , insert, insert1Returning, insertReturning
+  , update, updateReturning
+  , Default(..)
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
   ) where
 
+import Data.Maybe (fromJust)
 import Control.Applicative (liftA2)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64)
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
+import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..))
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromField (FromField)
@@ -78,7 +86,7 @@ import Generics.OneLiner
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
-import qualified Opaleye.Manipulation as O
+import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
@@ -87,13 +95,17 @@ import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
 import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Internal.Unpackspec as O
+import qualified Opaleye.Operators as O
 import qualified Opaleye.Join as O
+import Opaleye.Label (label)
+import qualified Opaleye.Manipulation as O
 import qualified Opaleye.RunQuery as O
 import qualified Opaleye.Table as O hiding (required)
 import qualified Prelude
 import Prelude hiding (Eq, (==), (&&), (||), not, (/=))
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
+import qualified Streaming.Prelude as S
 
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
@@ -173,7 +185,7 @@ data Schema a
 
 --------------------------------------------------------------------------------
 class MapPrimExpr s where
-  mapPrimExpr :: Functor f => (O.PrimExpr -> f O.PrimExpr) -> s -> f s
+  mapPrimExpr :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> s -> f s
 
 instance MapPrimExpr (Expr column) where
   mapPrimExpr f (Expr a) = fmap Expr (f a)
@@ -183,20 +195,13 @@ instance MapPrimExpr (Expr column) where
 
 -- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
 -- the record type @record@ specifies the columns of that table.
-class KnownSymbol name =>
+class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
       BaseTable (name :: Symbol) (table :: (* -> *) -> *) | table -> name where
   -- | Query all rows in a table
   queryTable :: O.Query (table Expr)
-
-  default
-    queryTable :: ( ADTRecord (table Expr) , Constraints (table Expr) MapPrimExpr)
-               => O.Query (table Expr)
   queryTable =
     O.queryTableExplicit
-      (O.ColumnMaker
-         (O.PackMap
-            (\f ->
-               gtraverse (For :: For MapPrimExpr) (mapPrimExpr f))))
+      (O.ColumnMaker (O.PackMap traversePrimExprs))
       tableDefinition
 
   tableDefinition :: O.Table (table Insert) (table Expr)
@@ -257,15 +262,16 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
     expr -> RowParser haskell
   rowParser _ = head (createA (For :: For FromField) [field])
 
-  unpackColumns :: O.Unpackspec expr expr
-  default unpackColumns :: ( Constraints expr MapPrimExpr
-                           , ADTRecord expr) =>
-    O.Unpackspec expr expr
-  unpackColumns =
-    O.Unpackspec
-      (O.PackMap
-         (\f ->
-            gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)))
+  traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
+  default traversePrimExprs :: ( Constraints expr MapPrimExpr
+                               , ADTRecord expr
+                               , Applicative f
+                               )
+                            => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
+  traversePrimExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+
+unpackColumns :: Table expr haskell => O.Unpackspec expr expr
+unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 
 instance {-# OVERLAPPABLE #-}
          ( ADTRecord (table Expr)
@@ -313,21 +319,23 @@ select connection query = do
   results <-
     liftIO $
     O.runQueryExplicit
-      (O.QueryRunner
-         (void unpackColumns)
-         rowParser
-         (\_columns -> True) -- TODO Will we support 0-column queries?
-       )
+      queryRunner
       connection
       query
   each results
 
+queryRunner :: Table a b => O.QueryRunner a b
+queryRunner =
+  O.QueryRunner (void unpackColumns)
+                rowParser
+                (\_columns -> True) -- TODO Will we support 0-column queries?
+
+
 --------------------------------------------------------------------------------
 instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
          Table (lExpr, rExpr) (lHaskell, rHaskell) where
-  unpackColumns =
-    (unpackColumns :: O.Unpackspec lExpr lExpr) ***!
-    (unpackColumns :: O.Unpackspec rExpr rExpr)
+  traversePrimExprs f (l, r) =
+    liftA2 (,) (traversePrimExprs f l) (traversePrimExprs f r)
 
   rowParser (l, r) = liftA2 (,) (rowParser l) (rowParser r)
 
@@ -338,11 +346,8 @@ data MaybeTable row = MaybeTable (Expr Bool) row
 
 instance (Table expr haskell) =>
          Table (MaybeTable expr) (Maybe haskell) where
-  unpackColumns =
-    dimap
-      (\(MaybeTable tag row) -> (tag, row))
-      (\(prim, expr) -> MaybeTable (Expr prim) expr)
-      (O.Unpackspec (O.PackMap (\f (Expr tag) -> f tag)) ***! unpackColumns)
+  traversePrimExprs f (MaybeTable (Expr tag) row) =
+    MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
 
   rowParser (MaybeTable _ r) = do
     isNull <- field
@@ -382,6 +387,9 @@ class DBType a where
 
 instance DBType Bool where
   lit = Expr . O.ConstExpr . O.BoolLit
+
+instance DBType Char where
+  lit = Expr . O.ConstExpr . O.StringLit . pure
 
 instance DBType Int where
   lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
@@ -425,8 +433,7 @@ newtype Col a = Col a
 
 instance (FromField a) =>
          Table (Expr a) (Col a) where
-  unpackColumns =
-    O.Unpackspec (O.PackMap (\f (Expr prim) -> fmap Expr (f prim)))
+  traversePrimExprs f (Expr a) = Expr <$> f a
   rowParser _ = fmap Col field
 
 --------------------------------------------------------------------------------
@@ -546,6 +553,54 @@ count (Expr a) = Aggregate (Just O.AggrCount) a
 groupBy :: Expr a -> Aggregate a
 groupBy (Expr a) = Aggregate Nothing a
 
+countStar :: Aggregate Int64
+countStar = count (lit @Int 0)
+
+class DBAvg a res | a -> res where
+  avg :: Expr a -> Aggregate res
+  avg (Expr a) = Aggregate (Just O.AggrAvg) a
+
+instance DBAvg Int64 Scientific
+instance DBAvg Double Double
+instance DBAvg Int32 Scientific
+instance DBAvg Scientific Scientific
+instance DBAvg Int16 Scientific
+
+-- | The class of data types that can be aggregated under the @sum@ operation.
+class DBSum a res | a -> res where
+  sum :: Expr a -> Aggregate b
+  sum (Expr a) = Aggregate (Just O.AggrSum) a
+
+instance DBSum Int64 Scientific
+instance DBSum Double Double
+instance DBSum Int32 Int64
+instance DBSum Scientific Scientific
+instance DBSum Float Float
+instance DBSum Int16 Int64
+
+class DBMax a where
+  max :: Expr a -> Aggregate a
+  max (Expr a) = Aggregate (Just O.AggrMax) a
+
+class DBMin a where
+  min :: Expr a -> Aggregate a
+  min (Expr a) = Aggregate (Just O.AggrMin) a
+
+boolOr :: Expr Bool -> Aggregate Bool
+boolOr (Expr a) = Aggregate (Just O.AggrBoolOr) a
+
+boolAnd :: Expr Bool -> Aggregate Bool
+boolAnd (Expr a) = Aggregate (Just O.AggrBoolAnd) a
+
+arrayAgg :: Expr a -> Aggregate [a]
+arrayAgg (Expr a) = Aggregate (Just O.AggrArr) a
+
+stringAgg :: Expr String -> Expr String -> Aggregate String
+stringAgg (Expr combiner) (Expr a) = Aggregate (Just (O.AggrStringAggr combiner)) a
+
+countRows :: O.Query a -> O.Query (Expr Int64)
+countRows = fmap (\(O.Column a) -> Expr a) . O.countRows
+
 class AggregateTable columns result | columns -> result where
   aggregator :: O.Aggregator columns result
 
@@ -564,6 +619,12 @@ aggregate
   => O.Query table -> O.Query result
 aggregate = O.aggregate aggregator
 
+distinct :: Table table haskell => O.Query table -> O.Query table
+distinct =
+  O.distinctExplicit
+    (O.Distinctspec
+       (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
+
 --------------------------------------------------------------------------------
 data Insert a
 
@@ -572,6 +633,19 @@ insert
   => Connection -> [table Insert] -> m Int64
 insert conn rows =
   liftIO (O.runInsertMany conn tableDefinition rows)
+
+insertReturning
+  :: (BaseTable tableName table, MonadIO m)
+  => Connection -> [table Insert] -> Stream (Of (table QueryResult)) m ()
+insertReturning conn rows =
+  do results <-
+       liftIO (O.runInsertManyReturningExplicit queryRunner conn tableDefinition rows id)
+     each results
+
+insert1Returning
+  :: (BaseTable tableName table,MonadIO m)
+  => Connection -> table Insert -> m (table QueryResult)
+insert1Returning c = fmap fromJust . S.head_ . insertReturning c . pure
 
 update
   :: (BaseTable tableName table, Predicate bool, MonadIO m)
@@ -588,6 +662,29 @@ update conn f up =
     (\rel ->
        case toNullableBool (f rel) of
          Expr a -> O.Column a)
+
+updateReturning
+  :: (BaseTable tableName table, Predicate bool, MonadIO m)
+  => Connection
+  -> (table Expr -> Expr bool)
+  -> (table Expr -> table Expr)
+  -> Stream (Of (table QueryResult)) m ()
+updateReturning conn f up =
+  do r <-
+       liftIO $
+       O.runUpdateReturningExplicit
+         queryRunner
+         conn
+         tableDefinitionUpdate
+         up
+         (\rel ->
+            case toNullableBool (f rel) of
+              Expr a -> O.Column a)
+         id
+     each r
+
+where_ :: Expr Bool -> O.Query ()
+where_ (Expr a) = O.keepWhen (\_ -> O.Column a)
 
 {- $intro
 
