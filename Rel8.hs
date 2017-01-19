@@ -59,6 +59,9 @@ module Rel8
   , O.Query
   , Predicate
 
+    -- ** Offset and limit
+  , O.limit
+  , O.offset
     -- * Modifying tables
   , insert, insert1Returning, insertReturning
   , update, updateReturning
