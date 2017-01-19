@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -50,18 +51,24 @@ module Rel8
   , countRows
 
     -- * Querying Tables
+  , O.Query
   , select
   , QueryResult
   , label
-  , distinct
+
+    -- ** Filtering
   , where_
   , filterQuery
-  , O.Query
+  , distinct
   , Predicate
 
     -- ** Offset and limit
   , O.limit
   , O.offset
+
+    -- ** Ordering
+  , asc, desc, orderNulls, orderBy, OrderNulls(..)
+
     -- * Modifying tables
   , insert, insert1Returning, insertReturning
   , update, updateReturning
@@ -79,6 +86,7 @@ module Rel8
   ) where
 
 import Control.Applicative (liftA2)
+import Control.Arrow (first)
 import Control.Category ((.), id)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -107,9 +115,9 @@ import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
-import qualified Opaleye.PGTypes as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
+import qualified Opaleye.Internal.Order as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.RunQuery as O
@@ -120,6 +128,8 @@ import qualified Opaleye.Join as O
 import Opaleye.Label (label)
 import qualified Opaleye.Manipulation as O
 import qualified Opaleye.Operators as O
+import qualified Opaleye.Order as O
+import qualified Opaleye.PGTypes as O
 import qualified Opaleye.RunQuery as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not, (.), id)
@@ -773,6 +783,54 @@ dbBinOp op (Expr a) (Expr b) =
 
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
+--------------------------------------------------------------------------------
+newtype PGOrdering a =
+  PGOrdering (a -> [(O.OrderOp, O.PrimExpr)])
+  deriving (Monoid)
+
+asc :: DBOrd b => (a -> Expr b) -> PGOrdering a
+asc f =
+  PGOrdering
+    (\x ->
+       case f x of
+         Expr a -> [(O.OrderOp O.OpAsc O.NullsFirst,a)])
+
+desc :: DBOrd b => (a -> Expr b) -> PGOrdering a
+desc f =
+  PGOrdering
+    (\x ->
+       case f x of
+         Expr a -> [(O.OrderOp O.OpDesc O.NullsFirst,a)])
+
+data OrderNulls
+  = NullsFirst
+  | NullsLast
+  deriving (Enum,Ord,Eq,Read,Show,Bounded)
+
+orderNulls
+  :: DBOrd b
+  => ((a -> Expr b) -> PGOrdering a)
+  -> OrderNulls
+  -> (a -> Expr (Maybe b))
+  -> PGOrdering a
+orderNulls direction nulls f =
+  case direction (unsafeCoerceExpr . f) of
+    PGOrdering g ->
+      PGOrdering
+        (\a ->
+           map
+             (first (\(O.OrderOp orderO _) -> O.OrderOp orderO nullsDir))
+             (g a))
+  where
+    nullsDir =
+      case nulls of
+        NullsFirst -> O.NullsFirst
+        NullsLast -> O.NullsLast
+
+orderBy
+  :: PGOrdering a -> O.Query a -> O.Query a
+orderBy (PGOrdering f) = O.orderBy (O.Order f)
+
 {- $intro
 
    Welcome to @rel8@!
