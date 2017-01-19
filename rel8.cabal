@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Rel8
+                       Rel8.Text
                        Control.Monad.Rel8
   -- other-modules:       
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
@@ -34,6 +35,8 @@ library
                      , free
                      , mtl
                      , transformers
+                     , bytestring
+                     , time
   -- hs-source-dirs:
   default-language:    Haskell2010
   ghc-options:         -Wall
