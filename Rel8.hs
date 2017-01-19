@@ -584,6 +584,7 @@ instance DBEq Int16 where
 instance DBEq Int32 where
 instance DBEq Int64 where
 instance DBEq Text where
+instance DBEq UTCTime where
 
 --------------------------------------------------------------------------------
 class Booleanish a where
@@ -847,6 +848,7 @@ instance DBOrd Int16 where
 instance DBOrd Int32 where
 instance DBOrd Int64 where
 instance DBOrd Text where
+instance DBOrd UTCTime where
 
 --------------------------------------------------------------------------------
 newtype PGOrdering a =
