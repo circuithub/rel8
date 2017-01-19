@@ -38,7 +38,7 @@ module Rel8
   , (&&.), (||.), not
 
     -- ** Literals
-  , DBType(..)
+  , DBType(..), dbNow
 
     -- ** Null
   , toNullable , (?), isNull, nullable
@@ -768,6 +768,8 @@ dbBinOp op (Expr a) (Expr b) =
   case O.binOp (O.OpOther op) (O.Column a) (O.Column b) of
     O.Column c -> Expr c
 
+dbNow :: Expr UTCTime
+dbNow = nullaryFunction "now"
 {- $intro
 
    Welcome to @rel8@!
