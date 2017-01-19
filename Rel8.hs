@@ -40,7 +40,7 @@ module Rel8
   , DBType(..)
 
     -- ** Null
-  , toNullable , (?), isNull
+  , toNullable , (?), isNull, nullable
 
     -- * Aggregation
   , AggregateTable, aggregate
@@ -695,6 +695,19 @@ isNull = undefined
 
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
+
+-- | Eliminate 'PGNull' from the type of an 'Expr'. Like 'maybe' for Haskell
+-- values.
+nullable
+  :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+nullable (Expr a) f (Expr e) =
+  case O.matchNullable
+         (O.Column a)
+         (\(O.Column x) ->
+            case f (Expr x) of
+              Expr x' -> O.Column x')
+         (O.Column e) of
+    O.Column b -> Expr b
 
 {- $intro
 
