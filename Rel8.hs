@@ -611,7 +611,7 @@ stringAgg (Expr combiner) (Expr a) = Aggregate (Just (O.AggrStringAggr combiner)
 countRows :: O.Query a -> O.Query (Expr Int64)
 countRows = fmap (\(O.Column a) -> Expr a) . O.countRows
 
-class AggregateTable columns result | columns -> result where
+class AggregateTable columns result | columns -> result, result -> columns where
   aggregator :: O.Aggregator columns result
 
 instance AggregateTable (Aggregate a) (Expr a) where
