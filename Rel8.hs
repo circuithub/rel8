@@ -7,6 +7,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -45,7 +46,7 @@ module Rel8
     -- * Aggregation
   , AggregateTable, aggregate
   , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
-  , boolAnd, boolOr, stringAgg, arrayAgg
+  , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
   , countRows
 
     -- * Querying Tables
@@ -555,20 +556,23 @@ unsafeCoerceExpr (Expr a) = Expr a
 
 --------------------------------------------------------------------------------
 -- | Used to tag 'Expr's that are the result of aggregation
-data Aggregate a = Aggregate (Maybe O.AggrOp) O.PrimExpr
+data Aggregate a = Aggregate (Maybe O.AggrOp) O.PrimExpr O.AggrDistinct
 
 count :: Expr a -> Aggregate Int64
-count (Expr a) = Aggregate (Just O.AggrCount) a
+count (Expr a) = Aggregate (Just O.AggrCount) a O.AggrAll
+
+countDistinct :: Expr a -> Aggregate Int64
+countDistinct (Expr a) = Aggregate (Just O.AggrCount) a O.AggrDistinct
 
 groupBy :: Expr a -> Aggregate a
-groupBy (Expr a) = Aggregate Nothing a
+groupBy (Expr a) = Aggregate Nothing a O.AggrAll
 
 countStar :: Aggregate Int64
 countStar = count (lit @Int64 0)
 
 class DBAvg a res | a -> res where
   avg :: Expr a -> Aggregate res
-  avg (Expr a) = Aggregate (Just O.AggrAvg) a
+  avg (Expr a) = Aggregate (Just O.AggrAvg) a O.AggrAll
 
 instance DBAvg Int64 Scientific
 instance DBAvg Double Double
@@ -579,7 +583,7 @@ instance DBAvg Int16 Scientific
 -- | The class of data types that can be aggregated under the @sum@ operation.
 class DBSum a res | a -> res where
   sum :: Expr a -> Aggregate b
-  sum (Expr a) = Aggregate (Just O.AggrSum) a
+  sum (Expr a) = Aggregate (Just O.AggrSum) a O.AggrAll
 
 instance DBSum Int64 Scientific
 instance DBSum Double Double
@@ -590,23 +594,23 @@ instance DBSum Int16 Int64
 
 class DBMax a where
   max :: Expr a -> Aggregate a
-  max (Expr a) = Aggregate (Just O.AggrMax) a
+  max (Expr a) = Aggregate (Just O.AggrMax) a O.AggrAll
 
 class DBMin a where
   min :: Expr a -> Aggregate a
-  min (Expr a) = Aggregate (Just O.AggrMin) a
+  min (Expr a) = Aggregate (Just O.AggrMin) a O.AggrAll
 
 boolOr :: Expr Bool -> Aggregate Bool
-boolOr (Expr a) = Aggregate (Just O.AggrBoolOr) a
+boolOr (Expr a) = Aggregate (Just O.AggrBoolOr) a O.AggrAll
 
 boolAnd :: Expr Bool -> Aggregate Bool
-boolAnd (Expr a) = Aggregate (Just O.AggrBoolAnd) a
+boolAnd (Expr a) = Aggregate (Just O.AggrBoolAnd) a O.AggrAll
 
 arrayAgg :: Expr a -> Aggregate [a]
-arrayAgg (Expr a) = Aggregate (Just O.AggrArr) a
+arrayAgg (Expr a) = Aggregate (Just O.AggrArr) a O.AggrAll
 
 stringAgg :: Expr String -> Expr String -> Aggregate String
-stringAgg (Expr combiner) (Expr a) = Aggregate (Just (O.AggrStringAggr combiner)) a
+stringAgg (Expr combiner) (Expr a) = Aggregate (Just (O.AggrStringAggr combiner)) a O.AggrAll
 
 countRows :: O.Query a -> O.Query (Expr Int64)
 countRows = fmap (\(O.Column a) -> Expr a) . O.countRows
@@ -618,7 +622,7 @@ instance AggregateTable (Aggregate a) (Expr a) where
   aggregator =
     O.Aggregator
       (O.PackMap
-         (\f (Aggregate op ex) -> fmap Expr (f (liftA2 (,) op (pure []), ex))))
+         (\f (Aggregate op ex dis) -> fmap Expr (f (fmap (,[],dis) op, ex))))
 
 instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
          AggregateTable (a1, a2) (b1, b2) where
@@ -847,3 +851,9 @@ dbBinOp op (Expr a) (Expr b) =
    With tables defined, we are now ready to write some queries. All base
 
 -}
+
+-- TODO
+-- Query a single Expr (Maybe a) gives a conflicting fundep error
+
+-- TODO
+-- litTable :: Table expr haskell => haskell -> expr
