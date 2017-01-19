@@ -74,13 +74,13 @@ module Rel8
   , dbBinOp
   ) where
 
-import Control.Category ((.), id)
 import Control.Applicative (liftA2)
+import Control.Category ((.), id)
 import Control.Monad (void)
-import Data.List (foldl')
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)
 import Data.Int (Int16, Int32, Int64)
+import Data.List (foldl')
 import Data.Maybe (fromJust)
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap, lmap)
