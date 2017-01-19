@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -379,6 +380,7 @@ instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
 data MaybeTable row = MaybeTable (Expr Bool) row
+  deriving (Functor)
 
 instance (Table expr haskell) =>
          Table (MaybeTable expr) (Maybe haskell) where
