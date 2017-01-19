@@ -255,12 +255,12 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
 -- the join of two 'Table's (as witness by tuple construction) is itself a
 -- 'Table'.
 class Table expr haskell | expr -> haskell, haskell -> expr where
-  rowParser :: expr -> RowParser haskell
+  rowParser :: RowParser haskell
   default rowParser :: ( ADTRecord haskell
                        , Constraints haskell FromField
                        ) =>
-    expr -> RowParser haskell
-  rowParser _ = head (createA (For :: For FromField) [field])
+    RowParser haskell
+  rowParser = head (createA (For :: For FromField) [field])
 
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
   default traversePrimExprs :: ( Constraints expr MapPrimExpr
@@ -327,7 +327,7 @@ select connection query = do
 queryRunner :: Table a b => O.QueryRunner a b
 queryRunner =
   O.QueryRunner (void unpackColumns)
-                rowParser
+                (const rowParser)
                 (\_columns -> True) -- TODO Will we support 0-column queries?
 
 
@@ -337,7 +337,7 @@ instance (Table lExpr lHaskell, Table rExpr rHaskell) =>
   traversePrimExprs f (l, r) =
     liftA2 (,) (traversePrimExprs f l) (traversePrimExprs f r)
 
-  rowParser (l, r) = liftA2 (,) (rowParser l) (rowParser r)
+  rowParser = liftA2 (,) rowParser rowParser
 
 --------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
@@ -349,11 +349,11 @@ instance (Table expr haskell) =>
   traversePrimExprs f (MaybeTable (Expr tag) row) =
     MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
 
-  rowParser (MaybeTable _ r) = do
+  rowParser = do
     isNull <- field
     if fromMaybe True isNull
       then return Nothing
-      else fmap Just (rowParser r)
+      else fmap Just rowParser
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@.
@@ -434,7 +434,7 @@ newtype Col a = Col a
 instance (FromField a) =>
          Table (Expr a) (Col a) where
   traversePrimExprs f (Expr a) = Expr <$> f a
-  rowParser _ = fmap Col field
+  rowParser = fmap Col field
 
 --------------------------------------------------------------------------------
 -- | Lift an 'Expr' to be nullable. Like the 'Just' constructor.
