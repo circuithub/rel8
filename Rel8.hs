@@ -31,7 +31,7 @@ module Rel8
   , Expr
 
     -- ** Equality
-  , (==.), (?=.)
+  , DBEq, (==.), (?=.), in_
 
     -- ** Boolean-valued expressions
   , (&&.), (||.), not
@@ -71,6 +71,7 @@ module Rel8
 import Control.Category ((.), id)
 import Control.Applicative (liftA2)
 import Control.Monad (void)
+import Data.List (foldl')
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Int (Int16, Int32, Int64)
 import Data.Maybe (fromJust)
@@ -675,6 +676,9 @@ filterQuery f q = proc _ -> do
 
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = undefined
+
+in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
+in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
 
 {- $intro
 
