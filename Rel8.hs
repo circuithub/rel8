@@ -26,7 +26,7 @@ module Rel8
 
     -- * Tables
   , Table(..)
-  , leftJoin
+  , leftJoin, inlineLeftJoin
   , MaybeTable(..)
   , Col(..)
 
@@ -123,6 +123,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.Order as O
 import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
@@ -450,6 +451,32 @@ leftJoin condition l r =
     (\(a, (_, b)) ->
        case toNullableBool (condition a b) of
          Expr e -> O.Column e)
+
+-- TODO Suspicious! See TODO
+inlineLeftJoin
+  :: forall a haskell bool.
+     (Table a haskell, Predicate bool)
+  => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
+inlineLeftJoin q =
+  O.QueryArr $ \(p, left, t) ->
+    let O.QueryArr rightQueryF = liftA2 (,) (pure (lit False)) q
+        (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
+        ((tag, renamed), ljPEsB) =
+          O.run
+            (O.runUnpackspec
+               unpackColumns
+               (O.extractLeftJoinFields 2 t')
+               right)
+    in ( MaybeTable tag renamed
+       , PrimQuery.Join
+           PrimQuery.LeftJoin
+           (case toNullableBool (p renamed) of
+              Expr a -> a)
+           [] -- TODO !
+           ljPEsB
+           left
+           pqR
+       , t')
 
 --------------------------------------------------------------------------------
 -- | The class of Haskell values that can be mapped to database types.
