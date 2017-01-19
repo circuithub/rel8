@@ -39,6 +39,9 @@ module Rel8
     -- ** Ordering
   , DBOrd, (>.), (>=.), (<.), (<=.)
 
+    -- ** Numeric Operators
+  , DBNum(..)
+
     -- ** Boolean-valued expressions
   , (&&.), (||.), not
 
@@ -146,6 +149,7 @@ import qualified Streaming.Prelude as S
 
 infix 4 ==. , ?=. , <. , <=. , >. , >=.
 infixr 2 ||.,  &&.
+infixl 7 *.
 
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
@@ -955,6 +959,18 @@ orderNulls direction nulls f =
 orderBy
   :: PGOrdering a -> O.Query a -> O.Query a
 orderBy (PGOrdering f) = O.orderBy (O.Order f)
+
+class DBType a => DBNum a where
+  (*.) :: Expr a -> Expr a -> Expr a
+  Expr a *. Expr b =
+    case O.binOp (O.:*) (O.Column a) (O.Column b) of
+      O.Column c -> Expr c
+
+instance DBNum Double where
+instance DBNum Float where
+instance DBNum Int16 where
+instance DBNum Int32 where
+instance DBNum Int64 where
 
 {- $intro
 
