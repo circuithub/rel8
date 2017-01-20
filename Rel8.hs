@@ -46,7 +46,7 @@ module Rel8
   , (&&.), (||.), not
 
     -- ** Literals
-  , DBType(..), dbNow
+  , DBType(..), lit, dbNow
   , TypeInfo(..), showableDbType, compositeDBType
 
     -- ** Null
