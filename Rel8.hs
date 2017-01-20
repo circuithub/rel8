@@ -47,7 +47,7 @@ module Rel8
 
     -- ** Literals
   , DBType(..), dbNow
-  , TypeInfo(..), showableDbType
+  , TypeInfo(..), showableDbType, compositeDBType
 
     -- ** Null
   , toNullable , (?), isNull, nullable
@@ -130,7 +130,8 @@ import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
+       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp,
+        gfoldMap)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -581,6 +582,22 @@ typeInfoFromOpaleye f =
 -- you can change this by pattern matching on the resulting 'TypeInfo').
 showableDbType :: (Show a) => TypeInfo a
 showableDbType = contramap show dbTypeInfo
+
+-- | Show a type as a composite type. This is only valid for records, and
+-- all fields in the record must be an instance of 'DBType'.
+compositeDBType
+  :: (ADTRecord t, Constraints t DBType)
+  => String -- ^ The database schema name of the composite type
+  -> TypeInfo t
+compositeDBType n =
+  TypeInfo
+  { formatLit =
+      catPrimExprs . gfoldMap (For :: For DBType) (pure . formatLit dbTypeInfo)
+  , dbTypeName = n
+  }
+  where
+    catPrimExprs :: [O.PrimExpr] -> O.PrimExpr
+    catPrimExprs = O.FunExpr ""
 
 -- | Lift a Haskell value into a literal database expression.
 lit :: DBType a => a -> Expr a
