@@ -47,6 +47,7 @@ module Rel8
 
     -- ** Literals
   , DBType(..), dbNow
+  , TypeInfo(..), showableDbType
 
     -- ** Null
   , toNullable , (?), isNull, nullable
@@ -93,6 +94,7 @@ module Rel8
   , dbBinOp
   ) where
 
+import Data.Functor.Contravariant (Contravariant(..))
 import Control.Applicative (Const(..), liftA2)
 import Control.Arrow (first)
 import Control.Category ((.), id)
@@ -113,7 +115,7 @@ import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..), proxy)
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import qualified Data.Text.Lazy as LazyText
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Builder.Scientific (scientificBuilder)
@@ -552,11 +554,20 @@ data TypeInfo a = TypeInfo
   , dbTypeName :: String
   }
 
+instance Contravariant TypeInfo where
+  contramap f info = info { formatLit = formatLit info . f }
+
 -- | The class of Haskell values that can be mapped to database types.
 -- The @name@ argument specifies the name of the type in the database
 -- schema.
+--
+-- By default, if @a@ has a 'Show' instance, we define 'dbTypeInfo' to use
+-- 'showableDbType'.
 class FromField a => DBType a where
   dbTypeInfo :: TypeInfo a
+
+  default dbTypeInfo :: Show a => TypeInfo a
+  dbTypeInfo = showableDbType
 
 typeInfoFromOpaleye
   :: forall a b.
@@ -564,6 +575,12 @@ typeInfoFromOpaleye
   => (a -> O.Column b) -> TypeInfo a
 typeInfoFromOpaleye f =
   TypeInfo {formatLit = O.unColumn . f, dbTypeName = O.showPGType (Proxy @b)}
+
+-- | Construct 'TypeInfo' for values that are stored in the database with
+-- 'show'. It is assumed that the underlying field type is @text@ (though
+-- you can change this by pattern matching on the resulting 'TypeInfo').
+showableDbType :: (Show a) => TypeInfo a
+showableDbType = contramap show dbTypeInfo
 
 -- | Lift a Haskell value into a literal database expression.
 lit :: DBType a => a -> Expr a
@@ -602,6 +619,9 @@ instance DBType a =>
 
 instance DBType Text where
   dbTypeInfo = typeInfoFromOpaleye O.pgStrictText
+
+instance DBType String where
+  dbTypeInfo = contramap pack dbTypeInfo
 
 instance DBType ByteString where
   dbTypeInfo = typeInfoFromOpaleye O.pgStrictByteString
