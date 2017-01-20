@@ -105,6 +105,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
 import Data.Coerce (Coercible)
 import Data.Foldable (toList)
+import Data.Functor.Compose (Compose(..))
 import Data.Functor.Contravariant (Contravariant(..))
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
@@ -340,14 +341,18 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 
   default columnCount :: (ADTRecord haskell, Constraints haskell FieldCount)
                       => Tagged haskell Int
-  columnCount = Tagged (getSum (getConst (head (createA (For :: For FieldCount) [fieldCount]) :: Const (Sum Int) haskell)))
+  columnCount =
+    Tagged
+      (getSum . getConst . head . getCompose $
+       (createA (For :: For FieldCount) (Compose [fieldCount])
+         :: Compose [] (Const (Sum Int)) haskell))
 
   default rowParser :: ( ADTRecord haskell
                        , Constraints haskell FromField
                        , Constraints haskell DBType
                        ) =>
     RowParser haskell
-  rowParser = head (createA (For :: For FromField) [field])
+  rowParser = head (getCompose (createA (For :: For FromField) (Compose [field])))
 
   default traversePrimExprs :: ( Constraints expr MapPrimExpr
                                , ADTRecord expr
