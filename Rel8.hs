@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 module Rel8
   ( -- $intro
@@ -31,7 +32,7 @@ module Rel8
   , Col(..)
 
     -- * Expressions
-  , Expr, coerceExpr, dbShow
+  , Expr(..), coerceExpr, dbShow
 
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
@@ -92,6 +93,9 @@ module Rel8
   , dbFunction
   , nullaryFunction
   , dbBinOp
+
+    -- * Low-level details
+  , GenericBaseTable
   ) where
 
 import Control.Applicative (Const(..), liftA2)
@@ -266,6 +270,9 @@ instance MapPrimExpr (Expr column) where
 
 --------------------------------------------------------------------------------
 -- TODO Unsure if we want to assume this type of table
+
+class (ADTRecord (table Expr),ADTRecord (table Schema),Constraints (table Schema) WitnessSchema,InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr)),Writer (Rep (table Schema)) (Rep (table Insert)),Generic (table Insert)) => GenericBaseTable table
+instance (ADTRecord (table Expr),ADTRecord (table Schema),Constraints (table Schema) WitnessSchema,InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr)),Writer (Rep (table Schema)) (Rep (table Insert)),Generic (table Insert)) => GenericBaseTable table
 
 -- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
 -- the record type @record@ specifies the columns of that table.

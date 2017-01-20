@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Rel8
+                       Rel8.Anonymous
                        Rel8.Text
                        Control.Monad.Rel8
   -- other-modules:       
@@ -41,6 +42,7 @@ library
                      , aeson
                      , vector
                      , contravariant
+                     , labels
   -- hs-source-dirs:
   default-language:    Haskell2010
   ghc-options:         -Wall
