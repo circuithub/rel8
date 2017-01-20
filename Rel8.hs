@@ -760,14 +760,39 @@ instance DBSum Scientific Scientific
 instance DBSum Float Float
 instance DBSum Int16 Int64
 
-class DBMax a where
+--------------------------------------------------------------------------------
+class DBType a => DBMax a where
   max :: Expr a -> Aggregate a
   max (Expr a) = Aggregate (Just O.AggrMax) a O.AggrAll
 
-class DBMin a where
+instance DBMax Int64
+instance DBMax Char
+instance DBMax Double
+instance DBMax Int32
+instance DBMax Scientific
+instance DBMax Float
+instance DBMax Int16
+instance DBMax Text
+instance DBMax LocalTime
+instance DBMax UTCTime
+
+--------------------------------------------------------------------------------
+class DBType a => DBMin a where
   min :: Expr a -> Aggregate a
   min (Expr a) = Aggregate (Just O.AggrMin) a O.AggrAll
 
+instance DBMin Int64
+instance DBMin Char
+instance DBMin Double
+instance DBMin Int32
+instance DBMin Scientific
+instance DBMin Float
+instance DBMin Int16
+instance DBMin Text
+instance DBMin LocalTime
+instance DBMin UTCTime
+
+--------------------------------------------------------------------------------
 boolOr :: Expr Bool -> Aggregate Bool
 boolOr (Expr a) = Aggregate (Just O.AggrBoolOr) a O.AggrAll
 
