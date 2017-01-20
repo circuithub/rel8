@@ -31,7 +31,7 @@ module Rel8
   , Col(..)
 
     -- * Expressions
-  , Expr, coerceExpr
+  , Expr, coerceExpr, dbShow
 
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
@@ -191,6 +191,10 @@ newtype Expr (t :: *) = Expr O.PrimExpr
 -- runtime exceptions.
 coerceExpr :: Coercible a b => Expr a -> Expr b
 coerceExpr (Expr a) = Expr a
+
+--------------------------------------------------------------------------------
+dbShow :: DBType a => Expr a -> Expr Text
+dbShow = unsafeCastExpr "text"
 
 --------------------------------------------------------------------------------
 -- | Map a schema definition into a set of expressions that would select those
