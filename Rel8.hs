@@ -133,7 +133,7 @@ import GHC.Generics
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp,
-        gfoldMap)
+        gfoldMap, AnyType)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -321,12 +321,6 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
       tableSchema = nullaryOp (For :: For WitnessSchema) schema
 
 --------------------------------------------------------------------------------
-class FieldCount a where
-  fieldCount :: Const (Sum Int) a
-
-instance FieldCount a where fieldCount = Const (Sum 1)
-
---------------------------------------------------------------------------------
 -- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
 -- 'Expr' columns, and when this table is queried using 'select' it returns
 -- the type @haskell@.
@@ -339,12 +333,11 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
   columnCount :: Tagged haskell Int
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
 
-  default columnCount :: (ADTRecord haskell, Constraints haskell FieldCount)
-                      => Tagged haskell Int
+  default columnCount :: ADTRecord haskell => Tagged haskell Int
   columnCount =
     Tagged
       (getSum . getConst . head . getCompose $
-       (createA (For :: For FieldCount) (Compose [fieldCount])
+       (createA (For :: For AnyType) (Compose [Const (Sum 1)])
          :: Compose [] (Const (Sum Int)) haskell))
 
   default rowParser :: ( ADTRecord haskell
@@ -370,7 +363,6 @@ instance {-# OVERLAPPABLE #-}
          , Constraints (table Expr) MapPrimExpr
          , Constraints (table QueryResult) FromField
          , Constraints (table QueryResult) DBType
-         , Constraints (table QueryResult) FieldCount
          ) => Table (table Expr) (table QueryResult)
 
 --------------------------------------------------------------------------------
