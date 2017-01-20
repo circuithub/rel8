@@ -628,7 +628,7 @@ columnToExpr (O.Column a) = Expr a
      returnA -< (col1 t1, col2 t2)
    @
 -}
-newtype Col a = Col a
+newtype Col a = Col { unCol :: a }
   deriving (Show)
 
 instance (FromField a) =>
