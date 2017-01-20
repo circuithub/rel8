@@ -99,6 +99,7 @@ import Control.Category ((.), id)
 import Control.Monad (replicateM_)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Data.Aeson (Value)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
 import Data.Int (Int16, Int32, Int64)
@@ -602,6 +603,9 @@ instance DBType TimeOfDay where
 
 instance DBType Scientific where
   lit = unsafeCoerceExpr . lit . toLazyText . scientificBuilder
+
+instance DBType Value where
+  lit = columnToExpr . O.pgValueJSON
 
 columnToExpr :: O.Column a -> Expr b
 columnToExpr (O.Column a) = Expr a
