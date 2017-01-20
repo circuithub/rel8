@@ -87,6 +87,7 @@ module Rel8
 
     -- * Unsafe routines
   , unsafeCoerceExpr
+  , unsafeCastExpr
   , dbFunction
   , nullaryFunction
   , dbBinOp
@@ -707,8 +708,19 @@ instance Booleanish (Expr (Maybe Bool)) where
   a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
   a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
 
+-- | (Unsafely) coerce the phantom type given to 'Expr'. This operation is
+-- not witnessed by the database at all, so use with care! For example,
+-- @unsafeCoerceExpr :: Expr Int -> Expr Text@ /will/ end up with an exception
+-- when you finally try and run a query!
 unsafeCoerceExpr :: forall b a. Expr a -> Expr b
 unsafeCoerceExpr (Expr a) = Expr a
+
+-- | Use a cast operation in the database layer to convert between Expr types.
+-- This is unsafe as it is possible to introduce casts that cannot be performed
+-- by PostgreSQL. For example,
+-- @unsafeCastExpr "timestamptz" :: Expr Bool -> Expr UTCTime@ makes no sense.
+unsafeCastExpr :: forall b a. String -> Expr a -> Expr b
+unsafeCastExpr t = columnToExpr . O.unsafeCast t . exprToColumn
 
 --------------------------------------------------------------------------------
 -- | Used to tag 'Expr's that are the result of aggregation
