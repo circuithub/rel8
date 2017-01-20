@@ -58,7 +58,7 @@ module Rel8
   , countRows, Aggregate
 
     -- * Querying Tables
-  , O.Query
+  , O.Query, O.QueryArr
   , select
   , QueryResult
   , label
