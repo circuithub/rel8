@@ -113,6 +113,8 @@ import Data.Scientific (Scientific)
 import Data.Tagged (Tagged(..), proxy)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as LazyText
+import Data.Text.Lazy.Builder (toLazyText)
+import Data.Text.Lazy.Builder.Scientific (scientificBuilder)
 import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
 import Data.UUID (UUID)
 import Database.PostgreSQL.Simple (Connection)
@@ -597,6 +599,9 @@ instance DBType LocalTime where
 
 instance DBType TimeOfDay where
   lit = columnToExpr . O.pgTimeOfDay
+
+instance DBType Scientific where
+  lit = unsafeCoerceExpr . lit . toLazyText . scientificBuilder
 
 columnToExpr :: O.Column a -> Expr b
 columnToExpr (O.Column a) = Expr a
