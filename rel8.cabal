@@ -39,6 +39,7 @@ library
                      , time
                      , uuid
                      , aeson
+                     , vector
   -- hs-source-dirs:
   default-language:    Haskell2010
   ghc-options:         -Wall

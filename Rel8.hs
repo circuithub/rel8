@@ -1,8 +1,8 @@
 {-# LANGUAGE Arrows #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -102,6 +102,7 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Aeson (ToJSON, FromJSON, Value)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
+import Data.Foldable (toList)
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
@@ -117,7 +118,9 @@ import qualified Data.Text.Lazy as LazyText
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Builder.Scientific (scientificBuilder)
 import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
+import Data.Typeable (Typeable)
 import Data.UUID (UUID)
+import Data.Vector (Vector)
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
@@ -322,6 +325,7 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 
   default rowParser :: ( ADTRecord haskell
                        , Constraints haskell FromField
+                       , Constraints haskell DBType
                        ) =>
     RowParser haskell
   rowParser = head (createA (For :: For FromField) [field])
@@ -341,6 +345,7 @@ instance {-# OVERLAPPABLE #-}
          , ADTRecord (table QueryResult)
          , Constraints (table Expr) MapPrimExpr
          , Constraints (table QueryResult) FromField
+         , Constraints (table QueryResult) DBType
          , Constraints (table QueryResult) FieldCount
          ) => Table (table Expr) (table QueryResult)
 
@@ -491,8 +496,8 @@ instance (Table expr haskell) =>
     MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
 
   rowParser = do
-    isNull <- field
-    if fromMaybe True isNull
+    isNull' <- field
+    if fromMaybe True isNull'
       then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
       else fmap Just rowParser
 
@@ -542,70 +547,112 @@ inlineLeftJoin q =
        , t')
 
 --------------------------------------------------------------------------------
+data TypeInfo a = TypeInfo
+  { formatLit :: a -> O.PrimExpr
+  , dbTypeName :: String
+  }
+
 -- | The class of Haskell values that can be mapped to database types.
-class DBType a where
-  -- | Lift a Haskell value into a literal database expression.
-  lit :: a -> Expr a
+-- The @name@ argument specifies the name of the type in the database
+-- schema.
+class FromField a => DBType a where
+  dbTypeInfo :: TypeInfo a
+
+typeInfoFromOpaleye
+  :: forall a b.
+     O.IsSqlType b
+  => (a -> O.Column b) -> TypeInfo a
+typeInfoFromOpaleye f =
+  TypeInfo {formatLit = O.unColumn . f, dbTypeName = O.showPGType (Proxy @b)}
+
+-- | Lift a Haskell value into a literal database expression.
+lit :: DBType a => a -> Expr a
+lit = Expr . formatLit dbTypeInfo
 
 instance DBType Bool where
-  lit = columnToExpr . O.pgBool
+  dbTypeInfo = typeInfoFromOpaleye O.pgBool
 
 instance DBType Char where
-  lit = Expr . O.ConstExpr . O.StringLit . pure
+  dbTypeInfo = (typeInfoFromOpaleye (O.pgString . pure)) {dbTypeName = "char"}
 
 instance DBType Int16 where
-  lit = Expr . O.ConstExpr . O.IntegerLit . fromIntegral
+  dbTypeInfo =
+    (typeInfoFromOpaleye (O.pgInt4 . fromIntegral)) {dbTypeName = "int2"}
 
 instance DBType Int32 where
-  lit = columnToExpr . O.pgInt4 . fromIntegral
+  dbTypeInfo = typeInfoFromOpaleye (O.pgInt4 . fromIntegral)
 
 instance DBType Int64 where
-  lit = columnToExpr . O.pgInt8
+  dbTypeInfo = typeInfoFromOpaleye O.pgInt8
 
 instance DBType Double where
-  lit = columnToExpr . O.pgDouble
+  dbTypeInfo = typeInfoFromOpaleye O.pgDouble
 
 instance DBType Float where
-  lit = Expr . O.ConstExpr . O.DoubleLit . realToFrac
+  dbTypeInfo =
+    (typeInfoFromOpaleye (O.pgDouble . realToFrac)) {dbTypeName = "real"}
 
-instance DBType a => DBType (Maybe a) where
-  lit Nothing = Expr (O.ConstExpr O.NullLit)
-  lit (Just a) =
-    case lit a of
-      Expr e -> Expr e
+instance DBType a =>
+         DBType (Maybe a) where
+  dbTypeInfo =
+    TypeInfo
+    { formatLit = maybe (O.ConstExpr O.NullLit) (formatLit dbTypeInfo)
+    , dbTypeName = dbTypeName (dbTypeInfo @a)
+    }
 
 instance DBType Text where
-  lit = columnToExpr . O.pgStrictText
+  dbTypeInfo = typeInfoFromOpaleye O.pgStrictText
 
 instance DBType ByteString where
-  lit = columnToExpr . O.pgStrictByteString
+  dbTypeInfo = typeInfoFromOpaleye O.pgStrictByteString
 
 instance DBType UTCTime where
-  lit = columnToExpr . O.pgUTCTime
+  dbTypeInfo = typeInfoFromOpaleye O.pgUTCTime
 
 instance DBType LazyText.Text where
-  lit = columnToExpr . O.pgLazyText
+  dbTypeInfo = typeInfoFromOpaleye O.pgLazyText
 
 instance DBType LazyByteString.ByteString where
-  lit = columnToExpr . O.pgLazyByteString
+  dbTypeInfo = typeInfoFromOpaleye O.pgLazyByteString
 
 instance DBType UUID where
-  lit = columnToExpr . O.pgUUID
+  dbTypeInfo = typeInfoFromOpaleye O.pgUUID
 
 instance DBType Day where
-  lit = columnToExpr . O.pgDay
-
-instance DBType LocalTime where
-  lit = columnToExpr . O.pgLocalTime
+  dbTypeInfo = typeInfoFromOpaleye O.pgDay
 
 instance DBType TimeOfDay where
-  lit = columnToExpr . O.pgTimeOfDay
+  dbTypeInfo = typeInfoFromOpaleye O.pgTimeOfDay
+
+instance DBType LocalTime where
+  dbTypeInfo = typeInfoFromOpaleye O.pgLocalTime
 
 instance DBType Scientific where
-  lit = unsafeCoerceExpr . lit . toLazyText . scientificBuilder
+  dbTypeInfo =
+    TypeInfo
+    { formatLit = formatLit dbTypeInfo . toLazyText . scientificBuilder
+    , dbTypeName = "numeric"
+    }
 
 instance DBType Value where
-  lit = columnToExpr . O.pgValueJSON
+  dbTypeInfo = typeInfoFromOpaleye O.pgValueJSON
+
+instance (DBType a, Typeable a) =>
+         DBType (Vector a) where
+  dbTypeInfo =
+    TypeInfo
+    { formatLit =
+        \xs ->
+          O.unColumn
+            (O.unsafeCast
+               typeName
+               (O.Column (O.ArrayExpr (map (formatLit elemInfo) (toList xs)))))
+    , dbTypeName = typeName
+    }
+    where
+      typeName = dbTypeName elemInfo ++ "[]"
+      elemInfo = dbTypeInfo @a
+
 
 columnToExpr :: O.Column a -> Expr b
 columnToExpr (O.Column a) = Expr a
@@ -641,7 +688,7 @@ columnToExpr (O.Column a) = Expr a
 newtype Col a = Col { unCol :: a }
   deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
 
-instance (FromField a) =>
+instance (DBType a) =>
          Table (Expr a) (Col a) where
   columnCount = Tagged 1
   traversePrimExprs f (Expr a) = Expr <$> f a
