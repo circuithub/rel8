@@ -1002,7 +1002,7 @@ filterQuery f q = proc _ -> do
   id -< row
 
 isNull :: Expr (Maybe a) -> Expr Bool
-isNull = undefined
+isNull = columnToExpr . O.isNull . exprToColumn
 
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
