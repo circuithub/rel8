@@ -205,7 +205,7 @@ instance (Writer fSchema fExpr, Writer gSchema gExpr) =>
 instance Writer (K1 i (Tagged name String)) (K1 i (Expr a)) where
   columnWriter (K1 (Tagged name)) =
     dimap
-      (\(K1 (Expr a)) -> O.Column a)
+      (\(K1 expr) -> exprToColumn expr)
       (const ())
       (O.required name)
 
@@ -215,7 +215,7 @@ instance Writer (K1 i (Tagged name String)) (K1 i (Default (Expr a))) where
       (\(K1 def) ->
          case def of
            InsertDefault -> O.Column O.DefaultInsertExpr
-           OverrideDefault (Expr a) -> O.Column a)
+           OverrideDefault expr -> exprToColumn expr)
       (const ())
       (O.required name)
 
@@ -512,9 +512,7 @@ leftJoin condition l r =
     (O.NullMaker (\(tag, t) -> MaybeTable tag t))
     l
     (liftA2 (,) (pure (lit False)) r)
-    (\(a, (_, b)) ->
-       case toNullableBool (condition a b) of
-         Expr e -> O.Column e)
+    (\(a, (_, b)) -> exprToColumn (toNullableBool (condition a b)))
 
 -- TODO Suspicious! See TODO
 inlineLeftJoin
@@ -771,7 +769,7 @@ stringAgg :: Expr String -> Expr String -> Aggregate String
 stringAgg (Expr combiner) (Expr a) = Aggregate (Just (O.AggrStringAggr combiner)) a O.AggrAll
 
 countRows :: O.Query a -> O.Query (Expr Int64)
-countRows = fmap (\(O.Column a) -> Expr a) . O.countRows
+countRows = fmap columnToExpr . O.countRows
 
 class AggregateTable columns result | columns -> result, result -> columns where
   aggregator :: O.Aggregator columns result
@@ -831,9 +829,7 @@ update conn f up =
     conn
     tableDefinitionUpdate
     up
-    (\rel ->
-       case toNullableBool (f rel) of
-         Expr a -> O.Column a)
+    (exprToColumn . toNullableBool . f)
 
 updateReturning
   :: (BaseTable tableName table, Predicate bool, MonadIO m)
@@ -841,19 +837,17 @@ updateReturning
   -> (table Expr -> Expr bool)
   -> (table Expr -> table Expr)
   -> Stream (Of (table QueryResult)) m ()
-updateReturning conn f up =
-  do r <-
-       liftIO $
-       O.runUpdateReturningExplicit
-         queryRunner
-         conn
-         tableDefinitionUpdate
-         up
-         (\rel ->
-            case toNullableBool (f rel) of
-              Expr a -> O.Column a)
-         id
-     each r
+updateReturning conn f up = do
+  r <-
+    liftIO $
+    O.runUpdateReturningExplicit
+      queryRunner
+      conn
+      tableDefinitionUpdate
+      up
+      (exprToColumn . toNullableBool . f)
+      id
+  each r
 
 -- | Given a 'BaseTable' and a predicate, @DELETE@ all rows that match.
 delete
@@ -862,15 +856,10 @@ delete
   -> (table Expr -> Expr bool)
   -> IO Int64
 delete conn f =
-  O.runDelete
-    conn
-    tableDefinition
-    (\rel ->
-       case toNullableBool (f rel) of
-         Expr a -> O.Column a)
+  O.runDelete conn tableDefinition (exprToColumn . toNullableBool . f)
 
 where_ :: Predicate bool => O.QueryArr (Expr bool) ()
-where_ = lmap toNullableBool (lmap (\(Expr a) -> O.Column a) O.restrict)
+where_ = lmap (exprToColumn . toNullableBool) O.restrict
 
 filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
 filterQuery f q = proc _ -> do
@@ -885,9 +874,8 @@ in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
 
 ilike :: Expr Text -> Expr Text -> Expr Bool
-Expr a `ilike` Expr b =
-  case O.binOp (O.OpOther "ILIKE") (O.Column a) (O.Column b) of
-    O.Column c -> Expr c
+a `ilike` b =
+  columnToExpr (O.binOp (O.OpOther "ILIKE") (exprToColumn a) (exprToColumn b))
 
 --------------------------------------------------------------------------------
 class Function arg res where
@@ -912,19 +900,16 @@ nullaryFunction name = Expr (O.FunExpr name [])
 -- values.
 nullable
   :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-nullable (Expr a) f (Expr e) =
-  case O.matchNullable
-         (O.Column a)
-         (\(O.Column x) ->
-            case f (Expr x) of
-              Expr x' -> O.Column x')
-         (O.Column e) of
-    O.Column b -> Expr b
+nullable a f b =
+  columnToExpr
+    (O.matchNullable
+       (exprToColumn a)
+       (exprToColumn . f . columnToExpr)
+       (exprToColumn b))
 
 dbBinOp :: String -> Expr a -> Expr b -> Expr c
-dbBinOp op (Expr a) (Expr b) =
-  case O.binOp (O.OpOther op) (O.Column a) (O.Column b) of
-    O.Column c -> Expr c
+dbBinOp op a b =
+  columnToExpr (O.binOp (O.OpOther op) (exprToColumn a) (exprToColumn b))
 
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
@@ -1007,15 +992,16 @@ orderBy (PGOrdering f) = O.orderBy (O.Order f)
 
 class DBType a => DBNum a where
   (*.) :: Expr a -> Expr a -> Expr a
-  Expr a *. Expr b =
-    case O.binOp (O.:*) (O.Column a) (O.Column b) of
-      O.Column c -> Expr c
+  a *. b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
 
 instance DBNum Double where
 instance DBNum Float where
 instance DBNum Int16 where
 instance DBNum Int32 where
 instance DBNum Int64 where
+
+exprToColumn :: Expr a -> O.Column b
+exprToColumn (Expr a) = O.Column a
 
 {- $intro
 
