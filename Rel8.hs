@@ -99,7 +99,7 @@ import Control.Category ((.), id)
 import Control.Monad (replicateM_)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Data.Aeson (Value)
+import Data.Aeson (ToJSON, FromJSON, Value)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
 import Data.Int (Int16, Int32, Int64)
@@ -639,7 +639,7 @@ columnToExpr (O.Column a) = Expr a
    @
 -}
 newtype Col a = Col { unCol :: a }
-  deriving (Show)
+  deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
 
 instance (FromField a) =>
          Table (Expr a) (Col a) where
