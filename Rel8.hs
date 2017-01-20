@@ -782,6 +782,7 @@ instance DBMax Int16
 instance DBMax Text
 instance DBMax LocalTime
 instance DBMax UTCTime
+instance DBMax a => DBMax (Maybe a)
 
 --------------------------------------------------------------------------------
 class DBType a => DBMin a where
@@ -798,6 +799,7 @@ instance DBMin Int16
 instance DBMin Text
 instance DBMin LocalTime
 instance DBMin UTCTime
+instance DBMin a => DBMin (Maybe a)
 
 --------------------------------------------------------------------------------
 boolOr :: Expr Bool -> Aggregate Bool
