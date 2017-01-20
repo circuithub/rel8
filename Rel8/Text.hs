@@ -5,6 +5,11 @@ import Data.Int
 import Data.Text (Text)
 import Rel8 (Expr, dbBinOp, dbFunction, nullaryFunction)
 
+infixr 6 ++.
+-- | The PostgreSQL string concatenation operator.
+(++.) :: Expr Text -> Expr Text -> Expr Text
+(++.) = dbBinOp "||"
+
 -- * Regular expression operators
 
 -- See https://www.postgresql.org/docs/9.5/static/functions-matching.html#FUNCTIONS-POSIX-REGEXP
