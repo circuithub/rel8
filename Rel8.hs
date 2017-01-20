@@ -31,7 +31,7 @@ module Rel8
   , Col(..)
 
     -- * Expressions
-  , Expr
+  , Expr, coerceExpr
 
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
@@ -94,7 +94,6 @@ module Rel8
   , dbBinOp
   ) where
 
-import Data.Functor.Contravariant (Contravariant(..))
 import Control.Applicative (Const(..), liftA2)
 import Control.Arrow (first)
 import Control.Category ((.), id)
@@ -104,7 +103,9 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Aeson (ToJSON, FromJSON, Value)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
+import Data.Coerce (Coercible)
 import Data.Foldable (toList)
+import Data.Functor.Contravariant (Contravariant(..))
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
@@ -179,6 +180,17 @@ data Nullable
 --------------------------------------------------------------------------------
 -- | Database-side PostgreSQL expressions of a given type.
 newtype Expr (t :: *) = Expr O.PrimExpr
+
+-- | Safely coerce between 'Expr's. This uses GHC's 'Coercible' type class,
+-- where instances are only available if the underlying representations of the
+-- data types are equal. This routine is useful to cast out a newtype wrapper
+-- and work with the underlying data.
+--
+-- If the @newtype@ wrapper has a custom 'DBType' (one not derived with
+-- @GeneralizedNewtypeDeriving@) this function may be unsafe and could lead to
+-- runtime exceptions.
+coerceExpr :: Coercible a b => Expr a -> Expr b
+coerceExpr (Expr a) = Expr a
 
 --------------------------------------------------------------------------------
 -- | Map a schema definition into a set of expressions that would select those
