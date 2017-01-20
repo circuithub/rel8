@@ -738,6 +738,7 @@ groupBy (Expr a) = Aggregate Nothing a O.AggrAll
 countStar :: Aggregate Int64
 countStar = count (lit @Int64 0)
 
+--------------------------------------------------------------------------------
 class DBAvg a res | a -> res where
   avg :: Expr a -> Aggregate res
   avg (Expr a) = Aggregate (Just O.AggrAvg) a O.AggrAll
@@ -748,6 +749,7 @@ instance DBAvg Int32 Scientific
 instance DBAvg Scientific Scientific
 instance DBAvg Int16 Scientific
 
+--------------------------------------------------------------------------------
 -- | The class of data types that can be aggregated under the @sum@ operation.
 class DBSum a res | a -> res where
   sum :: Expr a -> Aggregate b
