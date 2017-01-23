@@ -107,3 +107,9 @@ coerceExpr (Expr a) = Expr a
 --------------------------------------------------------------------------------
 dbShow :: DBType a => Expr a -> Expr Text
 dbShow = unsafeCastExpr "text"
+
+
+--------------------------------------------------------------------------------
+-- | Lift a Haskell value into a literal database expression.
+lit :: DBType a => a -> Expr a
+lit = Expr . formatLit dbTypeInfo
