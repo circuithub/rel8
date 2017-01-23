@@ -483,9 +483,8 @@ instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
 
 -- | Any base table can be aggregated, provided you specify how to aggregate
 -- each column.
-instance BaseTable table => AggregateTable (table Aggregate) (table Expr) where
+instance {-# OVERLAPPABLE #-} BaseTable table => AggregateTable (table Aggregate) (table Expr) where
   traverseAggregates = traverseBaseTableAggregates
-
 
 --------------------------------------------------------------------------------
 class GTraverseAggregator aggregator expr | aggregator -> expr where
