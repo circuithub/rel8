@@ -59,32 +59,32 @@ instance Contravariant TypeInfo where
 --------------------------------------------------------------------------------
 -- Stock 'DBType's
 
--- | @bool@
+-- | bool
 instance DBType Bool where
   dbTypeInfo = typeInfoFromOpaleye O.pgBool
 
--- | @char@
+-- | char
 instance DBType Char where
   dbTypeInfo = (typeInfoFromOpaleye (O.pgString . pure)) {dbTypeName = "char"}
 
--- | @int2@
+-- | int2
 instance DBType Int16 where
   dbTypeInfo =
     (typeInfoFromOpaleye (O.pgInt4 . fromIntegral)) {dbTypeName = "int2"}
 
--- | @int4@
+-- | int4
 instance DBType Int32 where
   dbTypeInfo = typeInfoFromOpaleye (O.pgInt4 . fromIntegral)
 
--- | @int8@
+-- | int8
 instance DBType Int64 where
   dbTypeInfo = typeInfoFromOpaleye O.pgInt8
 
--- | @double@
+-- | double
 instance DBType Double where
   dbTypeInfo = typeInfoFromOpaleye O.pgDouble
 
--- | @real@
+-- | real
 instance DBType Float where
   dbTypeInfo =
     (typeInfoFromOpaleye (O.pgDouble . realToFrac)) {dbTypeName = "real"}
@@ -98,47 +98,47 @@ instance DBType a =>
     , dbTypeName = dbTypeName (dbTypeInfo @a)
     }
 
--- | @text@
+-- | text
 instance DBType Text where
   dbTypeInfo = typeInfoFromOpaleye O.pgStrictText
 
--- | @text@
+-- | text
 instance a ~ Char => DBType [a] where
   dbTypeInfo = contramap pack dbTypeInfo
 
--- | @bytea@
+-- | bytea
 instance DBType ByteString where
   dbTypeInfo = typeInfoFromOpaleye O.pgStrictByteString
 
--- | @timestamptz@
+-- | timestamptz
 instance DBType UTCTime where
   dbTypeInfo = typeInfoFromOpaleye O.pgUTCTime
 
--- | @text@
+-- | text
 instance DBType LazyText.Text where
   dbTypeInfo = typeInfoFromOpaleye O.pgLazyText
 
--- | @bytea@
+-- | bytea
 instance DBType LazyByteString.ByteString where
   dbTypeInfo = typeInfoFromOpaleye O.pgLazyByteString
 
--- | @uuid@
+-- | uuid
 instance DBType UUID where
   dbTypeInfo = typeInfoFromOpaleye O.pgUUID
 
--- | @date@
+-- | date
 instance DBType Day where
   dbTypeInfo = typeInfoFromOpaleye O.pgDay
 
--- | @time@
+-- | time
 instance DBType TimeOfDay where
   dbTypeInfo = typeInfoFromOpaleye O.pgTimeOfDay
 
--- | @timestamp@
+-- | timestamp
 instance DBType LocalTime where
   dbTypeInfo = typeInfoFromOpaleye O.pgLocalTime
 
--- | @numeric@
+-- | numeric
 instance DBType Scientific where
   dbTypeInfo =
     TypeInfo
@@ -146,7 +146,7 @@ instance DBType Scientific where
     , dbTypeName = "numeric"
     }
 
--- | @json@
+-- | json
 instance DBType Value where
   dbTypeInfo = typeInfoFromOpaleye O.pgValueJSON
 
