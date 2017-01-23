@@ -12,8 +12,10 @@
 module Rel8.Internal.Expr where
 
 import Data.Proxy (Proxy(..))
+import Data.Text
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import Rel8.DBType
 
 --------------------------------------------------------------------------------
 -- | Database-side PostgreSQL expressions of a given type.
@@ -99,3 +101,8 @@ columnToExpr (O.Column a) = Expr a
 -- runtime exceptions.
 coerceExpr :: Coercible a b => Expr a -> Expr b
 coerceExpr (Expr a) = Expr a
+
+
+--------------------------------------------------------------------------------
+dbShow :: DBType a => Expr a -> Expr Text
+dbShow = unsafeCastExpr "text"

@@ -144,9 +144,6 @@ import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
 
 
---------------------------------------------------------------------------------
-dbShow :: DBType a => Expr a -> Expr Text
-dbShow = unsafeCastExpr "text"
 
 
 --------------------------------------------------------------------------------
