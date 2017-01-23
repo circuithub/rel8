@@ -15,7 +15,7 @@ import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.QueryArr as O
 import Prelude hiding (not, (.), id)
-import Rel8.DBType
+import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Types
 

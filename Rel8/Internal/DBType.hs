@@ -7,7 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
-module Rel8.DBType
+module Rel8.Internal.DBType
   ( -- * @DBType@
     DBType(..)
 

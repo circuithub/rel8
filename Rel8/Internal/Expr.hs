@@ -16,7 +16,7 @@ import Data.Proxy (Proxy(..))
 import Data.Text
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
-import Rel8.DBType
+import Rel8.Internal.DBType
 
 --------------------------------------------------------------------------------
 -- | Database-side PostgreSQL expressions of a given type.

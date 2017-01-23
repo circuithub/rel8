@@ -40,7 +40,7 @@ import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
 import Prelude hiding (not, id)
-import Rel8.DBType
+import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Generic
 import Rel8.Internal.Types

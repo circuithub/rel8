@@ -93,7 +93,7 @@ module Rel8
   , dbBinOp
   ) where
 
-import Rel8.DBType
+import Rel8.Internal.DBType
 import Rel8.IO
 import Rel8.Internal
 

@@ -11,7 +11,7 @@ import Data.Time (UTCTime)
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import Prelude hiding (not)
-import Rel8.DBType
+import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 
 --------------------------------------------------------------------------------
