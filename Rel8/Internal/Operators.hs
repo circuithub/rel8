@@ -8,7 +8,6 @@ module Rel8.Internal.Operators where
 import Data.Int (Int16, Int32, Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
-import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import Prelude hiding (not)
 import Rel8.Internal.DBType
@@ -17,7 +16,6 @@ import Rel8.Internal.Expr
 --------------------------------------------------------------------------------
 infix 4 ==. , ?=. , <. , <=. , >. , >=.
 infixr 2 ||.,  &&.
-infixl 7 *.
 
 --------------------------------------------------------------------------------
 class ToNullable a (Maybe Bool) => DBBool a where
@@ -84,14 +82,3 @@ instance DBOrd Int64 where
 instance DBOrd Text where
 instance DBOrd UTCTime where
 
-
---------------------------------------------------------------------------------
-class DBType a => DBNum a where
-  (*.) :: Expr a -> Expr a -> Expr a
-  a *. b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
-
-instance DBNum Double where
-instance DBNum Float where
-instance DBNum Int16 where
-instance DBNum Int32 where
-instance DBNum Int64 where

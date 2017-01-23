@@ -62,7 +62,7 @@ module Rel8
   , DBOrd, (>.), (>=.), (<.), (<=.)
 
     -- ** Numeric Operators
-  , DBNum(..)
+  , (+), (-), negate, (*)
 
     -- ** Boolean-valued expressions
   , DBBool(..)
@@ -219,24 +219,6 @@ a `ilike` b =
   columnToExpr (O.binOp (O.OpOther "ILIKE") (exprToColumn a) (exprToColumn b))
 
 --------------------------------------------------------------------------------
-class Function arg res where
-  -- | Build a function of multiple arguments.
-  mkFunctionGo :: ([O.PrimExpr] -> O.PrimExpr) -> arg -> res
-
-instance (DBType a, arg ~ Expr a) =>
-         Function arg (Expr res) where
-  mkFunctionGo mkExpr (Expr a) = Expr (mkExpr [a])
-
-instance (DBType a, arg ~ Expr a, Function args res) =>
-         Function arg (args -> res) where
-  mkFunctionGo f (Expr a) = mkFunctionGo (f . (a :))
-
-dbFunction :: Function args result => String -> args -> result
-dbFunction = mkFunctionGo . O.FunExpr
-
-nullaryFunction :: DBType a => String -> Expr a
-nullaryFunction name = Expr (O.FunExpr name [])
-
 -- | Eliminate 'PGNull' from the type of an 'Expr'. Like 'maybe' for Haskell
 -- values.
 nullable

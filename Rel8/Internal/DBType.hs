@@ -80,6 +80,13 @@ instance DBType Int32 where
 instance DBType Int64 where
   dbTypeInfo = typeInfoFromOpaleye O.pgInt8
 
+instance DBType Integer where
+  dbTypeInfo =
+    TypeInfo
+    { formatLit = formatLit dbTypeInfo . toLazyText . scientificBuilder . fromInteger
+    , dbTypeName = "numeric"
+    }
+
 -- | double
 instance DBType Double where
   dbTypeInfo = typeInfoFromOpaleye O.pgDouble

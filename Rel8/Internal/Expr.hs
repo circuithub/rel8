@@ -24,6 +24,18 @@ newtype Expr t = Expr O.PrimExpr
 
 type role Expr representational
 
+-- | It is assumed that any Haskell types that have a 'Num' instance also have
+-- the corresponding operations in the database. Hence, Num a => Num (Expr a).
+-- *However*, if this is not the case, you should `newtype` the Haskell type
+-- and avoid providing a 'Num' instance, or you may write be able to write
+-- ill-typed queries!
+instance (DBType a, Num a) => Num (Expr a) where
+  a + b = columnToExpr (O.binOp (O.:+) (exprToColumn a) (exprToColumn b))
+  a * b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
+  abs = dbFunction "abs"
+  signum = columnToExpr @O.PGInt8 . signum . exprToColumn
+  fromInteger = unsafeCoerceExpr . lit
+  negate = columnToExpr @O.PGInt8 . negate . exprToColumn
 
 --------------------------------------------------------------------------------
 -- | (Unsafely) coerce the phantom type given to 'Expr'. This operation is
@@ -112,3 +124,23 @@ dbShow = unsafeCastExpr "text"
 -- | Lift a Haskell value into a literal database expression.
 lit :: DBType a => a -> Expr a
 lit = Expr . formatLit dbTypeInfo
+
+
+--------------------------------------------------------------------------------
+class Function arg res where
+  -- | Build a function of multiple arguments.
+  mkFunctionGo :: ([O.PrimExpr] -> O.PrimExpr) -> arg -> res
+
+instance (DBType a, arg ~ Expr a) =>
+         Function arg (Expr res) where
+  mkFunctionGo mkExpr (Expr a) = Expr (mkExpr [a])
+
+instance (DBType a, arg ~ Expr a, Function args res) =>
+         Function arg (args -> res) where
+  mkFunctionGo f (Expr a) = mkFunctionGo (f . (a :))
+
+dbFunction :: Function args result => String -> args -> result
+dbFunction = mkFunctionGo . O.FunExpr
+
+nullaryFunction :: DBType a => String -> Expr a
+nullaryFunction name = Expr (O.FunExpr name [])
