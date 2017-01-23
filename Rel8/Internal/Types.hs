@@ -6,7 +6,6 @@
 module Rel8.Internal.Types where
 
 import GHC.TypeLits (Symbol)
-import Data.Tagged (Tagged(..))
 import Rel8.Internal.Aggregate (Aggregate)
 import Rel8.Internal.Expr (Expr)
 
@@ -25,6 +24,10 @@ data Insert a
 --------------------------------------------------------------------------------
 -- | Used internal to reflect the schema of a table from types into values.
 data Schema a
+
+--------------------------------------------------------------------------------
+data SchemaInfo (name :: Symbol) (hasDefault :: HasDefault) t =
+  SchemaInfo String
 
 
 --------------------------------------------------------------------------------
@@ -57,7 +60,7 @@ data Default a
 type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (columnType :: t) :: * where
   C Expr _name _def t = Expr t
   C QueryResult _name _def t = t
-  C Schema name _def _t = Tagged name String
+  C Schema name hasDefault t = SchemaInfo name hasDefault t
   C Insert name 'HasDefault t = Default (Expr t)
   C Insert name 'NoDefault t = Expr t
   C Aggregate name _ t = Aggregate t

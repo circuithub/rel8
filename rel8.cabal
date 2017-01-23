@@ -23,7 +23,6 @@ library
                        Rel8.Text
                        Control.Monad.Rel8
   other-modules:       Rel8.Internal.Aggregate
-                       Rel8.Internal.BaseTable
                        Rel8.Internal.Expr
                        Rel8.Internal.Generic
                        Rel8.Internal.Operators

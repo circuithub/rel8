@@ -15,7 +15,6 @@ import Data.Maybe (fromJust)
 import Database.PostgreSQL.Simple (Connection)
 import qualified Opaleye as O
 import qualified Opaleye.Internal.RunQuery as O
-import Rel8.Internal.BaseTable
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
 import Rel8.Internal.Table

@@ -1,10 +1,13 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | This module defines the 'Table' type class.
@@ -14,19 +17,29 @@ import Control.Applicative (Const(..))
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor.Compose (Compose(..))
+import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum(..))
+import Data.Profunctor (lmap)
 import Data.Proxy (Proxy(..))
-import Data.Tagged (Tagged(..), proxy)
+import Data.Tagged (Tagged(..), proxy, untag)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
+import GHC.Generics
+       (Generic, Rep, from, to)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), createA, gtraverse, AnyType)
+       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.QueryArr as O
+import qualified Opaleye.Internal.Table as O
+import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Internal.Unpackspec as O
+import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
+import Prelude hiding (not, id)
 import Rel8.DBType
+import Rel8.Internal.Aggregate
 import Rel8.Internal.Expr
 import Rel8.Internal.Generic
 import Rel8.Internal.Types
@@ -43,7 +56,11 @@ import Rel8.Internal.Types
 
 class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser :: RowParser haskell
+
+  -- | The amount of columns in this table. Needed by 'MaybeTable' in order
+  -- to parse a series of @null@ values.
   columnCount :: Tagged haskell Int
+
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
 
 
@@ -51,24 +68,13 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 -- Stock instances of 'Table'
 
 -- | Any base table is a 'Table'.
-instance ( ADTRecord (table Expr)
-         , ADTRecord (table QueryResult)
-         , Constraints (table Expr) MapPrimExpr
-         , Constraints (table QueryResult) FromField
-         , Constraints (table QueryResult) DBType
-         ) =>
-         Table (table Expr) (table QueryResult) where
+instance BaseTable table => Table (table Expr) (table QueryResult) where
   columnCount =
-    Tagged
-      (getSum . getConst . head . getCompose $
-       (createA
-          (For :: For AnyType)
-          (Compose [Const (Sum 1)]) :: Compose [] (Const (Sum Int)) (table QueryResult)))
+    Tagged (getSum (getConst (traverseSchema (const (Const (Sum 1))) (tableSchema @table))))
 
-  rowParser =
-    head (getCompose (createA (For :: For FromField) (Compose [field])))
+  rowParser = parseBaseTable
 
-  traversePrimExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+  traversePrimExprs = traverseBaseTableExprs
 
 instance (Table a a', Table b b') =>
          Table (a, b) (a', b') where
@@ -215,3 +221,132 @@ MaybeTable _ row ? f = toNullable (f row)
 --------------------------------------------------------------------------------
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
 unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
+
+
+--------------------------------------------------------------------------------
+-- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
+-- the record type @record@ specifies the columns of that table.
+class (Table (table Expr) (table QueryResult)) => BaseTable table where
+  -- | The name of this table in the database. You can use the 'FromString'
+  -- instance for 'Tagged' to simply write
+  -- @tableName = "employees"@, for example.
+  tableName :: Tagged table String
+
+  -- | Witness the schema of a table at the value level.
+  tableSchema :: table Schema
+
+  -- | Parse query results for this table.
+  parseBaseTable :: RowParser (table QueryResult)
+
+  -- | Traverse over all column names in a schema, converting to 'Expr's that
+  -- would select those columns.
+  traverseSchema
+    :: Applicative f
+    => (forall a. String -> f (Expr a)) -> table Schema -> f (table Expr)
+
+  -- | Traverse over all primitive expressions in a table of expressions.
+  traverseBaseTableExprs
+    :: Applicative f
+    => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
+
+  -- | Traverse over all aggregates in a table of aggregations, converting them
+  -- to the expressions that refer to aggregation results.
+  traverseAggregate
+    :: Applicative f
+    => (forall a. Aggregate a -> f (Expr a)) -> table Aggregate -> f (table Expr)
+
+  insertWriter :: O.Writer (table Insert) a
+
+  updateWriter :: O.Writer (table Expr) a
+
+  ------------------------------------------------------------------------------
+
+  default
+    parseBaseTable :: ( ADTRecord (table QueryResult)
+                      , Constraints (table QueryResult) FromField
+                      )
+                   => RowParser (table QueryResult)
+  parseBaseTable =
+    head (getCompose (createA (For :: For FromField) (Compose [field])))
+
+  default
+    tableSchema
+      :: (ADTRecord (table Schema), Constraints (table Schema) WitnessSchema)
+      => table Schema
+  tableSchema = nullaryOp (For :: For WitnessSchema) schema
+
+  default
+    traverseSchema
+      :: ( GTraverseSchema (Rep (table Schema)) (Rep (table Expr))
+         , Generic (table Schema)
+         , Generic (table Expr)
+         , Applicative f
+         )
+      => (forall a. String -> f (Expr a)) -> table Schema -> f (table Expr)
+  traverseSchema f = fmap to . gtraverseSchema f . from
+
+  default
+    traverseBaseTableExprs
+      :: ( ADTRecord (table Expr)
+         , Constraints (table Expr) MapPrimExpr
+         , Applicative f
+         )
+      => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
+  traverseBaseTableExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+
+  default
+    updateWriter :: ( ADTRecord (table Expr)
+                    , ADTRecord (table Schema)
+                    , Constraints (table Schema) WitnessSchema
+                    , Writer (Rep (table Schema)) (Rep (table Insert))
+                    , Generic (table Insert)
+                    )
+                 => O.Writer (table Insert) a
+  updateWriter =
+    case lmap from (columnWriter (from (tableSchema @table))) of
+      O.Writer f -> O.Writer f
+
+  default
+    insertWriter :: ( ADTRecord (table Expr)
+                    , ADTRecord (table Schema)
+                    , Constraints (table Schema) WitnessSchema
+                    , Writer (Rep (table Schema)) (Rep (table Expr))
+                    )
+                 => O.Writer (table Expr) a
+  insertWriter =
+    case lmap from (columnWriter (from (tableSchema @table))) of
+      O.Writer f -> O.Writer f
+
+--------------------------------------------------------------------------------
+viewTable :: BaseTable table => table Expr
+viewTable =
+  runIdentity
+    (traverseSchema (Identity . Expr . O.BaseTableAttrExpr) tableSchema)
+
+
+--------------------------------------------------------------------------------
+-- | Query all rows in a table
+queryTable :: BaseTable table => O.Query (table Expr)
+queryTable =
+  O.queryTableExplicit
+    (O.ColumnMaker (O.PackMap traversePrimExprs))
+    tableDefinition
+
+--------------------------------------------------------------------------------
+tableDefinition
+  :: forall table.
+     BaseTable table
+  => O.Table (table Insert) (table Expr)
+tableDefinition =
+  O.Table
+    (untag @table tableName)
+    (O.TableProperties insertWriter (O.View viewTable))
+
+tableDefinitionUpdate
+  :: forall table.
+     BaseTable table
+  => O.Table (table Expr) (table Expr)
+tableDefinitionUpdate =
+  O.Table
+    (untag @table tableName)
+    (O.TableProperties updateWriter (O.View viewTable))
