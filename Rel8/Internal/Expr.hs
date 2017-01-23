@@ -12,9 +12,11 @@ module Rel8.Internal.Expr where
 
 import Data.Coerce (Coercible)
 import Data.Proxy (Proxy(..))
+import Data.String (IsString(..))
 import Data.Text
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.PGTypes as O
 import Rel8.Internal.DBType
 
 --------------------------------------------------------------------------------
@@ -23,6 +25,9 @@ import Rel8.Internal.DBType
 newtype Expr t = Expr O.PrimExpr
 
 type role Expr representational
+
+instance (IsString a, DBType a) => IsString (Expr a) where
+  fromString = lit . fromString
 
 -- | It is assumed that any Haskell types that have a 'Num' instance also have
 -- the corresponding operations in the database. Hence, Num a => Num (Expr a).
