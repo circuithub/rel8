@@ -38,13 +38,6 @@ import Rel8.Internal.Types
 class (Table (table Expr) (table QueryResult)) => BaseTable table where
   tableName :: Tagged table String
 
-  -- | Query all rows in a table
-  queryTable :: O.Query (table Expr)
-  queryTable =
-    O.queryTableExplicit
-      (O.ColumnMaker (O.PackMap traversePrimExprs))
-      tableDefinition
-
   tableDefinition :: O.Table (table Insert) (table Expr)
   default
     tableDefinition :: ( ADTRecord (table Expr)
@@ -86,6 +79,15 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
     where
       tableSchema :: table Schema
       tableSchema = nullaryOp (For :: For WitnessSchema) schema
+
+
+--------------------------------------------------------------------------------
+-- | Query all rows in a table
+queryTable :: BaseTable table => O.Query (table Expr)
+queryTable =
+  O.queryTableExplicit
+    (O.ColumnMaker (O.PackMap traversePrimExprs))
+    tableDefinition
 
 
 --------------------------------------------------------------------------------
