@@ -95,8 +95,9 @@ module Rel8
   ) where
 
 import Rel8.DBType
-import Rel8.Internal.Expr
+import Rel8.Internal.Aggregate
 import Rel8.Internal.BaseTable
+import Rel8.Internal.Expr
 import Rel8.Internal.Table
 import Rel8.Internal.Types
 
@@ -112,12 +113,10 @@ import Data.Maybe (fromJust)
 import Data.Profunctor (lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Scientific (Scientific)
-import Data.Tagged (Tagged(..))
 import Data.Text (Text)
 import Data.Time (UTCTime, LocalTime)
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics (Generic)
-import GHC.TypeLits (Symbol)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), gfoldMap)
 import qualified Opaleye.Aggregate as O
@@ -149,18 +148,6 @@ infixr 2 ||.,  &&.
 infixl 7 *.
 
 --------------------------------------------------------------------------------
--- | Indicate whether or not a column has a default value.
-data HasDefault
-  = HasDefault
-  | NoDefault
-
---------------------------------------------------------------------------------
--- | Indicate whether or not a column can take default values.
-data Nullable
-  = Nullable
-  | NotNullable
-
-
 -- | Safely coerce between 'Expr's. This uses GHC's 'Coercible' type class,
 -- where instances are only available if the underlying representations of the
 -- data types are equal. This routine is useful to cast out a newtype wrapper
@@ -172,39 +159,15 @@ data Nullable
 coerceExpr :: Coercible a b => Expr a -> Expr b
 coerceExpr (Expr a) = Expr a
 
+
 --------------------------------------------------------------------------------
 dbShow :: DBType a => Expr a -> Expr Text
 dbShow = unsafeCastExpr "text"
 
 
-
 --------------------------------------------------------------------------------
-
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
 unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
-
-
---------------------------------------------------------------------------------
-{-| All metadata about a column in a table.
-
-    'C' is used to specify information about individual columns in base
-    tables. While it is defined as a record, you construct 'Column's at the
-    type level where record syntax is unfortunately not available.
-
-    === __Example__
-
-    @
-    data Employee f =
-      Employee { employeeName :: C f ('Column "employee_name" 'NoDefault 'NotNullable 'PGText) }
-    @
--}
-type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (columnType :: t) :: * where
-  C Expr _name _def t = Expr t
-  C QueryResult _name _def t = t
-  C Schema name _def _t = Tagged name String
-  C Insert name 'HasDefault t = Default (Expr t)
-  C Insert name 'NoDefault t = Expr t
-  C Aggregate name _ t = Aggregate t
 
 
 --------------------------------------------------------------------------------
@@ -230,14 +193,6 @@ queryRunner =
 
 
 --------------------------------------------------------------------------------
-
--- TODO Template Haskell to generate these
-
--- TODO HList / Cons-list for n-ary
-
-
-
---------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two tables.
 leftJoin
   :: (Table lExpr lHaskell, Table rExpr rHaskell, Predicate bool)
@@ -254,6 +209,8 @@ leftJoin condition l r =
     (liftA2 (,) (pure (lit False)) r)
     (\(a, (_, b)) -> exprToColumn (toNullableBool (condition a b)))
 
+
+--------------------------------------------------------------------------------
 -- TODO Suspicious! See TODO
 inlineLeftJoin
   :: forall a haskell bool.
@@ -277,12 +234,8 @@ inlineLeftJoin q =
            pqR
        , t')
 
+
 --------------------------------------------------------------------------------
-
-
-
-
-
 -- | Show a type as a composite type. This is only valid for records, and
 -- all fields in the record must be an instance of 'DBType'.
 compositeDBType
@@ -351,8 +304,6 @@ instance Booleanish (Expr (Maybe Bool)) where
 
 
 --------------------------------------------------------------------------------
--- | Used to tag 'Expr's that are the result of aggregation
-data Aggregate a = Aggregate (Maybe O.AggrOp) O.PrimExpr O.AggrDistinct
 
 count :: Expr a -> Aggregate Int64
 count (Expr a) = Aggregate (Just O.AggrCount) a O.AggrAll
