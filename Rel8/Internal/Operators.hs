@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Rel8.Internal.Operators where
 
@@ -45,6 +46,7 @@ class DBType a => DBEq a where
 
 instance DBEq Bool where
 instance DBEq Char where
+instance a ~ Char => DBEq [a] where
 instance DBEq Double where
 instance DBEq Float where
 instance DBEq Int16 where
