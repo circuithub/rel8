@@ -118,7 +118,7 @@ instance Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
 -- Stock instances of 'Table'
 
 -- | Any 'BaseTable' is a 'Table'.
-instance BaseTable table => Table (table Expr) (table QueryResult) where
+instance {-# OVERLAPPABLE #-} BaseTable table => Table (table Expr) (table QueryResult) where
   columnCount =
     Tagged (getSum (getConst (traverseSchema (const (Const (Sum 1))) (tableSchema @table))))
 
