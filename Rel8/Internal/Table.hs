@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -13,6 +14,7 @@
 -- | This module defines the 'Table' type class.
 module Rel8.Internal.Table where
 
+import Data.Profunctor.Product ((***!))
 import Control.Applicative (Const(..))
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
@@ -20,7 +22,7 @@ import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum(..))
-import Data.Profunctor (lmap)
+import Data.Profunctor (dimap, lmap)
 import Data.Proxy (Proxy(..))
 import Data.Tagged (Tagged(..), proxy, untag)
 import Database.PostgreSQL.Simple.FromField (FromField)
@@ -39,10 +41,10 @@ import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
 import Prelude hiding (not, id)
 import Rel8.DBType
-import Rel8.Internal.Aggregate
 import Rel8.Internal.Expr
 import Rel8.Internal.Generic
 import Rel8.Internal.Types
+import qualified Opaleye.Internal.Aggregate as O
 
 --------------------------------------------------------------------------------
 
@@ -251,9 +253,7 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
 
   -- | Traverse over all aggregates in a table of aggregations, converting them
   -- to the expressions that refer to aggregation results.
-  traverseAggregate
-    :: Applicative f
-    => (forall a. Aggregate a -> f (Expr a)) -> table Aggregate -> f (table Expr)
+  traverseBaseTableAggregates :: O.Aggregator (table Aggregate) (table Expr)
 
   insertWriter :: O.Writer (table Insert) a
 
@@ -293,6 +293,15 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
          )
       => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
   traverseBaseTableExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+
+  default
+    traverseBaseTableAggregates
+      :: ( GTraverseAggregator (Rep (table Aggregate)) (Rep (table Expr))
+         , Generic (table Expr)
+         , Generic (table Aggregate)
+         )
+      => O.Aggregator (table Aggregate) (table Expr)
+  traverseBaseTableAggregates = dimap from to gaggregator
 
   default
     updateWriter :: ( ADTRecord (table Expr)
@@ -350,3 +359,28 @@ tableDefinitionUpdate =
   O.Table
     (untag @table tableName)
     (O.TableProperties updateWriter (O.View viewTable))
+
+
+--------------------------------------------------------------------------------
+class AggregateTable columns result | columns -> result, result -> columns where
+  traverseAggregates :: O.Aggregator columns result
+
+  default
+    traverseAggregates
+      :: ( GTraverseAggregator (Rep columns) (Rep result)
+         , Generic columns
+         , Generic result
+         )
+      => O.Aggregator columns result
+  traverseAggregates = dimap from to gaggregator
+
+instance AggregateTable (Aggregate a) (Expr a) where
+  traverseAggregates =
+    O.Aggregator (O.PackMap (\f (Aggregate a b) -> fmap Expr (f (a, b))))
+
+instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
+         AggregateTable (a1, a2) (b1, b2) where
+  traverseAggregates = traverseAggregates ***! traverseAggregates
+
+instance BaseTable table => AggregateTable (table Aggregate) (table Expr) where
+  traverseAggregates = traverseBaseTableAggregates

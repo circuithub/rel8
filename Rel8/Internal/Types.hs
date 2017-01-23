@@ -1,13 +1,14 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Rel8.Internal.Types where
 
 import GHC.TypeLits (Symbol)
-import Rel8.Internal.Aggregate (Aggregate)
 import Rel8.Internal.Expr (Expr)
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 --------------------------------------------------------------------------------
 -- | Interpret a 'Table' as Haskell values.
@@ -66,6 +67,11 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
   C Aggregate name _ t = Aggregate t
 
 
+type family Anon (f :: * -> *) (columnType :: t) :: * where
+  Anon Expr t = Expr t
+  Anon QueryResult t = t
+  Anon Aggregate t = Aggregate t
+
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value.
 data HasDefault
@@ -78,3 +84,12 @@ data HasDefault
 data Nullable
   = Nullable
   | NotNullable
+
+
+--------------------------------------------------------------------------------
+-- | Used to tag 'Expr's that are the result of aggregation
+data Aggregate a =
+  Aggregate (Maybe (O.AggrOp, [O.OrderExpr], O.AggrDistinct))
+            O.PrimExpr
+
+type role Aggregate representational

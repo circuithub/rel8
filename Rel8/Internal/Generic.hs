@@ -9,9 +9,6 @@
 
 module Rel8.Internal.Generic where
 
-import Rel8.Internal.Expr
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
-
 import Control.Applicative (liftA2)
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
@@ -19,9 +16,13 @@ import Data.Proxy (Proxy(..))
 import Data.Tagged (Tagged(..))
 import GHC.Generics (K1(..), M1(..), (:*:)(..))
 import GHC.TypeLits (symbolVal, KnownSymbol)
+import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.Table as O
 import Prelude hiding (not, id)
+import Rel8.Internal.Expr
 import Rel8.Internal.Types
 
 --------------------------------------------------------------------------------
@@ -61,6 +62,28 @@ instance (GTraverseSchema fSchema fExpr, GTraverseSchema gSchema gExpr) =>
 
 instance GTraverseSchema (K1 i (Tagged (name, a, def) String)) (K1 i (Expr a)) where
   gtraverseSchema f (K1 (Tagged a)) = K1 <$> f a
+
+
+--------------------------------------------------------------------------------
+class GTraverseAggregator aggregator expr | aggregator -> expr where
+  gaggregator
+    :: O.Aggregator (aggregator x) (expr y)
+
+instance (GTraverseAggregator aggregator expr) =>
+         GTraverseAggregator (M1 i c aggregator) (M1 i c expr) where
+  gaggregator = dimap (\(M1 a) -> a) M1 gaggregator
+
+instance ( GTraverseAggregator fAggregator fExpr
+         , GTraverseAggregator gAggregator gExpr
+         ) =>
+         GTraverseAggregator (fAggregator :*: gAggregator) (fExpr :*: gExpr) where
+  gaggregator =
+    dimap (\(a :*: b) -> (a, b)) (uncurry (:*:)) (gaggregator ***! gaggregator)
+
+instance GTraverseAggregator (K1 i (Aggregate a)) (K1 i (Expr a)) where
+  gaggregator =
+    O.Aggregator
+      (O.PackMap (\f (K1 (Aggregate a b)) -> fmap (K1 . Expr) (f (a, b))))
 
 
 --------------------------------------------------------------------------------
