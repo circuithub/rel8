@@ -1,3 +1,4 @@
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -64,27 +65,34 @@ instance GTraverseSchema (K1 i (Tagged (name, a, def) String)) (K1 i (Expr a)) w
 
 --------------------------------------------------------------------------------
 -- | Form 'O.Writer's from a schema specification
-class Writer schema expr | schema -> expr where
-  columnWriter :: schema a -> O.Writer (expr a) ()
+class Writer (f :: * -> *) schema expr | f schema -> expr where
+  columnWriter :: proxy f -> schema a -> O.Writer (expr a) ()
 
-instance (Writer schema expr) =>
-         Writer (M1 i c schema) (M1 i c expr) where
-  columnWriter (M1 s) = lmap (\(M1 a) -> a) (columnWriter s)
+instance (Writer f schema expr) =>
+         Writer f (M1 i c schema) (M1 i c expr) where
+  columnWriter p (M1 s) = lmap (\(M1 a) -> a) (columnWriter p s)
 
-instance (Writer fSchema fExpr, Writer gSchema gExpr) =>
-         Writer (fSchema :*: gSchema) (fExpr :*: gExpr) where
-  columnWriter (l :*: r) =
-    dimap (\(l' :*: r') -> (l', r')) fst (columnWriter l ***! columnWriter r)
+instance (Writer f fSchema fExpr, Writer f gSchema gExpr) =>
+         Writer f (fSchema :*: gSchema) (fExpr :*: gExpr) where
+  columnWriter p (l :*: r) =
+    dimap (\(l' :*: r') -> (l', r')) fst (columnWriter p l ***! columnWriter p r)
 
-instance Writer (K1 i (SchemaInfo name 'NoDefault a)) (K1 i (Expr a)) where
-  columnWriter (K1 (SchemaInfo name)) =
+instance Writer Expr (K1 i (SchemaInfo name d a)) (K1 i (Expr a)) where
+  columnWriter _ (K1 (SchemaInfo name)) =
     dimap
       (\(K1 expr) -> exprToColumn expr)
       (const ())
       (O.required name)
 
-instance Writer (K1 i (SchemaInfo name 'HasDefault a)) (K1 i (Default (Expr a))) where
-  columnWriter (K1 (SchemaInfo name)) =
+instance Writer Insert (K1 i (SchemaInfo name 'NoDefault a)) (K1 i (Expr a)) where
+  columnWriter _ (K1 (SchemaInfo name)) =
+    dimap
+      (\(K1 expr) -> exprToColumn expr)
+      (const ())
+      (O.required name)
+
+instance Writer Insert (K1 i (SchemaInfo name 'HasDefault a)) (K1 i (Default (Expr a))) where
+  columnWriter _ (K1 (SchemaInfo name)) =
     dimap
       (\(K1 def) ->
          case def of

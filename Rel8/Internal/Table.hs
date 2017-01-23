@@ -328,23 +328,24 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
     updateWriter :: ( ADTRecord (table Expr)
                     , ADTRecord (table Schema)
                     , Constraints (table Schema) WitnessSchema
-                    , Writer (Rep (table Schema)) (Rep (table Insert))
-                    , Generic (table Insert)
+                    , Writer Expr (Rep (table Schema)) (Rep (table Expr))
+                    , Generic (table Expr)
                     )
-                 => O.Writer (table Insert) a
+                 => O.Writer (table Expr) a
   updateWriter =
-    case lmap from (columnWriter (from (tableSchema @table))) of
+    case lmap from (columnWriter (Proxy @Expr) (from (tableSchema @table))) of
       O.Writer f -> O.Writer f
 
   default
     insertWriter :: ( ADTRecord (table Expr)
                     , ADTRecord (table Schema)
                     , Constraints (table Schema) WitnessSchema
-                    , Writer (Rep (table Schema)) (Rep (table Expr))
+                    , Writer Insert (Rep (table Schema)) (Rep (table Insert))
+                    , Generic (table Insert)
                     )
-                 => O.Writer (table Expr) a
+                 => O.Writer (table Insert) a
   insertWriter =
-    case lmap from (columnWriter (from (tableSchema @table))) of
+    case lmap from (columnWriter (Proxy @Insert) (from (tableSchema @table))) of
       O.Writer f -> O.Writer f
 
 --------------------------------------------------------------------------------
