@@ -6,7 +6,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -41,11 +40,11 @@ data StatementSyntax :: * -> * where
             BaseTable name table =>
             [table Insert] -> (Int64 -> k) -> StatementSyntax k
         Update ::
-            (BaseTable name table, Predicate bool) =>
+            (BaseTable name table, DBBool bool) =>
             (table Expr -> Expr bool) ->
             (table Expr -> table Expr) -> (Int64 -> k) -> StatementSyntax k
         Delete ::
-            (BaseTable name table, Predicate bool) =>
+            (BaseTable name table, DBBool bool) =>
             (table Expr -> Expr bool) -> (Int64 -> k) -> StatementSyntax k
 
 deriving instance Functor StatementSyntax
@@ -81,7 +80,7 @@ update
   -> m Int64
 update f up = liftStatements (liftF (Update f up id))
 
-delete :: (MonadStatement m, BaseTable name table, Predicate bool)
+delete :: (MonadStatement m, BaseTable name table, DBBool bool)
        => (table Expr -> Expr bool)
        -> m Int64
 delete f = liftStatements (liftF (Delete f id))

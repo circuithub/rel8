@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Rel8
                        Rel8.DBType
+                       Rel8.IO
                        Rel8.Internal.BaseTable
                        Rel8.Internal.Expr
                        Rel8.Internal.Operators

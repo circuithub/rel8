@@ -43,7 +43,7 @@ module Rel8
   , DBNum(..)
 
     -- ** Boolean-valued expressions
-  , (&&.), (||.), not
+  , DBBool(..)
 
     -- ** Literals
   , DBType(..), lit, dbNow
@@ -95,21 +95,19 @@ module Rel8
   ) where
 
 import Rel8.DBType
-import Rel8.Internal.Operators
+import Rel8.IO
 import Rel8.Internal.Aggregate
 import Rel8.Internal.BaseTable
 import Rel8.Internal.Expr
+import Rel8.Internal.Operators
+import Rel8.Internal.Order
 import Rel8.Internal.Table
 import Rel8.Internal.Types
-import Rel8.Internal.Order
 
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)
-import Control.Monad (void)
-import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
-import Data.Maybe (fromJust)
 import Data.Profunctor (lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Scientific (Scientific)
@@ -127,44 +125,13 @@ import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
-import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
 import Opaleye.Label (label)
-import qualified Opaleye.Manipulation as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
-import qualified Opaleye.RunQuery as O
 import Prelude hiding (not, (.), id)
 import Streaming (Of, Stream)
-import Streaming.Prelude (each)
-import qualified Streaming.Prelude as S
-
---------------------------------------------------------------------------------
-unpackColumns :: Table expr haskell => O.Unpackspec expr expr
-unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
-
-
---------------------------------------------------------------------------------
--- | Given a database query, execute this query and return a 'Stream' of
--- results.
-select
-  :: (MonadIO m, Table rows results)
-  => Connection -> O.Query rows -> Stream (Of results) m ()
-select connection query = do
-  results <-
-    liftIO $
-    O.runQueryExplicit
-      queryRunner
-      connection
-      query
-  each results
-
-queryRunner :: Table a b => O.QueryRunner a b
-queryRunner =
-  O.QueryRunner (void unpackColumns)
-                (const rowParser)
-                (\_columns -> True) -- TODO Will we support 0-column queries?
 
 
 --------------------------------------------------------------------------------
@@ -340,66 +307,6 @@ distinct =
     (O.Distinctspec
        (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
 
---------------------------------------------------------------------------------
-insert
-  :: (BaseTable tableName table, MonadIO m)
-  => Connection -> [table Insert] -> m Int64
-insert conn rows =
-  liftIO (O.runInsertMany conn tableDefinition rows)
-
-insertReturning
-  :: (BaseTable tableName table, MonadIO m)
-  => Connection -> [table Insert] -> Stream (Of (table QueryResult)) m ()
-insertReturning conn rows =
-  do results <-
-       liftIO (O.runInsertManyReturningExplicit queryRunner conn tableDefinition rows id)
-     each results
-
-insert1Returning
-  :: (BaseTable tableName table,MonadIO m)
-  => Connection -> table Insert -> m (table QueryResult)
-insert1Returning c = fmap fromJust . S.head_ . insertReturning c . pure
-
-update
-  :: (BaseTable tableName table, Predicate bool, MonadIO m)
-  => Connection
-  -> (table Expr -> Expr bool)
-  -> (table Expr -> table Expr)
-  -> m Int64
-update conn f up =
-  liftIO $
-  O.runUpdate
-    conn
-    tableDefinitionUpdate
-    up
-    (exprToColumn . toNullableBool . f)
-
-updateReturning
-  :: (BaseTable tableName table, Predicate bool, MonadIO m)
-  => Connection
-  -> (table Expr -> Expr bool)
-  -> (table Expr -> table Expr)
-  -> Stream (Of (table QueryResult)) m ()
-updateReturning conn f up = do
-  r <-
-    liftIO $
-    O.runUpdateReturningExplicit
-      queryRunner
-      conn
-      tableDefinitionUpdate
-      up
-      (exprToColumn . toNullableBool . f)
-      id
-  each r
-
--- | Given a 'BaseTable' and a predicate, @DELETE@ all rows that match.
-delete
-  :: (BaseTable name table, Predicate bool)
-  => Connection
-  -> (table Expr -> Expr bool)
-  -> IO Int64
-delete conn f =
-  O.runDelete conn tableDefinition (exprToColumn . toNullableBool . f)
 
 where_ :: Predicate bool => O.QueryArr (Expr bool) ()
 where_ = lmap (exprToColumn . toNullableBool) O.restrict

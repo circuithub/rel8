@@ -25,6 +25,8 @@ import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, AnyType)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.Unpackspec as O
 import Prelude hiding (not, (.), id)
 import Rel8.DBType
 import Rel8.Internal.Expr
@@ -228,3 +230,8 @@ class MapPrimExpr s where
 
 instance MapPrimExpr (Expr column) where
   mapPrimExpr f (Expr a) = fmap Expr (f a)
+
+
+--------------------------------------------------------------------------------
+unpackColumns :: Table expr haskell => O.Unpackspec expr expr
+unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
