@@ -14,7 +14,6 @@ import Control.Applicative (liftA2)
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
-import Data.Tagged (Tagged(..))
 import GHC.Generics (K1(..), M1(..), (:*:)(..))
 import GHC.TypeLits (symbolVal, KnownSymbol)
 import qualified Opaleye.Internal.Column as O
@@ -40,8 +39,8 @@ class WitnessSchema a where
   schema :: a
 
 instance KnownSymbol name =>
-         WitnessSchema (Tagged name String) where
-  schema = Tagged (symbolVal (Proxy @name))
+         WitnessSchema (SchemaInfo name def t) where
+  schema = SchemaInfo (symbolVal (Proxy @name))
 
 
 --------------------------------------------------------------------------------
