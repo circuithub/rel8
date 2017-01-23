@@ -17,6 +17,10 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Rel8
+                       Rel8.DBType
+                       Rel8.Internal.Expr
+                       Rel8.Internal.Table
+                       Rel8.Internal.Types
                        Rel8.Text
                        Control.Monad.Rel8
   -- other-modules:       

@@ -94,46 +94,33 @@ module Rel8
   , dbBinOp
   ) where
 
-import Control.Applicative (Const(..), liftA2)
+import Rel8.DBType
+import Rel8.Internal.Expr
+import Rel8.Internal.Table
+import Rel8.Internal.Types
+
+import Control.Applicative (liftA2)
 import Control.Arrow (first)
 import Control.Category ((.), id)
-import Control.Monad (replicateM_)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Data.Aeson (ToJSON, FromJSON, Value)
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as LazyByteString
 import Data.Coerce (Coercible)
-import Data.Foldable (toList)
-import Data.Functor.Compose (Compose(..))
-import Data.Functor.Contravariant (Contravariant(..))
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
-import Data.Maybe (fromMaybe)
-import Data.Monoid (Sum(..))
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
-import Data.Tagged (Tagged(..), proxy)
-import Data.Text (Text, pack)
-import qualified Data.Text.Lazy as LazyText
-import Data.Text.Lazy.Builder (toLazyText)
-import Data.Text.Lazy.Builder.Scientific (scientificBuilder)
-import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
-import Data.Typeable (Typeable)
-import Data.UUID (UUID)
-import Data.Vector (Vector)
+import Data.Tagged (Tagged(..))
+import Data.Text (Text)
+import Data.Time (UTCTime, LocalTime)
 import Database.PostgreSQL.Simple (Connection)
-import Database.PostgreSQL.Simple.FromField (FromField)
-import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp,
-        gfoldMap, AnyType)
+       (ADTRecord, Constraints, For(..), nullaryOp, gfoldMap)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -154,7 +141,6 @@ import Opaleye.Label (label)
 import qualified Opaleye.Manipulation as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
-import qualified Opaleye.PGTypes as O
 import qualified Opaleye.RunQuery as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not, (.), id)
@@ -178,9 +164,6 @@ data Nullable
   = Nullable
   | NotNullable
 
---------------------------------------------------------------------------------
--- | Database-side PostgreSQL expressions of a given type.
-newtype Expr (t :: *) = Expr O.PrimExpr
 
 -- | Safely coerce between 'Expr's. This uses GHC's 'Coercible' type class,
 -- where instances are only available if the underlying representations of the
@@ -257,12 +240,6 @@ instance KnownSymbol name =>
 
 data Schema a
 
---------------------------------------------------------------------------------
-class MapPrimExpr s where
-  mapPrimExpr :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> s -> f s
-
-instance MapPrimExpr (Expr column) where
-  mapPrimExpr f (Expr a) = fmap Expr (f a)
 
 --------------------------------------------------------------------------------
 -- TODO Unsure if we want to assume this type of table
@@ -321,49 +298,10 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
       tableSchema = nullaryOp (For :: For WitnessSchema) schema
 
 --------------------------------------------------------------------------------
--- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
--- 'Expr' columns, and when this table is queried using 'select' it returns
--- the type @haskell@.
---
--- 'Table's are not necessarily concrete tables within a database. For example,
--- the join of two 'Table's (as witness by tuple construction) is itself a
--- 'Table'.
-class Table expr haskell | expr -> haskell, haskell -> expr where
-  rowParser :: RowParser haskell
-  columnCount :: Tagged haskell Int
-  traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
-
-  default columnCount :: ADTRecord haskell => Tagged haskell Int
-  columnCount =
-    Tagged
-      (getSum . getConst . head . getCompose $
-       (createA (For :: For AnyType) (Compose [Const (Sum 1)])
-         :: Compose [] (Const (Sum Int)) haskell))
-
-  default rowParser :: ( ADTRecord haskell
-                       , Constraints haskell FromField
-                       , Constraints haskell DBType
-                       ) =>
-    RowParser haskell
-  rowParser = head (getCompose (createA (For :: For FromField) (Compose [field])))
-
-  default traversePrimExprs :: ( Constraints expr MapPrimExpr
-                               , ADTRecord expr
-                               , Applicative f
-                               )
-                            => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
-  traversePrimExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
 
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
 unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 
-instance {-# OVERLAPPABLE #-}
-         ( ADTRecord (table Expr)
-         , ADTRecord (table QueryResult)
-         , Constraints (table Expr) MapPrimExpr
-         , Constraints (table QueryResult) FromField
-         , Constraints (table QueryResult) DBType
-         ) => Table (table Expr) (table QueryResult)
 
 --------------------------------------------------------------------------------
 {-| All metadata about a column in a table.
@@ -391,9 +329,6 @@ data Default a
   = OverrideDefault a
   | InsertDefault
 
---------------------------------------------------------------------------------
--- | Interpret a 'Table' as Haskell values.
-data QueryResult column
 
 --------------------------------------------------------------------------------
 -- | Given a database query, execute this query and return a 'Stream' of
@@ -423,104 +358,7 @@ queryRunner =
 
 -- TODO HList / Cons-list for n-ary
 
-instance (Table a a', Table b b') =>
-         Table (a, b) (a', b') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
 
-  traversePrimExprs f (a, b) =
-    (,) <$> traversePrimExprs f a
-        <*> traversePrimExprs f b
-
-  rowParser =
-    (,) <$> rowParser
-        <*> rowParser
-
-instance (Table a a', Table b b', Table c c') =>
-         Table (a, b, c) (a', b', c') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
-
-  traversePrimExprs f (a, b, c) =
-    (,,) <$> traversePrimExprs f a
-         <*> traversePrimExprs f b
-         <*> traversePrimExprs f c
-
-  rowParser =
-    (,,) <$> rowParser
-         <*> rowParser
-         <*> rowParser
-
-instance (Table a a', Table b b', Table c c', Table d d') =>
-         Table (a, b, c, d) (a', b', c', d') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
-    + proxy columnCount (Proxy @d')
-
-  traversePrimExprs f (a, b, c, d) =
-    (,,,) <$> traversePrimExprs f a
-          <*> traversePrimExprs f b
-          <*> traversePrimExprs f c
-          <*> traversePrimExprs f d
-
-  rowParser =
-    (,,,) <$> rowParser
-          <*> rowParser
-          <*> rowParser
-          <*> rowParser
-
-instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
-         Table (a, b, c, d, e) (a', b', c', d', e') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
-    + proxy columnCount (Proxy @d')
-    + proxy columnCount (Proxy @e')
-
-  traversePrimExprs f (a, b, c, d, e) =
-    (,,,,) <$> traversePrimExprs f a
-           <*> traversePrimExprs f b
-           <*> traversePrimExprs f c
-           <*> traversePrimExprs f d
-           <*> traversePrimExprs f e
-
-  rowParser =
-    (,,,,) <$> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
-
---------------------------------------------------------------------------------
--- | Indicates that a given 'Table' might be @null@. This is the result of a
--- @LEFT JOIN@ between tables.
-data MaybeTable row = MaybeTable (Expr Bool) row
-  deriving (Functor)
-
-instance (Table expr haskell) =>
-         Table (MaybeTable expr) (Maybe haskell) where
-  columnCount = Tagged
-    $ 1 + proxy columnCount (Proxy @haskell)
-
-  traversePrimExprs f (MaybeTable (Expr tag) row) =
-    MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
-
-  rowParser = do
-    isNull' <- field
-    if fromMaybe True isNull'
-      then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
-      else fmap Just rowParser
-
--- | Project an expression out of a 'MaybeTable', preserving the fact that this
--- column might be @null@.
-(?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
-MaybeTable _ row ? f = toNullable (f row)
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two tables.
@@ -563,38 +401,10 @@ inlineLeftJoin q =
        , t')
 
 --------------------------------------------------------------------------------
-data TypeInfo a = TypeInfo
-  { formatLit :: a -> O.PrimExpr
-  , dbTypeName :: String
-  }
 
-instance Contravariant TypeInfo where
-  contramap f info = info { formatLit = formatLit info . f }
 
--- | The class of Haskell values that can be mapped to database types.
--- The @name@ argument specifies the name of the type in the database
--- schema.
---
--- By default, if @a@ has a 'Show' instance, we define 'dbTypeInfo' to use
--- 'showableDbType'.
-class FromField a => DBType a where
-  dbTypeInfo :: TypeInfo a
 
-  default dbTypeInfo :: Show a => TypeInfo a
-  dbTypeInfo = showableDbType
 
-typeInfoFromOpaleye
-  :: forall a b.
-     O.IsSqlType b
-  => (a -> O.Column b) -> TypeInfo a
-typeInfoFromOpaleye f =
-  TypeInfo {formatLit = O.unColumn . f, dbTypeName = O.showPGType (Proxy @b)}
-
--- | Construct 'TypeInfo' for values that are stored in the database with
--- 'show'. It is assumed that the underlying field type is @text@ (though
--- you can change this by pattern matching on the resulting 'TypeInfo').
-showableDbType :: (Show a) => TypeInfo a
-showableDbType = contramap show dbTypeInfo
 
 -- | Show a type as a composite type. This is only valid for records, and
 -- all fields in the record must be an instance of 'DBType'.
@@ -616,155 +426,8 @@ compositeDBType n =
 lit :: DBType a => a -> Expr a
 lit = Expr . formatLit dbTypeInfo
 
-instance DBType Bool where
-  dbTypeInfo = typeInfoFromOpaleye O.pgBool
-
-instance DBType Char where
-  dbTypeInfo = (typeInfoFromOpaleye (O.pgString . pure)) {dbTypeName = "char"}
-
-instance DBType Int16 where
-  dbTypeInfo =
-    (typeInfoFromOpaleye (O.pgInt4 . fromIntegral)) {dbTypeName = "int2"}
-
-instance DBType Int32 where
-  dbTypeInfo = typeInfoFromOpaleye (O.pgInt4 . fromIntegral)
-
-instance DBType Int64 where
-  dbTypeInfo = typeInfoFromOpaleye O.pgInt8
-
-instance DBType Double where
-  dbTypeInfo = typeInfoFromOpaleye O.pgDouble
-
-instance DBType Float where
-  dbTypeInfo =
-    (typeInfoFromOpaleye (O.pgDouble . realToFrac)) {dbTypeName = "real"}
-
-instance DBType a =>
-         DBType (Maybe a) where
-  dbTypeInfo =
-    TypeInfo
-    { formatLit = maybe (O.ConstExpr O.NullLit) (formatLit dbTypeInfo)
-    , dbTypeName = dbTypeName (dbTypeInfo @a)
-    }
-
-instance DBType Text where
-  dbTypeInfo = typeInfoFromOpaleye O.pgStrictText
-
-instance DBType String where
-  dbTypeInfo = contramap pack dbTypeInfo
-
-instance DBType ByteString where
-  dbTypeInfo = typeInfoFromOpaleye O.pgStrictByteString
-
-instance DBType UTCTime where
-  dbTypeInfo = typeInfoFromOpaleye O.pgUTCTime
-
-instance DBType LazyText.Text where
-  dbTypeInfo = typeInfoFromOpaleye O.pgLazyText
-
-instance DBType LazyByteString.ByteString where
-  dbTypeInfo = typeInfoFromOpaleye O.pgLazyByteString
-
-instance DBType UUID where
-  dbTypeInfo = typeInfoFromOpaleye O.pgUUID
-
-instance DBType Day where
-  dbTypeInfo = typeInfoFromOpaleye O.pgDay
-
-instance DBType TimeOfDay where
-  dbTypeInfo = typeInfoFromOpaleye O.pgTimeOfDay
-
-instance DBType LocalTime where
-  dbTypeInfo = typeInfoFromOpaleye O.pgLocalTime
-
-instance DBType Scientific where
-  dbTypeInfo =
-    TypeInfo
-    { formatLit = formatLit dbTypeInfo . toLazyText . scientificBuilder
-    , dbTypeName = "numeric"
-    }
-
-instance DBType Value where
-  dbTypeInfo = typeInfoFromOpaleye O.pgValueJSON
-
-instance (DBType a, Typeable a) =>
-         DBType (Vector a) where
-  dbTypeInfo =
-    TypeInfo
-    { formatLit =
-        \xs ->
-          O.unColumn
-            (O.unsafeCast
-               typeName
-               (O.Column (O.ArrayExpr (map (formatLit elemInfo) (toList xs)))))
-    , dbTypeName = typeName
-    }
-    where
-      typeName = dbTypeName elemInfo ++ "[]"
-      elemInfo = dbTypeInfo @a
-
-
-columnToExpr :: O.Column a -> Expr b
-columnToExpr (O.Column a) = Expr a
 
 --------------------------------------------------------------------------------
-{- | A one column 'Table' of type @a@. This type is required for queries that
-   return only one column (for reasons of preserving type inference). It can
-   also be used to build "anonymous" tables, by joining multiple tables with
-   tupling.
-
-   === Example: Querying a single column
-
-   @
-   data TestTable f = TestTable { col :: Col f "col" 'NoDefault Int}
-
-   oneCol :: Stream (Of (Col Int))
-   oneCol = select connection $ testColumn <$> queryTable
-   @
-
-   === Example: Building tables out of single columns
-
-   @
-   data T1 f = TestTable { col1 :: Col f "col" 'NoDefault Int}
-   data T2 f = TestTable { col2 :: Col f "col" 'NoDefault Bool}
-
-   q :: Stream (Of (Col Int, Col Bool))
-   q = select connection $ proc () -> do
-     t1 <- queryTable -< ()
-     t2 <- queryTable -< ()
-     returnA -< (col1 t1, col2 t2)
-   @
--}
-newtype Col a = Col { unCol :: a }
-  deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
-
-instance (DBType a) =>
-         Table (Expr a) (Col a) where
-  columnCount = Tagged 1
-  traversePrimExprs f (Expr a) = Expr <$> f a
-  rowParser = fmap Col field
-
---------------------------------------------------------------------------------
--- | Lift an 'Expr' to be nullable. Like the 'Just' constructor.
---
--- If an Expr is already nullable, then this acts like the identity function.
--- This is useful as it allows projecting an already-nullable column from a left
--- join.
-class ToNullable a maybeA | a -> maybeA where
-  toNullable :: Expr a -> Expr maybeA
-
-instance ToNullableHelper a maybeA (IsMaybe a) => ToNullable a maybeA where
-  toNullable = toNullableHelper (Proxy :: Proxy (IsMaybe a))
-
-class ToNullableHelper a maybeA join | join a -> maybeA where
-  toNullableHelper :: proxy join -> Expr a -> Expr maybeA
-
-instance ToNullableHelper a (Maybe a) 'False where
-  toNullableHelper _ = unsafeCoerceExpr @(Maybe a)
-
-instance ToNullableHelper (Maybe a) (Maybe a) 'True where
-  toNullableHelper _ = id
-
 class Predicate a where
   toNullableBool :: Expr a -> Expr (Maybe Bool)
 
@@ -773,11 +436,6 @@ instance Predicate Bool where
 
 instance Predicate (Maybe Bool) where
   toNullableBool = id
-
---------------------------------------------------------------------------------
-type family IsMaybe (a :: *) :: Bool where
-  IsMaybe (Maybe a) = 'True
-  IsMaybe _ = 'False
 
 --------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
@@ -814,19 +472,6 @@ instance Booleanish (Expr (Maybe Bool)) where
   a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
   a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
 
--- | (Unsafely) coerce the phantom type given to 'Expr'. This operation is
--- not witnessed by the database at all, so use with care! For example,
--- @unsafeCoerceExpr :: Expr Int -> Expr Text@ /will/ end up with an exception
--- when you finally try and run a query!
-unsafeCoerceExpr :: forall b a. Expr a -> Expr b
-unsafeCoerceExpr (Expr a) = Expr a
-
--- | Use a cast operation in the database layer to convert between Expr types.
--- This is unsafe as it is possible to introduce casts that cannot be performed
--- by PostgreSQL. For example,
--- @unsafeCastExpr "timestamptz" :: Expr Bool -> Expr UTCTime@ makes no sense.
-unsafeCastExpr :: forall b a. String -> Expr a -> Expr b
-unsafeCastExpr t = columnToExpr . O.unsafeCast t . exprToColumn
 
 --------------------------------------------------------------------------------
 -- | Used to tag 'Expr's that are the result of aggregation
@@ -1147,8 +792,6 @@ instance DBNum Int16 where
 instance DBNum Int32 where
 instance DBNum Int64 where
 
-exprToColumn :: Expr a -> O.Column b
-exprToColumn (Expr a) = O.Column a
 
 {- $intro
 
