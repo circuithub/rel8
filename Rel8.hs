@@ -43,7 +43,7 @@ module Rel8
     -- * Aggregation
   , aggregate
   , AggregateTable
-  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
+  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), DBAvg(..)
   , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
   , countRows, Aggregate
 
@@ -88,6 +88,10 @@ module Rel8
 
     -- ** @DELETE@
   , delete
+
+
+    -- * TODO Organise
+  , QueryResult, Schema, Anon
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
@@ -238,13 +242,12 @@ dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
 
 
-
 {- $intro
 
    Welcome to @rel8@!
 
-   @rel8@ is a library that builds open the fantastic @opaleye@ to query
-   databases. The main objectives of @rel8@ are:
+   @rel8@ is a library that builds open the fantastic @opaleye@ library to
+   query databases, providing a different API. The main objectives of @rel8@ are:
 
    * /Conciseness/: Users using @rel8@ should not need to write boiler-plate
      code. By using expressive types, we can provide sufficient information
@@ -259,9 +262,8 @@ dbNow = nullaryFunction "now"
    === Required language extensions and imports
 
    @
-   { -# LANGUAGE
-         Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
-         MultiParamTypeClasses #- }
+   { -# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
+                 OverloadedStrings #- }
 
    import Control.Applicative
    import Control.Arrow
@@ -292,39 +294,77 @@ dbNow = nullaryFunction "now"
    @
    data Part f =
      Part { partId     :: 'C' f \"PID\" ''HasDefault' Int
-          , partName   :: 'C' f \"PName\" ''NoDefault' Text
+          , partName   :: 'C' f \"PName\" ''NoDefault' String
           , partColor  :: 'C' f \"Color\" ''NoDefault' Int
           , partWeight :: 'C' f \"Weight\" ''NoDefault' Double
-          , partCity   :: 'C' f \"City\" ''NoDefault' Text
+          , partCity   :: 'C' f \"City\" ''NoDefault' String
           } deriving (Generic)
 
-   instance 'BaseTable' "part" Part
+   instance 'BaseTable' Part where 'tableName' = \"part\"
    @
 
-   The @Part@ table has 5 columns, each defined with the @C f ('Column ...)@
+   The @Part@ table has 5 columns, each defined with the @C f ..@
    pattern. For each column, we are specifying:
 
    1. The column name
    2. Whether or not this column has a default value when inserting new rows.
       In this case @partId@ does, as this is an auto-incremented primary key
       managed by the database.
-   3. Whether or not the column can take @null@ values.
-   4. The type of the column.
+   3. The type of the column.
 
    After defining the table, we finally need to make an instance of 'BaseTable'
    so @rel8@ can query this table. By using @deriving (Generic)@, we simply need
-   to write @instance BaseTable "part" Part@. The string @"part"@ here is the
-   name of the table in the database (which could differ from the name of the
-   type @Part@).
+   to write @instance BaseTable Part where tableName = "part"@.
 
    === Querying tables
 
-   With tables defined, we are now ready to write some queries. All base
+   With tables defined, we are now ready to write some queries. All 'BaseTable's
+   give rise to a query - the query of all rows in that table:
+
+   @
+   allParts :: 'O.Query' (Part 'Expr')
+   allParts = queryTable
+   @
+
+   Notice the type of @allParts@ specifies that we're working with @Part Expr@.
+   This means that the contents of the @Part@ record will contain expressions -
+   one for each column in the table. As 'O.Query' is a 'Functor', we can derive
+   a new query for all part cities in the database:
+
+   @
+   allPartCities :: Query (Expr String)
+   allPartCities = partCity \<$\> allParts
+   @
+
+   Now we have a query containing just one column - expressions of type 'String'.
+
+   === @WHERE@ clauses
+
+   Usually when we are querying database, we are querying for subsets of
+   information. In SQL, we apply predicates using @WHERE@ - and @rel8@ supports
+   this too, in two forms.
+
+   Firstly, we can use 'filterQuery', similar to how we would use 'filter':
+
+   @
+   londonParts :: 'Query' (Part 'Expr')
+   londonParts = 'filterQuery' (\\p -> partCity p '==.' \"London\") allParts
+   @
+
+   'filterQuery' takes a function from rows in a query to a predicate. In this
+   case we can use '==.' to compare to expressions for equality. On the left,
+   @partCity p :: Expr String@, and on the right @"London" :: Expr String@ (
+   the literal string @London@).
+
+   Alternatively, we can use 'where_' with arrow notation, which is similar to
+   using 'guard' with 'MonadPlus':
+
+   @
+   heavyParts :: 'Query' (Part 'Expr')
+   heavyParts = proc _ -> do
+     part <- queryTable -< ()
+     where_ -\< partWeight part >. 5
+     returnA -< part
+   @
 
 -}
-
--- TODO
--- Query a single Expr (Maybe a) gives a conflicting fundep error
-
--- TODO
--- litTable :: Table expr haskell => haskell -> expr
