@@ -49,7 +49,7 @@ module Rel8
 
     -- * Tables
   , Table
-  , MaybeTable
+  , MaybeTable, tableIsNull
   , Col(..)
 
     -- * Expressions
@@ -148,7 +148,7 @@ leftJoin condition l r =
     (unpackColumns ***! unpackColumns)
     (O.NullMaker (\(tag, t) -> MaybeTable tag t))
     l
-    (liftA2 (,) (pure (lit False)) r)
+    (liftA2 (,) (pure (lit (Just False))) r)
     (\(a, (_, b)) -> exprToColumn (toNullable (condition a b)))
 
 
@@ -172,7 +172,7 @@ inlineLeftJoinA
   => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
 inlineLeftJoinA q =
   O.QueryArr $ \(p, left, t) ->
-    let O.QueryArr rightQueryF = liftA2 (,) (pure (lit False)) q
+    let O.QueryArr rightQueryF = liftA2 (,) (pure (lit (Just False))) q
         (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
         ((tag, renamed), ljPEsB) =
           O.run
@@ -222,17 +222,6 @@ ilike :: Expr Text -> Expr Text -> Expr Bool
 a `ilike` b =
   columnToExpr (O.binOp (O.OpOther "ILIKE") (exprToColumn a) (exprToColumn b))
 
---------------------------------------------------------------------------------
--- | Eliminate 'PGNull' from the type of an 'Expr'. Like 'maybe' for Haskell
--- values.
-nullable
-  :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-nullable a f b =
-  columnToExpr
-    (O.matchNullable
-       (exprToColumn a)
-       (exprToColumn . f . columnToExpr)
-       (exprToColumn b))
 
 dbBinOp :: String -> Expr a -> Expr b -> Expr c
 dbBinOp op a b =

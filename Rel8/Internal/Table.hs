@@ -14,7 +14,6 @@
 -- | This module defines the 'Table' type class.
 module Rel8.Internal.Table where
 
-import Data.Profunctor.Product ((***!))
 import Control.Applicative (Const(..), liftA2)
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
@@ -23,6 +22,7 @@ import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum(..))
 import Data.Profunctor (dimap, lmap)
+import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
 import Data.Tagged (Tagged(..), proxy, untag, retag)
 import Database.PostgreSQL.Simple.FromField (FromField)
@@ -31,6 +31,8 @@ import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, from, to)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
+import qualified Opaleye.Column as O
+import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
@@ -44,7 +46,6 @@ import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Generic
 import Rel8.Internal.Types
-import qualified Opaleye.Internal.Aggregate as O
 
 --------------------------------------------------------------------------------
 
@@ -204,7 +205,7 @@ instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
 --------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
-data MaybeTable row = MaybeTable (Expr Bool) row
+data MaybeTable row = MaybeTable (Expr (Maybe Bool)) row
   deriving (Functor)
 
 -- | The result of a left/right join is a table, but the table may be entirely
@@ -222,6 +223,26 @@ instance (Table expr haskell) =>
     if fromMaybe True isNull'
       then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
       else fmap Just rowParser
+
+-- | Project an expression out of a 'MaybeTable', preserving the fact that this
+-- column might be @null@.
+(?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
+MaybeTable _ row ? f = toNullable (f row)
+
+tableIsNull :: MaybeTable a -> Expr Bool
+tableIsNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
+
+--------------------------------------------------------------------------------
+-- | Eliminate 'Maybe' from the type of an 'Expr'. Like 'maybe' for Haskell
+-- values.
+nullable
+  :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+nullable a f b =
+  columnToExpr
+    (O.matchNullable
+       (exprToColumn a)
+       (exprToColumn . f . columnToExpr)
+       (exprToColumn b))
 
 
 --------------------------------------------------------------------------------
@@ -265,10 +286,6 @@ instance (DBType a) =>
 
 --------------------------------------------------------------------------------
 
--- | Project an expression out of a 'MaybeTable', preserving the fact that this
--- column might be @null@.
-(?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
-MaybeTable _ row ? f = toNullable (f row)
 
 
 --------------------------------------------------------------------------------
