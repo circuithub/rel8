@@ -95,13 +95,7 @@ module Rel8
 
 import Rel8.DBType
 import Rel8.IO
-import Rel8.Internal.Aggregate
-import Rel8.Internal.BaseTable
-import Rel8.Internal.Expr
-import Rel8.Internal.Operators
-import Rel8.Internal.Order
-import Rel8.Internal.Table
-import Rel8.Internal.Types
+import Rel8.Internal
 
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)

@@ -19,15 +19,16 @@ library
   exposed-modules:     Rel8
                        Rel8.DBType
                        Rel8.IO
+                       Rel8.Internal
+                       Rel8.Text
+                       Control.Monad.Rel8
+  other-modules:       Rel8.Internal.Aggregate
                        Rel8.Internal.BaseTable
                        Rel8.Internal.Expr
                        Rel8.Internal.Operators
                        Rel8.Internal.Order
                        Rel8.Internal.Table
                        Rel8.Internal.Types
-                       Rel8.Text
-                       Control.Monad.Rel8
-  -- other-modules:       
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
   build-depends:       base >=4.09 && <4.11
                      , tagged >=0.8 && <0.9
