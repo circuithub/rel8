@@ -112,7 +112,6 @@ import Control.Applicative (liftA2)
 import Control.Category ((.), id)
 import Data.List (foldl')
 import Data.Profunctor (lmap)
-import Data.Profunctor.Product ((***!))
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple (Connection)
@@ -145,7 +144,7 @@ leftJoin
 leftJoin condition l r =
   O.leftJoinExplicit
     unpackColumns
-    (unpackColumns ***! unpackColumns)
+    unpackColumns
     (O.NullMaker (\(tag, t) -> MaybeTable tag t))
     l
     (liftA2 (,) (pure (lit (Just False))) r)
