@@ -143,18 +143,6 @@ import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
 
---------------------------------------------------------------------------------
--- | Safely coerce between 'Expr's. This uses GHC's 'Coercible' type class,
--- where instances are only available if the underlying representations of the
--- data types are equal. This routine is useful to cast out a newtype wrapper
--- and work with the underlying data.
---
--- If the @newtype@ wrapper has a custom 'DBType' (one not derived with
--- @GeneralizedNewtypeDeriving@) this function may be unsafe and could lead to
--- runtime exceptions.
-coerceExpr :: Coercible a b => Expr a -> Expr b
-coerceExpr (Expr a) = Expr a
-
 
 --------------------------------------------------------------------------------
 dbShow :: DBType a => Expr a -> Expr Text
