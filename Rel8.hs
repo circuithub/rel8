@@ -68,7 +68,6 @@ module Rel8
   , where_
   , filterQuery
   , distinct
-  , Predicate
 
     -- ** Offset and limit
   , O.limit
@@ -137,7 +136,7 @@ import Streaming (Of, Stream)
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two tables.
 leftJoin
-  :: (Table lExpr lHaskell, Table rExpr rHaskell, Predicate bool)
+  :: (Table lExpr lHaskell, Table rExpr rHaskell, DBBool bool)
   => (lExpr -> rExpr -> Expr bool) -- ^ The condition to join upon.
   -> O.Query lExpr -- ^ The left table
   -> O.Query rExpr -- ^ The right table
@@ -149,14 +148,14 @@ leftJoin condition l r =
     (O.NullMaker (\(tag, t) -> MaybeTable tag t))
     l
     (liftA2 (,) (pure (lit False)) r)
-    (\(a, (_, b)) -> exprToColumn (toNullableBool (condition a b)))
+    (\(a, (_, b)) -> exprToColumn (toNullable (condition a b)))
 
 
 --------------------------------------------------------------------------------
 -- TODO Suspicious! See TODO
 inlineLeftJoin
   :: forall a haskell bool.
-     (Table a haskell, Predicate bool)
+     (Table a haskell, DBBool bool)
   => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
 inlineLeftJoin q =
   O.QueryArr $ \(p, left, t) ->
@@ -168,7 +167,7 @@ inlineLeftJoin q =
     in ( MaybeTable tag renamed
        , PrimQuery.Join
            PrimQuery.LeftJoin
-           (case toNullableBool (p renamed) of
+           (case toNullable (p renamed) of
               Expr a -> a)
            [] -- TODO !
            ljPEsB
@@ -181,18 +180,6 @@ inlineLeftJoin q =
 -- | Lift a Haskell value into a literal database expression.
 lit :: DBType a => a -> Expr a
 lit = Expr . formatLit dbTypeInfo
-
-
---------------------------------------------------------------------------------
-class Predicate a where
-  toNullableBool :: Expr a -> Expr (Maybe Bool)
-
-instance Predicate Bool where
-  toNullableBool = toNullable
-
-instance Predicate (Maybe Bool) where
-  toNullableBool = id
-
 
 
 --------------------------------------------------------------------------------
@@ -308,10 +295,10 @@ distinct =
        (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
 
 
-where_ :: Predicate bool => O.QueryArr (Expr bool) ()
-where_ = lmap (exprToColumn . toNullableBool) O.restrict
+where_ :: DBBool bool => O.QueryArr (Expr bool) ()
+where_ = lmap (exprToColumn . toNullable) O.restrict
 
-filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
+filterQuery :: DBBool bool => (a -> Expr bool) -> O.Query a -> O.Query a
 filterQuery f q = proc _ -> do
   row <- q -< ()
   where_ -< f row
