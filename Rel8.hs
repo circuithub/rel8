@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -21,13 +20,36 @@ module Rel8
     -- * Defining Tables
     C
   , HasDefault(..)
-  , Nullable(..)
-  , BaseTable(..)
+  , BaseTable(tableName)
+
+    -- * Querying Tables
+  , O.Query, O.QueryArr
+  , queryTable
+  , leftJoin
+  , inlineLeftJoinA
+
+    -- ** Filtering
+  , where_
+  , filterQuery
+  , distinct
+
+    -- ** Offset and limit
+  , O.limit
+  , O.offset
+
+    -- ** Ordering
+  , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
+
+    -- * Aggregation
+  , aggregate
+  , AggregateTable
+  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
+  , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
+  , countRows, Aggregate
 
     -- * Tables
-  , Table(..)
-  , leftJoin, inlineLeftJoin
-  , MaybeTable(..)
+  , Table
+  , MaybeTable
   , Col(..)
 
     -- * Expressions
@@ -52,35 +74,20 @@ module Rel8
     -- ** Null
   , toNullable , (?), isNull, nullable
 
-    -- * Aggregation
-  , AggregateTable(..), aggregate
-  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), avg
-  , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
-  , countRows, Aggregate
 
-    -- * Querying Tables
-  , O.Query, O.QueryArr
+    -- * Running Queries
+    -- ** @SELECT@
   , select
-  , QueryResult
-  , label
 
-    -- ** Filtering
-  , where_
-  , filterQuery
-  , distinct
-
-    -- ** Offset and limit
-  , O.limit
-  , O.offset
-
-    -- ** Ordering
-  , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
-
-    -- * Modifying tables
-  , insert, insert1Returning, insertReturning
-  , update, updateReturning
-  , delete
+    -- ** @INSERT@
   , Default(..), Insert
+  , insert, insert1Returning {- , insertReturning -}
+
+    -- ** @UPDATE@
+  , update {- , updateReturning -}
+
+    -- ** @DELETE@
+  , delete
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
@@ -94,7 +101,7 @@ module Rel8
   ) where
 
 import Rel8.Internal.DBType
-import Rel8.IO
+import Control.Monad.Rel8
 import Rel8.Internal
 
 import Control.Applicative (liftA2)
@@ -117,7 +124,6 @@ import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
-import Opaleye.Label (label)
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
 import Prelude hiding (not, (.), id)
@@ -125,13 +131,13 @@ import Streaming (Of, Stream)
 
 
 --------------------------------------------------------------------------------
--- | Take the @LEFT JOIN@ of two tables.
+-- | Take the @LEFT JOIN@ of two queries.
 leftJoin
-  :: (Table lExpr lHaskell, Table rExpr rHaskell, DBBool bool)
-  => (lExpr -> rExpr -> Expr bool) -- ^ The condition to join upon.
-  -> O.Query lExpr -- ^ The left table
-  -> O.Query rExpr -- ^ The right table
-  -> O.Query (lExpr,MaybeTable rExpr)
+  :: (Table left a, Table right b, DBBool bool)
+  => (left -> right -> Expr bool) -- ^ The condition to join upon.
+  -> O.Query left -- ^ The left table
+  -> O.Query right -- ^ The right table
+  -> O.Query (left,MaybeTable right)
 leftJoin condition l r =
   O.leftJoinExplicit
     unpackColumns
@@ -143,12 +149,24 @@ leftJoin condition l r =
 
 
 --------------------------------------------------------------------------------
--- TODO Suspicious! See TODO
-inlineLeftJoin
-  :: forall a haskell bool.
-     (Table a haskell, DBBool bool)
+-- | A more convenient form of 'leftJoin' when using arrow notation.
+-- @inlineLeftJoinA@ takes the left join of all proceeding queries against a
+-- given query. The input to the 'QueryArr' is a predicate function against
+-- rows in the to-be-joined query.
+--
+-- === __Example__
+-- @
+-- -- Return all users and comments, including users who haven't made a comment.
+-- usersAndComments :: Query (User Expr, MaybeTable (Comment Expr))
+-- proc _ -> do
+--   u <- queryTable -< ()
+--   comment <- inlineLeftJoinA -< \c -> commentUser c ==. userId u
+--   returnA (u, c)
+-- @
+inlineLeftJoinA
+  :: (Table a haskell, DBBool bool)
   => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
-inlineLeftJoin q =
+inlineLeftJoinA q =
   O.QueryArr $ \(p, left, t) ->
     let O.QueryArr rightQueryF = liftA2 (,) (pure (lit False)) q
         (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
@@ -160,35 +178,42 @@ inlineLeftJoin q =
            PrimQuery.LeftJoin
            (case toNullable (p renamed) of
               Expr a -> a)
-           [] -- TODO !
+           [] -- TODO ?
            ljPEsB
            left
            pqR
        , t')
 
-
+-- | Take only distinct rows in a 'O.Query'. This maps to grouping by every
+-- column in the table.
 distinct :: Table table haskell => O.Query table -> O.Query table
 distinct =
   O.distinctExplicit
     (O.Distinctspec
        (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
 
-
+-- | Restrict a 'O.QueryArr' to only contain rows that satisfy a given predicate.
 where_ :: DBBool bool => O.QueryArr (Expr bool) ()
 where_ = lmap (exprToColumn . toNullable) O.restrict
 
+-- | Filter a 'O.Query' into a new query where all rows satisfy a given
+-- predicate.
 filterQuery :: DBBool bool => (a -> Expr bool) -> O.Query a -> O.Query a
 filterQuery f q = proc _ -> do
   row <- q -< ()
   where_ -< f row
   id -< row
 
+-- | Corresponds to the @IS NULL@ operator.
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = columnToExpr . O.isNull . exprToColumn
 
+-- | Test if an 'Expr' is in a list of 'Expr's. This is performed by folding
+-- '==.' over all values and combining them with '||.'.
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
 
+-- | Corresponds to the @ILIKE@ operator.
 ilike :: Expr Text -> Expr Text -> Expr Bool
 a `ilike` b =
   columnToExpr (O.binOp (O.OpOther "ILIKE") (exprToColumn a) (exprToColumn b))

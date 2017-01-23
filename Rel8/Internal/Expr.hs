@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -62,7 +61,7 @@ instance ToNullableHelper a maybeA (IsMaybe a) => ToNullable a maybeA where
 -- dependencies.
 class isMaybe ~ IsMaybe a =>
         ToNullableHelper a maybeA isMaybe | isMaybe a -> maybeA where
-  toNullableHelper :: proxy join -> Expr a -> Expr maybeA
+  toNullableHelper :: proxy (join :: Bool) -> Expr a -> Expr maybeA
 
 instance IsMaybe a ~ 'False => ToNullableHelper a (Maybe a) 'False where
   toNullableHelper _ = unsafeCoerceExpr @(Maybe a)

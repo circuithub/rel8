@@ -13,21 +13,24 @@ import Rel8.Internal.Operators
 
 --------------------------------------------------------------------------------
 data OrderNulls
-  = NullsFirst
-  | NullsLast
+  = NullsFirst -- ^ @NULLS FIRST@
+  | NullsLast  -- ^ @NULLS LAST@
   deriving (Enum,Ord,Eq,Read,Show,Bounded)
 
-asc :: forall a b. DBOrd b => (a -> Expr b) -> O.Order a
-asc f = O.asc (exprToColumn @b @O.PGInt8 . f)
+-- | Order by a column with the 'ASC' keyword.
+asc :: DBOrd b => (a -> Expr b) -> O.Order a
+asc f = O.asc (exprToColumn @_ @O.PGInt8 . f)
 
-desc :: forall a b. DBOrd b => (a -> Expr b) -> O.Order a
-desc f = O.desc (exprToColumn @b @O.PGInt8 . f)
+-- | Order by a column with the 'DESC' keyword.
+desc :: DBOrd b => (a -> Expr b) -> O.Order a
+desc f = O.desc (exprToColumn @_ @O.PGInt8 . f)
 
+-- | Transform 'asc' or 'desc' to treat nulls specially.
 orderNulls
   :: DBOrd b
-  => ((a -> Expr b) -> O.Order a)
-  -> OrderNulls
-  -> (a -> Expr (Maybe b))
+  => ((a -> Expr b) -> O.Order a) -- ^ 'asc' or 'desc'.
+  -> OrderNulls                   -- ^ How @null@ should be ordered.
+  -> (a -> Expr (Maybe b))        -- ^ The column to sort on.
   -> O.Order a
 orderNulls direction nulls f =
   case direction (unsafeCoerceExpr . f) of

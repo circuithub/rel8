@@ -23,8 +23,10 @@ import Data.Int (Int64)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import qualified Streaming.Prelude as S
+import Opaleye (Query)
 
-import Rel8
+import Rel8.Internal
+import Rel8.IO
 
 --------------------------------------------------------------------------------
 -- | Syntax tree for running individual statements against a database.
@@ -163,12 +165,12 @@ instance (MonadIO m) => MonadStatement (PostgreSQLStatementT e m) where
     iterM (\op ->
              do conn <- lift ask
                 step conn op)
-    where step pg (Select q k) = S.toList_ (Rel8.select pg q) >>= k
+    where step pg (Select q k) = S.toList_ (Rel8.IO.select pg q) >>= k
           step pg (Insert1Returning q k) =
-            liftIO (Rel8.insert1Returning pg q) >>= k
-          step pg (Insert q k) = liftIO (Rel8.insert pg q) >>= k
-          step pg (Update a b k) = liftIO (Rel8.update pg a b) >>= k
-          step pg (Delete q k) = liftIO (Rel8.delete pg q) >>= k
+            liftIO (Rel8.IO.insert1Returning pg q) >>= k
+          step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
+          step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
+          step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where
   abortTransaction l = PostgreSQLStatementT (ExceptT (return (Left l)))

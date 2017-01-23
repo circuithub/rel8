@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -48,17 +47,16 @@ data Default a
 {-| All metadata about a column in a table.
 
     'C' is used to specify information about individual columns in base
-    tables. While it is defined as a record, you construct 'Column's at the
-    type level where record syntax is unfortunately not available.
+    tables.
 
     === __Example__
 
     @
     data Employee f =
-      Employee { employeeName :: C f ('Column "employee_name" 'NoDefault 'NotNullable 'PGText) }
+      Employee { employeeName :: C f "employee_name" 'NoDefault Text) }
     @
 -}
-type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (columnType :: t) :: * where
+type family C f columnName hasDefault columnType :: * where
   C Expr _name _def t = Expr t
   C QueryResult _name _def t = t
   C Schema name hasDefault t = SchemaInfo name hasDefault t
@@ -67,23 +65,17 @@ type family C (f :: * -> *) (columnName :: Symbol) (hasDefault :: HasDefault) (c
   C Aggregate name _ t = Aggregate t
 
 
-type family Anon (f :: * -> *) (columnType :: t) :: * where
+type family Anon f columnType :: * where
   Anon Expr t = Expr t
   Anon QueryResult t = t
   Anon Aggregate t = Aggregate t
 
 --------------------------------------------------------------------------------
--- | Indicate whether or not a column has a default value.
+-- | Indicate whether or not a column has a default value. Used in conjunction
+-- with 'C'
 data HasDefault
   = HasDefault
   | NoDefault
-
-
---------------------------------------------------------------------------------
--- | Indicate whether or not a column can take default values.
-data Nullable
-  = Nullable
-  | NotNullable
 
 
 --------------------------------------------------------------------------------

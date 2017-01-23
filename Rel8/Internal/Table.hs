@@ -28,7 +28,7 @@ import Data.Tagged (Tagged(..), proxy, untag)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
-       (Generic, Rep, from, to)
+       ((:*:)(..), Generic, K1(..), M1(..), Rep, from, to)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -53,9 +53,12 @@ import qualified Opaleye.Internal.Aggregate as O
 -- the type @haskell@.
 --
 -- 'Table's are not necessarily concrete tables within a database. For example,
--- the join of two 'Table's (as witness by tuple construction) is itself a
--- 'Table'.
-
+-- the join of two 'Table's (as witnessed by tuple construction) is itself a
+-- 'Table' - but cannot be inserted as it doesn't belong to any base table.
+--
+-- You should not need to define your own instances of 'Table' in idiomatic
+-- @rel8@ usage - all 'BaseTable's are 'Table's, and the tupling of two (or
+-- more) 'Table's is also a 'Table'.
 class Table expr haskell | expr -> haskell, haskell -> expr where
   rowParser :: RowParser haskell
 
@@ -69,7 +72,7 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
 
--- | Any base table is a 'Table'.
+-- | Any 'BaseTable' is a 'Table'.
 instance BaseTable table => Table (table Expr) (table QueryResult) where
   columnCount =
     Tagged (getSum (getConst (traverseSchema (const (Const (Sum 1))) (tableSchema @table))))
@@ -159,6 +162,8 @@ instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
 data MaybeTable row = MaybeTable (Expr Bool) row
   deriving (Functor)
 
+-- | The result of a left/right join is a table, but the table may be entirely
+-- @null@ sometimes.
 instance (Table expr haskell) =>
          Table (MaybeTable expr) (Maybe haskell) where
   columnCount = Tagged
@@ -205,6 +210,7 @@ instance (Table expr haskell) =>
 newtype Col a = Col { unCol :: a }
   deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
 
+-- | Single 'Expr'essions are tables, but the result will be wrapped in 'Col'.
 instance (DBType a) =>
          Table (Expr a) (Col a) where
   columnCount = Tagged 1
@@ -226,8 +232,23 @@ unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 
 
 --------------------------------------------------------------------------------
--- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
--- the record type @record@ specifies the columns of that table.
+-- | A 'BaseTable' is a table that is specified directly in a relational
+-- database schema with @CREATE TABLE@. You introduce 'BaseTables' by defining
+-- Haskell records parameterised over some functor @f@, and then use 'C' to
+-- define individual columns. Finally, derive 'Generic' and provide a minimal
+-- 'BaseTable' instance.
+--
+-- === Example
+--
+-- @
+-- data Part f =
+--   Part { partId     :: 'C' f \"PID\" ''HasDefault' Int
+--        , partName   :: 'C' f \"PName\" ''NoDefault' Text
+--        , partColor  :: 'C' f \"Color\" ''NoDefault' Int
+--        } deriving (Generic)
+--
+-- instance 'BaseTable' Part where tableName = "part"
+-- @
 class (Table (table Expr) (table QueryResult)) => BaseTable table where
   -- | The name of this table in the database. You can use the 'FromString'
   -- instance for 'Tagged' to simply write
@@ -334,7 +355,7 @@ viewTable =
 
 
 --------------------------------------------------------------------------------
--- | Query all rows in a table
+-- | Query all rows in a table. Equivalent to @SELECT * FROM table@.
 queryTable :: BaseTable table => O.Query (table Expr)
 queryTable =
   O.queryTableExplicit
@@ -362,6 +383,20 @@ tableDefinitionUpdate =
 
 
 --------------------------------------------------------------------------------
+-- | 'AggregateTable' is used to demonstrate that a table only contains
+-- aggregation or @GROUP BY@ expressions. If you wish to use your own records
+-- for aggregation results, parameterise the record over @f@, use 'Anon' to
+-- specify the columns, and then generically derive 'AggregateTable':
+--
+-- *** __Example__
+-- @
+-- data UserInfo f = UserInfo
+--   { userCount :: Anon f Int64
+--   , latestLogin :: Anon f UTCTime
+--   } deriving (Generic)
+-- instance AggregateTable (UserInfo Aggregate) (UserInfo Expr)
+-- @
+
 class AggregateTable columns result | columns -> result, result -> columns where
   traverseAggregates :: O.Aggregator columns result
 
@@ -374,6 +409,7 @@ class AggregateTable columns result | columns -> result, result -> columns where
       => O.Aggregator columns result
   traverseAggregates = dimap from to gaggregator
 
+-- | A single column aggregates to a single expression.
 instance AggregateTable (Aggregate a) (Expr a) where
   traverseAggregates =
     O.Aggregator (O.PackMap (\f (Aggregate a b) -> fmap Expr (f (a, b))))
@@ -382,5 +418,27 @@ instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
          AggregateTable (a1, a2) (b1, b2) where
   traverseAggregates = traverseAggregates ***! traverseAggregates
 
+-- | Any base table can be aggregated, provided you specify how to aggregate
+-- each column.
 instance BaseTable table => AggregateTable (table Aggregate) (table Expr) where
   traverseAggregates = traverseBaseTableAggregates
+
+
+--------------------------------------------------------------------------------
+class GTraverseAggregator aggregator expr | aggregator -> expr where
+  gaggregator
+    :: O.Aggregator (aggregator x) (expr y)
+
+instance (GTraverseAggregator aggregator expr) =>
+         GTraverseAggregator (M1 i c aggregator) (M1 i c expr) where
+  gaggregator = dimap (\(M1 a) -> a) M1 gaggregator
+
+instance ( GTraverseAggregator fAggregator fExpr
+         , GTraverseAggregator gAggregator gExpr
+         ) =>
+         GTraverseAggregator (fAggregator :*: gAggregator) (fExpr :*: gExpr) where
+  gaggregator =
+    dimap (\(a :*: b) -> (a, b)) (uncurry (:*:)) (gaggregator ***! gaggregator)
+
+instance AggregateTable a b => GTraverseAggregator (K1 i a) (K1 i b) where
+  gaggregator = dimap (\(K1 a) -> a) K1 traverseAggregates
