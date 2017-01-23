@@ -12,7 +12,7 @@ module Rel8.Internal.BaseTable where
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
-import Data.Tagged (Tagged(..))
+import Data.Tagged (Tagged(..), untag)
 import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (symbolVal, KnownSymbol)
@@ -35,8 +35,9 @@ import Rel8.Internal.Types
 
 -- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
 -- the record type @record@ specifies the columns of that table.
-class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
-      BaseTable name table | table -> name where
+class (Table (table Expr) (table QueryResult)) => BaseTable table where
+  tableName :: Tagged table String
+
   -- | Query all rows in a table
   queryTable :: O.Query (table Expr)
   queryTable =
@@ -56,7 +57,7 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
                     => O.Table (table Insert) (table Expr)
   tableDefinition =
     O.Table
-         (symbolVal (Proxy @name))
+         (untag @table tableName)
          (O.TableProperties
             (case lmap from (columnWriter (from tableSchema)) of
                O.Writer f -> O.Writer f)
@@ -77,7 +78,7 @@ class (KnownSymbol name, Table (table Expr) (table QueryResult)) =>
                           => O.Table (table Expr) (table Expr)
   tableDefinitionUpdate =
     O.Table
-         (symbolVal (Proxy @name))
+         (untag @table tableName)
          (O.TableProperties
             (case lmap from (columnWriter (from tableSchema)) of
                O.Writer f -> O.Writer f)

@@ -34,17 +34,17 @@ data StatementSyntax :: * -> * where
             Table pg haskell =>
             Query pg -> ([haskell] -> k) -> StatementSyntax k
         Insert1Returning ::
-            BaseTable name table =>
+            BaseTable table =>
             (table Insert) -> (table QueryResult -> k) -> StatementSyntax k
         Insert ::
-            BaseTable name table =>
+            BaseTable table =>
             [table Insert] -> (Int64 -> k) -> StatementSyntax k
         Update ::
-            (BaseTable name table, DBBool bool) =>
+            (BaseTable table, DBBool bool) =>
             (table Expr -> Expr bool) ->
             (table Expr -> table Expr) -> (Int64 -> k) -> StatementSyntax k
         Delete ::
-            (BaseTable name table, DBBool bool) =>
+            (BaseTable table, DBBool bool) =>
             (table Expr -> Expr bool) -> (Int64 -> k) -> StatementSyntax k
 
 deriving instance Functor StatementSyntax
@@ -63,24 +63,24 @@ select q = liftStatements (liftF (Select q id))
 
 insert1Returning
   :: ( MonadStatement m
-     , BaseTable name table
+     , BaseTable table
      )
   => (table Insert) -> m (table QueryResult)
 insert1Returning row = liftStatements (liftF (Insert1Returning row id))
 
 insert
   :: MonadStatement m
-  => BaseTable name table => [table Insert] -> m Int64
+  => BaseTable table => [table Insert] -> m Int64
 insert rows = liftStatements (liftF (Insert rows id))
 
 update
-  :: (MonadStatement m, BaseTable name table)
+  :: (MonadStatement m, BaseTable table)
   => (table Expr -> Expr Bool)
   -> (table Expr -> table Expr)
   -> m Int64
 update f up = liftStatements (liftF (Update f up id))
 
-delete :: (MonadStatement m, BaseTable name table, DBBool bool)
+delete :: (MonadStatement m, BaseTable table, DBBool bool)
        => (table Expr -> Expr bool)
        -> m Int64
 delete f = liftStatements (liftF (Delete f id))

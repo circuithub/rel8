@@ -39,13 +39,13 @@ select connection query = do
   S.each results
 
 insert
-  :: (BaseTable tableName table, MonadIO m)
+  :: (BaseTable table, MonadIO m)
   => Connection -> [table Insert] -> m Int64
 insert conn rows =
   liftIO (O.runInsertMany conn tableDefinition rows)
 
 insertReturning
-  :: (BaseTable tableName table, MonadIO m)
+  :: (BaseTable table, MonadIO m)
   => Connection -> [table Insert] -> Stream (Of (table QueryResult)) m ()
 insertReturning conn rows =
   do results <-
@@ -53,12 +53,12 @@ insertReturning conn rows =
      S.each results
 
 insert1Returning
-  :: (BaseTable tableName table,MonadIO m)
+  :: (BaseTable table, MonadIO m)
   => Connection -> table Insert -> m (table QueryResult)
 insert1Returning c = fmap fromJust . S.head_ . insertReturning c . pure
 
 update
-  :: (BaseTable tableName table, DBBool bool, MonadIO m)
+  :: (BaseTable table, DBBool bool, MonadIO m)
   => Connection
   -> (table Expr -> Expr bool)
   -> (table Expr -> table Expr)
@@ -72,7 +72,7 @@ update conn f up =
     (exprToColumn . toNullable . f)
 
 updateReturning
-  :: (BaseTable tableName table, DBBool bool, MonadIO m)
+  :: (BaseTable table, DBBool bool, MonadIO m)
   => Connection
   -> (table Expr -> Expr bool)
   -> (table Expr -> table Expr)
@@ -91,10 +91,8 @@ updateReturning conn f up = do
 
 -- | Given a 'BaseTable' and a predicate, @DELETE@ all rows that match.
 delete
-  :: (BaseTable name table, DBBool bool)
-  => Connection
-  -> (table Expr -> Expr bool)
-  -> IO Int64
+  :: (BaseTable table, DBBool bool)
+  => Connection -> (table Expr -> Expr bool) -> IO Int64
 delete conn f =
   O.runDelete conn tableDefinition (exprToColumn . toNullable . f)
 
