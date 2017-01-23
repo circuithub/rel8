@@ -58,8 +58,8 @@ instance (GTraverseSchema fSchema fExpr, GTraverseSchema gSchema gExpr) =>
   gtraverseSchema f (l :*: r) =
     liftA2 (:*:) (gtraverseSchema f l) (gtraverseSchema f r)
 
-instance GTraverseSchema (K1 i (Tagged (name, a, def) String)) (K1 i (Expr a)) where
-  gtraverseSchema f (K1 (Tagged a)) = K1 <$> f a
+instance GTraverseSchema (K1 i (SchemaInfo name def a)) (K1 i (Expr a)) where
+  gtraverseSchema f (K1 (SchemaInfo a)) = K1 <$> f a
 
 
 --------------------------------------------------------------------------------
