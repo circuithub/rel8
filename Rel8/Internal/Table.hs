@@ -15,7 +15,7 @@
 module Rel8.Internal.Table where
 
 import Data.Profunctor.Product ((***!))
-import Control.Applicative (Const(..))
+import Control.Applicative (Const(..), liftA2)
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor.Compose (Compose(..))
@@ -24,7 +24,7 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum(..))
 import Data.Profunctor (dimap, lmap)
 import Data.Proxy (Proxy(..))
-import Data.Tagged (Tagged(..), proxy, untag)
+import Data.Tagged (Tagged(..), proxy, untag, retag)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
@@ -68,6 +68,51 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
 
+  ---------------------------------------------------------------------------------------
+
+  default
+    rowParser
+      :: (Generic haskell, GTable (Rep expr) (Rep haskell))
+      => RowParser haskell
+  rowParser = to <$> growParser
+
+  default
+    columnCount
+      :: (Generic haskell, GTable (Rep expr) (Rep haskell))
+      => Tagged haskell Int
+  columnCount = retag (gcolumnCount @_ @(Rep haskell))
+
+  default
+    traversePrimExprs
+      :: (Generic expr, GTable (Rep expr) (Rep haskell), Applicative f)
+      => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
+  traversePrimExprs f = fmap to . gtraversePrimExprs f . from
+
+
+--------------------------------------------------------------------------------
+class GTable expr haskell | expr -> haskell, haskell -> expr where
+  growParser :: RowParser (haskell a)
+  gcolumnCount :: Tagged (haskell a) Int
+  gtraversePrimExprs
+    :: Applicative f
+    => (O.PrimExpr -> f O.PrimExpr) -> expr a -> f (expr a)
+
+instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
+  growParser = M1 <$> growParser
+  gcolumnCount = retag (gcolumnCount @_ @haskell)
+  gtraversePrimExprs f (M1 a) = M1 <$> gtraversePrimExprs f a
+
+instance (GTable le lh, GTable re rh) =>
+         GTable (le :*: re) (lh :*: rh) where
+  growParser = liftA2 (:*:) growParser growParser
+  gcolumnCount = retag (gcolumnCount @_ @lh) + retag (gcolumnCount @_ @rh)
+  gtraversePrimExprs f (l :*: r) =
+    liftA2 (:*:) (gtraversePrimExprs f l) (gtraversePrimExprs f r)
+
+instance Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
+  growParser = K1 <$> rowParser
+  gcolumnCount = retag (columnCount @_ @haskell)
+  gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
 
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
