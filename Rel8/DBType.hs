@@ -1,7 +1,11 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 module Rel8.DBType
   ( -- * @DBType@
@@ -11,6 +15,7 @@ module Rel8.DBType
   , TypeInfo(..)
   , showableDbType
   , typeInfoFromOpaleye
+  , compositeDBType
   ) where
 
 import Control.Category ((.))
@@ -31,6 +36,8 @@ import Data.Typeable (Typeable)
 import Data.UUID (UUID)
 import Data.Vector (Vector)
 import Database.PostgreSQL.Simple.FromField (FromField)
+import Generics.OneLiner
+       (For(..), ADTRecord, Constraints, gfoldMap)
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -191,3 +198,24 @@ typeInfoFromOpaleye f =
 
 showableDbType :: (Show a) => TypeInfo a
 showableDbType = contramap show dbTypeInfo
+
+
+--------------------------------------------------------------------------------
+-- | Show a type as a composite type. This is only valid for records, and
+-- all fields in the record must be an instance of 'DBType'.
+compositeDBType
+  :: IsCompositeRecord a
+  => String -- ^ The database schema name of the composite type
+  -> TypeInfo a
+compositeDBType n =
+  TypeInfo
+  { formatLit =
+      catPrimExprs . gfoldMap (For :: For DBType) (pure . formatLit dbTypeInfo)
+  , dbTypeName = n
+  }
+  where
+    catPrimExprs :: [O.PrimExpr] -> O.PrimExpr
+    catPrimExprs = O.FunExpr ""
+
+class (ADTRecord a, Constraints a DBType) => IsCompositeRecord a
+instance (ADTRecord a, Constraints a DBType) => IsCompositeRecord a

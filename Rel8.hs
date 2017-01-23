@@ -107,7 +107,6 @@ import Control.Applicative (liftA2)
 import Control.Category ((.), id)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Data.Coerce (Coercible)
 import Data.Int (Int16, Int32, Int64)
 import Data.List (foldl')
 import Data.Maybe (fromJust)
@@ -118,8 +117,6 @@ import Data.Text (Text)
 import Data.Time (UTCTime, LocalTime)
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics (Generic)
-import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), gfoldMap)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -142,9 +139,6 @@ import Prelude hiding (not, (.), id)
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
-
-
-
 
 --------------------------------------------------------------------------------
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
@@ -217,22 +211,6 @@ inlineLeftJoin q =
 
 
 --------------------------------------------------------------------------------
--- | Show a type as a composite type. This is only valid for records, and
--- all fields in the record must be an instance of 'DBType'.
-compositeDBType
-  :: (ADTRecord t, Constraints t DBType)
-  => String -- ^ The database schema name of the composite type
-  -> TypeInfo t
-compositeDBType n =
-  TypeInfo
-  { formatLit =
-      catPrimExprs . gfoldMap (For :: For DBType) (pure . formatLit dbTypeInfo)
-  , dbTypeName = n
-  }
-  where
-    catPrimExprs :: [O.PrimExpr] -> O.PrimExpr
-    catPrimExprs = O.FunExpr ""
-
 -- | Lift a Haskell value into a literal database expression.
 lit :: DBType a => a -> Expr a
 lit = Expr . formatLit dbTypeInfo

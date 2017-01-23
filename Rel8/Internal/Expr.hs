@@ -11,6 +11,7 @@
 
 module Rel8.Internal.Expr where
 
+import Data.Coerce (Coercible)
 import Data.Proxy (Proxy(..))
 import Data.Text
 import qualified Opaleye.Internal.Column as O
