@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -47,39 +46,29 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
   columnCount :: Tagged haskell Int
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
 
-  default columnCount :: ADTRecord haskell => Tagged haskell Int
-  columnCount =
-    Tagged
-      (getSum . getConst . head . getCompose $
-       (createA (For :: For AnyType) (Compose [Const (Sum 1)])
-         :: Compose [] (Const (Sum Int)) haskell))
-
-  default rowParser :: ( ADTRecord haskell
-                       , Constraints haskell FromField
-                       , Constraints haskell DBType
-                       ) =>
-    RowParser haskell
-  rowParser = head (getCompose (createA (For :: For FromField) (Compose [field])))
-
-  default traversePrimExprs :: ( Constraints expr MapPrimExpr
-                               , ADTRecord expr
-                               , Applicative f
-                               )
-                            => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
-  traversePrimExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
-
 
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
 
 -- | Any base table is a 'Table'.
-instance {-# OVERLAPPABLE #-}
-         ( ADTRecord (table Expr)
+instance ( ADTRecord (table Expr)
          , ADTRecord (table QueryResult)
          , Constraints (table Expr) MapPrimExpr
          , Constraints (table QueryResult) FromField
          , Constraints (table QueryResult) DBType
-         ) => Table (table Expr) (table QueryResult)
+         ) =>
+         Table (table Expr) (table QueryResult) where
+  columnCount =
+    Tagged
+      (getSum . getConst . head . getCompose $
+       (createA
+          (For :: For AnyType)
+          (Compose [Const (Sum 1)]) :: Compose [] (Const (Sum Int)) (table QueryResult)))
+
+  rowParser =
+    head (getCompose (createA (For :: For FromField) (Compose [field])))
+
+  traversePrimExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
 
 instance (Table a a', Table b b') =>
          Table (a, b) (a', b') where
