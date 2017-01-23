@@ -75,7 +75,7 @@ module Rel8
   , O.offset
 
     -- ** Ordering
-  , asc, desc, orderNulls, orderBy, OrderNulls(..)
+  , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
 
     -- * Modifying tables
   , insert, insert1Returning, insertReturning
@@ -95,14 +95,15 @@ module Rel8
   ) where
 
 import Rel8.DBType
+import Rel8.Internal.Operators
 import Rel8.Internal.Aggregate
 import Rel8.Internal.BaseTable
 import Rel8.Internal.Expr
 import Rel8.Internal.Table
 import Rel8.Internal.Types
+import Rel8.Internal.Order
 
 import Control.Applicative (liftA2)
-import Control.Arrow (first)
 import Control.Category ((.), id)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -126,7 +127,6 @@ import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
-import qualified Opaleye.Internal.Order as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
@@ -142,10 +142,6 @@ import Prelude hiding (not, (.), id)
 import Streaming (Of, Stream)
 import Streaming.Prelude (each)
 import qualified Streaming.Prelude as S
-
-infix 4 ==. , ?=. , <. , <=. , >. , >=.
-infixr 2 ||.,  &&.
-infixl 7 *.
 
 --------------------------------------------------------------------------------
 -- | Safely coerce between 'Expr's. This uses GHC's 'Coercible' type class,
@@ -267,40 +263,6 @@ instance Predicate Bool where
 instance Predicate (Maybe Bool) where
   toNullableBool = id
 
---------------------------------------------------------------------------------
--- | The class of types that can be compared for equality within the database.
-class DBType a => DBEq a where
-  (==.) :: Expr a -> Expr a -> Expr Bool
-  Expr a ==. Expr b = Expr (O.BinExpr (O.:==) a b)
-
-  (?=.) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
-  a ?=. b = toNullable (unsafeCoerceExpr @a a ==. unsafeCoerceExpr @a b)
-
-instance DBEq Bool where
-instance DBEq Char where
-instance DBEq Double where
-instance DBEq Float where
-instance DBEq Int16 where
-instance DBEq Int32 where
-instance DBEq Int64 where
-instance DBEq Text where
-instance DBEq UTCTime where
-
---------------------------------------------------------------------------------
-class Booleanish a where
-  not :: a -> a
-  (&&.) :: a -> a -> a
-  (||.) :: a -> a -> a
-
-instance Booleanish (Expr Bool) where
-  not (Expr a) = Expr (O.UnExpr O.OpNot a)
-  Expr a &&. Expr b = Expr (O.BinExpr O.OpAnd a b)
-  Expr a ||. Expr b = Expr (O.BinExpr O.OpOr a b)
-
-instance Booleanish (Expr (Maybe Bool)) where
-  not = unsafeCoerceExpr . not . unsafeCoerceExpr @Bool
-  a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
-  a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
 
 
 --------------------------------------------------------------------------------
@@ -532,91 +494,6 @@ dbBinOp op a b =
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
 
---------------------------------------------------------------------------------
-class DBEq a => DBOrd a where
-  -- | The PostgreSQL @<@ operator.
-  (<.) :: Expr a -> Expr a -> Expr Bool
-  a <. b = not (a >=. b)
-
-  -- | The PostgreSQL @<=@ operator.
-  (<=.) :: Expr a -> Expr a -> Expr Bool
-  a <=. b = not (a >. b)
-
-  -- | The PostgreSQL @>@ operator.
-  (>.) :: Expr a -> Expr a -> Expr Bool
-  a >. b = not (a <=. b)
-
-  -- | The PostgreSQL @>@ operator.
-  (>=.) :: Expr a -> Expr a -> Expr Bool
-  a >=. b = not (a <. b)
-
-instance DBOrd Bool where
-instance DBOrd Char where
-instance DBOrd Double where
-instance DBOrd Float where
-instance DBOrd Int16 where
-instance DBOrd Int32 where
-instance DBOrd Int64 where
-instance DBOrd Text where
-instance DBOrd UTCTime where
-
---------------------------------------------------------------------------------
-newtype PGOrdering a =
-  PGOrdering (a -> [(O.OrderOp, O.PrimExpr)])
-  deriving (Monoid)
-
-asc :: DBOrd b => (a -> Expr b) -> PGOrdering a
-asc f =
-  PGOrdering
-    (\x ->
-       case f x of
-         Expr a -> [(O.OrderOp O.OpAsc O.NullsFirst,a)])
-
-desc :: DBOrd b => (a -> Expr b) -> PGOrdering a
-desc f =
-  PGOrdering
-    (\x ->
-       case f x of
-         Expr a -> [(O.OrderOp O.OpDesc O.NullsFirst,a)])
-
-data OrderNulls
-  = NullsFirst
-  | NullsLast
-  deriving (Enum,Ord,Eq,Read,Show,Bounded)
-
-orderNulls
-  :: DBOrd b
-  => ((a -> Expr b) -> PGOrdering a)
-  -> OrderNulls
-  -> (a -> Expr (Maybe b))
-  -> PGOrdering a
-orderNulls direction nulls f =
-  case direction (unsafeCoerceExpr . f) of
-    PGOrdering g ->
-      PGOrdering
-        (\a ->
-           map
-             (first (\(O.OrderOp orderO _) -> O.OrderOp orderO nullsDir))
-             (g a))
-  where
-    nullsDir =
-      case nulls of
-        NullsFirst -> O.NullsFirst
-        NullsLast -> O.NullsLast
-
-orderBy
-  :: PGOrdering a -> O.Query a -> O.Query a
-orderBy (PGOrdering f) = O.orderBy (O.Order f)
-
-class DBType a => DBNum a where
-  (*.) :: Expr a -> Expr a -> Expr a
-  a *. b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
-
-instance DBNum Double where
-instance DBNum Float where
-instance DBNum Int16 where
-instance DBNum Int32 where
-instance DBNum Int64 where
 
 
 {- $intro
