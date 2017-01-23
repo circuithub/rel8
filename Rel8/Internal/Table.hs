@@ -1,8 +1,8 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -11,7 +11,6 @@
 module Rel8.Internal.Table where
 
 import Control.Applicative (Const(..))
-import Control.Category ((.))
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor.Compose (Compose(..))
@@ -26,9 +25,10 @@ import Generics.OneLiner
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.Unpackspec as O
-import Prelude hiding (not, (.), id)
+import Prelude hiding (not)
 import Rel8.DBType
 import Rel8.Internal.Expr
+import Rel8.Internal.Generic
 import Rel8.Internal.Types
 
 --------------------------------------------------------------------------------
@@ -210,15 +210,6 @@ instance (DBType a) =>
 -- column might be @null@.
 (?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
 MaybeTable _ row ? f = toNullable (f row)
-
---------------------------------------------------------------------------------
--- | The class of values that can be traversed for 'O.PrimExpr's.
-
-class MapPrimExpr s where
-  mapPrimExpr :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> s -> f s
-
-instance MapPrimExpr (Expr column) where
-  mapPrimExpr f (Expr a) = fmap Expr (f a)
 
 
 --------------------------------------------------------------------------------

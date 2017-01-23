@@ -2,13 +2,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Rel8.Internal.BaseTable where
 
+import Control.Applicative (liftA2)
+import Data.Functor.Identity
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
@@ -17,7 +19,7 @@ import GHC.Generics
        (Generic, Rep, K1(..), M1(..), (:*:)(..), from, to)
 import GHC.TypeLits (symbolVal, KnownSymbol)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), nullaryOp)
+       (ADTRecord, Constraints, For(..), gtraverse, nullaryOp)
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
@@ -25,10 +27,12 @@ import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Table as O
 import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Table as O hiding (required)
-import Prelude hiding (not, (.), id)
+import Prelude hiding (not, id)
 import Rel8.Internal.Expr
 import Rel8.Internal.Table
 import Rel8.Internal.Types
+import Rel8.Internal.Generic
+import Rel8.Internal.Aggregate
 
 --------------------------------------------------------------------------------
 -- TODO Unsure if we want to assume this type of table
@@ -36,49 +40,90 @@ import Rel8.Internal.Types
 -- | 'BaseTable' @name record@ specifies that there is a table named @name@, and
 -- the record type @record@ specifies the columns of that table.
 class (Table (table Expr) (table QueryResult)) => BaseTable table where
+  -- | The name of this table in the database. You can use the 'FromString'
+  -- instance for 'Tagged' to simply write
+  -- @tableName = "employees"@, for example.
   tableName :: Tagged table String
 
-  tableDefinition :: O.Table (table Insert) (table Expr)
-  default
-    tableDefinition :: ( ADTRecord (table Expr)
-                       , ADTRecord (table Schema)
-                       , Constraints (table Schema) WitnessSchema
-                       , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
-                       , Writer (Rep (table Schema)) (Rep (table Insert))
-                       , Generic (table Insert)
-                       )
-                    => O.Table (table Insert) (table Expr)
-  tableDefinition =
-    O.Table
-         (untag @table tableName)
-         (O.TableProperties
-            (case lmap from (columnWriter (from tableSchema)) of
-               O.Writer f -> O.Writer f)
-            (O.View (to (baseTableAttrExpr (from tableSchema)))))
-    where
-      tableSchema :: table Schema
-      tableSchema = nullaryOp (For :: For WitnessSchema) schema
+  -- | Witness the schema of a table at the value level.
+  tableSchema :: table Schema
 
-  -- TODO Would really like to reconcile this with tableDefinition
-  tableDefinitionUpdate :: O.Table (table Expr) (table Expr)
+  -- | Traverse over all column names in a schema, converting to 'Expr's that
+  -- would select those columns.
+  traverseSchema
+    :: Applicative f
+    => (forall a. String -> f (Expr a)) -> table Schema -> f (table Expr)
+
+  -- | Traverse over all primitive expressions in a table of expressions.
+  traverseExprs
+    :: Applicative f
+    => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
+
+  -- | Traverse over all aggregates in a table of aggregations, converting them
+  -- to the expressions that refer to aggregation results.
+  traverseAggregate
+    :: Applicative f
+    => (forall a. Aggregate a -> f (Expr a)) -> table Aggregate -> f (table Expr)
+
+  insertWriter :: O.Writer (table Insert) a
+
+  updateWriter :: O.Writer (table Expr) a
+
+  ------------------------------------------------------------------------------
+
   default
-    tableDefinitionUpdate :: ( ADTRecord (table Expr)
-                             , ADTRecord (table Schema)
-                             , Constraints (table Schema) WitnessSchema
-                             , InferBaseTableAttrExpr (Rep (table Schema)) (Rep (table Expr))
-                             , Writer (Rep (table Schema)) (Rep (table Expr))
-                             )
-                          => O.Table (table Expr) (table Expr)
-  tableDefinitionUpdate =
-    O.Table
-         (untag @table tableName)
-         (O.TableProperties
-            (case lmap from (columnWriter (from tableSchema)) of
-               O.Writer f -> O.Writer f)
-            (O.View (to (baseTableAttrExpr (from tableSchema)))))
-    where
-      tableSchema :: table Schema
-      tableSchema = nullaryOp (For :: For WitnessSchema) schema
+    tableSchema
+      :: (ADTRecord (table Schema), Constraints (table Schema) WitnessSchema)
+      => table Schema
+  tableSchema = nullaryOp (For :: For WitnessSchema) schema
+
+  default
+    traverseSchema
+      :: ( GTraverseSchema (Rep (table Schema)) (Rep (table Expr))
+         , Generic (table Schema)
+         , Generic (table Expr)
+         , Applicative f
+         )
+      => (forall a. String -> f (Expr a)) -> table Schema -> f (table Expr)
+  traverseSchema f = fmap to . gtraverseSchema f . from
+
+  default
+    traverseExprs
+      :: ( ADTRecord (table Expr)
+         , Constraints (table Expr) MapPrimExpr
+         , Applicative f
+         )
+      => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
+  traverseExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+
+  default
+    updateWriter :: ( ADTRecord (table Expr)
+                    , ADTRecord (table Schema)
+                    , Constraints (table Schema) WitnessSchema
+                    , Writer (Rep (table Schema)) (Rep (table Insert))
+                    , Generic (table Insert)
+                    )
+                 => O.Writer (table Insert) a
+  updateWriter =
+    case lmap from (columnWriter (from (tableSchema @table))) of
+      O.Writer f -> O.Writer f
+
+  default
+    insertWriter :: ( ADTRecord (table Expr)
+                    , ADTRecord (table Schema)
+                    , Constraints (table Schema) WitnessSchema
+                    , Writer (Rep (table Schema)) (Rep (table Expr))
+                    )
+                 => O.Writer (table Expr) a
+  insertWriter =
+    case lmap from (columnWriter (from (tableSchema @table))) of
+      O.Writer f -> O.Writer f
+
+--------------------------------------------------------------------------------
+viewTable :: BaseTable table => table Expr
+viewTable =
+  runIdentity
+    (traverseSchema (Identity . Expr . O.BaseTableAttrExpr) tableSchema)
 
 
 --------------------------------------------------------------------------------
@@ -89,6 +134,24 @@ queryTable =
     (O.ColumnMaker (O.PackMap traversePrimExprs))
     tableDefinition
 
+--------------------------------------------------------------------------------
+tableDefinition
+  :: forall table.
+     BaseTable table
+  => O.Table (table Insert) (table Expr)
+tableDefinition =
+  O.Table
+    (untag @table tableName)
+    (O.TableProperties insertWriter (O.View viewTable))
+
+tableDefinitionUpdate
+  :: forall table.
+     BaseTable table
+  => O.Table (table Expr) (table Expr)
+tableDefinitionUpdate =
+  O.Table
+    (untag @table tableName)
+    (O.TableProperties updateWriter (O.View viewTable))
 
 --------------------------------------------------------------------------------
 -- | Witness the schema definition for table columns.
@@ -101,23 +164,22 @@ instance KnownSymbol name =>
 
 
 --------------------------------------------------------------------------------
--- | Map a schema definition into a set of expressions that would select those
--- columns.
-class InferBaseTableAttrExpr schema expr where
-  baseTableAttrExpr :: schema a -> expr a
+class GTraverseSchema schema expr where
+  gtraverseSchema
+    :: Applicative f
+    => (forall a. String -> f (Expr a)) -> schema x -> f (expr y)
 
-instance (InferBaseTableAttrExpr schema expr) =>
-         InferBaseTableAttrExpr (M1 i c schema) (M1 i c expr) where
-  baseTableAttrExpr (M1 s) = M1 (baseTableAttrExpr s)
+instance (GTraverseSchema schema expr) =>
+         GTraverseSchema (M1 i c schema) (M1 i c expr) where
+  gtraverseSchema f (M1 a) = M1 <$> gtraverseSchema f a
 
-instance ( InferBaseTableAttrExpr fSchema fExpr
-         , InferBaseTableAttrExpr gSchema gExpr
-         ) =>
-         InferBaseTableAttrExpr (fSchema :*: gSchema) (fExpr :*: gExpr) where
-  baseTableAttrExpr (l :*: r) = baseTableAttrExpr l :*: baseTableAttrExpr r
+instance (GTraverseSchema fSchema fExpr, GTraverseSchema gSchema gExpr) =>
+         GTraverseSchema (fSchema :*: gSchema) (fExpr :*: gExpr) where
+  gtraverseSchema f (l :*: r) =
+    liftA2 (:*:) (gtraverseSchema f l) (gtraverseSchema f r)
 
-instance InferBaseTableAttrExpr (K1 i (Tagged name String)) (K1 i (Expr a)) where
-  baseTableAttrExpr (K1 (Tagged name)) = K1 (Expr (O.BaseTableAttrExpr name))
+instance GTraverseSchema (K1 i (Tagged name String)) (K1 i (Expr a)) where
+  gtraverseSchema f (K1 (Tagged a)) = K1 <$> f a
 
 
 --------------------------------------------------------------------------------
