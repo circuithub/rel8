@@ -27,6 +27,7 @@ library
                        Rel8.Internal.Generic
                        Rel8.Internal.Operators
                        Rel8.Internal.Order
+                       Rel8.Internal.Query
                        Rel8.Internal.Table
                        Rel8.Internal.Types
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
