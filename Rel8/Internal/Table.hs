@@ -110,10 +110,15 @@ instance (GTable le lh, GTable re rh) =>
   gtraversePrimExprs f (l :*: r) =
     liftA2 (:*:) (gtraversePrimExprs f l) (gtraversePrimExprs f r)
 
-instance Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
+instance {-# OVERLAPPABLE #-} Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
   growParser = K1 <$> rowParser
   gcolumnCount = retag (columnCount @_ @haskell)
   gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
+
+instance DBType a => GTable (K1 i (Expr a)) (K1 i a) where
+  growParser = K1 <$> field
+  gcolumnCount = Tagged 1
+  gtraversePrimExprs f (K1 (Expr a)) = K1 <$> traversePrimExprs f (Expr a)
 
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
