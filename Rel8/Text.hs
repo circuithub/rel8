@@ -14,6 +14,8 @@ infixr 6 ++.
 
 -- See https://www.postgresql.org/docs/9.5/static/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 
+infix 2 ~., ~*, !~, !~*
+
 -- | Matches regular expression, case sensitive
 (~.) :: Expr Text -> Expr Text -> Expr Bool
 (~.) = dbBinOp "~."
