@@ -72,7 +72,7 @@ module Rel8
   , TypeInfo(..), showableDbType, compositeDBType
 
     -- ** Null
-  , toNullable , (?), isNull, nullable
+  , toNullable , ($?), isNull, nullable
 
 
     -- * Running Queries

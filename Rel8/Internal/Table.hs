@@ -225,9 +225,13 @@ instance (Table expr haskell) =>
       else fmap Just rowParser
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
--- column might be @null@.
-(?) :: ToNullable b maybeB => MaybeTable a -> (a -> Expr b) -> Expr maybeB
-MaybeTable _ row ? f = toNullable (f row)
+-- column might be @null@. Like field selection.
+--
+-- It may be helpful to remember this operator by the mneumonic - '$' on the left
+-- means function on the left, '?' on the right means 'MaybeTable' on the right.
+infixl 4 $?
+($?) :: ToNullable b maybeB => (a -> Expr b) -> MaybeTable a -> Expr maybeB
+f $? MaybeTable _ x = toNullable (f x)
 
 tableIsNull :: MaybeTable a -> Expr Bool
 tableIsNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
