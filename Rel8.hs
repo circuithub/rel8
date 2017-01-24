@@ -26,7 +26,7 @@ module Rel8
   , O.Query, O.QueryArr
   , queryTable
   , leftJoin
-  , inlineLeftJoinA
+  , leftJoinA
 
     -- ** Filtering
   , where_
@@ -166,10 +166,10 @@ leftJoin condition l r =
 --   comment <- inlineLeftJoinA -< \c -> commentUser c ==. userId u
 --   returnA (u, c)
 -- @
-inlineLeftJoinA
+leftJoinA
   :: (Table a haskell, DBBool bool)
   => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
-inlineLeftJoinA q =
+leftJoinA q =
   O.QueryArr $ \(p, left, t) ->
     let O.QueryArr rightQueryF = liftA2 (,) (pure (lit (Just False))) q
         (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
@@ -280,13 +280,13 @@ dbNow = nullaryFunction "now"
    example tables:
 
    @
-   data Part f =
-     Part { partId     :: 'C' f \"PID\" ''HasDefault' Int
-          , partName   :: 'C' f \"PName\" ''NoDefault' String
-          , partColor  :: 'C' f \"Color\" ''NoDefault' Int
-          , partWeight :: 'C' f \"Weight\" ''NoDefault' Double
-          , partCity   :: 'C' f \"City\" ''NoDefault' String
-          } deriving (Generic)
+   data Part f = Part
+     { partId     :: 'C' f \"PID\" ''HasDefault' Int
+     , partName   :: 'C' f \"PName\" ''NoDefault' String
+     , partColor  :: 'C' f \"Color\" ''NoDefault' Int
+     , partWeight :: 'C' f \"Weight\" ''NoDefault' Double
+     , partCity   :: 'C' f \"City\" ''NoDefault' String
+     } deriving (Generic)
 
    instance 'BaseTable' Part where 'tableName' = \"part\"
    @
@@ -320,7 +320,7 @@ dbNow = nullaryFunction "now"
    a new query for all part cities in the database:
 
    @
-   allPartCities :: Query (Expr String)
+   allPartCities :: 'O.Query' ('Expr' String)
    allPartCities = partCity \<$\> allParts
    @
 
@@ -335,7 +335,7 @@ dbNow = nullaryFunction "now"
    Firstly, we can use 'filterQuery', similar to how we would use 'filter':
 
    @
-   londonParts :: 'Query' (Part 'Expr')
+   londonParts :: 'O.Query' (Part 'Expr')
    londonParts = 'filterQuery' (\\p -> partCity p '==.' \"London\") allParts
    @
 
@@ -348,11 +348,122 @@ dbNow = nullaryFunction "now"
    using 'guard' with 'MonadPlus':
 
    @
-   heavyParts :: 'Query' (Part 'Expr')
+   heavyParts :: 'O.Query' (Part 'Expr')
    heavyParts = proc _ -> do
-     part <- queryTable -< ()
-     where_ -\< partWeight part >. 5
+     part <- 'queryTable' -< ()
+     'where_' -\< partWeight part '>.' 5
      returnA -< part
    @
+
+   == Joining Queries
+
+   @rel8@ supports joining multiple queries into one, in a few different ways.
+
+   === Products and Inner Joins
+
+   We can take the product of two queries - each row of the first query
+   paired with each row of the second query - by sequencing queries inside a
+   'O.Query'. Let's introduce another table:
+
+   @
+   data Supplier f = Supplier
+     { supplierId :: 'C' f \"SID\" ''HasDefault' Int
+     , supplierName :: 'C' f \"SName\" ''NoDefault' String
+     , supplierStatus :: 'C' f \"Status\" ''NoDefault' Int
+     , supplierCity :: 'C' f \"City\" ''NoDefault' String
+     } deriving (Generic)
+
+   instance 'BaseTable' Supplier where 'tableName' = "supplier"
+   @
+
+   We can take the product of all parts paired against all suppliers:
+
+   @
+   allPartsAndSuppliers :: 'O.Query' (Part 'Expr', Supplier 'Expr')
+   allPartsAndSuppliers = proc _ -> do
+     part <- 'queryTable' -< ()
+     supplier <- 'queryTable' -< ()
+     returnA -< (part, supplier)
+   @
+
+   We could write this a little more succinctly using using the @Applicative@
+   instance for 'O.Query', as '<*>' corresponds to products:
+
+   @
+   allPartsAndSuppliers2 :: 'O.Query' (Part 'Expr', Supplier 'Expr')
+   allPartsAndSuppliers2 = liftA2 (,) 'queryTable' 'queryTable'
+   @
+
+   In both queries, we've just used 'queryTable' to select the necessary rows.
+   'queryTable' is overloaded, but by knowing the type of rows to select, it
+   will change which table it queries from.
+
+   We can combine products with the techniques we've just seen in order to
+   produce the inner join of two tables. For example, here is a query to pair
+   up each part with all suppliers in the same city.
+
+   @
+   partsAndSuppliers :: Query (Part Expr, Supplier Expr)
+   partsAndSuppliers =
+     'filterQuery'
+       (\(part, supplier) -> partCity part '==.' supplierCity supplier)
+       allPartsAndSuppliers
+   @
+
+   === Left Joins
+
+   The previous query gave us parts with /at least one/ supplier in the same
+   city. If a part has no suppliers in the same city, it will be omitted from
+   the results. But what if we needed this information? In SQL we can capture
+   this with a @LEFT JOIN@, and @rel8@ supports this.
+
+   Left joins can be introduced with the 'leftJoin', which takes two queries,
+   or using arrow notation with `leftJoinA`. Let's look at the latter, as it
+   is often more concise.
+
+   @
+   partsAndSuppliersLJ :: Query (Part Expr, MaybeTable (Supplier Expr))
+   partsAndSuppliersLJ = proc _ -> do
+     part <- queryTable -< ()
+     maybeSupplier <- leftJoinA queryTable -<
+       \supplier -> partCity part ==. supplierCity supplier
+     returnA -< (part, maybeSupplier)
+   @
+
+   This is a little different to anything we've seen so far, so let's break it
+   down. 'leftJoinA' takes as its first argument the query to join in. In this
+   case we just use 'queryTable' to select all supplier rows. @LEFT JOIN@s
+   also require a predicate, and we supply this as /input/ to @leftJoinA@. The
+   input is itself a function, a function from rows in the to-be-joined table
+   to booleans. Notice that in this predicate, we are free to refer to tables and
+   columns already in the query (as @partCity part@ is not part of the supplier
+   table).
+
+   Left joins themselves can be filtered, as they are just another query.
+   However, the results of a left join are wrapped in 'MaybeTable', which
+   indicates that /all/ of the columns in this table might be null, if the
+   join failed to match any rows. We can use this information with our
+   @partsAndSuppliersLJ@ query to find parts where there are no suppliers in the
+   same city:
+
+   @
+   partsWithoutSuppliersInCity :: Query (Part Expr)
+   partsWithoutSuppliersInCity = proc _ -> do
+     (part, maybeSupplier) <- partsAndSuppliersLJ -< ()
+     where_ -< isNull (maybeSupplier $? supplierId)
+     returnA -< part
+   @
+
+   We are filtering our query for suppliers where the id is null. Ordinarily
+   this would be a type error - we declared that @supplierId@ contains @Int@,
+   rather than @Maybe Int@. However, because suppliers come from a left join,
+   when we project out from 'MaybeTable' /all/ columns become nullable. It may
+   help to think of @($?)@ as having the type:
+
+   @
+   ($?) :: (a -> Expr b) -> MaybeTable a -> Expr (Maybe b)
+   @
+
+   though in @rel8@ we're a little bit more general.
 
 -}
