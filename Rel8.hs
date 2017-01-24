@@ -49,7 +49,7 @@ module Rel8
 
     -- * Tables
   , Table
-  , MaybeTable, tableIsNull
+  , MaybeTable, isTableNull
   , Col(..)
 
     -- * Expressions

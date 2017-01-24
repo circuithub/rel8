@@ -238,8 +238,8 @@ infixl 4 $?
 ($?) :: ToNullable b maybeB => (a -> Expr b) -> MaybeTable a -> Expr maybeB
 f $? MaybeTable _ x = toNullable (f x)
 
-tableIsNull :: MaybeTable a -> Expr Bool
-tableIsNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
+isTableNull :: MaybeTable a -> Expr Bool
+isTableNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
 
 --------------------------------------------------------------------------------
 -- | Eliminate 'Maybe' from the type of an 'Expr'. Like 'maybe' for Haskell
