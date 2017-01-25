@@ -10,6 +10,8 @@ import Data.Int (Int16, Int32, Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.Operators as O
+import qualified Opaleye.PGTypes as O
 import Prelude hiding (not)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
@@ -60,19 +62,19 @@ instance DBEq UTCTime where
 class DBEq a => DBOrd a where
   -- | The PostgreSQL @<@ operator.
   (<.) :: Expr a -> Expr a -> Expr Bool
-  a <. b = not (a >=. b)
+  a <. b = columnToExpr (exprToColumn @_ @O.PGInt8 a O..< exprToColumn b)
 
   -- | The PostgreSQL @<=@ operator.
   (<=.) :: Expr a -> Expr a -> Expr Bool
-  a <=. b = not (a >. b)
+  a <=. b = columnToExpr (exprToColumn @_ @O.PGInt8 a O..<= exprToColumn b)
 
   -- | The PostgreSQL @>@ operator.
   (>.) :: Expr a -> Expr a -> Expr Bool
-  a >. b = not (a <=. b)
+  a >. b = columnToExpr (exprToColumn @_ @O.PGInt8 a O..> exprToColumn b)
 
   -- | The PostgreSQL @>@ operator.
   (>=.) :: Expr a -> Expr a -> Expr Bool
-  a >=. b = not (a <. b)
+  a >=. b = columnToExpr (exprToColumn @_ @O.PGInt8 a O..>= exprToColumn b)
 
 instance DBOrd Bool where
 instance DBOrd Char where
