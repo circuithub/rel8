@@ -1,6 +1,7 @@
 { mkDerivation, base, one-liner, opaleye, postgresql-simple
 , product-profunctors, profunctors, scientific, stdenv, streaming
 , tagged, text, exceptions, free, streaming-postgresql-simple
+, pretty-show, lens
 }:
 mkDerivation {
   pname = "rel8";
@@ -10,6 +11,7 @@ mkDerivation {
     base one-liner opaleye postgresql-simple product-profunctors
     profunctors scientific streaming tagged text exceptions free
     streaming-postgresql-simple
+    pretty-show lens
   ];
   license = stdenv.lib.licenses.bsd3;
 }

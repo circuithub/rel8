@@ -5,6 +5,8 @@
 {-# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
              OverloadedStrings #-}
 
+module Main where
+
 import Control.Applicative
 import Control.Arrow
 import Rel8

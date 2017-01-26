@@ -34,13 +34,16 @@ library
   build-depends:       aeson
                      , base >=4.09 && <4.11
                      , bytestring
+                     , containers >= 0.5.7.1
                      , contravariant
                      , exceptions
                      , free
+                     , lens
                      , mtl
                      , one-liner >=0.7 && <0.8
                      , opaleye
                      , postgresql-simple
+                     , pretty-show
                      , product-profunctors >=0.7 && <0.8
                      , profunctors >=5.2 && <5.3
                      , resourcet >= 1.1.8.1
