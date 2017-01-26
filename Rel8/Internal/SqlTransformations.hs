@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Rel8.Internal.SqlTransformations where
 
+import Data.Semigroup ((<>))
 import Control.Arrow (first)
 import Data.Maybe (mapMaybe)
 import Control.Lens
@@ -12,15 +13,17 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map as M
 
 --------------------------------------------------------------------------------
-
+--
 -- | Traversal suitable for use with @Control.Lens.Plate@. Selects the immediate
 -- Selects within a Select.
+--
+--------------------------------------------------------------------------------
 
 selectPlate :: Traversal' O.Select O.Select
 selectPlate f (SelectFrom From {..}) =
   SelectFrom <$>
     (From <$> pure attrs
-          <*> traverse f tables             -- < There are some Selects here!
+          <*> traverse f tables
           <*> pure criteria
           <*> pure groupBy
           <*> pure orderBy
@@ -28,22 +31,20 @@ selectPlate f (SelectFrom From {..}) =
           <*> pure offset)
 selectPlate f (SelectJoin Join {..}) =
   SelectJoin <$> (Join <$> pure jJoinType
-                       <*> both f jTables   -- < More Selects!
+                       <*> both f jTables
                        <*> pure jCond)
 selectPlate f (SelectBinary Binary {..}) =
   SelectBinary <$> (Binary <$> pure bOp
-                           <*> f bSelect1   -- < Getting the picture?
+                           <*> f bSelect1
                            <*> f bSelect2)
 selectPlate f (SelectLabel Label {..}) =
   SelectLabel <$> (Label <$> pure lLabel
                          <*> f lSelect)
 
--- The other constructors in Select don't contain Selects.
 selectPlate _ nonRecursive = pure nonRecursive
 
 
 --------------------------------------------------------------------------------
-
 -- | Traversal suitable for use with @Control.Lens.Plate@. Selects the immediate
 -- SqlExprs within a SqlExpr.
 
@@ -70,7 +71,7 @@ traverseExpr _ other = pure other
 
 
 --------------------------------------------------------------------------------
-
+--
 -- Simplify a SELECT query. The following optimisations are applied:
 --
 -- 1. SELECT a, b, c FROM (SELECT .. ) is rewritten to just the inner select.
@@ -79,6 +80,8 @@ traverseExpr _ other = pure other
 --
 -- 2. SELECT * FROM inner is rewritten to just the inner query. Like (1), but
 --    applies to VALUES expressions.
+--
+--------------------------------------------------------------------------------
 
 simplifySelect :: O.Select -> O.Select
 simplifySelect = transformOf selectPlate go
@@ -96,10 +99,30 @@ simplifySelect = transformOf selectPlate go
                         , offset = Nothing
                         }) =
       let newAttrs =
-            case (outerAttrs, innerAttrs) of
-              (SelectAttrs outerAttrs', SelectAttrs innerAttrs') ->
-                SelectAttrs (fmap (first (rename innerAttrs')) outerAttrs')
-              (Star, x) -> x
+            case outerAttrs of
+              Star ->
+                innerAttrs
+
+              SelectAttrs outerAttrs' ->
+                case innerAttrs of
+                  Star ->
+                    SelectAttrs outerAttrs'
+                  SelectAttrs innerAttrs' ->
+                    SelectAttrs (fmap (first (substitute innerAttrs')) outerAttrs')
+                  SelectAttrsStar innerAttrs' ->
+                    SelectAttrs (fmap (first (substitute innerAttrs')) outerAttrs')
+
+              SelectAttrsStar outerAttrs' ->
+                case innerAttrs of
+                  Star ->
+                    outerAttrs
+                  SelectAttrs innerAttrs' ->
+                    SelectAttrs (fmap (first (substitute innerAttrs')) outerAttrs' <>
+                                innerAttrs')
+                  SelectAttrsStar innerAttrs' ->
+                    SelectAttrsStar (fmap (first (substitute innerAttrs')) outerAttrs' <>
+                                     innerAttrs')
+
       in SelectFrom inner {attrs = newAttrs, criteria = c1 ++ c2}
 
     go (SelectFrom From { attrs = Star
@@ -114,23 +137,27 @@ simplifySelect = transformOf selectPlate go
 
 
 --------------------------------------------------------------------------------
-
 --
 -- Given a 'SqlExpr' and environment mapping column names to 'SqlExpr's,
 -- perform substitution of column names to their underlying expressions.
+--
+--------------------------------------------------------------------------------
 
-rename
+substitute
   :: NonEmpty (SqlExpr, Maybe SqlColumn)
   -> SqlExpr
   -> SqlExpr
-rename exprs expr = transformOf traverseExpr expand expr
+substitute exprs expr = transformOf traverseExpr expand expr
   where
+    expand :: SqlExpr -> SqlExpr
     expand free@(ColumnSqlExpr (SqlColumn sqlColumn)) =
       case M.lookup sqlColumn env of
         Just a -> a
         Nothing -> free -- Not in the environment, free variable supplied by
                         -- another query?
     expand other = other
+
+    env :: M.Map String SqlExpr
     env =
       M.fromList
         (mapMaybe

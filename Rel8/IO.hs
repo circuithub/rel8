@@ -22,6 +22,7 @@ module Rel8.IO
   , streamCursor
   ) where
 
+import qualified Opaleye.Internal.Unpackspec as O
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -33,14 +34,22 @@ import Data.String (fromString)
 import Database.PostgreSQL.Simple (Connection)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.FromRow as Pg
-import Database.PostgreSQL.Simple.Streaming
-       (queryWith_, streamWithOptionsAndParser_, defaultFoldOptions)
+-- import Database.PostgreSQL.Simple.Streaming
+--        (queryWith_, streamWithOptionsAndParser_, defaultFoldOptions)
 import qualified Opaleye as O
 import qualified Opaleye.Internal.RunQuery as O
+import qualified Opaleye.Internal.Print as Pr
 import qualified Opaleye.Internal.Table as O
+import qualified Opaleye.Internal.QueryArr as O
+import qualified Opaleye.Internal.Sql as O (sql)
+import qualified Opaleye.Internal.Optimize as O
+import qualified Opaleye.Internal.PrimQuery as O
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import qualified Opaleye.Internal.Tag as O
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
 import Rel8.Internal.Table
+import Rel8.Internal.SqlTransformations
 import Rel8.Internal.Types (Insert, QueryResult)
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as S
@@ -149,7 +158,7 @@ runQueryExplicit
   -> O.Query columns
   -> Stream (Of haskells) m ()
 runQueryExplicit io qr q = maybe (return ()) (io parser) sql
-  where (sql, parser) = O.prepareQuery qr q
+  where (sql, parser) = prepareQuery qr q
 
 runInsertManyReturningExplicit
   :: Monad m
@@ -183,3 +192,29 @@ runUpdateReturningExplicit io qr t up cond r =
     O.QueryRunner u _ _ = qr
     parser = O.prepareRowParser qr (r v)
     O.Table _ (O.TableProperties _ (O.View v)) = t
+
+prepareQuery
+  :: O.QueryRunner columns haskells
+  -> O.Query columns
+  -> (Maybe Pg.Query, Pg.RowParser haskells)
+prepareQuery qr@(O.QueryRunner u _ _) q = (fmap fromString sql, parser)
+  where (b, sql) = showSqlExplicit u q
+        parser = O.prepareRowParser qr b
+
+showSqlExplicit
+  :: O.Unpackspec s t -> O.QueryArr () s -> (s, Maybe String)
+showSqlExplicit up q = case O.runSimpleQueryArrStart q () of
+  (x, y, z) -> (x, formatAndShowSQL (O.collectPEs up x, O.optimize y, z))
+
+formatAndShowSQL
+  :: ([O.PrimExpr],O.PrimQuery' a,O.Tag) -> Maybe String
+formatAndShowSQL =
+  fmap (show . Pr.ppSql . simplifySelect . O.sql) . traverse2Of3 O.removeEmpty
+  where
+        -- Just a lens
+        traverse2Of3
+          :: Functor f
+          => (a -> f b) -> (x,a,y) -> f (x,b,y)
+        traverse2Of3 f (x,y,z) =
+          fmap (\y' -> (x,y',z))
+               (f y)
