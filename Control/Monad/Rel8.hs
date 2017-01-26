@@ -12,6 +12,7 @@
 
 module Control.Monad.Rel8 where
 
+import Control.Monad.Trans.Resource (MonadResource)
 import Control.Exception (fromException)
 import Control.Monad.Catch (MonadMask, mask, try, throwM)
 import Control.Monad.Free.Church (F, liftF, iterM)
@@ -132,22 +133,24 @@ newtype PostgreSQLTransactionT m a =
   PostgreSQLTransactionT (ReaderT Pg.Connection m a)
   deriving (Functor,Applicative,Monad)
 
-instance (MonadIO m,MonadMask m) => MonadTransaction (PostgreSQLTransactionT m) where
+instance (MonadIO m, MonadMask m, MonadResource m) =>
+         MonadTransaction (PostgreSQLTransactionT m) where
   liftTransaction =
     PostgreSQLTransactionT .
-    iterM (\(Statements mode shouldRetry t k) ->
-             do pg <- ask
-                out <-
-                  withTransactionModeRetry
-                    mode
-                    shouldRetry
-                    pg
-                    (do out <- runPostgreSQLStatements t pg
-                        case out of
-                          Left{} -> liftIO (Pg.rollback pg)
-                          Right{} -> return ()
-                        return out)
-                k out)
+    iterM
+      (\(Statements mode shouldRetry t k) -> do
+         pg <- ask
+         out <-
+           withTransactionModeRetry
+             mode
+             shouldRetry
+             pg
+             (do out <- runPostgreSQLStatements t pg
+                 case out of
+                   Left {} -> liftIO (Pg.rollback pg)
+                   Right {} -> return ()
+                 return out)
+         k out)
 
 -- | A handler that runs individual statements against a PostgreSQL connection.
 -- Again, we just use a reader monad to pass the connection handle around.
@@ -159,13 +162,13 @@ runPostgreSQLStatements
   :: PostgreSQLStatementT e m a -> Pg.Connection -> m (Either e a)
 runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
 
-instance (MonadIO m) => MonadStatement (PostgreSQLStatementT e m) where
+instance (MonadIO m, MonadMask m, MonadResource m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
-    PostgreSQLStatementT .
+    PostgreSQLStatementT . ExceptT . fmap Right .
     iterM (\op ->
-             do conn <- lift ask
+             do conn <- ask
                 step conn op)
-    where step pg (Select q k) = S.toList_ (Rel8.IO.select pg q) >>= k
+    where step pg (Select q k) = S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q) >>= k
           step pg (Insert1Returning q k) =
             liftIO (Rel8.IO.insert1Returning pg q) >>= k
           step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k

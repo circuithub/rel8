@@ -11,6 +11,7 @@ let
       overrides = self: super: {
         one-liner = super.callPackage /home/ollie/work/one-liner {};
         opaleye = pkgs.haskell.lib.dontCheck (super.callPackage /home/ollie/work/opaleye {});
+        streaming-postgresql-simple = super.callPackage ../streaming-postgresql-simple {};
       };
     };
 
