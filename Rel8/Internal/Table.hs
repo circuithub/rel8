@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -124,7 +125,7 @@ instance DBType a => GTable (K1 i (Expr a)) (K1 i a) where
 -- Stock instances of 'Table'
 
 -- | Any 'BaseTable' is a 'Table'.
-instance {-# OVERLAPPABLE #-} BaseTable table => Table (table Expr) (table QueryResult) where
+instance {-# OVERLAPPABLE #-} (BaseTable table, f ~ Expr, g ~ QueryResult) => Table (table f) (table g) where
   columnCount =
     Tagged (getSum (getConst (traverseSchema (const (Const (Sum 1))) (tableSchema @table))))
 
@@ -492,7 +493,8 @@ instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
 
 -- | Any base table can be aggregated, provided you specify how to aggregate
 -- each column.
-instance {-# OVERLAPPABLE #-} BaseTable table => AggregateTable (table Aggregate) (table Expr) where
+instance {-# OVERLAPPABLE #-}
+  (BaseTable table, f ~ Aggregate, g ~ Expr) => AggregateTable (table f) (table g) where
   traverseAggregates = traverseBaseTableAggregates
 
 --------------------------------------------------------------------------------
