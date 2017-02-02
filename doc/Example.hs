@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 -- This is the example from the documentation. We don't run any tests,
 -- just compiling is deemed satisfactory. If this fails to compile,
 -- make sure to update the documentation with the necessary changes!
@@ -18,6 +19,7 @@ data Part f =
        } deriving (Generic)
 
 instance BaseTable Part where tableName = "part"
+deriving instance Show (Part QueryResult)
 
 allParts :: Query (Part Expr)
 allParts = queryTable
@@ -43,6 +45,7 @@ data Supplier f = Supplier
   } deriving (Generic)
 
 instance BaseTable Supplier where tableName = "supplier"
+deriving instance Show (Supplier QueryResult)
 
 allPartsAndSuppliers :: Query (Part Expr, Supplier Expr)
 allPartsAndSuppliers = proc _ -> do
