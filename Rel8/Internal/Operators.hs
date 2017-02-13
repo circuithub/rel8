@@ -6,6 +6,7 @@
 
 module Rel8.Internal.Operators where
 
+import Control.Arrow ((***))
 import Data.Int (Int16, Int32, Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
@@ -86,3 +87,10 @@ instance DBOrd Int64 where
 instance DBOrd Text where
 instance DBOrd UTCTime where
 
+-- | Case statement
+case_ :: [(Expr Bool, Expr a)] -> Expr a -> Expr a
+case_ cases defaultCase =
+  columnToExpr
+    (O.case_
+      (map (exprToColumn *** exprToColumn) cases)
+      (exprToColumn defaultCase))

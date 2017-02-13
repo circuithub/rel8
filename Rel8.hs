@@ -91,7 +91,7 @@ module Rel8
 
 
     -- * TODO Organise
-  , QueryResult, Schema, Anon
+  , QueryResult, Schema, Anon, case_
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
