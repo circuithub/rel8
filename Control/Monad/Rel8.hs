@@ -32,22 +32,27 @@ import Rel8.IO
 -- | Syntax tree for running individual statements against a database.
 
 data StatementSyntax :: * -> * where
-        Select ::
-            Table pg haskell =>
-            Query pg -> ([haskell] -> k) -> StatementSyntax k
-        Insert1Returning ::
-            BaseTable table =>
-            (table Insert) -> (table QueryResult -> k) -> StatementSyntax k
-        Insert ::
-            BaseTable table =>
-            [table Insert] -> (Int64 -> k) -> StatementSyntax k
-        Update ::
-            (BaseTable table, DBBool bool) =>
-            (table Expr -> Expr bool) ->
-            (table Expr -> table Expr) -> (Int64 -> k) -> StatementSyntax k
-        Delete ::
-            (BaseTable table, DBBool bool) =>
-            (table Expr -> Expr bool) -> (Int64 -> k) -> StatementSyntax k
+  Select ::
+      Table pg haskell =>
+      Query pg -> ([haskell] -> k) -> StatementSyntax k
+  Insert1Returning ::
+      BaseTable table =>
+      (table Insert) -> (table QueryResult -> k) -> StatementSyntax k
+  Insert ::
+      BaseTable table =>
+      [table Insert] -> (Int64 -> k) -> StatementSyntax k
+  Update ::
+      (BaseTable table, DBBool bool) =>
+      (table Expr -> Expr bool) ->
+      (table Expr -> table Expr) -> (Int64 -> k) -> StatementSyntax k
+  UpdateReturning ::
+      (BaseTable table, DBBool bool) =>
+      (table Expr -> Expr bool) ->
+      (table Expr -> table Expr) ->
+      ([table QueryResult] -> k) -> StatementSyntax k
+  Delete ::
+      (BaseTable table, DBBool bool) =>
+      (table Expr -> Expr bool) -> (Int64 -> k) -> StatementSyntax k
 
 deriving instance Functor StatementSyntax
 
@@ -81,6 +86,13 @@ update
   -> (table Expr -> table Expr)
   -> m Int64
 update f up = liftStatements (liftF (Update f up id))
+
+updateReturning
+  :: (MonadStatement m, BaseTable table)
+  => (table Expr -> Expr Bool)
+  -> (table Expr -> table Expr)
+  -> m [table QueryResult]
+updateReturning f up = liftStatements (liftF (UpdateReturning f up id))
 
 delete :: (MonadStatement m, BaseTable table, DBBool bool)
        => (table Expr -> Expr bool)
@@ -162,15 +174,19 @@ runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
 instance (MonadIO m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
     PostgreSQLStatementT .
-    iterM (\op ->
-             do conn <- lift ask
-                step conn op)
-    where step pg (Select q k) = S.toList_ (Rel8.IO.select pg q) >>= k
-          step pg (Insert1Returning q k) =
-            liftIO (Rel8.IO.insert1Returning pg q) >>= k
-          step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
-          step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
-          step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
+    iterM
+      (\op -> do
+         conn <- lift ask
+         step conn op)
+    where
+      step pg (Select q k) = S.toList_ (Rel8.IO.select pg q) >>= k
+      step pg (Insert1Returning q k) =
+        liftIO (Rel8.IO.insert1Returning pg q) >>= k
+      step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
+      step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
+      step pg (UpdateReturning a b k) =
+        S.toList_ (Rel8.IO.updateReturning pg a b) >>= k
+      step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where
   abortTransaction l = PostgreSQLStatementT (ExceptT (return (Left l)))
