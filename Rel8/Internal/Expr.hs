@@ -39,7 +39,7 @@ instance (DBType a, Num a) => Num (Expr a) where
   a * b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
   abs = dbFunction "abs"
   signum = columnToExpr @O.PGInt8 . signum . exprToColumn
-  fromInteger = unsafeCoerceExpr . lit
+  fromInteger = lit . fromInteger
   negate = columnToExpr @O.PGInt8 . negate . exprToColumn
 
 --------------------------------------------------------------------------------
