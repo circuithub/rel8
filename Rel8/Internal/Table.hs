@@ -70,6 +70,10 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
 
   traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
 
+  traverseBinary
+    :: Applicative f
+    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr, expr) -> f expr
+
   ---------------------------------------------------------------------------------------
 
   default
@@ -90,6 +94,12 @@ class Table expr haskell | expr -> haskell, haskell -> expr where
       => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
   traversePrimExprs f = fmap to . gtraversePrimExprs f . from
 
+  default
+    traverseBinary
+      :: (Generic expr, GTable (Rep expr) (Rep haskell), Applicative f)
+      => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr, expr) -> f expr
+  traverseBinary f (l, r) =
+    fmap to (gbinary f (from l, from r))
 
 --------------------------------------------------------------------------------
 class GTable expr haskell | expr -> haskell, haskell -> expr where
@@ -98,11 +108,15 @@ class GTable expr haskell | expr -> haskell, haskell -> expr where
   gtraversePrimExprs
     :: Applicative f
     => (O.PrimExpr -> f O.PrimExpr) -> expr a -> f (expr a)
+  gbinary
+    :: Applicative f
+    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr a, expr a) -> f (expr a)
 
 instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
   growParser = M1 <$> growParser
   gcolumnCount = retag (gcolumnCount @_ @haskell)
   gtraversePrimExprs f (M1 a) = M1 <$> gtraversePrimExprs f a
+  gbinary f (M1 l, M1 r) = M1 <$> gbinary f (l, r)
 
 instance (GTable le lh, GTable re rh) =>
          GTable (le :*: re) (lh :*: rh) where
@@ -110,16 +124,20 @@ instance (GTable le lh, GTable re rh) =>
   gcolumnCount = retag (gcolumnCount @_ @lh) + retag (gcolumnCount @_ @rh)
   gtraversePrimExprs f (l :*: r) =
     liftA2 (:*:) (gtraversePrimExprs f l) (gtraversePrimExprs f r)
+  gbinary f (l1 :*: r1, l2 :*: r2) =
+    liftA2 (:*:) (gbinary f (l1, l2)) (gbinary f (r1, r2))
 
 instance {-# OVERLAPPABLE #-} Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
   growParser = K1 <$> rowParser
   gcolumnCount = retag (columnCount @_ @haskell)
   gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
+  gbinary f (K1 l, K1 r) = K1 <$> traverseBinary f (l, r)
 
 instance DBType a => GTable (K1 i (Expr a)) (K1 i a) where
   growParser = K1 <$> field
   gcolumnCount = Tagged 1
-  gtraversePrimExprs f (K1 (Expr a)) = K1 <$> traversePrimExprs f (Expr a)
+  gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
+  gbinary f (K1 l, K1 r) = K1 <$> traverseBinary f (l, r)
 
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
@@ -132,6 +150,8 @@ instance {-# OVERLAPPABLE #-} (BaseTable table, f ~ Expr, g ~ QueryResult) => Ta
   rowParser = parseBaseTable
 
   traversePrimExprs = traverseBaseTableExprs
+
+  traverseBinary = traverseBaseTableBinary
 
 instance (Table a a', Table b b') =>
          Table (a, b) (a', b') where
@@ -230,6 +250,9 @@ instance (Table expr haskell) =>
       then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
       else fmap Just rowParser
 
+  traverseBinary f (MaybeTable tagL l, MaybeTable tagR r) =
+    MaybeTable <$> traverseBinary f (tagL, tagR) <*> traverseBinary f (l, r)
+
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@. Like field selection.
 --
@@ -292,7 +315,7 @@ instance (DBType a) =>
   columnCount = Tagged 1
   traversePrimExprs f (Expr a) = Expr <$> f a
   rowParser = fmap Col field
-
+  traverseBinary f (Expr a, Expr b) = Expr <$> f (a, b)
 
 --------------------------------------------------------------------------------
 
@@ -352,6 +375,10 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
 
   updateWriter :: O.Writer (table Expr) a
 
+  traverseBaseTableBinary
+    :: Applicative f
+    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (table Expr, table Expr) -> f (table Expr)
+
   ------------------------------------------------------------------------------
 
   default
@@ -395,6 +422,16 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
          )
       => O.Aggregator (table Aggregate) (table Expr)
   traverseBaseTableAggregates = dimap from to gaggregator
+
+  default
+    traverseBaseTableBinary
+      :: ( Applicative f
+         , Generic (table Expr)
+         , GTable (Rep (table Expr)) (Rep (table QueryResult))
+         )
+      => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr)
+      -> (table Expr, table Expr) -> f (table Expr)
+  traverseBaseTableBinary f (l, r) = fmap to (gbinary f (from l, from r))
 
   default
     updateWriter :: ( ADTRecord (table Expr)

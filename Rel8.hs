@@ -27,6 +27,7 @@ module Rel8
   , queryTable
   , leftJoin
   , leftJoinA
+  , unionAll
 
     -- ** Filtering
   , where_
@@ -116,6 +117,8 @@ import Data.Text (Text)
 import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics (Generic)
+import qualified Opaleye.Binary as O
+import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Column as O
@@ -228,6 +231,9 @@ dbBinOp op a b =
 
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
+
+unionAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
+unionAll = O.unionAllExplicit (O.Binaryspec (O.PackMap traverseBinary))
 
 
 {- $intro
