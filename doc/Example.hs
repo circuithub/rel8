@@ -6,14 +6,17 @@
 {-# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
              OverloadedStrings #-}
 
+module Main where
+
 import Control.Applicative
 import Control.Arrow
 import Rel8
+import Data.Int
 
 data Part f =
-  Part { partId     :: C f "PID" 'HasDefault Int
+  Part { partId     :: C f "PID" 'HasDefault Int32
        , partName   :: C f "PName" 'NoDefault String
-       , partColor  :: C f "Color" 'NoDefault Int
+       , partColor  :: C f "Color" 'NoDefault Int32
        , partWeight :: C f "Weight" 'NoDefault Double
        , partCity   :: C f "City" 'NoDefault String
        } deriving (Generic)
@@ -36,11 +39,17 @@ heavyParts = proc _ -> do
   where_ -< partWeight part >. 5
   returnA -< part
 
+antijoinExample :: Query (Part Expr)
+antijoinExample =
+  antijoin allParts
+           (proc part -> do
+              otherPart <- queryTable -< ()
+              where_ -< partWeight otherPart >. partWeight part)
 
 data Supplier f = Supplier
-  { supplierId :: C f "SID" 'HasDefault Int
+  { supplierId :: C f "SID" 'HasDefault Int32
   , supplierName :: C f "SName" 'NoDefault String
-  , supplierStatus :: C f "Status" 'NoDefault Int
+  , supplierStatus :: C f "Status" 'NoDefault Int32
   , supplierCity :: C f "City" 'NoDefault String
   } deriving (Generic)
 
