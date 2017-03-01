@@ -33,7 +33,7 @@ instance DBAvg Int16 Scientific
 --------------------------------------------------------------------------------
 -- | The class of data types that can be aggregated under the @sum@ operation.
 class DBSum a res | a -> res where
-  sum :: Expr a -> Aggregate b
+  sum :: Expr a -> Aggregate res
   sum (Expr a) = Aggregate (Just (O.AggrSum, [], O.AggrAll)) a
 
 instance DBSum Int64 Scientific
