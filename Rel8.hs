@@ -40,7 +40,7 @@ module Rel8
   , O.offset
 
     -- ** Ordering
-  , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
+  , asc, desc, orderNulls, O.orderBy, OrderNulls(..), Order
 
     -- * Aggregation
   , aggregate
