@@ -32,6 +32,7 @@ import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, from, to)
 import Generics.OneLiner
        (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
+import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -262,6 +263,8 @@ infixl 4 $?
 ($?) :: ToNullable b maybeB => (a -> Expr b) -> MaybeTable a -> Expr maybeB
 f $? MaybeTable _ x = toNullable (f x)
 
+-- | Check if a 'MaybeTable' is a @NULL@ row. Usually this means a @LEFT JOIN@
+-- that did match any rows.
 isTableNull :: MaybeTable a -> Expr Bool
 isTableNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
 
@@ -498,7 +501,8 @@ tableDefinitionUpdate =
 -- for aggregation results, parameterise the record over @f@, use 'Anon' to
 -- specify the columns, and then generically derive 'AggregateTable':
 --
--- *** __Example__
+-- __Example__
+--
 -- @
 -- data UserInfo f = UserInfo
 --   { userCount :: Anon f Int64
@@ -552,3 +556,12 @@ instance ( GTraverseAggregator fAggregator fExpr
 
 instance AggregateTable a b => GTraverseAggregator (K1 i a) (K1 i b) where
   gaggregator = dimap (\(K1 a) -> a) K1 traverseAggregates
+
+
+--------------------------------------------------------------------------------
+-- | Evaluate aggregation over a query. The 'AggregateTable' constraint
+-- requires that all columns in each row must be grouped or aggregated.
+aggregate
+  :: AggregateTable table result
+  => O.Query table -> O.Query result
+aggregate = O.aggregate traverseAggregates

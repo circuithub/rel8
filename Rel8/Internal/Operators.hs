@@ -22,9 +22,21 @@ infix 4 ==. , ?=. , <. , <=. , >. , >=.
 infixr 2 ||.,  &&.
 
 --------------------------------------------------------------------------------
+-- | Overloaded boolean operations, supporting both 'Bool' and 'Maybe Bool'.
+--
+-- While an instance for 'Maybe Bool' may seem surprising, it is unfortunately
+-- neccessary to write performant predicates any nullable columns. While it
+-- would be more idiomatic to write something like
+-- @nullable (lit False) (x ==.) y@, this compiles to a statement that will
+-- not hit indexes.
 class ToNullable a (Maybe Bool) => DBBool a where
+  -- | Corresponds to @NOT@.
   not :: Expr a -> Expr a
+
+  -- | Corresponds to @AND@.
   (&&.) :: Expr a -> Expr a -> Expr a
+
+  -- | Corresponds to @OR@.
   (||.) :: Expr a -> Expr a -> Expr a
 
 instance DBBool Bool where
@@ -41,9 +53,12 @@ instance DBBool (Maybe Bool) where
 --------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
 class DBType a => DBEq a where
+  -- | Corresponds to @=@.
   (==.) :: Expr a -> Expr a -> Expr Bool
   Expr a ==. Expr b = Expr (O.BinExpr (O.:==) a b)
 
+  -- | Compare two nullable values, returning @null@ if either are null.
+  -- You can think of this like @liftA2 (==.)@.
   (?=.) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
   a ?=. b = toNullable (unsafeCoerceExpr @a a ==. unsafeCoerceExpr @a b)
 
@@ -87,7 +102,8 @@ instance DBOrd Int64 where
 instance DBOrd Text where
 instance DBOrd UTCTime where
 
--- | Case statement
+-- | Case statement. @case_ [(x,a), (y, b)] c@ corresponds to
+-- @CASE WHEN x THEN a WHEN y THEN b ELSE c END@.
 case_ :: [(Expr Bool, Expr a)] -> Expr a -> Expr a
 case_ cases defaultCase =
   columnToExpr

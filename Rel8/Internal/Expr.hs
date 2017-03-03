@@ -121,6 +121,7 @@ coerceExpr (Expr a) = Expr a
 
 
 --------------------------------------------------------------------------------
+-- | Casts an 'Expr' as @text@.
 dbShow :: DBType a => Expr a -> Expr Text
 dbShow = unsafeCastExpr "text"
 

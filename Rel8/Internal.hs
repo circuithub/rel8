@@ -2,7 +2,6 @@ module Rel8.Internal (module X) where
 
 import Rel8.Internal.Aggregate as X
 import Rel8.Internal.DBType as X
-import Rel8.Internal.Query as X
 import Rel8.Internal.Expr as X
 import Rel8.Internal.Generic as X
 import Rel8.Internal.Operators as X

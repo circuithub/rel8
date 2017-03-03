@@ -40,7 +40,7 @@ module Rel8
   , O.offset
 
     -- ** Ordering
-  , asc, desc, orderNulls, O.orderBy, OrderNulls(..), Order
+  , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
 
     -- * Aggregation
   , aggregate
@@ -55,7 +55,7 @@ module Rel8
   , Col(..)
 
     -- * Expressions
-  , Expr, coerceExpr, dbShow
+  , Expr, coerceExpr, dbShow, , case_
 
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
@@ -74,7 +74,7 @@ module Rel8
   , TypeInfo(..), showableDbType, compositeDBType
 
     -- ** Null
-  , toNullable , ($?), isNull, nullable
+  , ToNullable(toNullable) , ($?), isNull, nullable
 
 
     -- * Running Queries
@@ -91,9 +91,8 @@ module Rel8
     -- ** @DELETE@
   , delete
 
-
-    -- * TODO Organise
-  , QueryResult, Schema, Anon, case_
+    -- * Interpretations
+  , QueryResult, Schema, Anon
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
@@ -230,14 +229,19 @@ dbBinOp :: String -> Expr a -> Expr b -> Expr c
 dbBinOp op a b =
   columnToExpr (O.binOp (O.OpOther op) (exprToColumn a) (exprToColumn b))
 
+-- | Corresponds to the @now()@ function.
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
 
+-- | Take the union of all rows in the first query and all rows in the second
+-- query. Corresponds to the PostgreSQL @UNION ALL@ operator.
 unionAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
 unionAll = O.unionAllExplicit (O.Binaryspec (O.PackMap traverseBinary))
 
 -- | @antijoin a f@ returns all rows in @a@ such that the query formed by
 -- @f@ returns no rows.
+--
+-- This is expressed as a @WHERE NOT EXSITS@ modifier to the first query.
 antijoin :: O.Query table -> O.QueryArr table exclude -> O.Query table
 antijoin q criteria = O.simpleQueryArr $ \((), tag) ->
   let (table, pq, tag') = O.runSimpleQueryArr q ((), tag)
@@ -249,7 +253,8 @@ antijoin q criteria = O.simpleQueryArr $ \((), tag) ->
    Welcome to @rel8@!
 
    @rel8@ is a library that builds open the fantastic @opaleye@ library to
-   query databases, providing a different API. The main objectives of @rel8@ are:
+   query databases, and provides a slightly alternative API. The main objectives
+   of @rel8@ are:
 
    * /Conciseness/: Users using @rel8@ should not need to write boiler-plate
      code. By using expressive types, we can provide sufficient information
@@ -355,7 +360,7 @@ antijoin q criteria = O.simpleQueryArr $ \((), tag) ->
 
    'filterQuery' takes a function from rows in a query to a predicate. In this
    case we can use '==.' to compare to expressions for equality. On the left,
-   @partCity p :: Expr String@, and on the right @"London" :: Expr String@ (
+   @partCity p :: Expr String@, and on the right @\"London\" :: Expr String@ (
    the literal string @London@).
 
    Alternatively, we can use 'where_' with arrow notation, which is similar to
@@ -439,8 +444,9 @@ antijoin q criteria = O.simpleQueryArr $ \((), tag) ->
    partsAndSuppliersLJ :: Query (Part Expr, MaybeTable (Supplier Expr))
    partsAndSuppliersLJ = proc _ -> do
      part <- queryTable -< ()
-     maybeSupplier <- leftJoinA queryTable -<
-       \supplier -> partCity part ==. supplierCity supplier
+     maybeSupplier
+       <- leftJoinA queryTable
+       -\< \\supplier -> partCity part ==. supplierCity supplier
      returnA -< (part, maybeSupplier)
    @
 
