@@ -1,3 +1,5 @@
+-- | All of the internals of @rel8@. Haddock is unable to render what is
+-- actually exported here - interested readers should use @:browse@ in GHCI.
 module Rel8.Internal (module X) where
 
 import Rel8.Internal.Aggregate as X
