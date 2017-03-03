@@ -5,33 +5,59 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Control.Monad.Rel8 where
+-- | This module presents an experimental interface to running queries with an
+-- @mtl@-like interface.
+module Control.Monad.Rel8
+  ( -- * @MonadStatement@
+    MonadStatement(..),
+    select,
+    insert, insert1Returning,
+    update, updateReturning,
+    delete,
+
+    -- ** Running @MonadStatement@
+    runPostgreSQLStatements,
+
+    -- ** @MonadStatement@ syntax
+    StatementSyntax(..),
+
+    -- * @MonadTransaction@
+    MonadTransaction(..), MonadRollback(..),
+    runTransaction,
+    runSerializableTransaction,
+
+    -- ** Running @MonadTransaction@
+    runPostgreSQLTransactions,
+
+    -- ** @MonadTransaction@ syntax
+    TransactionSyntax(..)
+  ) where
 
 import Control.Exception (fromException)
 import Control.Monad.Catch (MonadMask, mask, try, throwM)
 import Control.Monad.Free.Church (F, liftF, iterM)
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import Control.Monad.Trans.Reader
 import Data.Int (Int64)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
-import qualified Streaming.Prelude as S
 import Opaleye (Query)
+import qualified Streaming.Prelude as S
 
 import Rel8.Internal
-import Rel8.IO
+import qualified Rel8.IO
 
 --------------------------------------------------------------------------------
 -- | Syntax tree for running individual statements against a database.
 
-data StatementSyntax :: * -> * where
+data StatementSyntax f where
   Select ::
       Table pg haskell =>
       Query pg -> ([haskell] -> k) -> StatementSyntax k
@@ -106,12 +132,12 @@ class Monad m => MonadRollback e m | m -> e where
 
 --------------------------------------------------------------------------------
 -- | The syntax of programs that can run transactions.
-data TransactionSyntax e k =
-  forall a.
-  Statements Pg.TransactionMode
-             (Pg.SqlError -> Bool)
-             (forall m. (MonadStatement m, MonadRollback e m) => m a)
-             (Either e a -> k)
+data TransactionSyntax e k where
+  Statements :: Pg.TransactionMode
+             -> (Pg.SqlError -> Bool)
+             -> (forall m . (MonadStatement m, MonadRollback e m) => m a)
+             -> (Either e a -> k)
+             -> TransactionSyntax e k
 
 deriving instance Functor (TransactionSyntax e)
 
@@ -144,22 +170,24 @@ newtype PostgreSQLTransactionT m a =
   PostgreSQLTransactionT (ReaderT Pg.Connection m a)
   deriving (Functor,Applicative,Monad)
 
-instance (MonadIO m,MonadMask m) => MonadTransaction (PostgreSQLTransactionT m) where
+instance (MonadIO m, MonadMask m, MonadResource m) =>
+         MonadTransaction (PostgreSQLTransactionT m) where
   liftTransaction =
     PostgreSQLTransactionT .
-    iterM (\(Statements mode shouldRetry t k) ->
-             do pg <- ask
-                out <-
-                  withTransactionModeRetry
-                    mode
-                    shouldRetry
-                    pg
-                    (do out <- runPostgreSQLStatements t pg
-                        case out of
-                          Left{} -> liftIO (Pg.rollback pg)
-                          Right{} -> return ()
-                        return out)
-                k out)
+    iterM
+      (\(Statements mode shouldRetry t k) -> do
+         pg <- ask
+         out <-
+           withTransactionModeRetry
+             mode
+             shouldRetry
+             pg
+             (do out <- runPostgreSQLStatements t pg
+                 case out of
+                   Left {} -> liftIO (Pg.rollback pg)
+                   Right {} -> return ()
+                 return out)
+         k out)
 
 -- | A handler that runs individual statements against a PostgreSQL connection.
 -- Again, we just use a reader monad to pass the connection handle around.
@@ -171,21 +199,21 @@ runPostgreSQLStatements
   :: PostgreSQLStatementT e m a -> Pg.Connection -> m (Either e a)
 runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
 
-instance (MonadIO m) => MonadStatement (PostgreSQLStatementT e m) where
+instance (MonadIO m, MonadMask m, MonadResource m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
-    PostgreSQLStatementT .
+    PostgreSQLStatementT . ExceptT . fmap Right .
     iterM
       (\op -> do
-         conn <- lift ask
+         conn <- ask
          step conn op)
     where
-      step pg (Select q k) = S.toList_ (Rel8.IO.select pg q) >>= k
+      step pg (Select q k) = S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q) >>= k
       step pg (Insert1Returning q k) =
         liftIO (Rel8.IO.insert1Returning pg q) >>= k
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =
-        S.toList_ (Rel8.IO.updateReturning pg a b) >>= k
+        S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b) >>= k
       step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where

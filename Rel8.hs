@@ -55,7 +55,7 @@ module Rel8
   , Col(..)
 
     -- * Expressions
-  , Expr, coerceExpr, dbShow, , case_
+  , Expr, coerceExpr, dbShow, case_
 
     -- ** Equality
   , DBEq, (==.), (?=.), in_, ilike
