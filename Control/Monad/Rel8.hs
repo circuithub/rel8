@@ -21,6 +21,7 @@ module Control.Monad.Rel8
 
     -- ** Running @MonadStatement@
     runPostgreSQLStatements,
+    PostgreSQLStatementT,
 
     -- ** @MonadStatement@ syntax
     StatementSyntax(..),
@@ -32,6 +33,7 @@ module Control.Monad.Rel8
 
     -- ** Running @MonadTransaction@
     runPostgreSQLTransactions,
+    PostgreSQLTransactionT,
 
     -- ** @MonadTransaction@ syntax
     TransactionSyntax(..)
