@@ -41,10 +41,11 @@ import Control.Exception (fromException)
 import Control.Monad.Catch (MonadMask, mask, try, throwM)
 import Control.Monad.Free.Church (F, liftF, iterM)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad.Trans.Resource (MonadResource)
 import Control.Monad.Trans (MonadTrans, lift)
+import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Resource (runResourceT)
 import Data.Int (Int64)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
@@ -170,7 +171,7 @@ newtype PostgreSQLTransactionT m a =
   PostgreSQLTransactionT (ReaderT Pg.Connection m a)
   deriving (Functor,Applicative,Monad)
 
-instance (MonadIO m, MonadMask m, MonadResource m) =>
+instance (MonadIO m, MonadMask m, MonadBaseControl IO m) =>
          MonadTransaction (PostgreSQLTransactionT m) where
   liftTransaction =
     PostgreSQLTransactionT .
@@ -199,7 +200,7 @@ runPostgreSQLStatements
   :: PostgreSQLStatementT e m a -> Pg.Connection -> m (Either e a)
 runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
 
-instance (MonadIO m, MonadMask m, MonadResource m) => MonadStatement (PostgreSQLStatementT e m) where
+instance (MonadIO m, MonadMask m, MonadBaseControl IO m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
     PostgreSQLStatementT . ExceptT . fmap Right .
     iterM
@@ -207,13 +208,13 @@ instance (MonadIO m, MonadMask m, MonadResource m) => MonadStatement (PostgreSQL
          conn <- ask
          step conn op)
     where
-      step pg (Select q k) = S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q) >>= k
+      step pg (Select q k) = runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
       step pg (Insert1Returning q k) =
         liftIO (Rel8.IO.insert1Returning pg q) >>= k
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =
-        S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b) >>= k
+        runResourceT (S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b)) >>= k
       step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where

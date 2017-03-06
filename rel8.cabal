@@ -44,6 +44,7 @@ library
                      , profunctors >=5.2 && <5.3
                      , resourcet >= 1.1.8.1
                      , scientific
+                     , monad-control >= 1.0.1.0 && < 1.1
                      , streaming >=0.1 && <0.2
                      , streaming-postgresql-simple
                      , tagged >=0.8 && <0.9
