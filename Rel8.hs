@@ -105,12 +105,10 @@ module Rel8
   , dbBinOp
   ) where
 
-import Rel8.Internal.DBType
-import Control.Monad.Rel8
-import Rel8.Internal
-
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)
+import Control.Monad.Rel8
+import Control.Monad.Zip
 import Data.List (foldl')
 import Data.Profunctor (lmap)
 import Data.Text (Text)
@@ -118,9 +116,9 @@ import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics (Generic)
 import qualified Opaleye.Binary as O
-import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
+import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -133,6 +131,8 @@ import qualified Opaleye.Join as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
 import Prelude hiding (not, (.), id)
+import Rel8.Internal
+import Rel8.Internal.DBType
 import Streaming (Of, Stream)
 
 
@@ -236,7 +236,20 @@ dbNow = nullaryFunction "now"
 -- | Take the union of all rows in the first query and all rows in the second
 -- query. Corresponds to the PostgreSQL @UNION ALL@ operator.
 unionAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
-unionAll = O.unionAllExplicit (O.Binaryspec (O.PackMap traverseBinary))
+unionAll =
+  O.unionAllExplicit
+    (O.Binaryspec
+       (O.PackMap
+          (\f (l, r) ->
+             fmap
+               (viewFrom expressions)
+               (sequenceA
+                  ((mzipWith
+                      (\(Some (Expr prim1)) (Some (Expr prim2)) ->
+                         Some . Expr <$> f (prim1, prim2))
+                      (view expressions l)
+                      (view expressions r)))))))
+
 
 {- $intro
 

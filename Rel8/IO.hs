@@ -163,8 +163,8 @@ delete conn f =
 queryRunner :: Table a b => O.QueryRunner a b
 queryRunner =
   O.QueryRunner (void unpackColumns)
-                (const rowParser)
-                (\_columns -> True) -- TODO Will we support 0-column queries?
+                rowParser
+                (Prelude.not . null . view expressions)
 
 --------------------------------------------------------------------------------
 

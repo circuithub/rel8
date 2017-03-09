@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -15,23 +16,24 @@
 -- | This module defines the 'Table' type class.
 module Rel8.Internal.Table where
 
-import Control.Applicative (Const(..), liftA2)
+import Data.Functor.Product
+import Data.Profunctor
+import Control.Applicative (liftA2)
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Identity
 import Data.Maybe (fromMaybe)
-import Data.Monoid (Sum(..))
 import Data.Profunctor (dimap, lmap)
 import Data.Profunctor.Product ((***!))
 import Data.Proxy (Proxy(..))
-import Data.Tagged (Tagged(..), proxy, untag, retag)
+import Data.Tagged (Tagged(..), untag)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, from, to)
 import Generics.OneLiner
-       (ADTRecord, Constraints, For(..), createA, gtraverse, nullaryOp)
+       (ADTRecord, Constraints, For(..), createA, nullaryOp)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -48,6 +50,23 @@ import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Generic
 import Rel8.Internal.Types
+import Control.Monad.Zip
+
+--------------------------------------------------------------------------------
+
+data Some f where
+  Some :: f a -> Some f
+
+view :: ((a -> Identity b) -> (s -> Identity t)) -> s -> a
+view = undefined
+
+viewFrom :: ((a -> Identity b) -> (s -> Identity t)) -> a -> s
+viewFrom = undefined
+
+type family MkRowF a :: * -> * where
+  MkRowF (M1 i c f) = MkRowF f
+  MkRowF (a :*: b) = Product (MkRowF a) (MkRowF b)
+  MkRowF (K1 i c) = RowF c
 
 --------------------------------------------------------------------------------
 
@@ -62,171 +81,164 @@ import Rel8.Internal.Types
 -- You should not need to define your own instances of 'Table' in idiomatic
 -- @rel8@ usage - all 'BaseTable's are 'Table's, and the tupling of two (or
 -- more) 'Table's is also a 'Table'.
-class Table expr haskell | expr -> haskell, haskell -> expr where
-  rowParser :: RowParser haskell
+class (MonadZip (RowF expr), Traversable (RowF expr)) => Table expr haskell | expr -> haskell, haskell -> expr where
+  type RowF expr :: * -> *
+  type RowF expr = MkRowF (Rep expr)
 
-  -- | The amount of columns in this table. Needed by 'MaybeTable' in order
-  -- to parse a series of @null@ values.
-  columnCount :: Tagged haskell Int
+  rowParser :: expr -> RowParser haskell
 
-  traversePrimExprs :: Applicative f => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
-
-  traverseBinary
-    :: Applicative f
-    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr, expr) -> f expr
+  expressions
+    :: (Profunctor p, Functor f)
+    => p (RowF expr (Some Expr)) (f (RowF expr (Some Expr))) -> p expr (f expr)
 
   ---------------------------------------------------------------------------------------
 
   default
     rowParser
-      :: (Generic haskell, GTable (Rep expr) (Rep haskell))
-      => RowParser haskell
-  rowParser = to <$> growParser
+      :: (Generic haskell, Generic expr, GTable (Rep expr) (Rep haskell))
+      => expr -> RowParser haskell
+  rowParser = fmap to . growParser . from
 
   default
-    columnCount
-      :: (Generic haskell, GTable (Rep expr) (Rep haskell))
-      => Tagged haskell Int
-  columnCount = retag (gcolumnCount @_ @(Rep haskell))
+    expressions
+      :: ( Generic expr
+         , GTable (Rep expr) (Rep haskell)
+         , Functor f
+         , Profunctor p
+         , RowF expr ~ MkRowF (Rep expr)
+         )
+      => p (RowF expr (Some Expr)) (f (RowF expr (Some Expr))) -> p expr (f expr)
+  expressions = dimap from (fmap to) . gexpressions
 
-  default
-    traversePrimExprs
-      :: (Generic expr, GTable (Rep expr) (Rep haskell), Applicative f)
-      => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
-  traversePrimExprs f = fmap to . gtraversePrimExprs f . from
-
-  default
-    traverseBinary
-      :: (Generic expr, GTable (Rep expr) (Rep haskell), Applicative f)
-      => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr, expr) -> f expr
-  traverseBinary f (l, r) =
-    fmap to (gbinary f (from l, from r))
 
 --------------------------------------------------------------------------------
 class GTable expr haskell | expr -> haskell, haskell -> expr where
-  growParser :: RowParser (haskell a)
-  gcolumnCount :: Tagged (haskell a) Int
-  gtraversePrimExprs
-    :: Applicative f
-    => (O.PrimExpr -> f O.PrimExpr) -> expr a -> f (expr a)
-  gbinary
-    :: Applicative f
-    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (expr a, expr a) -> f (expr a)
+  growParser :: expr a -> RowParser (haskell a)
+  gexpressions
+    :: (Profunctor p, Functor f)
+    => p (MkRowF expr (Some Expr)) (f (MkRowF expr (Some Expr)))
+    -> p (expr ()) (f (expr ()))
 
 instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
-  growParser = M1 <$> growParser
-  gcolumnCount = retag (gcolumnCount @_ @haskell)
-  gtraversePrimExprs f (M1 a) = M1 <$> gtraversePrimExprs f a
-  gbinary f (M1 l, M1 r) = M1 <$> gbinary f (l, r)
+  growParser (M1 a) = M1 <$> growParser a
+  gexpressions = dimap (\(M1 a) -> view gexpressions a) (fmap (M1 . viewFrom gexpressions))
 
 instance (GTable le lh, GTable re rh) =>
          GTable (le :*: re) (lh :*: rh) where
-  growParser = liftA2 (:*:) growParser growParser
-  gcolumnCount = retag (gcolumnCount @_ @lh) + retag (gcolumnCount @_ @rh)
-  gtraversePrimExprs f (l :*: r) =
-    liftA2 (:*:) (gtraversePrimExprs f l) (gtraversePrimExprs f r)
-  gbinary f (l1 :*: r1, l2 :*: r2) =
-    liftA2 (:*:) (gbinary f (l1, l2)) (gbinary f (r1, r2))
+  growParser (a :*: b) = liftA2 (:*:) (growParser a) (growParser b)
+  gexpressions =
+    dimap
+      (\(a :*: b) -> Pair (view gexpressions a) (view gexpressions b))
+      (fmap (\(Pair a b) -> viewFrom gexpressions a :*: viewFrom gexpressions b))
 
 instance {-# OVERLAPPABLE #-} Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
-  growParser = K1 <$> rowParser
-  gcolumnCount = retag (columnCount @_ @haskell)
-  gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
-  gbinary f (K1 l, K1 r) = K1 <$> traverseBinary f (l, r)
+  growParser (K1 expr) = K1 <$> rowParser expr
+  gexpressions = dimap (\(K1 a) -> view expressions a) (fmap (K1 . viewFrom expressions))
 
-instance DBType a => GTable (K1 i (Expr a)) (K1 i a) where
-  growParser = K1 <$> field
-  gcolumnCount = Tagged 1
-  gtraversePrimExprs f (K1 a) = K1 <$> traversePrimExprs f a
-  gbinary f (K1 l, K1 r) = K1 <$> traverseBinary f (l, r)
+instance DBType a =>
+         GTable (K1 i (Expr a)) (K1 i a) where
+  growParser _ = K1 <$> field
+  gexpressions =
+    dimap
+      (\(K1 a) -> Identity (Some a))
+      (fmap (\(Identity (Some (Expr prim))) -> K1 (Expr prim)))
 
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
 
 -- | Any 'BaseTable' is a 'Table'.
-instance {-# OVERLAPPABLE #-} (BaseTable table, f ~ Expr, g ~ QueryResult) => Table (table f) (table g) where
-  columnCount =
-    Tagged (getSum (getConst (traverseSchema (const (Const (Sum 1))) (tableSchema @table))))
-
-  rowParser = parseBaseTable
-
-  traversePrimExprs = traverseBaseTableExprs
-
-  traverseBinary = traverseBaseTableBinary
+instance {-# OVERLAPPABLE #-}
+         ( BaseTable table
+         , f ~ Expr
+         , g ~ QueryResult
+         , BaseTableF table ~ RowF (table Expr)
+         ) =>
+         Table (table f) (table g) where
+  rowParser _ = parseBaseTable
+  expressions = baseTableExprs
 
 instance (Table a a', Table b b') =>
          Table (a, b) (a', b') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
+  type RowF (a, b) = Product (RowF a) (RowF b)
 
-  traversePrimExprs f (a, b) =
-    (,) <$> traversePrimExprs f a
-        <*> traversePrimExprs f b
+  expressions =
+    dimap
+      (\(l, r) -> Pair (view expressions l) (view expressions r))
+      (fmap (\(Pair l r) -> (viewFrom expressions l, viewFrom expressions r)))
 
-  rowParser =
-    (,) <$> rowParser
-        <*> rowParser
+  rowParser (l, r) = (,) <$> rowParser l <*> rowParser r
 
 instance (Table a a', Table b b', Table c c') =>
          Table (a, b, c) (a', b', c') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
+  type RowF (a, b, c) = Product (RowF (a, b)) (RowF c)
 
-  traversePrimExprs f (a, b, c) =
-    (,,) <$> traversePrimExprs f a
-         <*> traversePrimExprs f b
-         <*> traversePrimExprs f c
+  expressions =
+    dimap
+      (\(a, b, c) ->
+         Pair
+           (Pair (view expressions a) (view expressions b))
+           (view expressions c))
+      (fmap
+         (\(Pair (Pair a b) c) ->
+            ( viewFrom expressions a
+            , viewFrom expressions b
+            , viewFrom expressions c)))
 
-  rowParser =
-    (,,) <$> rowParser
-         <*> rowParser
-         <*> rowParser
+  rowParser (a, b, c) = (,,) <$> rowParser a <*> rowParser b <*> rowParser c
 
 instance (Table a a', Table b b', Table c c', Table d d') =>
          Table (a, b, c, d) (a', b', c', d') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
-    + proxy columnCount (Proxy @d')
+  type RowF (a, b, c, d) = Product (RowF (a, b, c)) (RowF d)
 
-  traversePrimExprs f (a, b, c, d) =
-    (,,,) <$> traversePrimExprs f a
-          <*> traversePrimExprs f b
-          <*> traversePrimExprs f c
-          <*> traversePrimExprs f d
+  expressions =
+    dimap
+      (\(a, b, c, d) ->
+         Pair
+           (Pair
+              (Pair (view expressions a) (view expressions b))
+              (view expressions c))
+           (view expressions d))
+      (fmap
+         (\(Pair (Pair (Pair a b) c) d) ->
+            ( viewFrom expressions a
+            , viewFrom expressions b
+            , viewFrom expressions c
+            , viewFrom expressions d)))
 
-  rowParser =
-    (,,,) <$> rowParser
-          <*> rowParser
-          <*> rowParser
-          <*> rowParser
+  rowParser (a, b, c, d) =
+    (,,,) <$> rowParser a
+          <*> rowParser b
+          <*> rowParser c
+          <*> rowParser d
 
 instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
          Table (a, b, c, d, e) (a', b', c', d', e') where
-  columnCount = Tagged
-    $ proxy columnCount (Proxy @a')
-    + proxy columnCount (Proxy @b')
-    + proxy columnCount (Proxy @c')
-    + proxy columnCount (Proxy @d')
-    + proxy columnCount (Proxy @e')
+  type RowF (a, b, c, d, e) = Product (RowF (a, b, c, d)) (RowF e)
 
-  traversePrimExprs f (a, b, c, d, e) =
-    (,,,,) <$> traversePrimExprs f a
-           <*> traversePrimExprs f b
-           <*> traversePrimExprs f c
-           <*> traversePrimExprs f d
-           <*> traversePrimExprs f e
+  expressions =
+    dimap
+      (\(a, b, c, d, e) ->
+         Pair
+           (Pair
+              (Pair
+                 (Pair (view expressions a) (view expressions b))
+                 (view expressions c))
+              (view expressions d))
+           (view expressions e))
+      (fmap
+         (\(Pair (Pair (Pair (Pair a b) c) d) e) ->
+            ( viewFrom expressions a
+            , viewFrom expressions b
+            , viewFrom expressions c
+            , viewFrom expressions d
+            , viewFrom expressions e)))
 
-  rowParser =
-    (,,,,) <$> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
+  rowParser (a, b, c, d, e) =
+    (,,,,) <$> rowParser a
+           <*> rowParser b
+           <*> rowParser c
+           <*> rowParser d
+           <*> rowParser e
 
 
 --------------------------------------------------------------------------------
@@ -239,20 +251,23 @@ data MaybeTable row = MaybeTable (Expr (Maybe Bool)) row
 -- @null@ sometimes.
 instance (Table expr haskell) =>
          Table (MaybeTable expr) (Maybe haskell) where
-  columnCount = Tagged
-    $ 1 + proxy columnCount (Proxy @haskell)
+  type RowF (MaybeTable expr) = Product Identity (RowF expr)
 
-  traversePrimExprs f (MaybeTable (Expr tag) row) =
-    MaybeTable <$> (Expr <$> f tag) <*> traversePrimExprs f row
+  expressions =
+    dimap
+      (\(MaybeTable tag row) -> Pair (view expressions tag) (view expressions row))
+      (fmap
+         (\(Pair tag row) ->
+            MaybeTable (viewFrom expressions tag) (viewFrom expressions row)))
 
-  rowParser = do
+  rowParser (MaybeTable _ row)  = do
     isNull' <- field
     if fromMaybe True isNull'
-      then Nothing <$ replicateM_ (proxy columnCount (Proxy @haskell)) (field :: RowParser (Maybe ()))
-      else fmap Just rowParser
+      then Nothing <$ replicateM_ (length (view expressions row)) (field :: RowParser (Maybe ()))
+      else fmap Just (rowParser row)
 
-  traverseBinary f (MaybeTable tagL l, MaybeTable tagR r) =
-    MaybeTable <$> traverseBinary f (tagL, tagR) <*> traverseBinary f (l, r)
+  -- traverseBinary f (MaybeTable tagL l, MaybeTable tagR r) =
+  --   MaybeTable <$> traverseBinary f (tagL, tagR) <*> traverseBinary f (l, r)
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@. Like field selection.
@@ -315,14 +330,17 @@ newtype Col a = Col { unCol :: a }
 -- | Single 'Expr'essions are tables, but the result will be wrapped in 'Col'.
 instance (DBType a) =>
          Table (Expr a) (Col a) where
-  columnCount = Tagged 1
-  traversePrimExprs f (Expr a) = Expr <$> f a
-  rowParser = fmap Col field
-  traverseBinary f (Expr a, Expr b) = Expr <$> f (a, b)
+  type RowF (Expr a) = Identity
+  expressions = dimap (Identity . Some) (fmap (\(Identity (Some (Expr prim))) -> Expr prim))
+  rowParser _ = fmap Col field
 
 --------------------------------------------------------------------------------
-
-
+traversePrimExprs
+  :: (Applicative f, Table expr haskell)
+  => (O.PrimExpr -> f O.PrimExpr) -> expr -> f expr
+traversePrimExprs f =
+  fmap (viewFrom expressions) .
+  traverse (\(Some (Expr prim)) -> Some . Expr <$> f prim) . view expressions
 
 --------------------------------------------------------------------------------
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
@@ -348,6 +366,9 @@ unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 -- instance 'BaseTable' Part where tableName = "part"
 -- @
 class (Table (table Expr) (table QueryResult)) => BaseTable table where
+  type BaseTableF table :: * -> *
+  type BaseTableF table = MkRowF (Rep (table Expr))
+
   -- | The name of this table in the database. You can use the 'FromString'
   -- instance for 'Tagged' to simply write
   -- @tableName = "employees"@, for example.
@@ -366,9 +387,10 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
     => (forall a. String -> f (Expr a)) -> table Schema -> f (table Expr)
 
   -- | Traverse over all primitive expressions in a table of expressions.
-  traverseBaseTableExprs
-    :: Applicative f
-    => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
+  baseTableExprs
+    :: (Profunctor p, Functor f)
+    => p (BaseTableF table (Some Expr)) (f (BaseTableF table (Some Expr)))
+    -> p (table Expr) (f (table Expr))
 
   -- | Traverse over all aggregates in a table of aggregations, converting them
   -- to the expressions that refer to aggregation results.
@@ -377,10 +399,6 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
   insertWriter :: O.Writer (table Insert) a
 
   updateWriter :: O.Writer (table Expr) a
-
-  traverseBaseTableBinary
-    :: Applicative f
-    => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr) -> (table Expr, table Expr) -> f (table Expr)
 
   ------------------------------------------------------------------------------
 
@@ -409,13 +427,16 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
   traverseSchema f = fmap to . gtraverseSchema f . from
 
   default
-    traverseBaseTableExprs
-      :: ( ADTRecord (table Expr)
-         , Constraints (table Expr) MapPrimExpr
-         , Applicative f
+    baseTableExprs
+      :: ( Generic (table Expr)
+         , GTable (Rep (table Expr)) (Rep (table QueryResult))
+         , Functor f
+         , Profunctor p
+         , RowF (table Expr) ~ MkRowF (Rep (table Expr))
          )
-      => (O.PrimExpr -> f O.PrimExpr) -> table Expr -> f (table Expr)
-  traverseBaseTableExprs f = gtraverse (For :: For MapPrimExpr) (mapPrimExpr f)
+      => p (RowF (table Expr) (Some Expr)) (f (RowF (table Expr) (Some Expr)))
+      -> p (table Expr) (f (table Expr))
+  baseTableExprs = dimap from (fmap to) . gexpressions
 
   default
     traverseBaseTableAggregates
@@ -425,16 +446,6 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
          )
       => O.Aggregator (table Aggregate) (table Expr)
   traverseBaseTableAggregates = dimap from to gaggregator
-
-  default
-    traverseBaseTableBinary
-      :: ( Applicative f
-         , Generic (table Expr)
-         , GTable (Rep (table Expr)) (Rep (table QueryResult))
-         )
-      => ((O.PrimExpr, O.PrimExpr) -> f O.PrimExpr)
-      -> (table Expr, table Expr) -> f (table Expr)
-  traverseBaseTableBinary f (l, r) = fmap to (gbinary f (from l, from r))
 
   default
     updateWriter :: ( ADTRecord (table Expr)
