@@ -448,21 +448,18 @@ class (Table (table Expr) (table QueryResult)) => BaseTable table where
   traverseBaseTableAggregates = dimap from to gaggregator
 
   default
-    updateWriter :: ( ADTRecord (table Expr)
-                    , ADTRecord (table Schema)
-                    , Constraints (table Schema) WitnessSchema
-                    , Writer Expr (Rep (table Schema)) (Rep (table Expr))
-                    , Generic (table Expr)
-                    )
-                 => O.Writer (table Expr) a
+    updateWriter
+      :: ( ADTRecord (table Expr)
+         , ADTRecord (table Schema)
+         , Writer Expr (Rep (table Schema)) (Rep (table Expr))
+         )
+      => O.Writer (table Expr) a
   updateWriter =
     case lmap from (columnWriter (Proxy @Expr) (from (tableSchema @table))) of
       O.Writer f -> O.Writer f
 
   default
-    insertWriter :: ( ADTRecord (table Expr)
-                    , ADTRecord (table Schema)
-                    , Constraints (table Schema) WitnessSchema
+    insertWriter :: ( ADTRecord (table Schema)
                     , Writer Insert (Rep (table Schema)) (Rep (table Insert))
                     , Generic (table Insert)
                     )
