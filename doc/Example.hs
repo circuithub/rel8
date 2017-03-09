@@ -39,12 +39,13 @@ heavyParts = proc _ -> do
   where_ -< partWeight part >. 5
   returnA -< part
 
-antijoinExample :: Query (Part Expr)
-antijoinExample =
-  antijoin allParts
-           (proc part -> do
-              otherPart <- queryTable -< ()
-              where_ -< partWeight otherPart >. partWeight part)
+existsExample :: Query (Part Expr)
+existsExample = proc _ -> do
+  part <- queryTable -< ()
+  exists (proc part -> do
+            otherPart <- queryTable -< ()
+            where_ -< partWeight otherPart >. partWeight part) -< part
+  returnA -< part
 
 data Supplier f = Supplier
   { supplierId :: C f "SID" 'HasDefault Int32
