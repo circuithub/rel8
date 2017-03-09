@@ -28,7 +28,7 @@ module Rel8
   , leftJoin
   , leftJoinA
   , unionAll
-  , antijoin
+  , O.exists, O.notExists
 
     -- ** Filtering
   , where_
@@ -237,16 +237,6 @@ dbNow = nullaryFunction "now"
 -- query. Corresponds to the PostgreSQL @UNION ALL@ operator.
 unionAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
 unionAll = O.unionAllExplicit (O.Binaryspec (O.PackMap traverseBinary))
-
--- | @antijoin a f@ returns all rows in @a@ such that the query formed by
--- @f@ returns no rows.
---
--- This is expressed as a @WHERE NOT EXSITS@ modifier to the first query.
-antijoin :: O.Query table -> O.QueryArr table exclude -> O.Query table
-antijoin q criteria = O.simpleQueryArr $ \((), tag) ->
-  let (table, pq, tag') = O.runSimpleQueryArr q ((), tag)
-      (_, criteriaPq, _) = O.runSimpleQueryArr criteria (table, tag')
-  in (table, PrimQuery.Antijoin pq criteriaPq, tag')
 
 {- $intro
 
