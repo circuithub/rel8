@@ -254,7 +254,10 @@ unionAll = O.unionAllExplicit (O.Binaryspec (O.PackMap traverseBinary))
      be a requirement that the user must provide a type signature to allow a
      program to compile.
 
-   With that said, let's dive in and see an example of a program using @rel8@.
+   * /Compatible/: @rel8@ tries to use the existing @opaleye@ API as much as
+     possible.
+
+   Now, let's dive in and see an example of a program using @rel8@.
 
    === Required language extensions and imports
 
