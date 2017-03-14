@@ -25,6 +25,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Rep (Representable, index, tabulate, pureRep)
+import qualified Data.Functor.Rep as Representable
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
 import Data.Tagged (Tagged(..), untag)
@@ -357,47 +358,44 @@ tableDefinition
      BaseTable table
   => O.Table (table Insert) (table Expr)
 tableDefinition =
-  O.Table
-    (untag @table tableName)
-    (O.TableProperties
-       (O.Writer
-          (O.PackMap
-             (\f a ->
-                let columnName =
-                      index
-                        (fmap
-                           (\(Colimit (SchemaInfo str)) -> str)
-                           (view (tabular AsSchemaInfo) (columns @table)))
-                    exprs =
-                      fmap
-                        (fmap (\(Colimit (InsertExpr (Expr x))) -> x) .
-                         view (tabular AsInsert))
-                        a
-                    foo rep = f (fmap (`index` rep) exprs, columnName rep)
-                in traverse_ id (tabulate @(RowF (table Expr)) foo))))
-       (O.View viewTable))
+  tableDefinition_
+    (fmap (\(Colimit (InsertExpr (Expr x))) -> x) . view (tabular AsInsert))
 
 tableDefinitionUpdate
   :: forall table.
      BaseTable table
   => O.Table (table Expr) (table Expr)
-tableDefinitionUpdate =
+tableDefinitionUpdate = tableDefinition_ (view expressions)
+
+tableDefinition_
+  :: forall f table.
+     (BaseTable table)
+  => (table f -> RowF (table Expr) O.PrimExpr) -> O.Table (table f) (table Expr)
+tableDefinition_ toExprs =
   O.Table
     (untag @table tableName)
-    (O.TableProperties
-       (O.Writer
-          (O.PackMap
-             (\f a ->
-                let columnName =
-                      index
-                        (fmap
-                           (\(Colimit (SchemaInfo str)) -> str)
-                           (view (tabular AsSchemaInfo) (columns @table)))
-                    exprs = fmap (view expressions) a
-                    foo rep = f (fmap (`index` rep) exprs, columnName rep)
-                in traverse_ id (tabulate @(RowF (table Expr)) foo))))
-       (O.View viewTable))
+    (O.TableProperties (O.Writer (O.PackMap go)) (O.View viewTable))
 
+  where
+
+    go
+      :: forall exprs g. (Functor exprs, Applicative g)
+      => ((exprs O.PrimExpr, String) -> g ()) -> exprs (table f) -> g ()
+    go f a =
+      let columnName :: Representable.Rep (RowF (table Expr)) -> String
+          columnName =
+            index
+              (fmap
+                 (\(Colimit (SchemaInfo str)) -> str)
+                 (view (tabular AsSchemaInfo) (columns @table)))
+
+          exprs :: exprs (RowF (table Expr) O.PrimExpr)
+          exprs = fmap toExprs a
+
+          exprWithColumns :: Representable.Rep (RowF (table Expr)) -> g ()
+          exprWithColumns rep = f (fmap (`index` rep) exprs, columnName rep)
+
+      in traverse_ id (tabulate @(RowF (table Expr)) exprWithColumns)
 
 --------------------------------------------------------------------------------
 -- | 'AggregateTable' is used to demonstrate that a table only contains
