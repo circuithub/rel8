@@ -31,7 +31,7 @@ library
                        Rel8.Internal.Types
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
   build-depends:       aeson
-                     , base >=4.09 && <4.11
+                     , base >=4.9 && <4.11
                      , bytestring
                      , contravariant
                      , exceptions
