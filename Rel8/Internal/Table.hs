@@ -354,16 +354,14 @@ queryTable =
 
 --------------------------------------------------------------------------------
 tableDefinition
-  :: forall table.
-     BaseTable table
+  :: BaseTable table
   => O.Table (table Insert) (table Expr)
 tableDefinition =
   tableDefinition_
     (fmap (\(Colimit (InsertExpr (Expr x))) -> x) . view (tabular AsInsert))
 
 tableDefinitionUpdate
-  :: forall table.
-     BaseTable table
+  :: BaseTable table
   => O.Table (table Expr) (table Expr)
 tableDefinitionUpdate = tableDefinition_ (view expressions)
 
