@@ -24,7 +24,7 @@ single type parameter to denote "where" this data is, and a type family to
 interpret each column. The above example would be written as
 
 ```haskell
-data Birthday f = Birthday { bdName :: Anon f Text , bdName :: Anon f Day}
+data Birthday f = Birthday { bdName :: Anon f Text , bdDay :: Anon f Day}
 instance Table (Birthday Expr) (Birthday QueryResult)
 ```
 
