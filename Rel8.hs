@@ -94,7 +94,7 @@ module Rel8
   , delete
 
     -- * Interpretations
-  , QueryResult, SchemaInfo, Anon
+  , QueryResult, SchemaInfo
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
