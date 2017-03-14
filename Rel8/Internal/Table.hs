@@ -139,89 +139,14 @@ instance DBType a =>
 --------------------------------------------------------------------------------
 -- Stock instances of 'Table'
 
-instance (Table a a', Table b b') => Table (a, b) (a', b') where
-  type RowF (a, b) = Product (RowF a) (RowF b)
-
-  expressions =
-    dimap
-      (\(l, r) -> Pair (view expressions l) (view expressions r))
-      (fmap
-         (\(Pair l r) ->
-            (view (from expressions) l, view (from expressions) r)))
-
-  rowParser = (,) <$> rowParser <*> rowParser
-
+instance (Table a a', Table b b') =>
+         Table (a, b) (a', b')
 instance (Table a a', Table b b', Table c c') =>
-         Table (a, b, c) (a', b', c') where
-  type RowF (a, b, c) = Product (RowF (a, b)) (RowF c)
-
-  expressions =
-    dimap
-      (\(a, b, c) ->
-         Pair
-           (Pair (view expressions a) (view expressions b))
-           (view expressions c))
-      (fmap
-         (\(Pair (Pair a b) c) ->
-            ( view (from expressions) a
-            , view (from expressions) b
-            , view (from expressions) c)))
-
-  rowParser = (,,) <$> rowParser <*> rowParser <*> rowParser
-
+         Table (a, b, c) (a', b', c')
 instance (Table a a', Table b b', Table c c', Table d d') =>
-         Table (a, b, c, d) (a', b', c', d') where
-  type RowF (a, b, c, d) = Product (RowF (a, b, c)) (RowF d)
-
-  expressions =
-    dimap
-      (\(a, b, c, d) ->
-         Pair
-           (Pair
-              (Pair (view expressions a) (view expressions b))
-              (view expressions c))
-           (view expressions d))
-      (fmap
-         (\(Pair (Pair (Pair a b) c) d) ->
-            ( view (from expressions) a
-            , view (from expressions) b
-            , view (from expressions) c
-            , view (from expressions) d)))
-
-  rowParser =
-    (,,,) <$> rowParser
-          <*> rowParser
-          <*> rowParser
-          <*> rowParser
-
+         Table (a, b, c, d) (a', b', c', d')
 instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
-         Table (a, b, c, d, e) (a', b', c', d', e') where
-  type RowF (a, b, c, d, e) = Product (RowF (a, b, c, d)) (RowF e)
-
-  expressions =
-    dimap
-      (\(a, b, c, d, e) ->
-         Pair
-           (Pair
-              (Pair
-                 (Pair (view expressions a) (view expressions b))
-                 (view expressions c))
-              (view expressions d))
-           (view expressions e))
-      (fmap
-         (\(Pair (Pair (Pair (Pair a b) c) d) e) ->
-            ( view (from expressions) a
-            , view (from expressions) b
-            , view (from expressions) c
-            , view (from expressions) d
-            , view (from expressions) e)))
-
-  rowParser =
-    (,,,,) <$> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
-           <*> rowParser
+         Table (a, b, c, d, e) (a', b', c', d', e')
 
 
 --------------------------------------------------------------------------------
