@@ -194,7 +194,10 @@ runInsertManyReturningExplicit io qr t columns r =
   where
     O.QueryRunner u _ _ = qr
     parser = O.prepareRowParser qr (r v)
-    O.Table _ (O.TableProperties _ (O.View v)) = t
+    v =
+      case t of
+        O.Table _ (O.TableProperties _ (O.View a)) -> a
+        O.TableWithSchema _ _ (O.TableProperties _ (O.View a)) -> a
 
 runUpdateReturningExplicit
   :: QueryRunner m
@@ -209,4 +212,7 @@ runUpdateReturningExplicit io qr t up cond r =
   where
     O.QueryRunner u _ _ = qr
     parser = O.prepareRowParser qr (r v)
-    O.Table _ (O.TableProperties _ (O.View v)) = t
+    v =
+      case t of
+        O.Table _ (O.TableProperties _ (O.View a)) -> a
+        O.TableWithSchema _ _ (O.TableProperties _ (O.View a)) -> a
