@@ -22,6 +22,7 @@ module Rel8.IO
   , streamCursor
   ) where
 
+import Control.Lens (nullOf)
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -31,9 +32,9 @@ import qualified Data.List.NonEmpty as NEL
 import Data.Maybe (fromJust)
 import Data.String (fromString)
 import Database.PostgreSQL.Simple (Connection)
+import Database.PostgreSQL.Simple (defaultFoldOptions)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.FromRow as Pg
-import Database.PostgreSQL.Simple (defaultFoldOptions)
 import Database.PostgreSQL.Simple.Streaming
        (queryWith_, streamWithOptionsAndParser_)
 import qualified Opaleye as O
@@ -41,8 +42,8 @@ import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
-import Rel8.Internal.Table
-import Rel8.Internal.Types (Insert, QueryResult)
+import Rel8.Internal.Table hiding (columns)
+import Rel8.Internal.Types
 import Streaming (Stream, Of)
 import qualified Streaming.Prelude as S
 
@@ -61,7 +62,7 @@ type QueryRunner m = forall a. Pg.RowParser a -> Pg.Query -> Stream (Of a) m ()
 -- @
 -- 'stream' = 'queryWith_'
 -- @
-stream :: (MonadResource m, MonadMask m) => Connection -> QueryRunner m
+stream :: (MonadResource m) => Connection -> QueryRunner m
 stream conn parser query = queryWith_ parser conn query
 
 -- | Stream the results of a query and fetch the results using a PostgreSQL
@@ -139,7 +140,7 @@ update conn f up =
 -- | Update rows in a 'BaseTable' and return the results. Corresponds to
 -- @UPDATE ... RETURNING@.
 updateReturning
-  :: (BaseTable table, DBBool bool, MonadIO m)
+  :: (BaseTable table, DBBool bool)
   => QueryRunner m
   -> (table Expr -> Expr bool)
   -> (table Expr -> table Expr)
@@ -163,8 +164,8 @@ delete conn f =
 queryRunner :: Table a b => O.QueryRunner a b
 queryRunner =
   O.QueryRunner (void unpackColumns)
-                rowParser
-                (Prelude.not . null . view expressions)
+                (const rowParser)
+                (Prelude.not . nullOf (expressions . traverse))
 
 --------------------------------------------------------------------------------
 

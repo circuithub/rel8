@@ -1,12 +1,14 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Rel8.Internal.Types where
 
-import GHC.TypeLits (Symbol)
-import Rel8.Internal.Expr (Expr)
+import Rel8.Internal.Expr
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 --------------------------------------------------------------------------------
@@ -18,16 +20,14 @@ data QueryResult column
 -- Used to indicate that we will be inserting values. If columns are marked as
 -- having a default value, it will be possible to use 'Default' to let the
 -- database generate a value.
-data Insert a
+data Insert a = InsertExpr (Expr a)
 
 
 --------------------------------------------------------------------------------
 -- | Used internal to reflect the schema of a table from types into values.
-data Schema a
-
---------------------------------------------------------------------------------
-data SchemaInfo (name :: Symbol) (hasDefault :: HasDefault) t =
+data SchemaInfo a =
   SchemaInfo String
+  deriving (Show)
 
 
 --------------------------------------------------------------------------------
@@ -42,14 +42,13 @@ data Default a
   = OverrideDefault a
   | InsertDefault
 
-
 --------------------------------------------------------------------------------
 {-| All metadata about a column in a table.
 
     'C' is used to specify information about individual columns in base
     tables.
 
-    === __Example__
+    === Example
 
     @
     data Employee f =
@@ -59,16 +58,49 @@ data Default a
 type family C f columnName hasDefault columnType :: * where
   C Expr _name _def t = Expr t
   C QueryResult _name _def t = t
-  C Schema name hasDefault t = SchemaInfo name hasDefault t
+  C SchemaInfo name hasDefault t = SchemaInfo '(name, hasDefault, t)
   C Insert name 'HasDefault t = Default (Expr t)
   C Insert name 'NoDefault t = Expr t
   C Aggregate name _ t = Aggregate t
 
-
+-- | @Anon@ can be used to define columns like 'C', but does not contain the
+-- extra metadata needed to define a 'BaseTable' instance. The main use of
+-- 'Anon' is to define "anonymous" tables that represent the intermediate
+-- parts of a query.
+--
+-- === Example
+--
+-- @
+-- data EmployeeAndManager f = EmployeeAndManager
+--   { employee :: Anon f Text
+--   , manager :: Anon f Text
+--   }
+--
+-- employeeAndManager :: Query (EmployeeAndManager Expr)
+-- employeeAndManager = proc _ -> do
+--   employee <- queryTable -< ()
+--   manager <- queryTable -< ()
+--   where_ -< employeeManager employee ==. managerId manager
+--   id -< EmployeeAndManager { employee = employeeName employee
+--                            , manager = managerName manager
+--                            }
+-- @
 type family Anon f columnType :: * where
   Anon Expr t = Expr t
   Anon QueryResult t = t
   Anon Aggregate t = Aggregate t
+
+newtype Limit f = Limit
+  { runLimit :: forall a. f a
+  }
+
+data Colimit f where
+  Colimit :: f a -> Colimit f
+
+data Interpretation f where
+  AsExpr :: Interpretation Expr
+  AsSchemaInfo :: Interpretation SchemaInfo
+  AsInsert :: Interpretation Insert
 
 --------------------------------------------------------------------------------
 -- | Indicate whether or not a column has a default value. Used in conjunction

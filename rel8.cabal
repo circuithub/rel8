@@ -24,7 +24,6 @@ library
   other-modules:       Rel8.Internal.Aggregate
                        Rel8.Internal.DBType
                        Rel8.Internal.Expr
-                       Rel8.Internal.Generic
                        Rel8.Internal.Operators
                        Rel8.Internal.Order
                        Rel8.Internal.Table
@@ -53,9 +52,11 @@ library
                      , transformers
                      , uuid
                      , vector
+                     , lens
+                     , adjunctions
   -- hs-source-dirs:
   default-language:    Haskell2010
-  ghc-options:         -Wall
+  ghc-options:         -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
 
 
 test-suite example

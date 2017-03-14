@@ -19,8 +19,10 @@ module Rel8
 
     -- * Defining Tables
     C
+  , Anon
   , HasDefault(..)
   , BaseTable(tableName)
+  , Table
 
     -- * Querying Tables
   , O.Query, O.QueryArr
@@ -43,6 +45,7 @@ module Rel8
   , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
 
     -- * Aggregation
+    -- $aggregation
   , aggregate
   , AggregateTable
   , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), DBAvg(..)
@@ -50,7 +53,6 @@ module Rel8
   , countRows, Aggregate
 
     -- * Tables
-  , Table
   , MaybeTable, isTableNull
   , Col(..)
 
@@ -92,7 +94,7 @@ module Rel8
   , delete
 
     -- * Interpretations
-  , QueryResult, Schema, Anon
+  , QueryResult, SchemaInfo, Anon
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
@@ -105,10 +107,11 @@ module Rel8
   , dbBinOp
   ) where
 
+import Data.Functor.Rep (mzipWithRep)
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)
+import Control.Lens (view, from)
 import Control.Monad.Rel8
-import Control.Monad.Zip
 import Data.List (foldl')
 import Data.Profunctor (lmap)
 import Data.Text (Text)
@@ -132,9 +135,7 @@ import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
 import Prelude hiding (not, (.), id)
 import Rel8.Internal
-import Rel8.Internal.DBType
 import Streaming (Of, Stream)
-
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two queries.
@@ -160,7 +161,7 @@ leftJoin condition l r =
 -- given query. The input to the 'QueryArr' is a predicate function against
 -- rows in the to-be-joined query.
 --
--- === __Example__
+-- === Example
 -- @
 -- -- Return all users and comments, including users who haven't made a comment.
 -- usersAndComments :: Query (User Expr, MaybeTable (Comment Expr))
@@ -242,11 +243,10 @@ unionAll =
        (O.PackMap
           (\f (l, r) ->
              fmap
-               (viewFrom expressions)
+               (view (from expressions))
                (sequenceA
-                  ((mzipWith
-                      (\(Some (Expr prim1)) (Some (Expr prim2)) ->
-                         Some . Expr <$> f (prim1, prim2))
+                  ((mzipWithRep
+                      (\prim1 prim2 -> f (prim1, prim2))
                       (view expressions l)
                       (view expressions r)))))))
 
@@ -314,6 +314,7 @@ unionAll =
      } deriving (Generic)
 
    instance 'BaseTable' Part where 'tableName' = \"part\"
+   instance 'Table' (Part 'Expr') (Part 'QueryResult')
    @
 
    The @Part@ table has 5 columns, each defined with the @C f ..@
@@ -325,9 +326,11 @@ unionAll =
       managed by the database.
    3. The type of the column.
 
-   After defining the table, we finally need to make an instance of 'BaseTable'
-   so @rel8@ can query this table. By using @deriving (Generic)@, we simply need
-   to write @instance BaseTable Part where tableName = "part"@.
+   After defining the table, we finally need to make instances of 'BaseTable' and
+   'Table' so @rel8@ can query this table. By using @deriving (Generic)@, we
+   simply need to write @instance BaseTable Part where tableName = "part"@. The
+   'Table' instance demonstrates that a @Part Expr@ value can be selected from
+   the database as @Part QueryResult@.
 
    === Querying tables
 
@@ -399,6 +402,7 @@ unionAll =
      } deriving (Generic)
 
    instance 'BaseTable' Supplier where 'tableName' = "supplier"
+   instance 'Table' (Supplier 'Expr') (Supplier 'QueryResult')
    @
 
    We can take the product of all parts paired against all suppliers:
@@ -491,5 +495,37 @@ unionAll =
    @
 
    though in @rel8@ we're a little bit more general.
+
+-}
+
+
+{- $aggregation
+
+   To aggregate a series of rows, use the 'aggregate' query transform.
+   @aggregate@ takes a 'Query' that returns any 'AggregateTable' as a result.
+   @AggregateTable@s are like @Tables@, except that all expressions describe
+   a way to aggregate data. While tuples are instances of @AggregateTable@,
+   it's recommended to introduce new data types to represent aggregations for
+   clarity:
+
+   === Example
+
+   @
+   data UserInfo f = UserInfo
+     { userCount :: Anon f Int64
+     , latestLogin :: Anon f UTCTime
+     , uType :: Anon f Type
+     } deriving (Generic)
+
+   instance AggregateTable (UserInfo Aggregate) (UserInfo Expr)
+
+   userInfo :: Query (UserInfo Expr)
+   userInfo = aggregate $ proc _ -> do
+     user <- queryTable -< ()
+     returnA -< UserInfo { userCount = count (userId user)
+                         , latestLogin = max (userLastLoggedIn user)
+                         , uType = groupBy (userType user)
+                         }
+   @
 
 -}

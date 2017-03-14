@@ -1,10 +1,12 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 -- This is the example from the documentation. We don't run any tests,
 -- just compiling is deemed satisfactory. If this fails to compile,
 -- make sure to update the documentation with the necessary changes!
 
 {-# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
-             OverloadedStrings #-}
+             OverloadedStrings, MultiParamTypeClasses #-}
 
 module Main where
 
@@ -12,6 +14,27 @@ import Control.Applicative
 import Control.Arrow
 import Rel8
 import Data.Int
+
+data Small f =
+  Small { smallId     :: C f "PID" 'HasDefault Int32
+       , smallName   :: C f "PName" 'NoDefault String
+       -- , partColor  :: C f "Color" 'NoDefault Int32
+       -- , partWeight :: C f "Weight" 'NoDefault Double
+       -- , partCity   :: C f "City" 'NoDefault String
+       } deriving (Generic)
+
+instance Table (Small Expr) (Small QueryResult)
+instance BaseTable Small where
+  tableName = "small"
+  -- tabular DomExpr =
+  --   iso
+  --     (\s@(Small a b) -> Pair (Identity (Colimit a)) (Identity (Colimit b)))
+  --     (\(Pair (Identity (Colimit (Expr a))) (Identity (Colimit (Expr b)))) -> Small (Expr a) (Expr b))
+  -- tabular DomSchemaInfo =
+  --   iso
+  --     (\s@(Small a b) -> Pair (Identity (Colimit a)) (Identity (Colimit b)))
+  --     (\(Pair (Identity (Colimit (Expr a))) (Identity (Colimit (Expr b)))) -> Small (Expr a) (Expr b))
+
 
 data Part f =
   Part { partId     :: C f "PID" 'HasDefault Int32
@@ -21,8 +44,10 @@ data Part f =
        , partCity   :: C f "City" 'NoDefault String
        } deriving (Generic)
 
+instance Table (Part Expr) (Part QueryResult)
 instance BaseTable Part where tableName = "part"
 deriving instance Show (Part QueryResult)
+deriving instance Show (Part SchemaInfo)
 
 allParts :: Query (Part Expr)
 allParts = queryTable
@@ -54,6 +79,7 @@ data Supplier f = Supplier
   , supplierCity :: C f "City" 'NoDefault String
   } deriving (Generic)
 
+instance Table (Supplier Expr) (Supplier QueryResult)
 instance BaseTable Supplier where tableName = "supplier"
 deriving instance Show (Supplier QueryResult)
 
