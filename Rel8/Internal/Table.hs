@@ -137,19 +137,6 @@ instance DBType a =>
       (\(Identity prim) -> K1 (Expr prim))
 
 --------------------------------------------------------------------------------
--- Stock instances of 'Table'
-
-instance (Table a a', Table b b') =>
-         Table (a, b) (a', b')
-instance (Table a a', Table b b', Table c c') =>
-         Table (a, b, c) (a', b', c')
-instance (Table a a', Table b b', Table c c', Table d d') =>
-         Table (a, b, c, d) (a', b', c', d')
-instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
-         Table (a, b, c, d, e) (a', b', c', d', e')
-
-
---------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
 data MaybeTable row = MaybeTable (Expr (Maybe Bool)) row
@@ -434,14 +421,6 @@ instance AggregateTable (Aggregate a) (Expr a) where
       (\(Aggregate a e) -> Identity (Limit (Aggregate a e)))
       (runLimit . runIdentity)
 
-instance (AggregateTable a1 b1, AggregateTable a2 b2) =>
-         AggregateTable (a1, a2) (b1, b2) where
-  aggregations =
-    iso
-      (\(a, b) -> Pair (view aggregations a) (view aggregations b))
-      (\(Pair l r) ->
-         (view (from aggregations) l, view (from aggregations) r))
-
 --------------------------------------------------------------------------------
 class GTraverseAggregator aggregator expr | aggregator -> expr where
   gaggregations
@@ -486,3 +465,24 @@ class WitnessSchema a where
 instance KnownSymbol name =>
          WitnessSchema (SchemaInfo '(name, (def :: k), (t :: j))) where
   schema = SchemaInfo (symbolVal (Proxy @name))
+
+--------------------------------------------------------------------------------
+-- Table products as tuples
+
+instance (Table a a', Table b b') =>
+         Table (a, b) (a', b')
+instance (Table a a', Table b b', Table c c') =>
+         Table (a, b, c) (a', b', c')
+instance (Table a a', Table b b', Table c c', Table d d') =>
+         Table (a, b, c, d) (a', b', c', d')
+instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
+         Table (a, b, c, d, e) (a', b', c', d', e')
+
+instance (AggregateTable a a', AggregateTable b b') =>
+         AggregateTable (a, b) (a', b')
+instance (AggregateTable a a', AggregateTable b b', AggregateTable c c') =>
+         AggregateTable (a, b, c) (a', b', c')
+instance (AggregateTable a a', AggregateTable b b', AggregateTable c c', AggregateTable d d') =>
+         AggregateTable (a, b, c, d) (a', b', c', d')
+instance (AggregateTable a a', AggregateTable b b', AggregateTable c c', AggregateTable d d', AggregateTable e e') =>
+         AggregateTable (a, b, c, d, e) (a', b', c', d', e')
