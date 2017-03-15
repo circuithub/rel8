@@ -140,3 +140,39 @@ outer joins. Opaleye deals with this by the use of `NullMaker`s. `MaybeTable`s,
 when selected, will return `Maybe` of the actual row itself. You can project
 columns out of a `MaybeTable` with the `$?` operator (function application on a
 possibly-`null` row).
+
+### `NULL`
+
+Rel8 accepts the reality that SQL has `null` as a fundamental concept, and
+provides operators over both values and `null`. That is, while we have the
+ordinary `==.` operator:
+
+```haskell
+(==.) :: DBEq a => Expr a -> Expr a -> Expr Bool
+```
+
+We have the same operator, but lifted to operate on `null`:
+
+```haskell
+(==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
+```
+
+While this unfortunately doubles the API, it's necessary - at least if you want
+to write performant code. The problem arises in PostgreSQL itself. Consider a
+table `t` with column `a` that can contain `null`, and suppose we have an index
+on `t(a)`. We'd like to write the following
+
+```sql
+SELECT * FROM t WHERE a = foo
+```
+
+However, `a` may be `null`, so `a = foo` may also be null. In Haskell we can at
+least lift `==` over `Maybe`, such that `(==) :: Maybe a -> Maybe a -> Bool`,
+but in SQL the comparison operator does *not* return `Bool`... it returns `Maybe
+Bool`!
+
+This is not necessarily a difference to Opaleye - it just happens that Rel8
+provides these operators while no one has yet added them to Opaleye.
+
+The mneumonic is that all operators trailing `.` is replaced with `?`, so `==.`
+becomes `==?`, `&&.` becomes `&&?`, and so on.
