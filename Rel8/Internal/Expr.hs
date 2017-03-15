@@ -29,6 +29,9 @@ type role Expr representational
 instance (IsString a, DBType a) => IsString (Expr a) where
   fromString = lit . fromString
 
+instance {-# OVERLAPS#-} (IsString a, DBType a) => IsString (Expr (Maybe a)) where
+  fromString = lit . Just . fromString
+
 -- | It is assumed that any Haskell types that have a 'Num' instance also have
 -- the corresponding operations in the database. Hence, Num a => Num (Expr a).
 -- *However*, if this is not the case, you should `newtype` the Haskell type

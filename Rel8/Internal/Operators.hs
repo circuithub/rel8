@@ -49,6 +49,28 @@ instance DBBool (Maybe Bool) where
   a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
   a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
 
+-- | Lift a binary operator over @null@ inputs. It is assumed that the
+-- operator returns @null@ if any of its inputs are @null@ (as described
+-- by @RETURNS NULL ON NULL INPUT@ to @CREATE FUNCTION@).
+liftOpNull
+  :: ToNullable c maybeC
+  => (Expr a -> Expr b -> Expr c)
+  -> Expr (Maybe a)
+  -> Expr (Maybe b)
+  -> Expr maybeC
+liftOpNull f a b = toNullable (unsafeCoerceExpr a `f` unsafeCoerceExpr b)
+
+mapNull
+  :: ToNullable b maybeB
+  => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr maybeB
+mapNull = toNullable (f (unsafeCoerceExpr a))
+
+-- | Compare two nullable values, returning @null@ if either are null.
+-- @(?=.) = liftOpNull (==.)@.
+(?=.)
+  :: DBEq a
+  => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
+a ?=. b = liftOpNull (==.) a b
 
 --------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
@@ -56,11 +78,6 @@ class DBType a => DBEq a where
   -- | Corresponds to @=@.
   (==.) :: Expr a -> Expr a -> Expr Bool
   Expr a ==. Expr b = Expr (O.BinExpr (O.:==) a b)
-
-  -- | Compare two nullable values, returning @null@ if either are null.
-  -- You can think of this like @liftA2 (==.)@.
-  (?=.) :: Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
-  a ?=. b = toNullable (unsafeCoerceExpr @a a ==. unsafeCoerceExpr @a b)
 
 instance DBEq Bool where
 instance DBEq Char where

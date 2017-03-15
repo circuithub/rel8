@@ -77,7 +77,7 @@ module Rel8
 
     -- ** Null
   , ToNullable(toNullable) , ($?), isNull, nullable
-
+  , liftOpNull
 
     -- * Running Queries
     -- ** @SELECT@
