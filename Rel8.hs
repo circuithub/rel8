@@ -60,7 +60,7 @@ module Rel8
   , Expr, coerceExpr, dbShow, case_
 
     -- ** Equality
-  , DBEq, (==.), (?=.), in_, ilike
+  , DBEq, (==.), in_, ilike
 
     -- ** Ordering
   , DBOrd, (>.), (>=.), (<.), (<=.)
@@ -78,6 +78,11 @@ module Rel8
     -- ** Null
   , ToNullable(toNullable) , ($?), isNull, nullable
   , liftOpNull
+
+    -- *** Null-lifted operators
+  , (==?), (<?), (<=?), (>?), (>=?)
+  , (||?), (&&?), (+?), (*?), (-?)
+  , (/?)
 
     -- * Running Queries
     -- ** @SELECT@
@@ -136,6 +141,35 @@ import qualified Opaleye.Order as O
 import Prelude hiding (not, (.), id)
 import Rel8.Internal
 import Streaming (Of, Stream)
+
+infix 4 ==? , <? , <=? , >? , >=?
+infixr 2 ||?,  &&?
+infixl 7 *?
+infixl 6 +?, -?
+
+--------------------------------------------------------------------------------
+(==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
+(==?) = liftOpNull (==.)
+
+(<?), (<=?), (>?), (>=?)
+  :: DBOrd a
+  => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
+(<?) = liftOpNull (<.)
+(<=?) = liftOpNull (<=.)
+(>?) = liftOpNull (>.)
+(>=?) = liftOpNull (>=.)
+
+(||?), (&&?) :: Expr (Maybe Bool) -> Expr (Maybe Bool) -> Expr (Maybe Bool)
+(||?) = liftOpNull (||.)
+(&&?) = liftOpNull (&&.)
+
+(+?), (*?), (-?) :: Num (Expr a) => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe a)
+(+?) = liftOpNull (+)
+(*?) = liftOpNull (*)
+(-?) = liftOpNull (-)
+
+(/?) :: Fractional (Expr a) => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe a)
+(/?) = liftOpNull (/)
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two queries.
@@ -249,6 +283,7 @@ unionAll =
                       (\prim1 prim2 -> f (prim1, prim2))
                       (view expressions l)
                       (view expressions r)))))))
+
 
 
 {- $intro

@@ -18,7 +18,7 @@ import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 
 --------------------------------------------------------------------------------
-infix 4 ==. , ?=. , <. , <=. , >. , >=.
+infix 4 ==.,  <. , <=. , >. , >=.
 infixr 2 ||.,  &&.
 
 --------------------------------------------------------------------------------
@@ -53,24 +53,15 @@ instance DBBool (Maybe Bool) where
 -- operator returns @null@ if any of its inputs are @null@ (as described
 -- by @RETURNS NULL ON NULL INPUT@ to @CREATE FUNCTION@).
 liftOpNull
-  :: ToNullable c maybeC
-  => (Expr a -> Expr b -> Expr c)
+  :: (Expr a -> Expr b -> Expr c)
   -> Expr (Maybe a)
   -> Expr (Maybe b)
-  -> Expr maybeC
-liftOpNull f a b = toNullable (unsafeCoerceExpr a `f` unsafeCoerceExpr b)
+  -> Expr (Maybe c)
+liftOpNull f a b = unsafeCoerceExpr (unsafeCoerceExpr a `f` unsafeCoerceExpr b)
 
 mapNull
-  :: ToNullable b maybeB
-  => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr maybeB
-mapNull = toNullable (f (unsafeCoerceExpr a))
-
--- | Compare two nullable values, returning @null@ if either are null.
--- @(?=.) = liftOpNull (==.)@.
-(?=.)
-  :: DBEq a
-  => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
-a ?=. b = liftOpNull (==.) a b
+  :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
+mapNull f = unsafeCoerceExpr . f . unsafeCoerceExpr
 
 --------------------------------------------------------------------------------
 -- | The class of types that can be compared for equality within the database.
