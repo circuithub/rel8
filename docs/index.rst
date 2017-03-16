@@ -4,7 +4,7 @@ Welcome to Rel8!
 Welcome to Rel8!
 
 Rel8 is a library that builds open the fantastic `Opaleye
-https://hackage.haskell.org/package/opaleye>`_ library to query databases, and
+<https://hackage.haskell.org/package/opaleye>`_ library to query databases, and
 provides a slightly alternative API. The main objectives of Rel8 are:
 
 * *Conciseness*: Users using Rel8 should not need to write boiler-plate code. By
