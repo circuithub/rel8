@@ -2,7 +2,7 @@ Welcome to Rel8!
 ================================
 
 Welcome to Rel8! Rel8 is an API built on top of the
-fantastic [Opaleye](https://hackage.haskell.org/package/opaleye) library to
+fantastic `Opaleye <https://hackage.haskell.org/package/opaleye>`_ library to
 provide an easy and type-safe way to interact with relational databases.
 
 The main objectives of Rel8 are:
