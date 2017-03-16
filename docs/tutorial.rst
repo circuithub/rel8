@@ -22,13 +22,13 @@ Required language extensions and imports
 
 To use Rel8, you will need a few language extensions:
 
-* ``Arrows`` is necessary to use ``proc`` notation - similar to ``do`` notation
+* ``Arrows`` is necessary to use ``proc`` notation - like ``do`` notation
   for monads. As with Opaleye, Rel8 uses arrows to guarantee queries are valid.
 
 * ``DataKinds`` is used to promote values to the type level when defining
   table/column metadata.
 
-* ``DeriveGeneric`` is used to automatically derive functions from schema
+* ``DeriveGeneric`` is used to derive functions from schema
   information.
 
 The other extensions can be considered as "necessary evil" to provide the type
@@ -38,7 +38,7 @@ system extensions needed by Rel8.
 Defining base tables
 --------------------
 
-In order to query a database of existing tables, we need to let Rel8 know
+To query a database of existing tables, we need to let Rel8 know
 about these tables, and the schema for each table. This is done by defining a
 Haskell *record* for each table in the database. These records should have a
 type of the form ``C f name hasDefault t``. Let's see how that looks with some
@@ -59,14 +59,14 @@ The ``Part`` table has 5 columns, each defined with the ``C f ..`` pattern. For
 each column, we are specifying:
 
 1. The column name.
-2. Whether or not this column has a default value when inserting new rows. In
+2. Whether this column has a default value when inserting new rows. In
    this case ``partId`` does, as this is an auto-incremented primary key managed
    by the database.
 3. The type of the column.
 
 After defining the table, we finally need to make instances of ``BaseTable`` and
 ``Table`` so Rel8 can query this table. By using ``deriving (Generic)``, we
-simply need to write ``instance BaseTable Part where tableName = "part"``. The
+need to write ``instance BaseTable Part where tableName = "part"``. The
 ``Table`` instance demonstrates that a ``Part Expr`` value can be selected from
 the database as ``Part QueryResult``.
 
@@ -88,7 +88,7 @@ a new query for all part cities in the database::
   allPartCities :: O.Query (Expr String)
   allPartCities = partCity <$> allParts
 
-Now we have a query containing just one column - expressions of type ``String``.
+Now we have a query containing one column - expressions of type ``String``.
 
 ``WHERE`` clauses
 -----------------
@@ -97,7 +97,7 @@ Usually when we are querying database, we are querying for subsets of
 information. In SQL, we apply predicates using ``WHERE`` - and Rel8 supports
 this too, in two forms.
 
-Firstly, we can use ``filterQuery``, similar to how we would use ``filter``::
+We use ``filterQuery`` as we would use ``filter``::
 
   londonParts :: O.Query (Part Expr)
   londonParts = filterQuery (\p -> partCity p ==. "London") allParts
@@ -106,8 +106,7 @@ Firstly, we can use ``filterQuery``, similar to how we would use ``filter``::
 case we can use ``==.`` to compare to expressions for equality. On the left,
 ``partCity p :: Expr String``, and on the right ``"London" :: Expr String``
 (the literal string ``London``).
-
-Alternatively, we can use ``where_`` with arrow notation, which is similar to
+Alternatively, we can use ``where_`` with arrow notation, which is like
 using ``guard`` with ``MonadPlus``::
 
   heavyParts :: O.Query (Part Expr)
@@ -157,7 +156,7 @@ In both queries, we've used ``queryTable`` to select the necessary rows.
 ``queryTable`` is overloaded, but by knowing the type of rows to select, it will
 change which table it queries from.
 
-We can combine products with the techniques we've just seen in order to produce
+We can combine products with the techniques we've seen to produce
 the inner join of two tables. For example, here is a query to pair up each part
 with all suppliers in the same city::
 
@@ -189,7 +188,7 @@ often more concise::
 
 This is a little different to anything we've seen so far, so let's break it
 down. ``leftJoinA`` takes as its first argument the query to join in. In this
-case we just use ``queryTable`` to select all supplier rows. ``LEFT JOIN`` s also
+case we use ``queryTable`` to select all supplier rows. ``LEFT JOIN`` s also
 require a predicate, and we supply this as *input* to ``leftJoinA``. The input
 is itself a function, a function from rows in the to-be-joined table to
 booleans. Notice that in this predicate, we are free to refer to tables and
@@ -248,7 +247,7 @@ our application::
 
 We would like to aggregate over this table, grouped by user type, learning how
 many users we have and the latest login time in that group. First, let's
-introduce a record to easily be able to refer to this data::
+introduce a record to be able to refer to this data::
 
   data UserInfo f = UserInfo
     { userCount :: Anon f Int64
@@ -259,10 +258,10 @@ introduce a record to easily be able to refer to this data::
   instance AggregateTable (UserInfo Aggregate) (UserInfo Expr)
   instange Table (UserInfo Expr) (UserInfo QueryResult)
 
-This record is defined in a similar pattern to tables we've seen previously,
+This record is defined in a similar pattern to tables we've seen before,
 but this time we're using the ``Anon`` decorator, rather than ``C``. ``Anon``
 can be used for tables that aren't base tables, and means we don't have to
-provide metadata about the column name and whether or not it has a default
+provide metadata about the column name and whether it has a default
 value. In this case, ``UserInfo`` doesn't model a base table, it models a
 derived table.
 
@@ -286,7 +285,7 @@ Running Queries
 So far we've written various queries, but we haven't actually seen how to
 perform any IO with them. Rel8 gives you entry points into the main ways of
 interacting with a relational database - ``DELETE``, ``INSERT``, ``SELECT`` and
-``UPDATE``. ``SELECT`` is probably the most common type of query, so we'll begin
+``UPDATE``. ``SELECT`` is arguably the most common type of query, so we'll begin
 with that.
 
 You can run any query that returns results using the ``select`` function from
@@ -294,7 +293,7 @@ You can run any query that returns results using the ``select`` function from
 function for actually performing the IO. There are two default query runners,
 ``stream`` and ``streamCursor``. It's beyond the scope of this tutorial to
 discuss the difference, curious users are encouraged to check the API
-documentation. ``stream`` is often sufficient, so let's look at a program that
+documentation. ``stream`` is often enough, so let's look at a program that
 queries the ``part`` table from earlier
 
 Select
@@ -323,7 +322,7 @@ Data Modification
 ^^^^^^^^^^^^^^^^^
 
 Data modification queries are queries that use ``DELETE``, ``INSERT`` or
-``UPDATE``, and Rel8 gives two interfaces to these queries - one that simply
+``UPDATE``, and Rel8 gives two interfaces to these queries - one that
 runs the query, and another than runs the query and returns a ``Stream`` of
 results (the ``Returning`` family of functions).
 
