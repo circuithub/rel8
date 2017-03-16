@@ -11,8 +11,8 @@ Required language extensions and imports
 
 ::
 
-  { -# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
-                MultiParamTypeClasses, OverloadedStrings #- }
+  {-# LANGUAGE Arrows, DataKinds, DeriveGeneric, FlexibleInstances,
+               MultiParamTypeClasses, OverloadedStrings #- }
 
   import Control.Applicative
   import Control.Arrow
