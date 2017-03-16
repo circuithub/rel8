@@ -1,0 +1,12 @@
+resolver: lts-8.5
+
+packages:
+  - location:
+      git: http://github.com/tomjaguarpaw/haskell-opaleye
+      commit: master
+    extra-dep: true
+  - .
+
+extra-deps:
+  - one-liner-0.7
+  - streaming-postgresql-simple-0.2.0.0
