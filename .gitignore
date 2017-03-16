@@ -24,3 +24,5 @@ cabal.project.local
 .HTF/
 
 # End of https://www.gitignore.io/api/haskell
+
+docs/_*
