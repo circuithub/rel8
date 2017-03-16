@@ -72,6 +72,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+def setup(app):
+    from sphinx.highlighting import lexers
+    from pygments.lexers import HaskellLexer
+    lexers['haskell ignore'] = HaskellLexer(stripnl=False)
+
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
@@ -152,6 +157,3 @@ texinfo_documents = [
      author, 'Rel8', 'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-
