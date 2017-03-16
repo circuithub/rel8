@@ -63,8 +63,8 @@ Aggregation
 In Opaleye, aggregation is performed by using the ``aggregate`` function which
 requires an ``Aggregator``. Due to the `particularities of SQL
 <https://github.com/tomjaguarpaw/haskell-opaleye/issues/282>`_ ``Aggregators``
-are not ``Arrow`` s, nor are they functions. This leaves us with little option to
-build ``Aggregator`` s, though with ``ProductProfunctor`` (and some template
+are not ``Arrow``\ s, nor are they functions. This leaves us with little option to
+build ``Aggregator``\ s, though with ``ProductProfunctor`` (and some template
 Haskell), the pain is somewhat eased. From the basic tutorial::
 
   aggregateWidgets :: Query (Widget (Column PGText) (Column PGText) (Column PGInt8)
@@ -125,10 +125,10 @@ Outer Joins
 -----------
 
 Rel8 contains a row transforming type ``MaybeTable`` to capture the result of
-outer joins. Opaleye deals with this by the use of ``NullMaker``s. ``MaybeTable``s,
-when selected, will return ``Maybe`` of the actual row itself. You can project
-columns out of a ``MaybeTable`` with the ``$?`` operator (function application on a
-possibly-``null`` row).
+outer joins. Opaleye deals with this by the use of ``NullMaker``\ s.
+``MaybeTable``\ s, when selected, will return ``Maybe`` of the actual row
+itself. You can project columns out of a ``MaybeTable`` with the ``$?`` operator
+(function application on a possibly-``null`` row).
 
 ``NULL``
 --------
