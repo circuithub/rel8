@@ -67,9 +67,8 @@ heavyParts = proc _ -> do
 existsExample :: Query (Part Expr)
 existsExample = proc _ -> do
   part <- queryTable -< ()
-  exists (proc part -> do
-            otherPart <- queryTable -< ()
-            where_ -< partWeight otherPart >. partWeight part) -< part
+  (| exists (do otherPart <- queryTable -< ()
+                where_ -< partWeight otherPart >. partWeight part) |)
   returnA -< part
 
 data Supplier f = Supplier
