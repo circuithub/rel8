@@ -14,6 +14,7 @@ category:            Database
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
+Tested-With: GHC == 8.0.2
 
 library
   exposed-modules:     Rel8
