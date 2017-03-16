@@ -24,11 +24,3 @@ The main objectives of Rel8 are:
    tutorial
    concepts
    differences
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
