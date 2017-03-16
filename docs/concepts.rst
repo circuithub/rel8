@@ -74,7 +74,6 @@ In :doc:`tutorial` we used instances like ``instance Table (Part Expr) (Part
 QueryResult)``. It's actually possible to get *even more* type inference using
 the following variation::
 
-
   instance (expr ~ Expr, queryResult ~ QueryResult) =>
            Table (Part expr) (Part queryResult)
 
@@ -91,7 +90,7 @@ functions like ``filterQuery`` are more general than one might first expect::
 
   filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
 
-There are two instances for the ``Predicate`` type class:
+There are two instances for the ``Predicate`` type class::
 
   instance Predicate Bool
   instance Predicate (Maybe Bool)
