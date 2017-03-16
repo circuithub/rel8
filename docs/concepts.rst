@@ -95,7 +95,7 @@ There are two instances for the ``Predicate`` type class::
   instance Predicate Bool
   instance Predicate (Maybe Bool)
 
-This may seem surprising, but in SQL, ``null` takes on a special meaning in
+This may seem surprising, but in SQL, ``null`` takes on a special meaning in
 predicates - it acts like ``false``. Ideally, in Haskell we could do away with
 this nonsense and explicitly map ``null`` to false (e.g., ``nullable (lit False)
 id myExpr``) but doing so results in SQL that won't hit database indexes (at
