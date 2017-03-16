@@ -43,11 +43,11 @@ type of the form ``C f name hasDefault t``. Let's see how that looks with some
 example tables::
 
   data Part f = Part
-    { partId     :: C f "PID" 'HasDefault' Int
-    , partName   :: C f "PName" 'NoDefault' String
-    , partColor  :: C f "Color" 'NoDefault' Int
-    , partWeight :: C f "Weight" 'NoDefault' Double
-    , partCity   :: C f "City" 'NoDefault' String
+    { partId     :: C f "PID" 'HasDefault Int
+    , partName   :: C f "PName" 'NoDefault String
+    , partColor  :: C f "Color" 'NoDefault Int
+    , partWeight :: C f "Weight" 'NoDefault Double
+    , partCity   :: C f "City" 'NoDefault String
     } deriving (Generic)
 
   instance BaseTable Part where tableName = "part"
@@ -127,10 +127,10 @@ each row of the second query - by sequencing queries inside a ``O.Query``. Let's
 introduce another table::
 
   data Supplier f = Supplier
-    { supplierId :: C f "SID" HasDefault Int
-    , supplierName :: C f "SName" NoDefault String
-    , supplierStatus :: C f "Status" NoDefault Int
-    , supplierCity :: C f "City" NoDefault String
+    { supplierId :: C f "SID" 'HasDefault Int
+    , supplierName :: C f "SName" 'NoDefault String
+    , supplierStatus :: C f "Status" 'NoDefault Int
+    , supplierCity :: C f "City" 'NoDefault String
     } deriving (Generic)
 
   instance BaseTable Supplier where tableName = "supplier"
