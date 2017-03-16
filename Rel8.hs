@@ -74,7 +74,7 @@ module Rel8
 
     -- ** Null
   , ToNullable(toNullable) , ($?), isNull, nullable
-  , liftOpNull
+  , liftOpNull, mapNull
 
     -- *** Null-lifted operators
   , (==?), (<?), (<=?), (>?), (>=?)
