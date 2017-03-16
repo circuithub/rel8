@@ -5,6 +5,7 @@ Welcome to Rel8!
    :maxdepth: 2
    :caption: Contents:
 
+   tutorial
    differences
 
 
