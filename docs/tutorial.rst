@@ -276,3 +276,79 @@ With this, aggregation can be written as a concise query::
 
 Running Queries
 ---------------
+
+So far we've written various queries, but we haven't actually seen how to
+perform any IO with them. Rel8 gives you entry points into the main ways of
+interacting with a relational database - ``DELETE``, ``INSERT``, ``SELECT`` and
+``UPDATE``. ``SELECT`` is probably the most common type of query, so we'll begin
+with that.
+
+You can run any query that returns results using the ``select`` function from
+``Rel8.IO``. ``select`` needs to be given a ``QueryRunner``, which is a type of
+function for actually performing the IO. There are two default query runners,
+``stream`` and ``streamCursor``. It's beyond the scope of this tutorial to
+discuss the difference, curious users are encouraged to check the API
+documentation. ``stream`` is often sufficient, so let's look at a program that
+queries the ``part`` table from earlier
+
+Select
+^^^^^^
+
+::
+
+  import Database.PostgreSQL.Simple
+  import Control.Monad.Trans.Resource (runResourceT)
+  import qualified Streaming.Prelude as Stream
+
+  selectAllParts :: IO [Part QueryResult]
+  selectAllParts = do
+    databaseConnection <- connect defaultConnectInfo
+    runResourceT . Stream.toList_ $
+      select (stream databaseConnection) allParts
+
+We use ``select`` with a ``stream`` ``QueryRunner`` built from our
+``databaseConnection``. This returns a ``Stream`` of results - in this case we
+immediately flatten that stream into a concrete list with ``toList_``. Finally,
+we need to deal with resource handling on that query, which can be done with
+``runResourceT``.
+
+
+Data Modification
+^^^^^^^^^^^^^^^^^
+
+Data modification queries are queries that use ``DELETE``, ``INSERT`` or
+``UPDATE``, and Rel8 gives two interfaces to these queries - one that simply
+runs the query, and another than runs the query and returns a ``Stream`` of
+results (the ``Returning`` family of functions).
+
+For ``update``, we specify a database connection, a predicate to select rows to
+update, and a function that transforms each row. The following will change the
+colour of part 5 to red::
+
+  update databaseConnection
+         (\part -> partId part ==. lit 5)
+         (\part -> part { partColor = lit "red" })
+
+For ``insert``, we have some extra syntax for fields that can contain default
+values. Note that we marked ``partId`` as having a default value::
+
+  partId :: C f "PID" 'HasDefault Int
+
+This means the database can provide a default value for this column when we
+insert rows (usually automatically incrementing a sequence)::
+
+  insert databaseConnection
+         [Part { partId     = InsertDefault
+               , partName   = lit "New part"
+               , partColor  = lit "Gold"
+               , partWeight = lit 3.14
+               , partCity   = lit "London"
+               }]
+
+Using ``insertReturning`` you can immediately witness what these default values
+are.
+
+Finally, there is ``delete`` which requires only a predicate to choose which
+rows should be deleted::
+
+  delete databaseConnection (\p -> partId p >=. 10)
