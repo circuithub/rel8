@@ -1,3 +1,5 @@
+.. highlight:: haskell
+
 Differences to Opaleye
 ======================
 

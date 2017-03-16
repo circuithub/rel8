@@ -1,3 +1,5 @@
+.. highlight:: haskell
+
 More Concepts
 =============
 
