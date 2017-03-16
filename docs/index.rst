@@ -22,6 +22,7 @@ provides a slightly alternative API. The main objectives of Rel8 are:
    :caption: Contents:
 
    tutorial
+   concepts
    differences
 
 
