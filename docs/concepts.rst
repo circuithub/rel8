@@ -45,7 +45,7 @@ Custom Types
 ------------
 
 In Haskell we often define algebraic data types for types that only have a few
-values. For example, we might capture the different types of coffee by
+values. For example, we might capture the different types of coffee by::
 
   data Coffee = PourOver | Espresso | FlatWhite
     deriving (Read, Show)
