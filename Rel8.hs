@@ -104,6 +104,7 @@ module Rel8
     -- * Unsafe routines
   , unsafeCoerceExpr
   , unsafeCastExpr
+  , unsafeLiteral
   , dbFunction
   , nullaryFunction
   , dbBinOp
@@ -129,6 +130,7 @@ import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.PGTypes as O
 import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Unpackspec as O
@@ -167,6 +169,10 @@ infixl 6 +?, -?
 
 (/?) :: Fractional (Expr a) => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe a)
 (/?) = liftOpNull (/)
+
+--------------------------------------------------------------------------------
+unsafeLiteral :: String -> Expr a
+unsafeLiteral = columnToExpr . O.literalColumn . O.OtherLit
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two queries.
