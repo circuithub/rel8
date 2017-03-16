@@ -170,7 +170,7 @@ with all suppliers in the same city::
 Left Joins
 ^^^^^^^^^^
 
-The previous query gave us parts with /at least one/ supplier in the same city.
+The previous query gave us parts with *at least one* supplier in the same city.
 If a part has no suppliers in the same city, it will be omitted from the
 results. But what if we needed this information? In SQL we can capture this with
 a ``LEFT JOIN``, and Rel8 supports this.
