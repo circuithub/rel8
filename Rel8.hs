@@ -147,28 +147,36 @@ infixl 7 *?
 infixl 6 +?, -?
 
 --------------------------------------------------------------------------------
-(==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
-(==?) = liftOpNull (==.)
+(==?)
+  :: (DBEq a, ToNullable l (Maybe a), ToNullable r (Maybe a))
+  => Expr l -> Expr r -> Expr (Maybe Bool)
+a ==? b = liftOpNull (==.) (toNullable a) (toNullable b)
 
 (<?), (<=?), (>?), (>=?)
-  :: DBOrd a
-  => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe Bool)
-(<?) = liftOpNull (<.)
-(<=?) = liftOpNull (<=.)
-(>?) = liftOpNull (>.)
-(>=?) = liftOpNull (>=.)
+  :: (DBOrd a, ToNullable l (Maybe a), ToNullable r (Maybe a))
+  => Expr l -> Expr r -> Expr (Maybe Bool)
+a <? b = liftOpNull (<.) (toNullable a) (toNullable b)
+a <=? b = liftOpNull (<=.) (toNullable a) (toNullable b)
+a >? b = liftOpNull (>.) (toNullable a) (toNullable b)
+a >=? b = liftOpNull (>=.) (toNullable a) (toNullable b)
 
-(||?), (&&?) :: Expr (Maybe Bool) -> Expr (Maybe Bool) -> Expr (Maybe Bool)
-(||?) = liftOpNull (||.)
-(&&?) = liftOpNull (&&.)
+(||?), (&&?)
+  :: (ToNullable bool1 (Maybe Bool), ToNullable bool2 (Maybe Bool))
+  => Expr bool1 -> Expr bool2 -> Expr (Maybe Bool)
+a ||? b = liftOpNull (||.) (toNullable a) (toNullable b)
+a &&? b = liftOpNull (&&.) (toNullable a) (toNullable b)
 
-(+?), (*?), (-?) :: Num (Expr a) => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe a)
-(+?) = liftOpNull (+)
-(*?) = liftOpNull (*)
-(-?) = liftOpNull (-)
+(+?), (*?), (-?)
+  :: (Num (Expr a), ToNullable l (Maybe a), ToNullable r (Maybe a))
+  => Expr l -> Expr r -> Expr (Maybe a)
+a +? b = liftOpNull (+) (toNullable a) (toNullable b)
+a *? b = liftOpNull (*) (toNullable a) (toNullable b)
+a -? b = liftOpNull (-) (toNullable a) (toNullable b)
 
-(/?) :: Fractional (Expr a) => Expr (Maybe a) -> Expr (Maybe a) -> Expr (Maybe a)
-(/?) = liftOpNull (/)
+(/?)
+  :: (Fractional (Expr a), ToNullable l (Maybe a), ToNullable r (Maybe a))
+  => Expr l -> Expr r -> Expr (Maybe a)
+a /? b = liftOpNull (/) (toNullable a) (toNullable b)
 
 --------------------------------------------------------------------------------
 unsafeLiteral :: String -> Expr a
