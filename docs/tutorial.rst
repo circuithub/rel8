@@ -208,6 +208,12 @@ query to find parts where there are no suppliers in the same city::
     where_ -< isNull (maybeSupplier $? supplierId)
     returnA -< part
 
+.. note::
+
+  This type of query is what is known as an *antijoin*. A more efficient way to
+  write the above is by using the ``notExists`` function. For more information,
+  see :ref:`antijoins` in :doc:`concepts`.
+
 We are filtering our query for suppliers where the id is null. Ordinarily this
 would be a type error - we declared that ``supplierId`` contains ``Int``, rather
 than ``Maybe Int``. However, because suppliers come from a left join, when we

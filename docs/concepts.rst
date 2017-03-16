@@ -127,3 +127,30 @@ I generally suggest that if you need to perform comparisons against ``NULL`` in
 predicates you retain ``NULL`` and use the "``null`` lifted" operators (``==?``,
 ``&&?``) along with ``toNullable``. While unfortunate, these queries will often
 compile down to considerably more performant queries.
+
+.. _antijoins:
+
+Antijoins
+---------
+
+`Wikipedia describes antijoins <https://en.wikipedia.org/wiki/Relational_algebra#Antijoin_.28.E2.96.B7.29>`_ as
+
+  The **antijoin**, written as R ▷ S where R and S are relations, is similar to
+  the semijoin, but the result of an antijoin is only those tuples in R for
+  which there is no tuple in S that is equal on their common attribute names.
+
+To be a little less technical, an antijoin is a way to restricting the rows in
+one query by the absence of rows in another query. For example, we might want to
+query all rows in the ``user`` table where those users haven't placed an order.
+
+You can achieve this with a left-join, but PostgreSQL has specific support for
+antijoins via the ``NOT EXISTS`` operator, and using this can lead to increased
+performance. Rel8 wraps ``EXISTS`` and ``NOT EXISTS`` with the ``exists`` and
+``notExists`` arrow commands. Considering on from the above example, we can
+write::
+
+  usersNotOrdered :: Query (User Expr)
+  usersNotOrdered = proc _ -> do
+    user <- queryTable -< () -- Select all users
+    (| notExists (do order <- queryTable -< () -- all orders
+                     where_ -< userId user ==. orderUserId order) |)
