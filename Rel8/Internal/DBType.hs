@@ -37,7 +37,7 @@ import Data.UUID (UUID)
 import Data.Vector (Vector)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Generics.OneLiner
-       (For(..), ADTRecord, Constraints, gfoldMap)
+       (For(..), ADT, Constraints, gfoldMap)
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -224,5 +224,5 @@ compositeDBType n =
     catPrimExprs :: [O.PrimExpr] -> O.PrimExpr
     catPrimExprs = O.FunExpr ""
 
-class (ADTRecord a, Constraints a DBType) => IsCompositeRecord a
-instance (ADTRecord a, Constraints a DBType) => IsCompositeRecord a
+class (ADT a, Constraints a DBType) => IsCompositeRecord a
+instance (ADT a, Constraints a DBType) => IsCompositeRecord a
