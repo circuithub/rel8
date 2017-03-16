@@ -24,3 +24,15 @@ The main objectives of Rel8 are:
    tutorial
    concepts
    differences
+
+
+More Resources
+==============
+
+* The `Haskell API documentation <https://hackage.haskell.org/package/rel8>`_
+  describes how individual functions are types are to be used.
+
+* If you have a question about how to use Rel8, or have found a bug, please go
+  ahead and open an issue on the `issue tracker
+  <https://github.com/ocharles/rel8>`_. I am happy to take usage questions
+  there.
