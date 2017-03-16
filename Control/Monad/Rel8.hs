@@ -71,16 +71,16 @@ data StatementSyntax f where
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
   Update ::
-      (BaseTable table, DBBool bool) =>
+      (BaseTable table, Predicate bool) =>
       (table Expr -> Expr bool) ->
       (table Expr -> table Expr) -> (Int64 -> k) -> StatementSyntax k
   UpdateReturning ::
-      (BaseTable table, DBBool bool) =>
+      (BaseTable table, Predicate bool) =>
       (table Expr -> Expr bool) ->
       (table Expr -> table Expr) ->
       ([table QueryResult] -> k) -> StatementSyntax k
   Delete ::
-      (BaseTable table, DBBool bool) =>
+      (BaseTable table, Predicate bool) =>
       (table Expr -> Expr bool) -> (Int64 -> k) -> StatementSyntax k
 
 deriving instance Functor StatementSyntax
@@ -123,7 +123,7 @@ updateReturning
   -> m [table QueryResult]
 updateReturning f up = liftStatements (liftF (UpdateReturning f up id))
 
-delete :: (MonadStatement m, BaseTable table, DBBool bool)
+delete :: (MonadStatement m, BaseTable table, Predicate bool)
        => (table Expr -> Expr bool)
        -> m Int64
 delete f = liftStatements (liftF (Delete f id))

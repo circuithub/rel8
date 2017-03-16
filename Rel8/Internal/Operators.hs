@@ -22,32 +22,21 @@ infix 4 ==.,  <. , <=. , >. , >=.
 infixr 2 ||.,  &&.
 
 --------------------------------------------------------------------------------
--- | Overloaded boolean operations, supporting both 'Bool' and 'Maybe Bool'.
---
--- While an instance for 'Maybe Bool' may seem surprising, it is unfortunately
--- neccessary to write performant predicates any nullable columns. While it
--- would be more idiomatic to write something like
--- @nullable (lit False) (x ==.) y@, this compiles to a statement that will
--- not hit indexes.
-class ToNullable a (Maybe Bool) => DBBool a where
-  -- | Corresponds to @NOT@.
-  not :: Expr a -> Expr a
+-- | Corresponds to @NOT@.
+not_ :: Expr Bool -> Expr Bool
+not_ (Expr a) = Expr (O.UnExpr O.OpNot a)
 
-  -- | Corresponds to @AND@.
-  (&&.) :: Expr a -> Expr a -> Expr a
+-- | Corresponds to @AND@.
+(&&.) :: Expr Bool -> Expr Bool -> Expr Bool
+Expr a &&. Expr b = Expr (O.BinExpr O.OpAnd a b)
 
-  -- | Corresponds to @OR@.
-  (||.) :: Expr a -> Expr a -> Expr a
+-- | Corresponds to @OR@.
+(||.) :: Expr Bool -> Expr Bool -> Expr Bool
+Expr a ||. Expr b = Expr (O.BinExpr O.OpOr a b)
 
-instance DBBool Bool where
-  not (Expr a) = Expr (O.UnExpr O.OpNot a)
-  Expr a &&. Expr b = Expr (O.BinExpr O.OpAnd a b)
-  Expr a ||. Expr b = Expr (O.BinExpr O.OpOr a b)
-
-instance DBBool (Maybe Bool) where
-  not = unsafeCoerceExpr . not . unsafeCoerceExpr @Bool
-  a &&. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a &&. unsafeCoerceExpr @Bool b)
-  a ||. b = unsafeCoerceExpr (unsafeCoerceExpr @Bool a ||. unsafeCoerceExpr @Bool b)
+class ToNullable a (Maybe Bool) => Predicate a
+instance Predicate Bool
+instance Predicate (Maybe Bool)
 
 -- | Lift a binary operator over @null@ inputs. It is assumed that the
 -- operator returns @null@ if any of its inputs are @null@ (as described

@@ -65,8 +65,8 @@ module Rel8
     -- ** Numeric Operators
   , (+), (-), negate, (*)
 
-    -- ** Boolean-valued expressions
-  , DBBool(..)
+    -- ** Booleans
+  , (&&.), (||.), not_, Predicate
 
     -- ** Literals
   , DBType(..), lit, dbNow
@@ -177,7 +177,7 @@ unsafeLiteral = columnToExpr . O.literalColumn . O.OtherLit
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two queries.
 leftJoin
-  :: (Table left a, Table right b, DBBool bool)
+  :: (Table left a, Table right b, Predicate bool)
   => (left -> right -> Expr bool) -- ^ The condition to join upon.
   -> O.Query left -- ^ The left table
   -> O.Query right -- ^ The right table
@@ -208,7 +208,7 @@ leftJoin condition l r =
 --   returnA (u, c)
 -- @
 leftJoinA
-  :: (Table a haskell, DBBool bool)
+  :: (Table a haskell, Predicate bool)
   => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
 leftJoinA q =
   O.QueryArr $ \(p, left, t) ->
@@ -237,12 +237,12 @@ distinct =
        (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
 
 -- | Restrict a 'O.QueryArr' to only contain rows that satisfy a given predicate.
-where_ :: DBBool bool => O.QueryArr (Expr bool) ()
+where_ :: Predicate bool => O.QueryArr (Expr bool) ()
 where_ = lmap (exprToColumn . toNullable) O.restrict
 
 -- | Filter a 'O.Query' into a new query where all rows satisfy a given
 -- predicate.
-filterQuery :: DBBool bool => (a -> Expr bool) -> O.Query a -> O.Query a
+filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
 filterQuery f q = proc _ -> do
   row <- q -< ()
   where_ -< f row

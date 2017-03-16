@@ -120,7 +120,7 @@ insert1Returning c =
 
 -- | Update rows in a 'BaseTable'. Corresponds to @UPDATE@.
 update
-  :: (BaseTable table, DBBool bool, MonadIO m)
+  :: (BaseTable table, Predicate bool, MonadIO m)
   => Connection
   -> (table Expr -> Expr bool)
      -- ^ A predicate specifying which rows should be updated.
@@ -140,7 +140,7 @@ update conn f up =
 -- | Update rows in a 'BaseTable' and return the results. Corresponds to
 -- @UPDATE ... RETURNING@.
 updateReturning
-  :: (BaseTable table, DBBool bool)
+  :: (BaseTable table, Predicate bool)
   => QueryRunner m
   -> (table Expr -> Expr bool)
   -> (table Expr -> table Expr)
@@ -156,7 +156,7 @@ updateReturning io f up = do
 
 -- | Given a 'BaseTable' and a predicate, @DELETE@ all rows that match.
 delete
-  :: (BaseTable table, DBBool bool)
+  :: (BaseTable table, Predicate bool)
   => Connection -> (table Expr -> Expr bool) -> IO Int64
 delete conn f =
   O.runDelete conn tableDefinition (exprToColumn . toNullable . f)
