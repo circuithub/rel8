@@ -154,3 +154,33 @@ write::
     user <- queryTable -< () -- Select all users
     (| notExists (do order <- queryTable -< () -- all orders
                      where_ -< userId user ==. orderUserId order) |)
+
+
+``RecordWildCards``
+-------------------
+
+The ``RecordWildCards`` extension can lead to some very readable queries, that
+are a lot like taking projections with ``SELECT``. For example, we could join
+the ``Supplier`` and ``Part`` tables (from :doc:`tutorial`) on city::
+
+  proc _ -> do
+    supplier <- queryTable -< ()
+    part <- queryTable -< ()
+    where_ -< supplierCity supplier ==. partCity part
+    ...
+
+However this `where_` clause is a little hard to quickly scan. With
+``RecordWildCards``, we can write::
+
+  proc _ -> do
+    Supplier{ supplierCity } <- queryTable -< ()
+    Part{ partCity } <- queryTable -< ()
+    where_ -< supplierCity ==. partCity
+    ...
+
+This has the advantage of:
+
+1. Making it clear which tables we are selecting from.
+2. Making it clear which columns we require from these tables.
+3. Allowing us to write a more concise predicate that is easily to understand
+   when we are skim reading code.
