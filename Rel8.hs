@@ -142,9 +142,11 @@ import Rel8.Internal
 import Streaming (Of, Stream)
 
 infix 4 ==? , <? , <=? , >? , >=?
-infixr 2 ||?,  &&?
+infixr 2 ||?
+infixr 3 &&?
 infixl 7 *?
 infixl 6 +?, -?
+infixr 7 /?
 
 --------------------------------------------------------------------------------
 (==?)
