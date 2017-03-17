@@ -170,7 +170,7 @@ example, we could join the ``Supplier`` and ``Part`` tables (from
     where_ -< supplierCity supplier ==. partCity part
     ...
 
-However this `where_` clause is a little hard to quickly scan. With
+However the ``where_`` clause is a little hard to quickly scan. With
 ``NamedFieldPuns``, we can write::
 
   proc _ -> do
