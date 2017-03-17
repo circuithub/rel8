@@ -156,12 +156,13 @@ write::
                      where_ -< userId user ==. orderUserId order) |)
 
 
-``RecordWildCards``
--------------------
+``RecordWildCards`` and ``NamedFieldPuns``
+------------------------------------------
 
-The ``RecordWildCards`` extension can lead to some very readable queries, that
-are a lot like taking projections with ``SELECT``. For example, we could join
-the ``Supplier`` and ``Part`` tables (from :doc:`tutorial`) on city::
+The ``RecordWildCards`` and ``NamedFieldPuns`` extensions can lead to some very
+readable queries, that are a lot like taking projections with ``SELECT``. For
+example, we could join the ``Supplier`` and ``Part`` tables (from
+:doc:`tutorial`) on city::
 
   proc _ -> do
     supplier <- queryTable -< ()
@@ -170,7 +171,7 @@ the ``Supplier`` and ``Part`` tables (from :doc:`tutorial`) on city::
     ...
 
 However this `where_` clause is a little hard to quickly scan. With
-``RecordWildCards``, we can write::
+``NamedFieldPuns``, we can write::
 
   proc _ -> do
     Supplier{ supplierCity } <- queryTable -< ()
@@ -184,3 +185,6 @@ This has the advantage of:
 2. Making it clear which columns we require from these tables.
 3. Allowing us to write a more concise predicate that is easily to understand
    when we are skim reading code.
+
+If you use ``RecordWildCards`` (binding with ``{..}``) you can mimic the
+behavior of ``SELECT *``.
