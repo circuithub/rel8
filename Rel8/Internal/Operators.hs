@@ -6,7 +6,6 @@
 
 module Rel8.Internal.Operators where
 
-import Control.Arrow ((***))
 import Data.Int (Int16, Int32, Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
@@ -102,9 +101,12 @@ instance DBOrd UTCTime where
 
 -- | Case statement. @case_ [(x,a), (y, b)] c@ corresponds to
 -- @CASE WHEN x THEN a WHEN y THEN b ELSE c END@.
-case_ :: [(Expr Bool, Expr a)] -> Expr a -> Expr a
+case_ :: Predicate bool => [(Expr bool, Expr a)] -> Expr a -> Expr a
 case_ cases defaultCase =
   columnToExpr
     (O.case_
-      (map (exprToColumn *** exprToColumn) cases)
-      (exprToColumn defaultCase))
+       (map
+          (\(predicate, when) ->
+             (exprToColumn (toNullable predicate), exprToColumn when))
+          cases)
+       (exprToColumn defaultCase))
