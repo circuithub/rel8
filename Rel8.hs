@@ -110,11 +110,11 @@ module Rel8
   , dbBinOp
   ) where
 
-import Data.Functor.Rep (mzipWithRep)
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)
 import Control.Lens (view, from)
 import Control.Monad.Rel8
+import Data.Functor.Rep (mzipWithRep)
 import Data.List (foldl')
 import Data.Profunctor (lmap)
 import Data.Text (Text)
@@ -129,10 +129,11 @@ import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
-import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.PGTypes as O
+import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
+import qualified Opaleye.Internal.Tag as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
 import qualified Opaleye.Operators as O
@@ -236,7 +237,7 @@ leftJoinA q =
            ljPEsB
            left
            pqR
-       , t')
+       , O.next t')
 
 -- | Take only distinct rows in a 'O.Query'. This maps to grouping by every
 -- column in the table.
