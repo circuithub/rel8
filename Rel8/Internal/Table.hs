@@ -41,7 +41,6 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Table as O
-import qualified Opaleye.Internal.TableMaker as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
@@ -349,7 +348,7 @@ viewTable =
 queryTable :: BaseTable table => O.Query (table Expr)
 queryTable =
   O.queryTableExplicit
-    (O.ColumnMaker (O.PackMap traversePrimExprs))
+    (O.Unpackspec (O.PackMap traversePrimExprs))
     tableDefinition
 
 --------------------------------------------------------------------------------
