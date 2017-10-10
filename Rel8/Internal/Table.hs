@@ -82,7 +82,7 @@ class (Representable (RowF expr), Traversable (RowF expr)) =>
   -- exactly one 'Expr'.
   expressions :: Iso' expr (RowF expr O.PrimExpr)
 
-  -- Every expression can be parsed into Haskell, once results have been
+  -- | Every expression can be parsed into Haskell, once results have been
   -- retrieved from the database. A generic implementation is provided which
   -- assumes that every field in @haskell@ represents exactly one column
   -- in the result.

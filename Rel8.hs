@@ -15,7 +15,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Rel8
-  ( -- * Defining Tables
+  ( -- $welcome
+
+    -- * Defining Tables
+
+    -- $defining
+
     C
   , Anon
   , HasDefault(..)
@@ -28,7 +33,7 @@ module Rel8
   , leftJoin
   , leftJoinA
   , unionAll
-  , O.exists, O.notExists
+  , O.restrictExists, O.restrictNotExists
 
     -- ** Filtering
   , where_
@@ -77,6 +82,8 @@ module Rel8
   , liftOpNull, mapNull
 
     -- *** Null-lifted operators
+    -- $nullLift
+
   , (==?), (<?), (<=?), (>?), (>=?)
   , (||?), (&&?), (+?), (*?), (-?)
   , (/?)
@@ -297,3 +304,76 @@ unionAll =
                       (\prim1 prim2 -> f (prim1, prim2))
                       (view expressions l)
                       (view expressions r)))))))
+
+{- $welcome
+
+Welcome to Rel8! Rel8 is an API built on top of the fantastic Opaleye library to
+provide an easy and type-safe way to interact with relational databases.
+
+The main objectives of Rel8 are:
+
+* Conciseness: Users using Rel8 should not need to write boiler-plate code. By
+  using expressive types, we can provide sufficient information for the compiler
+  to infer code whenever possible.
+
+* Inferrable: Despite using a lot of type level magic, it should never be a
+  requirement that the user must provide a type signature to allow a program to compile.
+
+* Compatible: Rel8 tries to use the existing Opaleye API as much as possible.
+
+If you're new to Rel8, you're encouraged to check out the documentation over at
+<https://rel8.readthedocs.io/en/latest/ Read The Docs>, where a comprehensive
+Getting Started guide is provided, along with a comparison with traditional
+Opaleye code.
+
+-}
+
+{- $defining
+
+The idiomatic way to define tables in Rel8 is to use a Haskell record. However,
+as a table might be used in a query, or in query results, we need to two
+different "viwes" on this record. We achieve this by parameterising the record
+with a particular interpretation. This is done by providing a type parameter,
+and then using the 'C' type family to map this interpretation to a particular
+Haskell type.
+
+For example, we might have a record for a Haskell library on Hackage:
+
+@
+data Library f = Library
+  { libraryName :: C f "name" 'NoDefault Text
+  , libraryUploadedAt :: C f "uploaded_at" 'NoDefault UTCTime
+  }
+@
+
+To use this type with Rel8, we just need to define a few instances. This is
+boiler plate code, and it can be automated with GHC Generics. The final
+type definition is:
+
+@
+data Library f = Library
+  { libraryName :: C f "name" 'NoDefault Text
+  , libraryUploadedAt :: C f "uploaded_at" 'NoDefault UTCTime
+  } deriving (Generic)
+
+instance (expr ~ Expr, result ~ QueryResult) => Table (Library expr) (Library result)
+instance BaseTable Library where tableName = "hackage_libraryr"
+@
+
+(The strange instance declaration may look a bit scary, but will give you /much/
+better type inference! This is discussed in a bit more detail
+<https://rel8.readthedocs.io/en/latest/concepts.html#even-more-type-inference here>)
+
+
+-}
+
+{- $nullLift
+
+Null-lifted operators work like their conventional operators, but they also
+allow @null@ as either argument. These functions are defined in the PostgreSQL
+engine as short-circuiting with a return value of @nulL@ if either argument is
+@null@.
+
+You may find these operators convenient when mixing nullable types.
+
+-}
