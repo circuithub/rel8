@@ -33,7 +33,7 @@ import Database.PostgreSQL.Simple.FromRow (RowParser, field)
 import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, to)
 import GHC.Generics.Lens (generic, _M1, _K1)
-import Generics.OneLiner (nullaryOp, ADTRecord, Constraints, For(..))
+import Generics.OneLiner (nullaryOp, ADTRecord, Constraints)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
@@ -272,7 +272,7 @@ class Table (table Expr) (table QueryResult) => BaseTable table where
          , Constraints (table SchemaInfo) WitnessSchema
          )
       => table SchemaInfo
-  columns = nullaryOp (For :: For WitnessSchema) schema
+  columns = nullaryOp @WitnessSchema schema
 
   default
     tabular

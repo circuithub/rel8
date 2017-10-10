@@ -33,8 +33,8 @@ library
                      , exceptions
                      , free
                      , mtl
-                     , one-liner >=0.7 && <0.8
-                     , opaleye
+                     , one-liner >=0.9 && <0.10
+                     , opaleye >= 0.6.0.0 && < 0.7
                      , postgresql-simple
                      , profunctors >=5.2 && <5.3
                      , resourcet >= 1.1.8.1

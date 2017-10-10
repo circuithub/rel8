@@ -36,8 +36,7 @@ import Data.Typeable (Typeable)
 import Data.UUID (UUID)
 import Data.Vector (Vector)
 import Database.PostgreSQL.Simple.FromField (FromField)
-import Generics.OneLiner
-       (For(..), ADT, Constraints, gfoldMap)
+import Generics.OneLiner (ADT, Constraints, gfoldMap)
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -217,7 +216,7 @@ compositeDBType
 compositeDBType n =
   TypeInfo
   { formatLit =
-      catPrimExprs . gfoldMap (For :: For DBType) (pure . formatLit dbTypeInfo)
+      catPrimExprs . gfoldMap @DBType (pure . formatLit dbTypeInfo)
   , dbTypeName = n
   }
   where
