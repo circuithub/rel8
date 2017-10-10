@@ -1,5 +1,5 @@
 { mkDerivation, base, one-liner, opaleye, postgresql-simple
-, product-profunctors, profunctors, scientific, stdenv, streaming
+, profunctors, scientific, stdenv, streaming
 , tagged, text, exceptions, free, streaming-postgresql-simple
 , lens
 }:
@@ -8,7 +8,7 @@ mkDerivation {
   version = "0.1.0.0";
   src = ./.;
   libraryHaskellDepends = [
-    base one-liner opaleye postgresql-simple product-profunctors
+    base one-liner opaleye postgresql-simple
     profunctors scientific streaming tagged text exceptions free
     streaming-postgresql-simple lens
   ];
