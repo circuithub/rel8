@@ -404,8 +404,8 @@ class AggregateTable columns result | columns -> result, result -> columns where
 
   default
     aggregations
-      :: (GTraverseAggregator (Rep columns) (Rep result), Generic columns)
-      => Iso' columns (MkRowF (Rep result) (Limit Aggregate))
+      :: (GTraverseAggregator (Rep columns) (Rep result), Generic columns, MkRowF (Rep result) (Limit Aggregate) ~ RowF result (Limit Aggregate))
+      => Iso' columns (RowF result (Limit Aggregate))
   aggregations = generic . gaggregations
 
 -- | A single column aggregates to a single expression.
