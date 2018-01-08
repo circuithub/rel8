@@ -63,7 +63,8 @@ type QueryRunner m = forall a. Pg.RowParser a -> Pg.Query -> Stream (Of a) m ()
 -- 'stream' = 'queryWith_'
 -- @
 stream :: (MonadResource m) => Connection -> QueryRunner m
-stream conn parser query = queryWith_ parser conn query
+stream conn parser query =
+  liftIO (Pg.queryWith_ parser conn query) >>= S.each
 
 -- | Stream the results of a query and fetch the results using a PostgreSQL
 -- cursor. This variation is slightly more expensive, but has the benefit that
