@@ -15,3 +15,5 @@ The main objectives of Rel8 are:
   compile.
 
 * *Compatible*: Rel8 tries to use the existing Opaleye API as much as possible.
+
+Documentation / tutorials are available online at http://rel8.readthedocs.io
