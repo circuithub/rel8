@@ -117,9 +117,9 @@ things work in PostgreSQL, at the expense of being less idiomatic Haskell. As
 PostgreSQL has overloaded functions, the aggregations are also overloaded
 functions provided by type classes. For example, we have::
 
-  sum :: Expr Int16 -> Aggreagte Int64
+  sum :: Expr Int16 -> Aggregate Int64
   sum :: Expr Int64 -> Aggregate Scientific
-  sum :: Expr Double -> Aggreagte Double
+  sum :: Expr Double -> Aggregate Double
 
 Outer Joins
 -----------
