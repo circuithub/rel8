@@ -37,7 +37,7 @@ library
                      , opaleye >= 0.6.0.0 && < 0.7
                      , postgresql-simple
                      , profunctors >=5.2 && <5.3
-                     , resourcet >= 1.1.8.1
+                     , resourcet >= 1.2
                      , scientific
                      , monad-control >= 1.0.1.0 && < 1.1
                      , streaming >=0.1 && <0.3

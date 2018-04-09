@@ -47,7 +47,7 @@ import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Resource (runResourceT)
+import Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
 import Data.Int (Int64)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
@@ -173,7 +173,7 @@ newtype PostgreSQLTransactionT m a =
   PostgreSQLTransactionT (ReaderT Pg.Connection m a)
   deriving (Functor,Applicative,Monad)
 
-instance (MonadIO m, MonadMask m, MonadBaseControl IO m) =>
+instance (MonadIO m, MonadUnliftIO m, MonadMask m) =>
          MonadTransaction (PostgreSQLTransactionT m) where
   liftTransaction =
     PostgreSQLTransactionT .
@@ -202,7 +202,7 @@ runPostgreSQLStatements
   :: PostgreSQLStatementT e m a -> Pg.Connection -> m (Either e a)
 runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
 
-instance (MonadIO m, MonadMask m, MonadBaseControl IO m) => MonadStatement (PostgreSQLStatementT e m) where
+instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
     PostgreSQLStatementT . ExceptT . fmap Right .
     iterM
