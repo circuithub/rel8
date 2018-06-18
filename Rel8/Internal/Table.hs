@@ -304,7 +304,7 @@ instance GTabular Expr (K1 i (Expr a)) Identity where
   gtabular _ =
     _K1 . iso (Identity . Colimit) (\(Identity (Colimit (Expr a))) -> Expr a)
 
-instance GTabular SchemaInfo (K1 i (SchemaInfo (a :: k))) Identity where
+instance GTabular SchemaInfo (K1 i (SchemaInfo '( (a :: Symbol), (b :: HasDefault), c))) Identity where
   gtabular _ =
     _K1 .
     iso
@@ -457,7 +457,7 @@ class WitnessSchema a where
   schema :: a
 
 instance KnownSymbol name =>
-         WitnessSchema (SchemaInfo '(name, (def :: k), (t :: j))) where
+         WitnessSchema (SchemaInfo '(name, (def :: HasDefault), t)) where
   schema = SchemaInfo (symbolVal (Proxy @name))
 
 --------------------------------------------------------------------------------
