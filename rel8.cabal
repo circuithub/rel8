@@ -65,6 +65,7 @@ library
                      , text
                      , time
                      , transformers
+                     , unliftio >= 0.2.7.0 && < 0.3
                      , uuid
                      , vector
                      , lens

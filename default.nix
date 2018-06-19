@@ -2,7 +2,7 @@
 , exceptions, free, lens, monad-control, mtl, one-liner, opaleye
 , postgresql-simple, profunctors, resourcet, scientific, stdenv
 , streaming, streaming-postgresql-simple, tagged, text, time
-, transformers, uuid, vector
+, transformers, unliftio, uuid, vector
 }:
 mkDerivation {
   pname = "rel8";
@@ -12,10 +12,10 @@ mkDerivation {
     adjunctions aeson base bytestring contravariant exceptions free
     lens monad-control mtl one-liner opaleye postgresql-simple
     profunctors resourcet scientific streaming
-    streaming-postgresql-simple tagged text time transformers uuid
-    vector
+    streaming-postgresql-simple tagged text time transformers unliftio
+    uuid vector
   ];
   testHaskellDepends = [ base ];
-  description = "A type-safe, expressive and concise API for querying relational databases using Opaleye";
+  description = "A type-safe, expressive and concise API for querying relational databases";
   license = stdenv.lib.licenses.bsd3;
 }
