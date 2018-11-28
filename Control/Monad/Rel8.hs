@@ -48,6 +48,8 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
 import UnliftIO.Exception (throwIO, try, mask)
 import Data.Int (Int64)
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty (NonEmpty)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Opaleye (Query)
@@ -63,9 +65,9 @@ data StatementSyntax f where
   Select ::
       Table pg haskell =>
       Query pg -> ([haskell] -> k) -> StatementSyntax k
-  Insert1Returning ::
+  InsertReturning ::
       BaseTable table =>
-      (table Insert) -> (table QueryResult -> k) -> StatementSyntax k
+      NonEmpty (table Insert) -> (NonEmpty (table QueryResult) -> k) -> StatementSyntax k
   Insert ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
@@ -100,8 +102,15 @@ insert1Returning
   :: ( MonadStatement m
      , BaseTable table
      )
-  => (table Insert) -> m (table QueryResult)
-insert1Returning row = liftStatements (liftF (Insert1Returning row id))
+  => table Insert -> m (table QueryResult)
+insert1Returning  = fmap NonEmpty.head . insertReturning . (NonEmpty.:|[])
+
+insertReturning
+  :: ( MonadStatement m
+     , BaseTable table
+     )
+  => NonEmpty (table Insert) -> m (NonEmpty (table QueryResult))
+insertReturning rows = liftStatements (liftF (InsertReturning rows id))
 
 insert
   :: MonadStatement m
@@ -210,8 +219,8 @@ instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e 
          step conn op)
     where
       step pg (Select q k) = runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
-      step pg (Insert1Returning q k) =
-        liftIO (Rel8.IO.insert1Returning pg q) >>= k
+      step pg (InsertReturning q k) =
+        runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =
