@@ -8,7 +8,7 @@ module Rel8.Internal.Operators where
 
 import Data.Int (Int16, Int32, Int64)
 import Data.Text (Text)
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, Day)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.PGTypes as O
