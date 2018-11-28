@@ -40,14 +40,13 @@ module Control.Monad.Rel8
   ) where
 
 import Control.Exception (fromException)
-import Control.Monad.Catch (MonadMask, mask, try, throwM)
 import Control.Monad.Free.Church (F, liftF, iterM)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Trans (MonadTrans, lift)
-import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
+import UnliftIO.Exception (throwIO, try, mask)
 import Data.Int (Int64)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
@@ -173,7 +172,7 @@ newtype PostgreSQLTransactionT m a =
   PostgreSQLTransactionT (ReaderT Pg.Connection m a)
   deriving (Functor,Applicative,Monad)
 
-instance (MonadIO m, MonadUnliftIO m, MonadMask m) =>
+instance (MonadIO m, MonadUnliftIO m) =>
          MonadTransaction (PostgreSQLTransactionT m) where
   liftTransaction =
     PostgreSQLTransactionT .
@@ -227,7 +226,7 @@ runPostgreSQLTransactions
 runPostgreSQLTransactions (PostgreSQLTransactionT r) = runReaderT r
 
 --------------------------------------------------------------------------------
-withTransactionModeRetry :: (MonadMask m,MonadIO m)
+withTransactionModeRetry :: (MonadIO m, MonadUnliftIO m)
                          => Pg.TransactionMode
                          -> (Pg.SqlError -> Bool)
                          -> Pg.Connection
@@ -249,5 +248,5 @@ withTransactionModeRetry mode shouldRetry conn act =
                  do liftIO (Pg.rollback conn)
                     case fmap shouldRetry (fromException e) of
                       Just True -> retryLoop act'
-                      _ -> throwM e
+                      _ -> throwIO e
                Right a -> return a

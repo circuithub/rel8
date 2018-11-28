@@ -1,16 +1,35 @@
 name:                rel8
 version:             0.1.0.0
-synopsis:            A type-safe, expressive and concise API for querying relational databases using Opaleye
+synopsis:            A type-safe, expressive and concise API for querying relational databases
 license:             BSD3
 license-file:        LICENSE
 author:              Ollie Charles
 maintainer:          ollie@ocharles.org.uk
--- copyright:           
+-- copyright:
 category:            Database
 build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 Tested-With: GHC == 8.0.2
+description:
+  Welcome to Rel8! Rel8 is an API built on top of the fantastic Opaleye library to
+  provide an easy and type-safe way to interact with relational databases.
+  .
+  The main objectives of Rel8 are:
+  .
+  * Conciseness: Users using Rel8 should not need to write boiler-plate code. By
+    using expressive types, we can provide sufficient information for the compiler
+    to infer code whenever possible.
+  .
+  * Inferrable: Despite using a lot of type level magic, it should never be a
+    requirement that the user must provide a type signature to allow a program to compile.
+  .
+  * Compatible: Rel8 tries to use the existing Opaleye API as much as possible.
+  .
+  If you're new to Rel8, you're encouraged to check out the documentation over at
+  <https://rel8.readthedocs.io/en/latest/ Read The Docs>, where a comprehensive
+  <https://rel8.readthedocs.io/en/latest/tutorial.html Getting Started> guide is provided, along with a comparison with traditional
+  Opaleye code.
 
 library
   exposed-modules:     Rel8
@@ -27,7 +46,7 @@ library
                        Rel8.Internal.Types
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
   build-depends:       aeson
-                     , base >=4.9 && <4.11
+                     , base >=4.9 && <4.12
                      , bytestring
                      , contravariant
                      , exceptions
@@ -46,6 +65,7 @@ library
                      , text
                      , time
                      , transformers
+                     , unliftio >= 0.2.7.0 && < 0.3
                      , uuid
                      , vector
                      , lens
