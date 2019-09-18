@@ -46,7 +46,7 @@ library
                        Rel8.Internal.Types
   other-extensions:    Arrows, ConstraintKinds, DataKinds, DefaultSignatures, DeriveGeneric, FlexibleContexts, FlexibleInstances, FunctionalDependencies, KindSignatures, PolyKinds, ScopedTypeVariables, TypeFamilies, TypeOperators, UndecidableInstances, RankNTypes
   build-depends:       aeson
-                     , base >=4.9 && <4.13
+                     , base >=4.9 && <4.14
                      , bytestring
                      , contravariant
                      , exceptions
@@ -55,7 +55,7 @@ library
                      , one-liner >=1.0 && < 1.1
                      , opaleye >= 0.6.0.0 && < 0.7
                      , postgresql-simple
-                     , profunctors >=5.2 && <5.3
+                     , profunctors >=5.2 && <5.4
                      , resourcet >= 1.2
                      , scientific
                      , monad-control >= 1.0.1.0 && < 1.1
