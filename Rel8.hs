@@ -189,8 +189,8 @@ a -? b = liftOpNull (-) (toNullable a) (toNullable b)
 a /? b = liftOpNull (/) (toNullable a) (toNullable b)
 
 --------------------------------------------------------------------------------
-unsafeLiteral :: String -> Expr a
-unsafeLiteral = columnToExpr . O.literalColumn . O.OtherLit
+unsafeLiteral :: forall a. String -> Expr a
+unsafeLiteral = columnToExpr @a @a . O.Column . O.ConstExpr . O.OtherLit
 
 --------------------------------------------------------------------------------
 -- | Take the @LEFT JOIN@ of two queries.
