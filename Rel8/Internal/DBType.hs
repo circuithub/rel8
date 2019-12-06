@@ -40,7 +40,8 @@ import Generics.OneLiner (ADT, Constraints, gfoldMap)
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
-import qualified Opaleye.PGTypes as O
+import qualified Opaleye.PGTypes as O hiding ( literalColumn )
+import qualified Opaleye.Internal.PGTypes as O ( literalColumn )
 import Prelude hiding (not, (.), id)
 
 --------------------------------------------------------------------------------
@@ -93,7 +94,7 @@ instance DBType Double where
 -- | real
 instance DBType Float where
   dbTypeInfo =
-    (typeInfoFromOpaleye (O.pgDouble . realToFrac)) {dbTypeName = "real"}
+    (typeInfoFromOpaleye (O.literalColumn @O.PGFloat4 . O.DoubleLit . realToFrac)) {dbTypeName = "real"}
 
 -- | Columns that can take @null@. Has the same type name as the parent type.
 instance DBType a =>
