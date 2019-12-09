@@ -147,11 +147,7 @@ instance DBType LocalTime where
 
 -- | numeric
 instance DBType Scientific where
-  dbTypeInfo =
-    TypeInfo
-    { formatLit = formatLit dbTypeInfo . toLazyText . scientificBuilder
-    , dbTypeName = "numeric"
-    }
+  dbTypeInfo = typeInfoFromOpaleye O.pgNumeric
 
 -- | json
 instance DBType Value where
