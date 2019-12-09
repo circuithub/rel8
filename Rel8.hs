@@ -123,7 +123,7 @@ offset n ( Query q ) = Query do
     ( a, sql ) =
       runState q ( SQL.One () )
 
-  modify ( SQL.Product ( SQL.Limit n sql ) )
+  modify ( SQL.Product ( SQL.Offset n sql ) )
 
   return a
 
@@ -143,12 +143,11 @@ select ( Query q ) = do
       collect ( \( Expr e ) -> e ) ( toHList table )
 
   print
-    ( SQL.renderQuery
-        <$> SQL.withoutOne
-              ( SQL.Project
-                  ( map ( \e -> ( e, "" ) ) projections )
-                  sql
-              )
+    ( SQL.withoutOne
+        ( SQL.Project
+            ( map ( \e -> ( e, "" ) ) projections )
+            sql
+        )
     )
 
   undefined
@@ -193,3 +192,39 @@ instance ( Table t1, Table t2, SList ( Schema t1 ) ) => Table ( (&) t1 t2 ) wher
 
 
 instance ( Select t1 a, Select t2 b ) => Select ( t1 & t2 ) ( a, b )
+
+
+data Aggregate s
+
+
+foldMap
+  :: Table b
+  => ( forall s. a ( Expr s ) -> b ( Expr ( Aggregate s ) ) )
+  -> Query ( a ( Expr s ) )
+  -> Query ( b ( Expr s ) )
+foldMap f ( Query q ) = Query do
+  let
+    ( a, sql ) =
+      runState q ( SQL.One () )
+
+    b =
+      f a
+
+    projections =
+      collect ( \( Expr e ) -> e ) ( toHList b )
+
+  modify
+    ( SQL.Product
+        ( SQL.Project
+            ( map ( \p -> ( p, "TODO" ) ) projections )
+            sql
+        )
+    )
+
+  return ( fromHList $ hmap ( \( Expr e ) -> Expr e ) $ toHList b )
+
+
+-- | TODO
+countDistinct :: Expr s a -> Expr ( Aggregate s ) Int
+countDistinct ( Expr e ) =
+  Expr ( "count(distinct (" ++ e ++ "))")

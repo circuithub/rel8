@@ -39,8 +39,18 @@ testTable =
 
 test :: IO ()
 test = do
-  select $ do
-    TestTable{ columnA, columnB } <- table testTable
+  select $ limit 5 $ offset 10 $ do
+    TestTable{ columnA, columnB } <-
+      table testTable
+
+    Rel8.foldMap
+      ( \TestTable{ columnA, columnB } ->
+          C ( countDistinct columnA )
+      )
+      ( table testTable )
+
+    where_ columnB
+
     return ( C columnB :& C columnA )
 
   return ()

@@ -43,6 +43,9 @@ data Query one where
   -- | Introduce an ORDER BY clause
   Order :: [ Expr ] -> Query one -> Query one
 
+  deriving
+    ( Show )
+
 
 -- | Given a 'Query', try and find an equivalent
 -- 'Query' that doesn't need 'One'.
@@ -71,6 +74,15 @@ withoutOne = \case
 
   Project exprs q ->
     Project exprs <$> withoutOne q
+
+  Where e q ->
+    Where e <$> withoutOne q
+
+  Offset n q ->
+    Offset n <$> withoutOne q
+
+  Limit n q ->
+    Limit n <$> withoutOne q
 
 
 renderQuery :: Query Void -> String
