@@ -15,7 +15,7 @@ module Control.Monad.Rel8
   ( -- * @MonadStatement@
     MonadStatement(..),
     select,
-    insert, insert1Returning,
+    insert, insert1Returning, insertIgnoringConflicts,
     update, updateReturning,
     delete,
 
@@ -71,6 +71,9 @@ data StatementSyntax f where
   Insert ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
+  InsertIgnoringConflicts ::
+      BaseTable table =>
+      [table Insert] -> (Int64 -> k) -> StatementSyntax k
   Update ::
       (BaseTable table, Predicate bool) =>
       (table Expr -> Expr bool) ->
@@ -116,6 +119,11 @@ insert
   :: MonadStatement m
   => BaseTable table => [table Insert] -> m Int64
 insert rows = liftStatements (liftF (Insert rows id))
+
+insertIgnoringConflicts
+  :: MonadStatement m
+  => BaseTable table => [table Insert] -> m Int64
+insertIgnoringConflicts rows = liftStatements (liftF (InsertIgnoringConflicts rows id))
 
 update
   :: (MonadStatement m, BaseTable table)
@@ -222,6 +230,7 @@ instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e 
       step pg (InsertReturning q k) =
         runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
+      step pg (InsertIgnoringConflicts q k) = liftIO (Rel8.IO.insertIgnoringConflicts pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =
         runResourceT (S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b)) >>= k

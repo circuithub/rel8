@@ -1,4 +1,7 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 module Rel8.IO
   (
     -- * @SELECT@
@@ -8,6 +11,7 @@ module Rel8.IO
   , insert
   , insertReturning
   , insert1Returning
+  , insertIgnoringConflicts
 
     -- * @UPDATE@
   , update
@@ -92,6 +96,19 @@ insert
   => Connection -> [table Insert] -> m Int64
 insert conn rows =
   liftIO (O.runInsertMany conn tableDefinition rows)
+
+-- | Insert rows into a 'BaseTable', but ignore any duplicate rows.
+-- This runs a @INSERT@ statement with @ON CONFLICT DO NOTHING@.
+insertIgnoringConflicts
+  :: forall table m
+   . (BaseTable table, MonadIO m)
+  => Connection -> [table Insert] -> m Int64
+insertIgnoringConflicts conn rows =
+  liftIO (O.runInsert_ conn O.Insert{ iTable = tableDefinition @table
+                                    , iRows = rows
+                                    , iReturning = O.rCount
+                                    , iOnConflict = Just O.DoNothing
+                                    })
 
 -- | Insert rows into a 'BaseTable', and return the inserted rows. This runs a
 -- @INSERT ... RETURNING@ statement, and be useful to immediately retrieve
