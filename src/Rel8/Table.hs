@@ -1,3 +1,4 @@
+{-# language FlexibleInstances #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Table where
@@ -11,3 +12,8 @@ class Table t where
 
 instance Table (C f a) where
   type ExprIn (C f a) = f
+
+
+instance Table ( t ( expr :: * -> * ) ) where
+  type ExprIn ( t expr ) =
+    expr

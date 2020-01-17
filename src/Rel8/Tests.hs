@@ -10,13 +10,13 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
+{-# options -fno-warn-missing-signatures #-}
+
 module Rel8.Tests where
 
 import Data.Functor.Identity
-import GHC.Exts
 import Rel8.Column
 import Rel8.ColumnSchema
-import Rel8.DBEq
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.HigherKinded

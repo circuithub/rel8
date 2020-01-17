@@ -17,5 +17,3 @@ instance MonadQuery Query
 select :: FromRow row haskell => Query row -> m [ haskell ]
 select _ =
   undefined
-
-

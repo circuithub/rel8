@@ -2,8 +2,6 @@
 
 module Rel8.TableSchema ( TableSchema(..) ) where
 
-import Rel8.ColumnSchema
-
 
 -- | The schema for a table.
 data TableSchema schema =

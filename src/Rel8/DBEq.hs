@@ -2,12 +2,7 @@
 
 module Rel8.DBEq where
 
-import Control.Applicative
-import Data.Proxy
-import Rel8.Column
 import Rel8.Expr
-import Rel8.HigherKinded
-import Rel8.Table
 
 
 -- | The class of database types that support equality.
