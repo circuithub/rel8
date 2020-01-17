@@ -33,6 +33,11 @@ instance DBType Bool where
     Expr . Opaleye.ConstExpr . Opaleye.BoolLit
 
 
+instance DBType Int where
+  lit =
+    Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+
+
 instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) where
   type CanZipLeaves ( Expr m a ) ( Expr n b ) c =
     c a

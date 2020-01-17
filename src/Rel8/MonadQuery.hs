@@ -37,7 +37,7 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Operators as Opaleye
+import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 
@@ -265,5 +265,6 @@ offset n query =
 --
 -- @where_ expr@ is equivalent to the SQL @WHERE expr@.
 where_ :: MonadQuery m => Expr m Bool -> m ()
-where_ =
-  undefined
+where_ x =
+  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
+    ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
