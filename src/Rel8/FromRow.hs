@@ -12,7 +12,6 @@ import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
 import Rel8.Column
 import Rel8.Expr
-import Rel8.MaybeTable
 import Rel8.HigherKinded
 import Rel8.Query
 import Rel8.ZipLeaves
@@ -32,13 +31,13 @@ instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sql
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity )
-
-
--- | A @MaybeTable@ can be selected into a Haskell 'Maybe'. If the table is null
--- (e.g., a @LEFT JOIN@ selected no rows) the result is 'Nothing', otherwise the
--- result is 'Just'.
-instance FromRow sql haskell => FromRow ( MaybeTable sql ) ( Maybe haskell )
+instance ( HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
+  rowParser sql =
+    zipLeaves
+      ( Proxy @FromField )
+      ( \_ _ -> C <$> field )
+      sql
+      sql
 
 
 instance m ~ Query => FromRow ( Expr m Int ) Int where

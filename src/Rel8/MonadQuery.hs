@@ -133,7 +133,7 @@ leftJoin
    . ( MonadQuery m, CanZipLeaves outer' outer Top, ZipLeaves outer' outer ( Expr ( Nest m ) ) ( Expr m ) )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable outer )
+  -> m ( MaybeTable outer ( Expr m ) )
 leftJoin joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
@@ -146,7 +146,7 @@ leftJoin joinTable condition =
       ( right, pqR, t' ) =
         rightQueryF ( (), Opaleye.Unit, t )
 
-      ( ( {- TODO -} _tag, renamed ), ljPEsB ) =
+      ( ( tag, renamed ), ljPEsB ) =
         Opaleye.run
           ( Opaleye.runUnpackspec
               unpackColumns
@@ -154,7 +154,7 @@ leftJoin joinTable condition =
               right
           )
 
-    in ( MaybeTable () renamed
+    in ( MaybeTable tag renamed
        , Opaleye.Join
            Opaleye.LeftJoin
            ( case condition renamed of

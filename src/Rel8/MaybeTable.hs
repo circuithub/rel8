@@ -9,31 +9,11 @@
 
 module Rel8.MaybeTable ( MaybeTable(..) ) where
 
-import Rel8.Rewrite
-import Rel8.ZipLeaves
+import Rel8.Column
 
 
-data MaybeTable t =
+data MaybeTable t f =
   MaybeTable
-    { isNull :: () -- TODO! Expr IO Bool
+    { isNull :: Column f Bool
     , maybeTable :: t
     }
-
-
-instance Rewrite f g a b => Rewrite f g ( MaybeTable a ) ( MaybeTable b ) where
-  rewrite f MaybeTable{..} =
-    MaybeTable { isNull, maybeTable = rewrite f maybeTable }
-
-
-instance ZipLeaves a b f g => ZipLeaves ( MaybeTable a ) ( MaybeTable b ) f g where
-  type CanZipLeaves ( MaybeTable a ) ( MaybeTable b ) c =
-    CanZipLeaves a b c
-
-  zipLeaves proxy f a b = do
-    isNull <-
-      pure () -- zipLeaves proxy _ ( isNull a ) ( isNull b )
-
-    maybeTable <-
-      zipLeaves proxy f ( maybeTable a ) ( maybeTable b )
-
-    return MaybeTable{..}

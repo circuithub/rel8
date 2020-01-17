@@ -14,7 +14,6 @@
 
 module Rel8.Tests where
 
-import Data.Functor.Identity
 import Rel8.PublicFacing
 
 -- TODO Users should not need these imports
@@ -171,7 +170,7 @@ projectParts =
     }
 
 
-leftJoinTest :: MonadQuery m => m ( Expr m Int, MaybeTable ( ProjectPart ( Expr m ) ) )
+leftJoinTest :: MonadQuery m => m ( Expr m Int, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
 leftJoinTest = do
   Part{ partId } <-
     each parts
