@@ -32,8 +32,8 @@ instance DBTypeEq a => EqTable ( Expr m a ) where
 instance ( ZipRecord t ( Expr m ) ( Expr m ) DBTypeEq, HigherKinded t ) => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
-      undefined
-      ( undefined :: ExprIn ( t ( Expr m ) ) Bool )
+      (&&.)
+      ( lit True )
       ( getConst
           ( zipRecord
               @_
@@ -44,5 +44,5 @@ instance ( ZipRecord t ( Expr m ) ( Expr m ) DBTypeEq, HigherKinded t ) => EqTab
               ( \( C a ) ( C b ) -> Const [ eqExprs a b ] )
               l
               r
-          ) :: [ Expr m Bool ]
+          )
       )
