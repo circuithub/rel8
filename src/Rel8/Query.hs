@@ -6,11 +6,15 @@
 
 module Rel8.Query where
 
+import Control.Monad
 import Data.Proxy
+import Database.PostgreSQL.Simple ( Connection )
 import qualified Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.RunSelect as Opaleye
 import Rel8.Column
 import Rel8.Expr
 import Rel8.MonadQuery
@@ -42,9 +46,31 @@ instance MonadQuery Query where
 
 
 -- | Run a @SELECT@ query, returning all rows.
-select :: FromRow row haskell => Query row -> m [ haskell ]
-select _ =
-  undefined
+select
+  :: forall row haskell
+   . ( CanZipLeaves row row Top
+     , ZipLeaves row row ( Expr Query ) ( Expr Query )
+     , FromRow row haskell
+     )
+  => Connection -> Query row -> IO [ haskell ]
+select c ( Query query ) =
+  Opaleye.runSelectExplicit fromFields c query
+
+  where
+
+    fromFields :: Opaleye.FromFields row haskell
+    fromFields =
+      Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
+
+
+    unpackspec :: Opaleye.Unpackspec row row
+    unpackspec =
+      Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
+        zipLeaves
+          ( Proxy @Top )
+          ( \( C x ) _ -> C . Expr <$> f ( toPrimExpr x ) )
+          row
+          row
 
 
 showSQL

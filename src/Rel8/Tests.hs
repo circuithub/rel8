@@ -78,9 +78,9 @@ partsEq = do
 
 
 
-select_allParts :: m [ Part Identity ]
-select_allParts =
-  select allParts
+-- select_allParts :: m [ Part Identity ]
+-- select_allParts =
+--   select allParts
 
 
 -- TODO Can we make this infer?
@@ -93,9 +93,9 @@ allPartIds =
   partId <$> allParts
 
 
-selectAllPartIds :: IO [ Int ]
-selectAllPartIds =
-  select allPartIds
+-- selectAllPartIds :: IO [ Int ]
+-- selectAllPartIds =
+--   select allPartIds
 
 
 data Project f =
@@ -236,5 +236,5 @@ nestedTableEq = do
   return ( l ==. r )
 
 
-select_partsWithProjects =
-  select partsWithProjects
+-- select_partsWithProjects =
+--   select partsWithProjects
