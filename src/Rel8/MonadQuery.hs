@@ -24,6 +24,8 @@ import Rel8.TableSchema
 import Rel8.Top
 import Rel8.ZipLeaves
 
+import qualified Opaleye.Binary as Opaleye
+import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -182,8 +184,32 @@ leftJoin joinTable condition =
 -- | Combine the results of two queries of the same type.
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
-union :: m a -> m a -> m a
-union = undefined
+union
+  :: forall a' a m
+   . ( MonadQuery m
+     , CanZipLeaves a a Top
+     , ZipLeaves a a ( Expr m ) ( Expr m )
+     , Rewrite ( Expr ( Nest m ) ) ( Expr m ) a' a
+     )
+  => Nest m a' -> Nest m a' -> m a
+union l r =
+  liftOpaleye
+    ( Opaleye.unionExplicit
+        binaryspec
+        ( toOpaleye ( rewriteExpr @( Nest m ) @m <$> l ) )
+        ( toOpaleye ( rewriteExpr @( Nest m ) @m <$> r ) )
+    )
+
+  where
+
+    binaryspec :: Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
+        zipLeaves
+          ( Proxy @Top )
+          ( \( C x ) ( C y ) -> C . Expr <$> f ( toPrimExpr x, toPrimExpr y ) )
+          a
+          b
 
 
 -- | Select all distinct rows from a query, removing duplicates.
