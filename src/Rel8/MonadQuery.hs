@@ -32,12 +32,13 @@ import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Operators as Opaleye
+import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 
 
@@ -239,15 +240,25 @@ distinct query =
 -- | @limit n@ select at most @n@ rows from a query.
 --
 -- @limit n@ is equivalent to the SQL @LIMIT n@.
-limit :: Natural -> m a -> m a
-limit = undefined
+limit :: MonadQuery m => Natural -> m a -> m a
+limit n query =
+  liftOpaleye
+    ( Opaleye.limit
+        ( fromIntegral n )
+        ( toOpaleye query )
+    )
 
 
 -- | @offset n@ drops the first @n@ rows from a query.
 --
 -- @offset n@ is equivalent to the SQL @OFFSET n@.
-offset :: Natural -> m a -> m a
-offset = undefined
+offset :: MonadQuery m => Natural -> m a -> m a
+offset n query =
+  liftOpaleye
+    ( Opaleye.offset
+        ( fromIntegral n )
+        ( toOpaleye query )
+    )
 
 
 -- | Drop any rows that don't match a predicate.
