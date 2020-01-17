@@ -1,15 +1,21 @@
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.FromRow where
 
 import Data.Functor.Identity
+import Data.Proxy
+import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
+import Rel8.Column
 import Rel8.Expr
 import Rel8.MaybeTable
+import Rel8.HigherKinded
 import Rel8.Query
+import Rel8.ZipLeaves
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -19,7 +25,9 @@ class FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
 
-instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sqlB ) ( haskellA, haskellB )
+instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sqlB ) ( haskellA, haskellB ) where
+  rowParser ( a, b ) =
+    (,) <$> rowParser a <*> rowParser b
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
