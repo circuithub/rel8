@@ -37,6 +37,9 @@ instance MonadQuery Query where
   liftOpaleye =
     Query
 
+  toOpaleye ( Query q ) =
+    q
+
 
 -- | Run a @SELECT@ query, returning all rows.
 select :: FromRow row haskell => Query row -> m [ haskell ]

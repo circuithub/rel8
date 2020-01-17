@@ -27,6 +27,9 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Operators as Opaleye
+
+
 import qualified Opaleye.Table as Opaleye
 
 
@@ -35,18 +38,23 @@ import qualified Opaleye.Table as Opaleye
 class Monad m => MonadQuery m where
   liftOpaleye :: Opaleye.Query a -> m a
 
+  toOpaleye :: m a -> Opaleye.Query a
+
 
 instance MonadQuery m => MonadQuery ( Nest m ) where
   liftOpaleye =
     Nest . liftOpaleye
 
+  toOpaleye ( Nest m ) =
+    toOpaleye m
+
 
 -- | Exists checks if a query returns at least one row.
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
-exists :: m a -> m ( Expr m Bool )
-exists =
-  undefined
+exists :: MonadQuery m => m a -> m ( Expr m Bool )
+exists query =
+  liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
 
 
 -- | Select each row from a table definition.
