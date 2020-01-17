@@ -14,7 +14,6 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.RunSelect as Opaleye
 import Rel8.Column
 import Rel8.Expr
 import Rel8.MonadQuery
