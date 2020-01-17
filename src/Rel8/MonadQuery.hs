@@ -25,7 +25,10 @@ import Rel8.Top
 import Rel8.ZipLeaves
 
 import qualified Opaleye.Binary as Opaleye
+import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
+import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -215,8 +218,22 @@ union l r =
 -- | Select all distinct rows from a query, removing duplicates.
 --
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
-distinct :: m a -> m a
-distinct = undefined
+distinct
+  :: forall a m
+   . ( MonadQuery m, CanZipLeaves a a Top, ZipLeaves a a ( Expr m ) ( Expr m ) )
+  => m a -> m a
+distinct query =
+  liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
+
+  where
+
+    distinctspec :: Opaleye.Distinctspec a a
+    distinctspec =
+      Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
+        zipLeaves
+          ( Proxy @Top )
+          ( \( C x) _ -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
+          a a
 
 
 -- | @limit n@ select at most @n@ rows from a query.
