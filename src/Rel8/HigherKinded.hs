@@ -14,6 +14,7 @@ import Rel8.Column ( C )
 import Rel8.Top ( Top )
 
 
+-- | The class of higher-kinded data types.
 class HigherKinded t where
   type ZipRecord t (f :: * -> *) (g :: * -> *) (c :: * -> Constraint) :: Constraint
 
