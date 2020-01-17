@@ -8,11 +8,17 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
-  build-depends:       base >=4.12 && <4.13
-  default-language:    Haskell2010
-  ghc-options: -Wall
-  hs-source-dirs: src
-  exposed-modules: Rel8.PublicFacing
+  build-depends:
+      base >=4.12 && <4.13
+    , opaleye
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Wall
+  hs-source-dirs:
+    src
+  exposed-modules:
+    Rel8.PublicFacing
   other-modules:
     Rel8.Column
     Rel8.ColumnSchema

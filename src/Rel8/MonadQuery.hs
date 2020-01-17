@@ -1,34 +1,110 @@
+{-# language BlockArguments #-}
+{-# language DeriveGeneric #-}
 {-# language FlexibleContexts #-}
+{-# language KindSignatures #-}
+{-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 
 module Rel8.MonadQuery where
 
+import Data.Proxy
 import Numeric.Natural
+import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.MaybeTable
 import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.TableSchema
+import Rel8.ZipLeaves
+import Rel8.Top
+
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Table as Opaleye
 
 
 -- | The class of monads that can form SQL queries, along with the corresponding
 -- expression type.
-class Monad m => MonadQuery m
+class Monad m => MonadQuery m where
+  liftOpaleye :: Opaleye.Query a -> m a
+
+
+instance MonadQuery m => MonadQuery ( Nest m ) where
+  liftOpaleye =
+    Nest . liftOpaleye
 
 
 -- | Exists checks if a query returns at least one row.
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
 exists :: m a -> m ( Expr m Bool )
-exists = undefined
+exists =
+  undefined
 
 
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: ( MonadQuery m, Rewrite ColumnSchema ( Expr m ) schema row ) => TableSchema schema -> m row
-each =
-  undefined
+each
+  :: forall m schema row
+   . ( MonadQuery m
+     , Rewrite ColumnSchema ( Expr m ) schema row
+     , ZipLeaves row row ( Expr m ) ( Expr m )
+     , CanZipLeaves row row Top
+     )
+  => TableSchema schema -> m row
+each schema =
+  liftOpaleye ( Opaleye.selectTableExplicit unpackspec table )
+
+  where
+
+    unpackspec :: Opaleye.Unpackspec row row
+    unpackspec =
+      Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
+        zipLeaves
+          ( Proxy @Top )
+          ( \( C expr ) _ -> fmap ( C . Expr ) ( f ( toPrimExpr expr ) ) )
+          row
+          row
+
+
+    table :: Opaleye.Table () row
+    table =
+      case tableSchema schema of
+        Nothing ->
+          Opaleye.Table ( tableName schema ) tableFields
+
+        Just s ->
+          Opaleye.TableWithSchema s ( tableName schema ) tableFields
+
+
+    tableFields :: Opaleye.TableFields () row
+    tableFields =
+      Opaleye.TableProperties writer view
+
+
+    writer :: Opaleye.Writer () row
+    writer =
+      Opaleye.Writer ( Opaleye.PackMap \_ _ -> pure () )
+
+
+    view :: Opaleye.View row
+    view =
+      Opaleye.View
+        ( rewrite
+            ( \( C ColumnSchema{ columnName } ) ->
+                C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
+            )
+            ( tableColumns schema )
+        )
+
 
 
 -- | Select all rows from another table that match a given predicate. If the

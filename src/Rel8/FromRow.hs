@@ -8,7 +8,7 @@ module Rel8.FromRow ( FromRow ) where
 import Data.Functor.Identity
 import Rel8.Expr
 import Rel8.MaybeTable
-import {-# source #-} Rel8.Query
+import Rel8.Query
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
