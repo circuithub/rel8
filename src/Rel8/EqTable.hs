@@ -22,14 +22,14 @@ class Table a => EqTable a where
 
 -- | Any @Expr@s can be compared for equality as long as the underlying
 -- database type supports equality comparisons.
-instance DBTypeEq a => EqTable ( Expr m a ) where
+instance DBEq a => EqTable ( Expr m a ) where
   (==.) =
     eqExprs
 
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ( ZipRecord t ( Expr m ) ( Expr m ) DBTypeEq, HigherKinded t ) => EqTable ( t ( Expr m ) ) where
+instance ( ZipRecord t ( Expr m ) ( Expr m ) DBEq, HigherKinded t ) => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
       (&&.)
@@ -37,7 +37,7 @@ instance ( ZipRecord t ( Expr m ) ( Expr m ) DBTypeEq, HigherKinded t ) => EqTab
       ( getConst
           ( zipRecord
               @_
-              @DBTypeEq
+              @DBEq
               @_
               @(Expr m)
               Proxy

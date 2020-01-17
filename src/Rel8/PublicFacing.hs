@@ -2,13 +2,12 @@ module Rel8.PublicFacing
   ( -- * Schema Definition
     -- ** Defining Tables
     HigherKinded
-  , mapRecord
   , Column
   , TableSchema(..)
   , ColumnSchema
 
     -- ** Defining Database Types
-  , DBTypeEq(..)
+  , DBEq(..)
 
     -- * Writing Queries
   , MonadQuery
