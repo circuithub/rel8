@@ -15,16 +15,12 @@
 module Rel8.Tests where
 
 import Data.Functor.Identity
-import Rel8.Column
-import Rel8.ColumnSchema
-import Rel8.EqTable
-import Rel8.Expr
+import Rel8.PublicFacing
+
+-- TODO Users should not need these imports
 import Rel8.HigherKinded
-import Rel8.MaybeTable
-import Rel8.MonadQuery
-import Rel8.Query
-import Rel8.TableSchema
 import Rel8.ZipLeaves
+import Rel8.Column
 
 
 data Part f =
