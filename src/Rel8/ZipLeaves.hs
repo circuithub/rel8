@@ -3,6 +3,7 @@
 {-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.ZipLeaves where
 
@@ -30,3 +31,11 @@ instance ZipLeaves (C f a) (C g a) f g where
 instance HigherKinded t => ZipLeaves (t f) (t g) f g where
   type CanZipLeaves (t f) (t g) c = ZipRecord t f g c
   zipLeaves = zipRecord
+
+
+instance ( ZipLeaves a c f g, ZipLeaves b d f g ) => ZipLeaves ( a, b ) ( c, d ) f g where
+  type CanZipLeaves ( a, b ) ( c, d ) constraint =
+    ( CanZipLeaves a c constraint, CanZipLeaves b d constraint )
+
+  zipLeaves proxy f ( a, b ) ( c, d ) =
+    (,) <$> zipLeaves proxy f a c <*> zipLeaves proxy f b d
