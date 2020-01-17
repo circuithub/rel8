@@ -1,3 +1,4 @@
+{-# language ApplicativeDo #-}
 {-# language BlockArguments #-}
 {-# language DeriveGeneric #-}
 {-# language FlexibleContexts #-}
@@ -10,6 +11,7 @@
 
 module Rel8.MonadQuery where
 
+import Control.Applicative ( liftA2 )
 import Data.Proxy
 import Numeric.Natural
 import Rel8.Column
@@ -19,17 +21,18 @@ import Rel8.MaybeTable
 import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.TableSchema
-import Rel8.ZipLeaves
 import Rel8.Top
+import Rel8.ZipLeaves
 
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.Join as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Operators as Opaleye
-
-
 import qualified Opaleye.Table as Opaleye
 
 
@@ -120,12 +123,60 @@ each schema =
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin
-  :: ( MonadQuery m, Rewrite ( Expr ( Nest m ) ) ( Expr m ) outer' outer )
+  :: forall outer outer' m
+   . ( MonadQuery m, CanZipLeaves outer' outer Top, ZipLeaves outer' outer ( Expr ( Nest m ) ) ( Expr m ) )
   => Nest m outer'
-  -> ( outer -> Expr m bool )
+  -> ( outer -> Expr m Bool )
   -> m ( MaybeTable outer )
-leftJoin _ _ =
-  undefined
+leftJoin joinTable condition =
+  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
+    let
+      Opaleye.QueryArr rightQueryF =
+        liftA2
+          (,)
+          ( pure ( lit False ) )
+          ( toOpaleye joinTable )
+
+      ( right, pqR, t' ) =
+        rightQueryF ( (), Opaleye.Unit, t )
+
+      ( ( {- TODO -} _tag, renamed ), ljPEsB ) =
+        Opaleye.run
+          ( Opaleye.runUnpackspec
+              unpackColumns
+              ( Opaleye.extractLeftJoinFields 2 t' )
+              right
+          )
+
+    in ( MaybeTable () renamed
+       , Opaleye.Join
+           Opaleye.LeftJoin
+           ( case condition renamed of
+              Expr a -> a
+           )
+           []
+           ljPEsB
+           left
+           pqR
+       , Opaleye.next t'
+       )
+
+  where
+
+    unpackColumns :: Opaleye.Unpackspec ( Expr m Bool, outer' ) ( Expr n Bool, outer )
+    unpackColumns =
+      Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer' ) -> do
+        tag' <-
+          f ( toPrimExpr tag )
+
+        outer <-
+          zipLeaves
+            ( Proxy @Top )
+            ( \( C a) _ -> C . Expr <$> f ( toPrimExpr a ) )
+            outer'
+            outer'
+
+        return ( Expr tag', outer )
 
 
 -- | Combine the results of two queries of the same type.
