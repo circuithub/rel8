@@ -1,3 +1,4 @@
+{-# language DefaultSignatures #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RoleAnnotations #-}
@@ -35,6 +36,9 @@ class DBType ( a :: Type ) where
   -- | Lift a Haskell value into a literal SQL expression.
   lit :: a -> Expr m a
 
+  default lit :: Show a => a -> Expr m a
+  lit = unsafeCoerceExpr . lit . show
+
 
 instance DBType Bool where
   lit =
@@ -44,6 +48,11 @@ instance DBType Bool where
 instance DBType Int where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+
+
+instance DBType String where
+  lit =
+    Expr . Opaleye.ConstExpr . Opaleye.StringLit
 
 
 instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) where
