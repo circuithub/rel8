@@ -18,11 +18,10 @@ module Rel8.ImplementationDetails
   , Selects
   , Unconstrained
   , ZipLeaves( zipLeaves )
-  , ZipRecord
+  , HigherKinded( ZipRecord, zipRecord )
   , WFHigherKinded
   , aggregateExpr
   , aggregator
-  , zipRecord
   ) where
 
 import Rel8.Aggregate
