@@ -134,6 +134,8 @@ instance ConstrainHigherKinded m DBMonoid t => MonoidTable ( t ( Expr m ) ) wher
 
 
 class DBMonoid a where
+  -- | How to aggregate a single expression under a particular monoidal
+  -- structure.
   aggregateExpr :: Opaleye.Aggregator ( Expr m a ) ( Expr m a )
 
 
