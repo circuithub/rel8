@@ -1,3 +1,6 @@
+{-# language PolyKinds #-}
+{-# language RankNTypes #-}
+{-# language KindSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -5,7 +8,7 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.SimpleConstraints ( Selects, IsTableIn, Promote, WFHigherKinded ) where
+module Rel8.SimpleConstraints ( Selects, IsTableIn, Promote, WFHigherKinded, ConstrainHigherKinded ) where
 
 import Data.Functor.Identity
 import Rel8.ColumnSchema
@@ -31,12 +34,12 @@ instance
   ) => Selects m schema row
 
 
-data Hidden
+data Hidden ( a :: k )
 
 instance
-  ( Rewrite ColumnSchema ( Expr m ) Hidden row
+  ( Rewrite ColumnSchema ( Expr m ) ( Hidden () ) row
   , ZipLeaves row row ( Expr m ) ( Expr m )
-  ) => Selects m Hidden row
+  ) => Selects m ( Hidden () ) row
 
 
 class
@@ -51,8 +54,8 @@ instance
 
 
 instance
-  ( ZipLeaves Hidden Hidden ( Expr m ) ( Expr m )
-  ) => Hidden `IsTableIn` m
+  ( ZipLeaves ( Hidden () ) ( Hidden () ) ( Expr m ) ( Expr m )
+  ) => ( Hidden () ) `IsTableIn` m
 
 
 class
@@ -71,10 +74,10 @@ instance
 
 
 instance
-  ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b Hidden
-  , Rewrite ( Expr m ) ( Expr ( Nest m ) ) Hidden b
-  , ZipLeaves b Hidden ( Expr ( Nest m ) ) ( Expr m )
-  ) => Promote m Hidden b
+  ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b ( Hidden () )
+  , Rewrite ( Expr m ) ( Expr ( Nest m ) ) ( Hidden () ) b
+  , ZipLeaves b ( Hidden () ) ( Expr ( Nest m ) ) ( Expr m )
+  ) => Promote m ( Hidden () ) b
 
 
 class
@@ -90,3 +93,22 @@ instance
   , ZipRecord t ( Expr Query ) ( Expr Query ) Top
   , ZipRecord t ( Expr Query ) Identity Top
   ) => WFHigherKinded t
+
+
+class
+  ( HigherKinded t
+  , ZipRecord t ( Expr m ) ( Expr m ) c
+  ) => ConstrainHigherKinded m c t
+
+
+instance
+  {-# overlapping #-}
+  ( HigherKinded t
+  , ZipRecord t ( Expr m ) ( Expr m ) c
+  ) => ConstrainHigherKinded m c t
+
+
+instance
+  ( HigherKinded Hidden
+  , ZipRecord Hidden ( Expr m ) ( Expr m ) c
+  ) => ConstrainHigherKinded m c Hidden

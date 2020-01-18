@@ -11,6 +11,7 @@ import Rel8.Column
 import Rel8.DBEq
 import Rel8.Expr
 import Rel8.HigherKinded
+import Rel8.SimpleConstraints
 import Rel8.Table
 
 
@@ -29,7 +30,7 @@ instance DBEq a => EqTable ( Expr m a ) where
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ( ZipRecord t ( Expr m ) ( Expr m ) DBEq, HigherKinded t ) => EqTable ( t ( Expr m ) ) where
+instance ConstrainHigherKinded m DBEq t => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
       (&&.)

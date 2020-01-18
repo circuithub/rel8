@@ -52,7 +52,7 @@ class MonoidTable a where
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ( ZipRecord t ( Expr m ) ( Expr m ) DBMonoid, HigherKinded t ) => MonoidTable ( t ( Expr m ) ) where
+instance ConstrainHigherKinded m DBMonoid t => MonoidTable ( t ( Expr m ) ) where
   aggregator =
     Opaleye.Aggregator $ Opaleye.PackMap \f r ->
       zipRecord
