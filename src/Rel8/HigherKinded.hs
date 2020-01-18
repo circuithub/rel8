@@ -62,6 +62,7 @@ data MyType f = MyType { fieldA :: Column f T }
 
 -}
 class HigherKinded ( t :: ( Type -> Type ) -> Type ) where
+  -- | Additional constraints for use with 'zipRecord'.
   type ZipRecord t (f :: * -> *) (g :: * -> *) (c :: * -> Constraint) :: Constraint
 
   zipRecord
