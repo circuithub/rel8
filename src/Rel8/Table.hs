@@ -7,6 +7,9 @@ import Rel8.Column
 
 
 class Table t where
+  -- | Calculate functor of expressions that match the expression functor for
+  -- a given type. For examle, if we have a higher-kinded data type @t@
+  -- parameterised by @Expr m@, @ExprIn (t (Expr m)) = Expr m@.
   type ExprIn t :: * -> *
 
 
