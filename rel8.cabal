@@ -16,7 +16,7 @@ library
   default-language:
     Haskell2010
   ghc-options:
-    -Wall
+    -Wall -fwarn-redundant-constraints
   hs-source-dirs:
     src
   exposed-modules:

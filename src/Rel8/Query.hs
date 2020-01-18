@@ -47,8 +47,7 @@ instance MonadQuery Query where
 -- | Run a @SELECT@ query, returning all rows.
 select
   :: forall row haskell
-   . ( CanZipLeaves row row Top
-     , ZipLeaves row row ( Expr Query ) ( Expr Query )
+   . ( ZipLeaves row row ( Expr Query ) ( Expr Query )
      , FromRow row haskell
      )
   => Connection -> Query row -> IO [ haskell ]
@@ -74,7 +73,7 @@ select c ( Query query ) =
 
 showSQL
   :: forall a
-   . ( CanZipLeaves a a Top, ZipLeaves a a ( Expr Query ) ( Expr Query ) )
+   . ZipLeaves a a ( Expr Query ) ( Expr Query )
   => Query a -> Maybe String
 showSQL ( Query opaleye ) =
   Opaleye.showSqlExplicit unpackspec opaleye

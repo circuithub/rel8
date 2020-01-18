@@ -4,6 +4,7 @@
 {-# language RankNTypes #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.ZipLeaves where
 
@@ -11,10 +12,11 @@ import Data.Monoid
 import GHC.Exts
 import Rel8.Column
 import Rel8.HigherKinded
+import Rel8.Top
 
 
 -- | Zip the "leaves" of a data structure together.
-class ZipLeaves a b f g | a -> f, b -> g where
+class CanZipLeaves a b Top => ZipLeaves a b f g | a -> f, b -> g where
   type CanZipLeaves a b (c :: * -> Constraint) :: Constraint
 
   zipLeaves
@@ -29,7 +31,7 @@ instance ZipLeaves (C f a) (C g a) f g where
   zipLeaves _proxy = id
 
 
-instance HigherKinded t => ZipLeaves (t f) (t g) f g where
+instance ( ZipRecord t f g Top, HigherKinded t ) => ZipLeaves (t f) (t g) f g where
   type CanZipLeaves (t f) (t g) c = ZipRecord t f g c
   zipLeaves = zipRecord
 

@@ -14,6 +14,7 @@ import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.Query
+import Rel8.Top
 import Rel8.ZipLeaves
 
 
@@ -31,7 +32,7 @@ instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sql
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
+instance ( ZipRecord t ( Expr Query ) Identity Top, HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
   rowParser sql =
     zipLeaves
       ( Proxy @FromField )

@@ -74,7 +74,6 @@ each
    . ( MonadQuery m
      , Rewrite ColumnSchema ( Expr m ) schema row
      , ZipLeaves row row ( Expr m ) ( Expr m )
-     , CanZipLeaves row row Top
      )
   => TableSchema schema -> m row
 each schema =
@@ -130,7 +129,7 @@ each schema =
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin
   :: forall outer outer' m
-   . ( MonadQuery m, CanZipLeaves outer' outer Top, ZipLeaves outer' outer ( Expr ( Nest m ) ) ( Expr m ) )
+   . ( MonadQuery m, ZipLeaves outer' outer ( Expr ( Nest m ) ) ( Expr m ) )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
   -> m ( MaybeTable outer ( Expr m ) )
@@ -191,7 +190,6 @@ leftJoin joinTable condition =
 union
   :: forall a' a m
    . ( MonadQuery m
-     , CanZipLeaves a a Top
      , ZipLeaves a a ( Expr m ) ( Expr m )
      , Rewrite ( Expr ( Nest m ) ) ( Expr m ) a' a
      )
@@ -221,7 +219,7 @@ union l r =
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
 distinct
   :: forall a m
-   . ( MonadQuery m, CanZipLeaves a a Top, ZipLeaves a a ( Expr m ) ( Expr m ) )
+   . ( MonadQuery m, ZipLeaves a a ( Expr m ) ( Expr m ) )
   => m a -> m a
 distinct query =
   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
