@@ -1,3 +1,5 @@
+{-# options -fno-warn-duplicate-exports #-}
+
 module Rel8.PublicFacing
   ( -- * Schema Definition
     -- ** Defining Tables
@@ -7,8 +9,8 @@ module Rel8.PublicFacing
   , ColumnSchema
 
     -- ** Defining Database Types
-  , DBType
-  , DBEq
+  , DBType( lit )
+  , DBEq( eqExprs )
 
     -- * Writing Queries
   , MonadQuery
@@ -28,6 +30,7 @@ module Rel8.PublicFacing
 
     -- ** Aggregation
   , groupAndAggregate
+  , aggregate
   , GroupBy(..)
   , MonoidTable
   , DBMonoid
@@ -48,6 +51,7 @@ module Rel8.PublicFacing
   , select
   , FromRow(..)
   , Query
+
   )
   where
 
