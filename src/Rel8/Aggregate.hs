@@ -97,6 +97,8 @@ groupAndAggregate f query =
       const g ( key ==. key )
 
 
+-- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
+-- where there is only one group.
 aggregate
   :: forall a b b' m
    . ( MonadQuery m
