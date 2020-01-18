@@ -8,11 +8,12 @@
 module Rel8.Expr where
 
 import Data.Coerce
+import Data.Int
 import Data.Kind
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.Table
 import Rel8.ZipLeaves
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
 -- | Typed SQL expressions
@@ -45,7 +46,12 @@ instance DBType Bool where
     Expr . Opaleye.ConstExpr . Opaleye.BoolLit
 
 
-instance DBType Int where
+instance DBType Int32 where
+  lit =
+    Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+
+
+instance DBType Int64 where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
 

@@ -3,10 +3,11 @@
 
 module Rel8.DBEq where
 
-import Data.Text
+import Data.Int
 import Data.Kind
-import Rel8.Expr
+import Data.Text
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Expr
 
 
 -- | The class of database types that can be compared for equality in queries.
@@ -19,7 +20,10 @@ class DBEq ( a :: Type ) where
 instance DBEq String
 
 
-instance DBEq Int
+instance DBEq Int32
+
+
+instance DBEq Int64
 
 
 instance DBEq Text
