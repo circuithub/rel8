@@ -1,3 +1,10 @@
+-- | This module contains a bunch of symbols that unfortunately leak out of
+-- the Rel8 abstraction. __None__ of these concepts should be necessary to
+-- use Rel8, but they are exported and documented here for your curiousity.
+-- If you find yourself needing to use anything from this module, please
+-- open an issue on GitHub - we might be able to find a better solution or
+-- add something to the public API for everyone to use instead!
+
 module Rel8.ImplementationDetails
   ( C(..)
   , CanZipLeaves
