@@ -6,6 +6,7 @@
 
 module Rel8.Expr where
 
+import Data.Coerce
 import Data.Kind
 import Rel8.Column
 import Rel8.Table
@@ -63,3 +64,11 @@ instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) wher
 (||.) :: Expr m Bool -> Expr m Bool -> Expr m Bool
 (||.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
+
+
+coerceExpr :: Coercible a b => Expr m a -> Expr m b
+coerceExpr = unsafeCoerceExpr
+
+
+unsafeCoerceExpr :: Expr m a -> Expr m b
+unsafeCoerceExpr ( Expr x ) = Expr x

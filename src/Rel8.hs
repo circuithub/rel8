@@ -15,7 +15,6 @@ module Rel8
 
     -- * Writing Queries
   , MonadQuery
-  , Expr
   , each
   , where_
   , limit
@@ -38,6 +37,10 @@ module Rel8
   , DBMonoid
 
     -- ** Expressions
+  , Expr
+  , coerceExpr
+  , unsafeCoerceExpr
+
     -- *** Literals
   ,  lit
 
