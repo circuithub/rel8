@@ -135,6 +135,7 @@ instance ConstrainHigherKinded m DBMonoid t => MonoidTable ( t ( Expr m ) ) wher
         r
 
 
+-- | The class of database types that have an aggregation operator.
 class DBMonoid a where
   -- | How to aggregate a single expression under a particular monoidal
   -- structure.
