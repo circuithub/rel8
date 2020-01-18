@@ -12,11 +12,11 @@ import Data.Monoid
 import GHC.Exts
 import Rel8.Column
 import Rel8.HigherKinded
-import Rel8.Top
+import Rel8.Unconstrained
 
 
 -- | Zip the "leaves" of a data structure together.
-class CanZipLeaves a b Top => ZipLeaves a b f g | a -> f, b -> g where
+class CanZipLeaves a b Unconstrained => ZipLeaves a b f g | a -> f, b -> g where
   -- | An associated constraint that applies to all leaves. For example,
   -- you can constraint all leaves to be instances of 'DBEq'.
   type CanZipLeaves a b (c :: * -> Constraint) :: Constraint
@@ -33,7 +33,7 @@ instance ZipLeaves (C f a) (C g a) f g where
   zipLeaves _proxy = id
 
 
-instance ( ZipRecord t f g Top, HigherKinded t ) => ZipLeaves (t f) (t g) f g where
+instance ( ZipRecord t f g Unconstrained, HigherKinded t ) => ZipLeaves (t f) (t g) f g where
   type CanZipLeaves (t f) (t g) c = ZipRecord t f g c
   zipLeaves = zipRecord
 

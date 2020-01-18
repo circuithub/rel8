@@ -26,7 +26,7 @@ import Rel8.MonadQuery
 import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.SimpleConstraints
-import Rel8.Top
+import Rel8.Unconstrained
 import Rel8.ZipLeaves
 
 
@@ -178,7 +178,7 @@ instance ( ZipLeaves k1 k2 f g, ZipLeaves v1 v2 f g ) => ZipLeaves ( GroupBy k1 
     GroupBy <$> zipLeaves proxy f ( key a ) ( key b ) <*> zipLeaves proxy f ( value a ) ( value b )
 
 
-instance ( ZipLeaves k k ( Expr m ) ( Expr m ), CanZipLeaves k k Top, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( ZipLeaves k k ( Expr m ) ( Expr m ), CanZipLeaves k k Unconstrained, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group
@@ -190,7 +190,7 @@ instance ( ZipLeaves k k ( Expr m ) ( Expr m ), CanZipLeaves k k Top, MonoidTabl
       group =
         Opaleye.Aggregator $ Opaleye.PackMap \f a ->
           zipLeaves
-            ( Proxy @Top )
+            ( Proxy @Unconstrained )
             ( \( C x ) _ -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
             a
             a

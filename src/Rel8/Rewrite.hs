@@ -15,7 +15,7 @@ import Data.Proxy
 import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKinded
-import Rel8.Top
+import Rel8.Unconstrained
 
 
 -- | @Rewrite f g a b@ says that @a@ can be rewritten into @b@ by changing the
@@ -26,9 +26,9 @@ class Rewrite f g a b | f g a -> b, a -> f, b -> g, f g b -> a where
   rewrite :: ( forall x. C f x -> C g x ) -> a -> b
 
 
-instance ( HigherKinded t, f ~ u, g ~ v, ZipRecord t u v Top ) => Rewrite f g ( t u ) ( t v ) where
+instance ( HigherKinded t, f ~ u, g ~ v, ZipRecord t u v Unconstrained ) => Rewrite f g ( t u ) ( t v ) where
   rewrite f t =
-    runIdentity ( zipRecord (Proxy @Top) ( \_ -> pure . f ) t t )
+    runIdentity ( zipRecord (Proxy @Unconstrained) ( \_ -> pure . f ) t t )
 
 
 instance a ~ b => Rewrite ( Expr m ) ( Expr n ) ( Expr m a ) ( Expr n b ) where

@@ -16,7 +16,7 @@ module Rel8.ImplementationDetails
   , Promote
   , Rewrite( rewrite )
   , Selects
-  , Top
+  , Unconstrained
   , ZipLeaves( zipLeaves )
   , ZipRecord
   , WFHigherKinded
@@ -33,5 +33,5 @@ import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.SimpleConstraints
 import Rel8.Table
-import Rel8.Top
+import Rel8.Unconstrained
 import Rel8.ZipLeaves

@@ -16,11 +16,13 @@ import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.Nest
 import Rel8.Rewrite
-import Rel8.Top
+import Rel8.Unconstrained
 import Rel8.ZipLeaves
 import {-# source #-} Rel8.Query
 
 
+-- | @Selects m schema row@ says that in the monad @m@, the schema definition
+-- @schema@ can be @SELECT@ed into the Haskell type @row@.
 class
   ( Rewrite ColumnSchema ( Expr m ) schema row
   , ZipLeaves row row ( Expr m ) ( Expr m )
@@ -96,16 +98,16 @@ instance
 
 class
   ( HigherKinded t
-  , ZipRecord t ( Expr Query ) ( Expr Query ) Top
-  , ZipRecord t ( Expr Query ) Identity Top
+  , ZipRecord t ( Expr Query ) ( Expr Query ) Unconstrained
+  , ZipRecord t ( Expr Query ) Identity Unconstrained
   ) => WFHigherKinded t
 
 
 instance
   {-# overlapping #-}
   ( HigherKinded t
-  , ZipRecord t ( Expr Query ) ( Expr Query ) Top
-  , ZipRecord t ( Expr Query ) Identity Top
+  , ZipRecord t ( Expr Query ) ( Expr Query ) Unconstrained
+  , ZipRecord t ( Expr Query ) Identity Unconstrained
   ) => WFHigherKinded t
 
 

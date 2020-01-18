@@ -26,7 +26,7 @@ import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.SimpleConstraints
 import Rel8.TableSchema
-import Rel8.Top
+import Rel8.Unconstrained
 import Rel8.ZipLeaves
 
 import qualified Opaleye.Binary as Opaleye
@@ -89,7 +89,7 @@ each schema =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
         zipLeaves
-          ( Proxy @Top )
+          ( Proxy @Unconstrained )
           ( \( C expr ) _ -> fmap ( C . Expr ) ( f ( toPrimExpr expr ) ) )
           row
           row
@@ -180,7 +180,7 @@ leftJoin joinTable condition =
 
         outer <-
           zipLeaves
-            ( Proxy @Top )
+            ( Proxy @Unconstrained )
             ( \( C a) _ -> C . Expr <$> f ( toPrimExpr a ) )
             outer'
             outer'
@@ -212,7 +212,7 @@ union l r =
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
         zipLeaves
-          ( Proxy @Top )
+          ( Proxy @Unconstrained )
           ( \( C x ) ( C y ) -> C . Expr <$> f ( toPrimExpr x, toPrimExpr y ) )
           a
           b
@@ -234,7 +234,7 @@ distinct query =
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
         zipLeaves
-          ( Proxy @Top )
+          ( Proxy @Unconstrained )
           ( \( C x) _ -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
           a a
 

@@ -17,7 +17,7 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import Rel8.Column
 import Rel8.Expr
 import Rel8.MonadQuery
-import Rel8.Top
+import Rel8.Unconstrained
 import Rel8.ZipLeaves
 import {-# source #-} Rel8.FromRow
 
@@ -64,7 +64,7 @@ select c ( Query query ) =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
         zipLeaves
-          ( Proxy @Top )
+          ( Proxy @Unconstrained )
           ( \( C x ) _ -> C . Expr <$> f ( toPrimExpr x ) )
           row
           row
@@ -83,7 +83,7 @@ showSQL ( Query opaleye ) =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
         zipLeaves
-          ( Proxy @Top )
+          ( Proxy @Unconstrained )
           ( \( C expr ) _ -> C . Expr <$> f ( toPrimExpr expr ) )
           row
           row

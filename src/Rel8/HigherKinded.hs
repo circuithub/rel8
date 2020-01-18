@@ -12,7 +12,7 @@ import Data.Kind
 import Data.Proxy
 import GHC.Exts ( Constraint )
 import Rel8.Column ( C )
-import Rel8.Top ( Top )
+import Rel8.Unconstrained ( Unconstrained )
 
 
 {-| The class of higher-kinded data types.
@@ -73,7 +73,7 @@ class HigherKinded ( t :: ( Type -> Type ) -> Type ) where
 
 
 mapRecord
-  :: ( ZipRecord t f g Top, HigherKinded t )
+  :: ( ZipRecord t f g Unconstrained, HigherKinded t )
   => ( forall x. C f x -> C g x ) -> t f -> t g
 mapRecord f x =
-  runIdentity ( zipRecord ( Proxy @Top ) ( \_ -> Identity . f ) x x )
+  runIdentity ( zipRecord ( Proxy @Unconstrained ) ( \_ -> Identity . f ) x x )
