@@ -10,6 +10,7 @@
 module Rel8.Rewrite ( Rewrite(..), rewriteExpr ) where
 
 import Data.Functor.Identity
+import Data.Monoid
 import Data.Proxy
 import Rel8.Column
 import Rel8.Expr
@@ -24,6 +25,16 @@ class Rewrite f g a b | f g a -> b, a -> f, b -> g, f g b -> a where
 instance ( HigherKinded t, f ~ u, g ~ v, ZipRecord t u v Top ) => Rewrite f g ( t u ) ( t v ) where
   rewrite f t =
     runIdentity ( zipRecord (Proxy @Top) ( \_ -> pure . f ) t t )
+
+
+instance a ~ b => Rewrite ( Expr m ) ( Expr n ) ( Expr m a ) ( Expr n b ) where
+  rewrite f t =
+    toColumn ( f ( C t ) )
+
+
+instance Rewrite f g a b => Rewrite f g ( Sum a ) ( Sum b ) where
+  rewrite f ( Sum a ) =
+    Sum ( rewrite f a )
 
 
 rewriteExpr :: forall m n a b. Rewrite ( Expr m ) ( Expr n ) a b => a -> b

@@ -31,6 +31,12 @@ module Rel8.PublicFacing
   , (==.)
   , Table
 
+    -- ** Aggregation
+  , aggregateMap
+  , GroupBy(..)
+  , MonoidTable
+  , DBMonoid
+
     -- * Running Queries
   , Query
   , select
@@ -48,3 +54,4 @@ import Rel8.DBEq
 import Rel8.Expr
 import Rel8.MaybeTable
 import Rel8.Query
+import Rel8.Aggregate

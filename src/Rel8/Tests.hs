@@ -14,6 +14,7 @@
 
 module Rel8.Tests where
 
+import Data.Monoid
 import Rel8.PublicFacing
 
 -- TODO Users should not need these imports
@@ -237,3 +238,28 @@ nestedTableEq = do
 
 -- select_partsWithProjects =
 --   select partsWithProjects
+
+
+partsAggregation :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+partsAggregation = do
+  aggregateMap
+    ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
+    allParts
+
+
+-- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+-- illegalPartsAggregation1 = do
+--   unreachable <- allParts
+
+--   aggregateMap
+--     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
+--     allParts
+
+
+-- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+-- illegalPartsAggregation2 = do
+--   unreachable <- allParts
+
+--   aggregateMap
+--     ( \part -> unreachable )
+--     allParts
