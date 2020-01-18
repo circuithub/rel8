@@ -117,6 +117,7 @@ aggregate f =
 
 
 class MonoidTable a where
+  -- | How to aggregate an entire table.
   aggregator :: Opaleye.Aggregator a a
 
 
