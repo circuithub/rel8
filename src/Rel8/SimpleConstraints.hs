@@ -5,13 +5,17 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.SimpleConstraints ( Selects, IsTableIn, Promote ) where
+module Rel8.SimpleConstraints ( Selects, IsTableIn, Promote, WFHigherKinded ) where
 
+import Data.Functor.Identity
 import Rel8.ColumnSchema
 import Rel8.Expr
+import Rel8.HigherKinded
 import Rel8.Nest
 import Rel8.Rewrite
+import Rel8.Top
 import Rel8.ZipLeaves
+import {-# source #-} Rel8.Query
 
 
 class
@@ -71,3 +75,18 @@ instance
   , Rewrite ( Expr m ) ( Expr ( Nest m ) ) Hidden b
   , ZipLeaves b Hidden ( Expr ( Nest m ) ) ( Expr m )
   ) => Promote m Hidden b
+
+
+class
+  ( HigherKinded t
+  , ZipRecord t ( Expr Query ) ( Expr Query ) Top
+  , ZipRecord t ( Expr Query ) Identity Top
+  ) => WFHigherKinded t
+
+
+instance
+  {-# overlapping #-}
+  ( HigherKinded t
+  , ZipRecord t ( Expr Query ) ( Expr Query ) Top
+  , ZipRecord t ( Expr Query ) Identity Top
+  ) => WFHigherKinded t

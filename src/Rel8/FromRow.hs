@@ -16,8 +16,8 @@ import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.Query
-import Rel8.Top
 import Rel8.ZipLeaves
+import Rel8.SimpleConstraints
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -34,7 +34,7 @@ instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sql
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( ZipRecord t ( Expr Query ) ( Expr Query ) Top, ZipRecord t ( Expr Query ) Identity Top, HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
+instance ( WFHigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
   rowParser sql =
     zipLeaves
       ( Proxy @FromField )
