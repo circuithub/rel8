@@ -22,8 +22,8 @@ data HaskellPackage f =
     }
 @
 
-In queries, @f@ will be some type of 'Expr', and @Column ( Expr ..)@ reduces
-to just @Expr ..@:
+In queries, @f@ will be some type of 'Rel8.Expr.Expr', and @Column ( Expr .. )@
+reduces to just @Expr ..@:
 
 >>> :t packageName ( package :: Package ( Expr m ) )
 Expr m String
