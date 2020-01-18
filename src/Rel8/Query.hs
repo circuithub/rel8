@@ -7,6 +7,7 @@
 module Rel8.Query where
 
 import Control.Monad
+import Control.Monad.IO.Class
 import Data.Proxy
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Opaleye
@@ -50,12 +51,13 @@ instance MonadQuery Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: forall row haskell
+  :: forall row haskell m
    . ( FromRow row haskell
+     , MonadIO m
      )
-  => Connection -> Query row -> IO [ haskell ]
+  => Connection -> Query row -> m [ haskell ]
 select c ( Query query ) =
-  Opaleye.runSelectExplicit fromFields c query
+  liftIO ( Opaleye.runSelectExplicit fromFields c query )
 
   where
 
