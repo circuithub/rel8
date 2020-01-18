@@ -10,6 +10,7 @@ module Rel8.Expr where
 import Data.Coerce
 import Data.Int
 import Data.Kind
+import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
@@ -27,6 +28,11 @@ type role Expr representational representational
 
 instance Table ( Expr m a ) where
   type ExprIn ( Expr m a ) = Expr m
+
+
+instance ( IsString a, DBType a ) => IsString ( Expr m a ) where
+  fromString =
+    lit . fromString
 
 
 -- | The class of all Haskell types that can be represented as expressiosn
