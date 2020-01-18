@@ -25,7 +25,6 @@ module Rel8.PublicFacing
   , leftJoin
   , MaybeTable
   , isNull
-  , maybeTable
 
     -- ** Aggregation
   , aggregateMap
