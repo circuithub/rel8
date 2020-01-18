@@ -37,6 +37,7 @@ library
     Rel8.Query
     Rel8.Query
     Rel8.Rewrite
+    Rel8.SimpleConstraints
     Rel8.Table
     Rel8.TableSchema
     Rel8.Tests
