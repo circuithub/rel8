@@ -23,6 +23,7 @@ import Rel8.EqTable
 import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.MonadQuery
+import Rel8.Nest
 import Rel8.Rewrite
 import Rel8.SimpleConstraints
 import Rel8.Top
@@ -73,15 +74,14 @@ transforming a @Map k v@ into a list of pairs:
 
 -}
 groupAndAggregate
-  :: forall a a' k k' v v' m
+  :: forall a k k' v v' m
    . ( MonadQuery m
-     , MonoidTable v'
-     , EqTable k'
-     , Promote m a a'
-     , Promote m k k'
-     , Promote m v v'
+     , MonoidTable v
+     , EqTable k
+     , Promote m k' k
+     , Promote m v' v
      )
-  => ( a' -> GroupBy k' v' ) -> m a -> m ( k, v )
+  => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate f query =
   aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
     ( key, value )
@@ -92,28 +92,24 @@ groupAndAggregate f query =
     -- as the code doesn't use it at all. However, semantically it's very
     -- important - PostgreSQL will not let us GROUP BY types that can't be
     -- compared for equality.
-    eqTableIsImportant :: GroupBy k' v' -> GroupBy k' v'
+    eqTableIsImportant :: GroupBy k v -> GroupBy k v
     eqTableIsImportant g@GroupBy{ key } =
       const g ( key ==. key )
 
 
 aggregate
-  :: forall a a' b b' m
+  :: forall a b b' m
    . ( MonadQuery m
-     , MonoidTable b'
-     , Promote m a a'
-     , Promote m b b'
+     , MonoidTable b
+     , Promote m b' b
      )
-  => ( a' -> b' ) -> m a -> m b
+  => ( a -> b ) -> Nest m a -> m b'
 aggregate f =
-  liftOpaleye . Opaleye.aggregate ( dimap from to aggregator ) . toOpaleye
+  liftOpaleye . Opaleye.aggregate ( dimap f to aggregator ) . toOpaleye
 
   where
 
-    from :: a -> b'
-    from = f . rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
-
-    to :: b' -> b
+    to :: b -> b'
     to =
       rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
 
