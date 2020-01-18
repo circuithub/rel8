@@ -3,6 +3,7 @@
 
 module Rel8.DBEq where
 
+import Data.Text
 import Data.Kind
 import Rel8.Expr
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -19,3 +20,6 @@ instance DBEq String
 
 
 instance DBEq Int
+
+
+instance DBEq Text
