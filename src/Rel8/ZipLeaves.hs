@@ -7,6 +7,7 @@
 
 module Rel8.ZipLeaves where
 
+import Data.Monoid
 import GHC.Exts
 import Rel8.Column
 import Rel8.HigherKinded
@@ -39,3 +40,11 @@ instance ( ZipLeaves a c f g, ZipLeaves b d f g ) => ZipLeaves ( a, b ) ( c, d )
 
   zipLeaves proxy f ( a, b ) ( c, d ) =
     (,) <$> zipLeaves proxy f a c <*> zipLeaves proxy f b d
+
+
+instance ZipLeaves a b f g => ZipLeaves ( Sum a ) ( Sum b ) f g where
+  type CanZipLeaves ( Sum a ) ( Sum b ) c =
+    CanZipLeaves a b c
+
+  zipLeaves proxy f ( Sum a ) ( Sum b ) =
+    Sum <$> zipLeaves proxy f a b
