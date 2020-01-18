@@ -96,6 +96,9 @@ instance
   ) => Promote m ( Hidden () ) b
 
 
+-- | "Well-formed" higher-kinded data types. Anything that derives
+-- 'HigherKinded' generically will satisfy these constraints, but we use a
+-- helper type class to simplify type signatures.
 class
   ( HigherKinded t
   , ZipRecord t ( Expr Query ) ( Expr Query ) Unconstrained
