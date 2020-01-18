@@ -3,7 +3,6 @@
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
-{-# language RecordWildCards #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 

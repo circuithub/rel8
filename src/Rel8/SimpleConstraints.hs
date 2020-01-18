@@ -1,6 +1,5 @@
 {-# language PolyKinds #-}
 {-# language RankNTypes #-}
-{-# language KindSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}

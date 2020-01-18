@@ -21,7 +21,7 @@ import Rel8.ZipLeaves
 
 
 -- | Typed SQL expressions
-data Expr ( m :: Type -> Type ) ( a :: Type ) =
+newtype Expr ( m :: Type -> Type ) ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
