@@ -18,7 +18,7 @@ import Rel8.Unconstrained
 -- | Zip the "leaves" of a data structure together.
 class CanZipLeaves a b Unconstrained => ZipLeaves a b f g | a -> f, b -> g where
   -- | An associated constraint that applies to all leaves. For example,
-  -- you can constraint all leaves to be instances of 'DBEq'.
+  -- you can constraint all leaves to be instances of 'Rel8.DBEq.DBEq'.
   type CanZipLeaves a b (c :: * -> Constraint) :: Constraint
 
   zipLeaves

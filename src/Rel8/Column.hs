@@ -28,8 +28,8 @@ reduces to just @Expr ..@:
 >>> :t packageName ( package :: Package ( Expr m ) )
 Expr m String
 
-When we 'select' queries of this type, @f@ will be instantiated as @Identity@,
-at which point all wrapping entire disappears:
+When we 'Rel8.Query.select' queries of this type, @f@ will be instantiated as
+@Identity@, at which point all wrapping entire disappears:
 
 >>> :t packageName ( package :: Package Identity )
 String
@@ -45,6 +45,6 @@ type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
 
 -- | The @C@ newtype simply wraps 'Column', but this allows us to work
 -- injectivity problems of functions that return type family applications
--- (for example, 'zipRecord').
+-- (for example, 'Rel8.HigherKinded.zipRecord').
 newtype C f x =
   C { toColumn :: Column f x }

@@ -12,10 +12,11 @@ the schema of the columns within this table.
 
 For each selectable table in your database, you should provide a @TableSchema@
 in order to interact with the table via Rel8. For a table storing a list of
-Haskell packages (as defined in the example for 'Column'), we would write:
+Haskell packages (as defined in the example for 'Rel8.Column.Column'), we would
+write:
 
 @
-haskellPackage :: TableSchema ( HaskellPackage 'ColumnSchema' )
+haskellPackage :: TableSchema ( HaskellPackage 'Rel8.ColumnSchema.ColumnSchema' )
 haskellPackage =
   TableSchema
     { tableName = "haskell_package"
@@ -37,7 +38,7 @@ data TableSchema ( schema :: Type ) =
       -- the connection's @search_path@ will be used.
     , tableColumns :: schema
       -- ^ The columns of the table. Typically you would use a a higher-kinded
-      -- data type here, parameterized by the 'ColumnSchema' functor.
+      -- data type here, parameterized by the 'Rle8.ColunmSchema.ColumnSchema' functor.
     }
   deriving
     ( Functor )

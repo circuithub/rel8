@@ -24,7 +24,7 @@ import {-# source #-} Rel8.FromRow
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
 -- this type, instead preferring to be polymorphic over any 'MonadQuery m'.
--- Functions like 'select' will instantiate 'm' to be 'Query' when they run
+-- Functions like 'select' will instantiate @m@ to be 'Query' when they run
 -- queries.
 newtype Query a = Query ( Opaleye.Query a )
   deriving ( Functor, Applicative )

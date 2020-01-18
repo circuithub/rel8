@@ -27,9 +27,9 @@ data MaybeTable t f =
     }
 
 
--- | If you 'select' a @MaybeTable@, you'll get back a @MaybeTable@ as a result.
--- However, this structure is awkward to use in ordinary Haskell, so 'toMaybe'
--- lets you transform a @MaybeTable@ into a normal @Maybe@ value.
+-- | If you 'Rel8.Query.select' a @MaybeTable@, you'll get back a @MaybeTable@
+-- as a result. However, this structure is awkward to use in ordinary Haskell,
+-- so 'toMaybe' lets you transform a @MaybeTable@ into a normal @Maybe@ value.
 toMaybe :: MaybeTable t Identity -> Maybe t
 toMaybe MaybeTable{ isNull, maybeTable }
   | isNull = Nothing

@@ -128,7 +128,7 @@ each schema =
 
 
 -- | Select all rows from another table that match a given predicate. If the
--- predicate is not satisfied, 'nullTable' is returned.
+-- predicate is not satisfied, a null 'MaybeTable' is returned.
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin

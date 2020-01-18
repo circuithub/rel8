@@ -24,7 +24,8 @@ tableSchema =
     }
 @
 
-If you want to programatically create @ColumnSchema@'s, you can use 'fromString':
+If you want to programatically create @ColumnSchema@'s, you can use
+'Data.String.fromString':
 
 @
 import Data.String ( fromString )
