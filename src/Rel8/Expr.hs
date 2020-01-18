@@ -56,3 +56,9 @@ instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) wher
 (&&.) :: Expr m Bool -> Expr m Bool -> Expr m Bool
 (&&.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr (Opaleye.:&&) a b )
+
+
+-- | The SQL @OR@ operator.
+(||.) :: Expr m Bool -> Expr m Bool -> Expr m Bool
+(||.) ( Expr a ) ( Expr b ) =
+    Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
