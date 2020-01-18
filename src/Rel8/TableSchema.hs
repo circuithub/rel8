@@ -1,6 +1,9 @@
 {-# language DeriveFunctor #-}
+{-# language KindSignatures #-}
 
 module Rel8.TableSchema ( TableSchema(..) ) where
+
+import Data.Kind
 
 
 {-| The schema for a table. This is used to specify the name and schema
@@ -25,7 +28,7 @@ haskellPackage =
 @
 -}
 
-data TableSchema schema =
+data TableSchema ( schema :: Type ) =
   TableSchema
     { tableName :: String
       -- ^ The name of the table.

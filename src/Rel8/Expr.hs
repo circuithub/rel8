@@ -14,7 +14,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
 -- | Typed SQL expressions
-data Expr ( m :: Type -> Type ) a =
+data Expr ( m :: Type -> Type ) ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 type role Expr representational nominal
@@ -29,7 +29,7 @@ instance Table ( Expr m a ) where
 -- types in your database schema (e.g., @int@, @timestamptz@, etc).
 --
 -- Rel8 comes with stock instances for all default types in PostgreSQL.
-class DBType a where
+class DBType ( a :: Type ) where
   -- | Lift a Haskell value into a literal SQL expression.
   lit :: a -> Expr m a
 

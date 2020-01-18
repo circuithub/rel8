@@ -1,7 +1,9 @@
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language KindSignatures #-}
 
 module Rel8.ColumnSchema ( ColumnSchema(..) ) where
 
+import Data.Kind
 import Data.String ( IsString )
 
 
@@ -42,6 +44,6 @@ tableSchema =
 @
 
 -}
-newtype ColumnSchema a =
+newtype ColumnSchema ( a :: Type ) =
   ColumnSchema { columnName :: String }
   deriving ( IsString )

@@ -8,6 +8,7 @@
 module Rel8.HigherKinded where
 
 import Data.Functor.Identity
+import Data.Kind
 import Data.Proxy
 import GHC.Exts ( Constraint )
 import Rel8.Column ( C )
@@ -60,7 +61,7 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HigherKinded t where
+class HigherKinded ( t :: ( Type -> Type ) -> Type ) where
   type ZipRecord t (f :: * -> *) (g :: * -> *) (c :: * -> Constraint) :: Constraint
 
   zipRecord
