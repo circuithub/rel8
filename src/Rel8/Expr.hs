@@ -24,7 +24,13 @@ instance Table ( Expr m a ) where
   type ExprIn ( Expr m a ) = Expr m
 
 
+-- | The class of all Haskell types that can be represented as expressiosn
+-- in a database. There should be an instance of @DBType@ for all column
+-- types in your database schema (e.g., @int@, @timestamptz@, etc).
+--
+-- Rel8 comes with stock instances for all default types in PostgreSQL.
 class DBType a where
+  -- | Lift a Haskell value into a literal SQL expression.
   lit :: a -> Expr m a
 
 
