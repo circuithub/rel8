@@ -65,6 +65,8 @@ class HigherKinded ( t :: ( Type -> Type ) -> Type ) where
   -- | Additional constraints for use with 'zipRecord'.
   type ZipRecord t (f :: * -> *) (g :: * -> *) (c :: * -> Constraint) :: Constraint
 
+  -- | Zip two higher-kinded types together by combining their leaves pointwise.
+  -- The combining operation can incur additional constraints with 'ZipRecord'.
   zipRecord
     :: forall c f g m proxy
      . ( ZipRecord t f g c, Applicative m )
