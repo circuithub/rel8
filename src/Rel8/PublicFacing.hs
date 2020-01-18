@@ -46,20 +46,22 @@ module Rel8.PublicFacing
   , (&&.)
 
     -- * Running Queries
-  , Query
   , select
+  , FromRow(..)
+  , Query
   )
   where
 
+import Rel8.Aggregate
 import Rel8.Column
 import Rel8.ColumnSchema
-import Rel8.TableSchema
-import Rel8.HigherKinded
-import Rel8.EqTable
-import Rel8.Table
-import Rel8.MonadQuery
 import Rel8.DBEq
+import Rel8.EqTable
 import Rel8.Expr
+import Rel8.FromRow
+import Rel8.HigherKinded
 import Rel8.MaybeTable
+import Rel8.MonadQuery
 import Rel8.Query
-import Rel8.Aggregate
+import Rel8.Table
+import Rel8.TableSchema
