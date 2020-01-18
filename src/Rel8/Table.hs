@@ -6,6 +6,7 @@ module Rel8.Table where
 import Rel8.Column
 
 
+-- | The class of Haskell types that represent SQL tables.
 class Table t where
   -- | Calculate functor of expressions that match the expression functor for
   -- a given type. For examle, if we have a higher-kinded data type @t@
