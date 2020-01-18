@@ -116,6 +116,8 @@ aggregate f =
       rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
 
 
+-- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
+-- type.
 class MonoidTable a where
   -- | How to aggregate an entire table.
   aggregator :: Opaleye.Aggregator a a
