@@ -22,8 +22,8 @@ library
   hs-source-dirs:
     src
   exposed-modules:
+    Rel8
     Rel8.ImplementationDetails
-    Rel8.PublicFacing
   other-modules:
     Rel8.Aggregate
     Rel8.Column

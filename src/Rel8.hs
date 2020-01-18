@@ -1,7 +1,7 @@
 {-# options -fno-warn-duplicate-exports #-}
 
 -- | Welcome to Rel8!
-module Rel8.PublicFacing
+module Rel8
   ( -- * Schema Definition
     -- ** Defining Tables
     HigherKinded

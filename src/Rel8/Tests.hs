@@ -15,7 +15,7 @@
 module Rel8.Tests where
 
 import Data.Monoid
-import Rel8.PublicFacing
+import Rel8
 
 -- TODO Users should not need these imports
 import Rel8.HigherKinded
