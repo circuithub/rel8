@@ -106,6 +106,10 @@ instance
   ) => WFHigherKinded t
 
 
+-- | The sub-class of higher-kinded data types where all columns satisfy
+-- an extra constraint. For example, @ConstrainHigherKinded m DBEq t@ is
+-- the class of higher-kinded data types where all columns can be compared
+-- for equality.
 class
   ( HigherKinded t
   , ZipRecord t ( Expr m ) ( Expr m ) c
