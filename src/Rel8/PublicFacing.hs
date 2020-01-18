@@ -7,7 +7,8 @@ module Rel8.PublicFacing
   , ColumnSchema
 
     -- ** Defining Database Types
-  , DBEq(..)
+  , DBType
+  , DBEq
 
     -- * Writing Queries
   , MonadQuery
@@ -26,16 +27,23 @@ module Rel8.PublicFacing
   , isNull
   , maybeTable
 
-    -- ** Equality
-  , EqTable
-  , (==.)
-  , Table
-
     -- ** Aggregation
   , aggregateMap
   , GroupBy(..)
   , MonoidTable
   , DBMonoid
+
+    -- ** Expressions
+    -- *** Literals
+  ,  lit
+
+    -- *** Equality
+  , EqTable
+  , (==.)
+  , Table
+
+    -- *** Booleans
+  , (&&.)
 
     -- * Running Queries
   , Query
