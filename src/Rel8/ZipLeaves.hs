@@ -44,6 +44,20 @@ instance ( ZipLeaves a c f g, ZipLeaves b d f g ) => ZipLeaves ( a, b ) ( c, d )
     (,) <$> zipLeaves proxy f a c <*> zipLeaves proxy f b d
 
 
+instance ( ZipLeaves a1 a2 f g, ZipLeaves b1 b2 f g, ZipLeaves c1 c2 f g ) => ZipLeaves ( a1, b1, c1 ) ( a2, b2, c2 ) f g where
+  type CanZipLeaves ( a1, b1, c1 ) ( a2, b2, c2 ) constraint =
+    ( CanZipLeaves a1 a2 constraint
+    , CanZipLeaves b1 b2 constraint
+    , CanZipLeaves c1 c2 constraint
+    )
+
+  zipLeaves proxy f ( a1, b1, c1 ) ( a2, b2, c2 ) =
+    (,,)
+      <$> zipLeaves proxy f a1 a2
+      <*> zipLeaves proxy f b1 b2
+      <*> zipLeaves proxy f c1 c2
+
+
 instance ZipLeaves a b f g => ZipLeaves ( Sum a ) ( Sum b ) f g where
   type CanZipLeaves ( Sum a ) ( Sum b ) c =
     CanZipLeaves a b c
