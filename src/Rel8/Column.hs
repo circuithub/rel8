@@ -43,5 +43,8 @@ type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
   Column f a = f a
 
 
+-- | The @C@ newtype simply wraps 'Column', but this allows us to work
+-- injectivity problems of functions that return type family applications
+-- (for example, 'zipRecord').
 newtype C f x =
   C { toColumn :: Column f x }
