@@ -46,6 +46,7 @@ module Rel8.PublicFacing
 
     -- *** Booleans
   , (&&.)
+  , (||.)
 
     -- * Running Queries
   , select
