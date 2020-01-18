@@ -42,6 +42,8 @@ instance
   ) => Selects m ( Hidden () ) row
 
 
+-- | Makes sure that a given table (@a@) contains expressions compatible with
+-- the monad @m@. This type class is essentially a scoping check.
 class
   ZipLeaves a a (Expr m) (Expr m)
   => a `IsTableIn` m
