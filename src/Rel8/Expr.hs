@@ -17,7 +17,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 data Expr ( m :: Type -> Type ) ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
 
-type role Expr representational nominal
+
+type role Expr representational representational
 
 
 instance Table ( Expr m a ) where
