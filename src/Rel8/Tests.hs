@@ -14,6 +14,7 @@
 
 module Rel8.Tests where
 
+import Data.Int
 import Data.Monoid
 import Rel8
 
@@ -25,7 +26,7 @@ import Rel8.Column
 
 data Part f =
   Part
-    { partId :: Column f Int
+    { partId :: Column f Int32
     , partName :: Column f String
     }
 
@@ -33,8 +34,8 @@ data Part f =
 -- TODO Generically derive.
 instance HigherKinded Part where
   type ZipRecord Part f g c =
-    ( CanZipLeaves ( C f Int ) ( C g Int ) c
-    , ZipLeaves ( C f Int ) ( C g Int ) f g
+    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
+    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
     , CanZipLeaves ( C f String ) ( C g String ) c
     , ZipLeaves ( C f String ) ( C g String ) f g
     )
@@ -47,8 +48,8 @@ instance HigherKinded Part where
     -> Part f -> Part f -> m (Part g)
   zipRecord proxy f a b =
     Part
-      <$> do toColumn @g @Int <$>
-               zipLeaves proxy f (C @f @Int (partId a)) (C (partId b))
+      <$> do toColumn @g @Int32 <$>
+               zipLeaves proxy f (C @f @Int32 (partId a)) (C (partId b))
       <*> do toColumn @g @String <$>
                zipLeaves proxy f (C @f @String (partName a)) (C (partName b))
 
@@ -88,27 +89,27 @@ partsEq = do
 --   each parts
 
 
-allPartIds :: MonadQuery m => m ( Expr m Int )
+allPartIds :: MonadQuery m => m ( Expr m Int32 )
 allPartIds =
   partId <$> allParts
 
 
--- selectAllPartIds :: IO [ Int ]
+-- selectAllPartIds :: IO [ Int32 ]
 -- selectAllPartIds =
 --   select allPartIds
 
 
 data Project f =
   Project
-    { projectId :: Column f Int
+    { projectId :: Column f Int32
     }
 
 
 -- TODO Generically derive.
 instance HigherKinded Project where
   type ZipRecord Project f g c =
-    ( CanZipLeaves ( C f Int ) ( C g Int ) c
-    , ZipLeaves ( C f Int ) ( C g Int ) f g
+    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
+    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
     )
 
   zipRecord
@@ -119,8 +120,8 @@ instance HigherKinded Project where
     -> Project f -> Project f -> m (Project g)
   zipRecord proxy f a b =
     Project
-      <$> do toColumn @g @Int <$>
-               zipLeaves proxy f (C @f @Int (projectId a)) (C (projectId b))
+      <$> do toColumn @g @Int32 <$>
+               zipLeaves proxy f (C @f @Int32 (projectId a)) (C (projectId b))
 
 
 projects :: TableSchema ( Project ColumnSchema )
@@ -134,16 +135,16 @@ projects =
 
 data ProjectPart f =
   ProjectPart
-    { projectPartProjectId :: Column f Int
-    , projectPartPartId :: Column f Int
+    { projectPartProjectId :: Column f Int32
+    , projectPartPartId :: Column f Int32
     }
 
 
 -- TODO Generically derive.
 instance HigherKinded ProjectPart where
   type ZipRecord ProjectPart f g c =
-    ( CanZipLeaves ( C f Int ) ( C g Int ) c
-    , ZipLeaves ( C f Int ) ( C g Int ) f g
+    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
+    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
     )
 
   zipRecord
@@ -154,10 +155,10 @@ instance HigherKinded ProjectPart where
     -> ProjectPart f -> ProjectPart f -> m (ProjectPart g)
   zipRecord proxy f a b =
     ProjectPart
-      <$> do toColumn @g @Int <$>
-               zipLeaves proxy f (C @f @Int (projectPartProjectId a)) (C (projectPartProjectId b))
-      <*> do toColumn @g @Int <$>
-               zipLeaves proxy f (C @f @Int (projectPartPartId a)) (C (projectPartPartId b))
+      <$> do toColumn @g @Int32 <$>
+               zipLeaves proxy f (C @f @Int32 (projectPartProjectId a)) (C (projectPartProjectId b))
+      <*> do toColumn @g @Int32 <$>
+               zipLeaves proxy f (C @f @Int32 (projectPartPartId a)) (C (projectPartPartId b))
 
 
 projectParts :: TableSchema ( ProjectPart ColumnSchema )
@@ -171,7 +172,7 @@ projectParts =
     }
 
 
-leftJoinTest :: MonadQuery m => m ( Expr m Int, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
+leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
 leftJoinTest = do
   Part{ partId } <-
     each parts
@@ -242,14 +243,14 @@ nestedTableEq = do
 
 partsAggregation
   :: MonadQuery m
-  => m ( Expr m String, Sum ( Expr m Int ) )
+  => m ( Expr m String, Sum ( Expr m Int32 ) )
 partsAggregation = do
   groupAndAggregate
     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
     allParts
 
 
--- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+-- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
 -- illegalPartsAggregation1 = do
 --   unreachable <- allParts
 
@@ -258,7 +259,7 @@ partsAggregation = do
 --     allParts
 
 
--- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+-- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
 -- illegalPartsAggregation2 = do
 --   unreachable <- allParts
 

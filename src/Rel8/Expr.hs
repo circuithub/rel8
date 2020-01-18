@@ -2,6 +2,8 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RoleAnnotations #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -103,8 +105,11 @@ instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) wher
     Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
 
 
-coerceExpr :: Coercible a b => Expr m a -> Expr m b
-coerceExpr = unsafeCoerceExpr
+coerceExpr :: forall b a m. Coercible a b => Expr m a -> Expr m b
+coerceExpr e =
+  const
+    ( unsafeCoerceExpr e )
+    ( coerce @a @b undefined )
 
 
 unsafeCoerceExpr :: Expr m a -> Expr m b
@@ -116,12 +121,12 @@ class Function arg res where
   mkFunctionGo :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
 
 
-instance ( DBType a, arg ~ Expr m a ) => Function arg ( Expr m res ) where
+instance arg ~ Expr m a => Function arg ( Expr m res ) where
   mkFunctionGo mkExpr ( Expr a ) =
     Expr ( mkExpr [ a ] )
 
 
-instance ( DBType a, arg ~ Expr m a, Function args res ) => Function arg ( args -> res ) where
+instance ( arg ~ Expr m a, Function args res ) => Function arg ( args -> res ) where
   mkFunctionGo f ( Expr a ) =
     mkFunctionGo ( f . ( a : ) )
 
@@ -131,6 +136,6 @@ dbFunction =
   mkFunctionGo . Opaleye.FunExpr
 
 
-nullaryFunction :: DBType a => String -> Expr m a
+nullaryFunction :: forall a m. DBType a => String -> Expr m a
 nullaryFunction name =
-  Expr ( Opaleye.FunExpr name [] )
+  const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
