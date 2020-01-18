@@ -105,6 +105,12 @@ instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) wher
     Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
 
 
+-- | The SQL @NOT@ operator.
+not_ :: Expr m Bool -> Expr m Bool
+not_ ( Expr a ) =
+  Expr ( Opaleye.UnExpr Opaleye.OpNot a )
+
+
 coerceExpr :: forall b a m. Coercible a b => Expr m a -> Expr m b
 coerceExpr e =
   const

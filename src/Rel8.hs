@@ -52,6 +52,7 @@ module Rel8
     -- *** Booleans
   , (&&.)
   , (||.)
+  , not_
 
     -- *** Functions
   , dbFunction
