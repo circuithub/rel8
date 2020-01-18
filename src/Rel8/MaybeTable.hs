@@ -20,7 +20,9 @@ outer join does match rows, this is like @Just@.
 -}
 data MaybeTable t f =
   MaybeTable
-    { isNull :: Column f Bool
+    { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
+      -- join matched any rows.
+      isNull :: Column f Bool
     , maybeTable :: t
     }
 
