@@ -53,6 +53,10 @@ module Rel8
   , (&&.)
   , (||.)
 
+    -- *** Functions
+  , dbFunction
+  , nullaryFunction
+
     -- * Running Queries
   , select
   , FromRow(..)

@@ -93,3 +93,28 @@ coerceExpr = unsafeCoerceExpr
 
 unsafeCoerceExpr :: Expr m a -> Expr m b
 unsafeCoerceExpr ( Expr x ) = Expr x
+
+
+class Function arg res where
+  -- | Build a function of multiple arguments.
+  mkFunctionGo :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
+
+
+instance ( DBType a, arg ~ Expr m a ) => Function arg ( Expr m res ) where
+  mkFunctionGo mkExpr ( Expr a ) =
+    Expr ( mkExpr [ a ] )
+
+
+instance ( DBType a, arg ~ Expr m a, Function args res ) => Function arg ( args -> res ) where
+  mkFunctionGo f ( Expr a ) =
+    mkFunctionGo ( f . ( a : ) )
+
+
+dbFunction :: Function args result => String -> args -> result
+dbFunction =
+  mkFunctionGo . Opaleye.FunExpr
+
+
+nullaryFunction :: DBType a => String -> Expr m a
+nullaryFunction name =
+  Expr ( Opaleye.FunExpr name [] )
