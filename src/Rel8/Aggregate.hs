@@ -164,6 +164,7 @@ instance MonoidTable ( Sum ( Expr m a ) ) where
         Sum ( Expr ( toPrimExpr expr ) )
 
 
+-- | Group rows of type @v@ by key @k@.
 data GroupBy k v =
   GroupBy { key :: k, value :: v }
 
