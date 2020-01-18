@@ -240,9 +240,11 @@ nestedTableEq = do
 --   select partsWithProjects
 
 
-partsAggregation :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int ) ) )
+partsAggregation
+  :: MonadQuery m
+  => m ( Expr m String, Sum ( Expr m Int ) )
 partsAggregation = do
-  aggregateMap
+  groupAndAggregate
     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
     allParts
 
@@ -251,7 +253,7 @@ partsAggregation = do
 -- illegalPartsAggregation1 = do
 --   unreachable <- allParts
 
---   aggregateMap
+--   groupAndAggregate
 --     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
 --     allParts
 
@@ -260,6 +262,6 @@ partsAggregation = do
 -- illegalPartsAggregation2 = do
 --   unreachable <- allParts
 
---   aggregateMap
+--   groupAndAggregate
 --     ( \part -> unreachable )
 --     allParts

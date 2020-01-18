@@ -27,7 +27,7 @@ module Rel8.PublicFacing
   , isNull
 
     -- ** Aggregation
-  , aggregateMap
+  , groupAndAggregate
   , GroupBy(..)
   , MonoidTable
   , DBMonoid

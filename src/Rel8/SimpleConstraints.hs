@@ -62,6 +62,9 @@ class
   ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b a
   , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a b
   , ZipLeaves b a ( Expr ( Nest m ) ) ( Expr m )
+  , ZipLeaves a b ( Expr m ) ( Expr ( Nest m ) )
+  , ZipLeaves a a ( Expr m ) ( Expr m )
+  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
   ) => Promote m a b
 
 
@@ -70,6 +73,9 @@ instance
   ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b a
   , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a b
   , ZipLeaves b a ( Expr ( Nest m ) ) ( Expr m )
+  , ZipLeaves a b ( Expr m ) ( Expr ( Nest m ) )
+  , ZipLeaves a a ( Expr m ) ( Expr m )
+  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
   ) => Promote m a b
 
 
@@ -77,6 +83,9 @@ instance
   ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b ( Hidden () )
   , Rewrite ( Expr m ) ( Expr ( Nest m ) ) ( Hidden () ) b
   , ZipLeaves b ( Hidden () ) ( Expr ( Nest m ) ) ( Expr m )
+  , ZipLeaves ( Hidden () ) b ( Expr m ) ( Expr ( Nest m ) )
+  , ZipLeaves ( Hidden () ) ( Hidden () ) ( Expr m ) ( Expr m )
+  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
   ) => Promote m ( Hidden () ) b
 
 

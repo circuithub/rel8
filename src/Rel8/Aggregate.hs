@@ -2,6 +2,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -9,6 +10,7 @@
 
 module Rel8.Aggregate where
 
+import Data.Functor
 import Data.Monoid
 import Data.Profunctor ( dimap, lmap )
 import Data.Proxy
@@ -17,6 +19,7 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Column
+import Rel8.EqTable
 import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.MonadQuery
@@ -26,7 +29,75 @@ import Rel8.Top
 import Rel8.ZipLeaves
 
 
-aggregateMap
+{-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
+SQL, it combines the @GROUP BY@ operator along with aggregation functions to
+reduce a sequence of rows to 1 or more rows. If you wish to aggregate any entire
+query without grouping, you may find 'aggregate' more convenient.
+
+[ Relationship to @foldMap@ ]
+
+@groupAndAggregate@ is intended to be similar to the 'foldMap' function in
+pure Haskell code:
+
+@
+foldMap :: Monoid b => ( a -> b ) -> [ a ] -> b
+@
+
+@foldMap@ takes a list of values of type @a@, and maps each element to an
+element of the monoid @b@. @foldMap@ then combines all of these @b@s together
+under their monoid structure to give you a single value.
+
+If we choose @b@ to a map-like structure, we can also use this operation to
+do grouping:
+
+@
+foldMap :: ( Eq k, Monoid v ) => ( a -> Map k v ) -> [a] -> Map k v
+@
+
+It's this instantiation of @foldMap@ that @groupAndAggregate@ attempts to
+mirror. If we view @MonadQuery m => m a@ as @[a]@, @groupAndAggregate@ has
+a type like:
+
+@
+groupAndAggregate
+  :: ( EqTable k, MonoidTable v )
+  => ( a -> GroupBy k v ) -> [a] -> [(k, v)]
+@
+
+This is not quite like @foldMap@, but is more like a @foldMap@ followed by
+transforming a @Map k v@ into a list of pairs:
+
+@
+\f as -> Map.toList (foldMap f as) :: ( a -> Map k v ) -> [ a ] -> [ ( k, v ) ]
+@
+
+-}
+groupAndAggregate
+  :: forall a a' k k' v v' m
+   . ( MonadQuery m
+     , MonoidTable v'
+     , EqTable k'
+     , Promote m a a'
+     , Promote m k k'
+     , Promote m v v'
+     )
+  => ( a' -> GroupBy k' v' ) -> m a -> m ( k, v )
+groupAndAggregate f query =
+  aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
+    ( key, value )
+
+  where
+
+    -- GHC will complain that EqTable isn't necessary. In A sense this is true
+    -- as the code doesn't use it at all. However, semantically it's very
+    -- important - PostgreSQL will not let us GROUP BY types that can't be
+    -- compared for equality.
+    eqTableIsImportant :: GroupBy k' v' -> GroupBy k' v'
+    eqTableIsImportant g@GroupBy{ key } =
+      const g ( key ==. key )
+
+
+aggregate
   :: forall a a' b b' m
    . ( MonadQuery m
      , MonoidTable b'
@@ -34,16 +105,17 @@ aggregateMap
      , Promote m b b'
      )
   => ( a' -> b' ) -> m a -> m b
-aggregateMap aggregate =
+aggregate f =
   liftOpaleye . Opaleye.aggregate ( dimap from to aggregator ) . toOpaleye
 
   where
 
     from :: a -> b'
-    from = aggregate . rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
+    from = f . rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
 
     to :: b' -> b
-    to = rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
+    to =
+      rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
 
 
 class MonoidTable a where
