@@ -10,6 +10,7 @@ module Rel8.Expr where
 import Data.Coerce
 import Data.Int
 import Data.Kind
+import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.Table
@@ -54,6 +55,11 @@ instance DBType Int32 where
 instance DBType Int64 where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+
+
+instance DBType Text where
+  lit =
+    unsafeCoerceExpr . lit . unpack
 
 
 instance DBType String where
