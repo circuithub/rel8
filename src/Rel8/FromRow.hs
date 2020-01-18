@@ -1,8 +1,10 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.FromRow where
 
@@ -21,7 +23,7 @@ import Rel8.ZipLeaves
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class FromRow sql haskell | sql -> haskell, haskell -> sql where
+class ZipLeaves sql sql ( Expr Query ) ( Expr Query ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
 
@@ -32,7 +34,7 @@ instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sql
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( ZipRecord t ( Expr Query ) Identity Top, HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
+instance ( ZipRecord t ( Expr Query ) ( Expr Query ) Top, ZipRecord t ( Expr Query ) Identity Top, HigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
   rowParser sql =
     zipLeaves
       ( Proxy @FromField )

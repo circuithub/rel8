@@ -20,8 +20,8 @@ import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKinded
 import Rel8.MonadQuery
-import Rel8.Nest
 import Rel8.Rewrite
+import Rel8.SimpleConstraints
 import Rel8.Top
 import Rel8.ZipLeaves
 
@@ -30,8 +30,8 @@ aggregateMap
   :: forall a a' b b' m
    . ( MonadQuery m
      , MonoidTable b'
-     , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a a'
-     , Rewrite ( Expr ( Nest m ) ) ( Expr m ) b' b
+     , Promote m a a'
+     , Promote m b b'
      )
   => ( a' -> b' ) -> m a -> m b
 aggregateMap aggregate =

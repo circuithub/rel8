@@ -2,12 +2,16 @@
 {-# language BlockArguments #-}
 {-# language DeriveGeneric #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
+{-# language TypeOperators #-}
+{-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.MonadQuery where
 
@@ -20,6 +24,7 @@ import Rel8.Expr
 import Rel8.MaybeTable
 import Rel8.Nest
 import Rel8.Rewrite
+import Rel8.SimpleConstraints
 import Rel8.TableSchema
 import Rel8.Top
 import Rel8.ZipLeaves
@@ -72,8 +77,7 @@ exists query =
 each
   :: forall m schema row
    . ( MonadQuery m
-     , Rewrite ColumnSchema ( Expr m ) schema row
-     , ZipLeaves row row ( Expr m ) ( Expr m )
+     , Selects m schema row
      )
   => TableSchema schema -> m row
 each schema =
@@ -129,7 +133,7 @@ each schema =
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin
   :: forall outer outer' m
-   . ( MonadQuery m, ZipLeaves outer' outer ( Expr ( Nest m ) ) ( Expr m ) )
+   . ( MonadQuery m, Promote m outer outer' )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
   -> m ( MaybeTable outer ( Expr m ) )
@@ -190,8 +194,8 @@ leftJoin joinTable condition =
 union
   :: forall a' a m
    . ( MonadQuery m
-     , ZipLeaves a a ( Expr m ) ( Expr m )
-     , Rewrite ( Expr ( Nest m ) ) ( Expr m ) a' a
+     , a `IsTableIn` m
+     , Promote m a a'
      )
   => Nest m a' -> Nest m a' -> m a
 union l r =
@@ -219,7 +223,7 @@ union l r =
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
 distinct
   :: forall a m
-   . ( MonadQuery m, ZipLeaves a a ( Expr m ) ( Expr m ) )
+   . ( MonadQuery m, a `IsTableIn` m )
   => m a -> m a
 distinct query =
   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )

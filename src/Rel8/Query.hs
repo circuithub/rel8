@@ -47,8 +47,7 @@ instance MonadQuery Query where
 -- | Run a @SELECT@ query, returning all rows.
 select
   :: forall row haskell
-   . ( ZipLeaves row row ( Expr Query ) ( Expr Query )
-     , FromRow row haskell
+   . ( FromRow row haskell
      )
   => Connection -> Query row -> IO [ haskell ]
 select c ( Query query ) =
