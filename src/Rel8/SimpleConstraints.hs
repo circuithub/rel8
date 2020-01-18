@@ -60,6 +60,9 @@ instance
   ) => ( Hidden () ) `IsTableIn` m
 
 
+-- | @Promote m a b@ witnesses that the types @a@ and @b@ are morally the same,
+-- but exist at different levels of scope. In particular, @Promote m a b@ says
+-- @b@ is the same expression as @a@, where the scope has been increased by one.
 class
   ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b a
   , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a b
