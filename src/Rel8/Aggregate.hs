@@ -35,7 +35,7 @@ SQL, it combines the @GROUP BY@ operator along with aggregation functions to
 reduce a sequence of rows to 1 or more rows. If you wish to aggregate any entire
 query without grouping, you may find 'aggregate' more convenient.
 
-[ Relationship to @foldMap@ ]
+=== __Relationship to @foldMap@__
 
 @groupAndAggregate@ is intended to be similar to the 'foldMap' function in
 pure Haskell code:
