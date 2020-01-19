@@ -124,26 +124,51 @@ unsafeCoerceExpr :: Expr m a -> Expr m b
 unsafeCoerceExpr ( Expr x ) = Expr x
 
 
+-- | The @Function@ type class is an implementation detail that allows
+-- @dbFunction@ to be polymorphic in the number of arguments it consumes.
 class Function arg res where
   -- | Build a function of multiple arguments.
-  mkFunctionGo :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
+  applyArgument :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
 
 
 instance arg ~ Expr m a => Function arg ( Expr m res ) where
-  mkFunctionGo mkExpr ( Expr a ) =
+  applyArgument mkExpr ( Expr a ) =
     Expr ( mkExpr [ a ] )
 
 
 instance ( arg ~ Expr m a, Function args res ) => Function arg ( args -> res ) where
-  mkFunctionGo f ( Expr a ) =
-    mkFunctionGo ( f . ( a : ) )
+  applyArgument f ( Expr a ) =
+    applyArgument ( f . ( a : ) )
 
 
+{-| Construct an n-ary function that produces an 'Expr' that when called runs a
+SQL function.
+
+For example, if we have a SQL function @foo(x, y, z)@, we can represent this
+in Rel8 with:
+
+@
+foo :: Expr m Int32 -> Expr m Int32 -> Expr m Bool -> Expr m Text
+foo = dbFunction "foo"
+@
+
+-}
 dbFunction :: Function args result => String -> args -> result
 dbFunction =
-  mkFunctionGo . Opaleye.FunExpr
+  applyArgument . Opaleye.FunExpr
 
 
+{-| Construct a function call for functions with no arguments.
+
+As an example, we can call the database function @now()@ by using
+@nullaryFunction@:
+
+@
+now :: Expr m UTCTime
+now = nullaryFunction "now"
+@
+
+-}
 nullaryFunction :: forall a m. DBType a => String -> Expr m a
 nullaryFunction name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )

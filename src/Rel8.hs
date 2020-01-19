@@ -58,6 +58,7 @@ module Rel8
     -- *** Functions
   , dbFunction
   , nullaryFunction
+  , Function
 
     -- * Running Queries
   , select
