@@ -74,6 +74,17 @@ transforming a @Map k v@ into a list of pairs:
 
 -}
 groupAndAggregate
+  :: ( MonadQuery m
+     , MonoidTable v
+     , EqTable k
+     , Promote m k' k
+     , Promote m v' v
+     )
+  => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
+groupAndAggregate = groupAndAggregate_forAll
+
+
+groupAndAggregate_forAll
   :: forall a k k' v v' m
    . ( MonadQuery m
      , MonoidTable v
@@ -82,7 +93,7 @@ groupAndAggregate
      , Promote m v' v
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
-groupAndAggregate f query =
+groupAndAggregate_forAll f query =
   aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
     ( key, value )
 
@@ -100,13 +111,19 @@ groupAndAggregate f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
+  :: ( MonadQuery m, MonoidTable b, Promote m b' b )
+  => ( a -> b ) -> Nest m a -> m b'
+aggregate = aggregate_forAll
+
+
+aggregate_forAll
   :: forall a b b' m
    . ( MonadQuery m
      , MonoidTable b
      , Promote m b' b
      )
   => ( a -> b ) -> Nest m a -> m b'
-aggregate f =
+aggregate_forAll f =
   liftOpaleye . Opaleye.aggregate ( dimap f to aggregator ) . toOpaleye
 
   where

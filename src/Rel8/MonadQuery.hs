@@ -74,13 +74,17 @@ exists query =
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each
+each :: ( MonadQuery m, Selects m schema row ) => TableSchema schema -> m row
+each = each_forAll
+
+
+each_forAll
   :: forall m schema row
    . ( MonadQuery m
      , Selects m schema row
      )
   => TableSchema schema -> m row
-each schema =
+each_forAll schema =
   liftOpaleye ( Opaleye.selectTableExplicit unpackspec table )
 
   where
@@ -132,12 +136,19 @@ each schema =
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin
+  :: ( MonadQuery m, Promote m outer outer' )
+  => Nest m outer'
+  -> ( outer -> Expr m Bool )
+  -> m ( MaybeTable outer ( Expr m ) )
+leftJoin = leftJoin_forAll
+
+leftJoin_forAll
   :: forall outer outer' m
    . ( MonadQuery m, Promote m outer outer' )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
   -> m ( MaybeTable outer ( Expr m ) )
-leftJoin joinTable condition =
+leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
       Opaleye.QueryArr rightQueryF =
@@ -192,13 +203,19 @@ leftJoin joinTable condition =
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
 union
+  :: ( MonadQuery m, a `IsTableIn` m, Promote m a a' )
+  => Nest m a' -> Nest m a' -> m a
+union = union_forAll
+
+
+union_forAll
   :: forall a' a m
    . ( MonadQuery m
      , a `IsTableIn` m
      , Promote m a a'
      )
   => Nest m a' -> Nest m a' -> m a
-union l r =
+union_forAll l r =
   liftOpaleye
     ( Opaleye.unionExplicit
         binaryspec
@@ -221,11 +238,15 @@ union l r =
 -- | Select all distinct rows from a query, removing duplicates.
 --
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
-distinct
+distinct :: ( MonadQuery m, a `IsTableIn` m ) => m a -> m a
+distinct = distinct_forAll
+
+
+distinct_forAll
   :: forall a m
    . ( MonadQuery m, a `IsTableIn` m )
   => m a -> m a
-distinct query =
+distinct_forAll query =
   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
 
   where

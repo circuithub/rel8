@@ -51,12 +51,18 @@ instance MonadQuery Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
+  :: ( FromRow row haskell, MonadIO m )
+  => Connection -> Query row -> m [ haskell ]
+select = select_forAll
+
+
+select_forAll
   :: forall row haskell m
    . ( FromRow row haskell
      , MonadIO m
      )
   => Connection -> Query row -> m [ haskell ]
-select c ( Query query ) =
+select_forAll c ( Query query ) =
   liftIO ( Opaleye.runSelectExplicit fromFields c query )
 
   where

@@ -169,6 +169,10 @@ now = nullaryFunction "now"
 @
 
 -}
-nullaryFunction :: forall a m. DBType a => String -> Expr m a
-nullaryFunction name =
+nullaryFunction :: DBType a => String -> Expr m a
+nullaryFunction = nullaryFunction_forAll
+
+
+nullaryFunction_forAll :: forall a m. DBType a => String -> Expr m a
+nullaryFunction_forAll name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
