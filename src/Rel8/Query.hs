@@ -107,9 +107,7 @@ insert connection Insert{ into, values, onConflict, returning } =
 
     toOpaleyeInsert
       :: forall schema result value
-       . ( Table schema
-         , Context schema ~ ColumnSchema
-         , Context value ~ Expr Query
+       . ( Context value ~ Expr Query
          , Compatible schema ColumnSchema schema ColumnSchema
          , Compatible schema ColumnSchema value ( Expr Query )
          )
@@ -119,38 +117,13 @@ insert connection Insert{ into, values, onConflict, returning } =
       -> Opaleye.Insert result
     toOpaleyeInsert into_ iRows returning_ =
       Opaleye.Insert
-        { iTable = ddlTable into_ writer
+        { iTable = ddlTable into_ ( writer into_ )
         , iRows
         , iReturning = opaleyeReturning returning_
         , iOnConflict
         }
 
       where
-
-        writer :: Opaleye.Writer value schema
-        writer =
-          let
-            go
-              :: forall f list
-               . ( Functor list, Applicative f )
-              => ( ( list Opaleye.PrimExpr, String ) -> f () )
-              -> list value
-              -> f ()
-            go f xs =
-              void
-                ( traverseTableWithIndexC
-                    @Unconstrained
-                    @schema
-                    @schema
-                    ( \i c@( C ( ColumnSchema{ columnName } ) ) ->
-                        c <$ f ( toPrimExpr . toColumn . flip field ( transferField i ) <$> xs, columnName )
-                    )
-                    ( tableColumns into_ )
-                )
-
-          in
-          Opaleye.Writer ( Opaleye.PackMap go )
-
 
         iOnConflict :: Maybe Opaleye.OnConflict
         iOnConflict =
@@ -160,6 +133,37 @@ insert connection Insert{ into, values, onConflict, returning } =
 
             Abort ->
               Nothing
+
+
+writer
+  :: forall value schema
+   . ( Compatible schema ColumnSchema schema ColumnSchema
+     , Compatible schema ColumnSchema value ( Expr Query )
+     , Context value ~ Expr Query
+     )
+  => TableSchema schema -> Opaleye.Writer value schema
+writer into_ =
+  let
+    go
+      :: forall f list
+       . ( Functor list, Applicative f )
+      => ( ( list Opaleye.PrimExpr, String ) -> f () )
+      -> list value
+      -> f ()
+    go f xs =
+      void
+        ( traverseTableWithIndexC
+            @Unconstrained
+            @schema
+            @schema
+            ( \i c@( C ( ColumnSchema{ columnName } ) ) ->
+                c <$ f ( toPrimExpr . toColumn . flip field ( transferField i ) <$> xs, columnName )
+            )
+            ( tableColumns into_ )
+        )
+
+  in
+  Opaleye.Writer ( Opaleye.PackMap go )
 
 
 opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
@@ -176,8 +180,8 @@ opaleyeReturning returning =
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
-ddlTable schema writer =
-  toOpaleyeTable schema writer ( Opaleye.View ( tableColumns schema ) )
+ddlTable schema writer_ =
+  toOpaleyeTable schema writer_ ( Opaleye.View ( tableColumns schema ) )
 
 
 data Insert :: * -> * where
@@ -234,7 +238,7 @@ showSQL ( Query opaleye ) =
           row
 
 
-delete :: MonadIO m => Connection -> Delete from result -> m result
+delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from, deleteWhere, returning } =
   liftIO ( Opaleye.runDelete_ c ( go from deleteWhere returning ) )
 
@@ -263,3 +267,43 @@ data Delete from return where
        , returning :: Returning from return
        }
     -> Delete from return
+
+
+update :: MonadIO m => Connection -> Update target returning -> m returning
+update connection Update{ target, set, updateWhere, returning } =
+  liftIO ( Opaleye.runUpdate_ connection ( go target set updateWhere returning ) )
+
+  where
+
+    go
+      :: forall returning target row
+       . ( Compatible row ( Expr Query ) target ColumnSchema
+         , Compatible target ColumnSchema target ColumnSchema
+         , Compatible target ColumnSchema row ( Expr Query )
+         )
+      => TableSchema target
+      -> ( row -> row )
+      -> ( row -> Expr Query Bool )
+      -> Returning target returning
+      -> Opaleye.Update returning
+    go target_ set_ updateWhere_ returning_ =
+      Opaleye.Update
+        { uTable = ddlTable target_ ( writer target_ )
+        , uReturning = opaleyeReturning returning_
+        , uWhere = Opaleye.Column . toPrimExpr . updateWhere_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
+        , uUpdateWith = set_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
+        }
+
+
+data Update target returning where
+  Update
+    :: ( Compatible row ( Expr Query ) target ColumnSchema
+       , Compatible target ColumnSchema target ColumnSchema
+       , Compatible target ColumnSchema row ( Expr Query )
+       )
+    => { target :: TableSchema target
+       , set :: row -> row
+       , updateWhere :: row -> Expr Query Bool
+       , returning :: Returning target returning
+       }
+    -> Update target returning

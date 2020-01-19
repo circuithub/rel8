@@ -75,6 +75,10 @@ module Rel8
   , delete
   , Delete(..)
 
+    -- ** @UPDATE@
+  , update
+  , Update(..)
+
     -- * Next Steps
     -- $nextSteps
   )
