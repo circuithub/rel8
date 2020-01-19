@@ -65,6 +65,7 @@ module Rel8
   , select
   , FromRow(..)
   , Query
+  , Identity
 
     -- ** @INSERT@
   , insert
@@ -84,6 +85,7 @@ module Rel8
   )
   where
 
+import Data.Functor.Identity
 import Rel8.Aggregate
 import Rel8.Column
 import Rel8.ColumnSchema

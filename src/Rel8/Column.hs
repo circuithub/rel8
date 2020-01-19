@@ -1,9 +1,12 @@
 {-# language TypeFamilies #-}
 
-module Rel8.Column ( Column, C(..) ) where
+module Rel8.Column ( Column, C(..), Spine ) where
 
 import Data.Functor.Identity
 import Data.Kind
+
+
+data Spine a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
@@ -40,6 +43,7 @@ should only need to be aware of the type family when defining your table types.
 -}
 type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
   Column Identity a = a
+  Column Spine a = Spine a
   Column f a = f a
 
 

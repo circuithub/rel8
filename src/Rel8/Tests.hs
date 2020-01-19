@@ -1,10 +1,11 @@
 {-# language ApplicativeDo #-}
-{-# language LambdaCase #-}
-{-# language TypeOperators #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
+{-# language DeriveAnyClass #-}
+{-# language DeriveGeneric #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language RankNTypes #-}
@@ -12,6 +13,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 {-# options -fno-warn-missing-signatures #-}
@@ -19,21 +21,9 @@
 module Rel8.Tests where
 
 import Data.Int
+import Database.PostgreSQL.Simple ( Connection )
+import GHC.Generics
 import Rel8
-
--- TODO Users should not need these imports
-import Rel8.Column
-import Rel8.Table
-
-
--- TODO Part of generic derivation
-data Refl a b where
-  Refl :: Refl a a
-
-
-data ( l & r ) a =
-  L ( l a ) | R ( r a )
-
 
 
 data Part f =
@@ -41,29 +31,8 @@ data Part f =
     { partId :: Column f Int32
     , partName :: Column f String
     }
-
-
--- TODO Generically derive.
-instance HigherKindedTable Part where
-  type HConstrainTraverse Part c = ( c Int32, c String )
-  data HField Part x where
-    PartId :: HField Part Int32
-    PartName :: HField Part String
-  hfield Part{ partId } PartId = C partId
-  hfield Part{ partName } PartName = C partName
-  htabulate _ f =
-    Part <$> do toColumn <$> f PartId
-         <*> do toColumn <$> f PartName
-  -- htraverseTableWithIndexC f Part{ partId, partName } = do
-  --   partId' <-
-  --     f ( L Refl ) ( C partId )
-
-  --   partName' <-
-  --     f ( R Refl ) ( C partName )
-
-  --   pure ( tabulate \case ( L Refl ) -> partId'
-  --                         ( R Refl ) -> partName'
-  --        )
+  deriving
+    ( Generic, HigherKindedTable )
 
 
 
@@ -84,131 +53,119 @@ allParts =
   each parts
 
 
--- partsEq :: MonadQuery m => m ( Expr m Bool )
--- partsEq = do
---   parts1 <- allParts
---   parts2 <- allParts
---   return (parts1 ==. parts2)
+partsEq :: MonadQuery m => m ( Expr m Bool )
+partsEq = do
+  parts1 <- allParts
+  parts2 <- allParts
+  return (parts1 ==. parts2)
 
 
 
--- -- select_allParts :: m [ Part Identity ]
--- -- select_allParts =
--- --   select allParts
+select_allParts :: Connection -> IO [ Part Identity ]
+select_allParts c =
+  select c allParts
 
 
--- -- TODO Can we make this infer?
--- -- allParts_inferred =
--- --   each parts
+-- TODO Can we make this infer?
+-- allParts_inferred =
+--   each parts
 
 
--- allPartIds :: MonadQuery m => m ( Expr m Int32 )
--- allPartIds =
---   partId <$> allParts
+allPartIds :: MonadQuery m => m ( Expr m Int32 )
+allPartIds =
+  partId <$> allParts
 
 
--- -- selectAllPartIds :: IO [ Int32 ]
--- -- selectAllPartIds =
--- --   select allPartIds
+selectAllPartIds :: Connection -> IO [ Int32 ]
+selectAllPartIds c =
+  select c allPartIds
 
 
--- data Project f =
---   Project
---     { projectId :: Column f Int32
---     }
+data Project f =
+  Project
+    { projectId :: Column f Int32
+    }
+  deriving
+    ( Generic, HigherKindedTable )
 
 
--- -- TODO Generically derive.
--- instance HigherKindedTable Project where
---   type HConstrainTraverse Project c =
---     c Int32
+projects :: TableSchema ( Project ColumnSchema )
+projects =
+  TableSchema
+    { tableName = "project"
+    , tableSchema = Nothing
+    , tableColumns = Project { projectId = "id" }
+    }
 
 
--- projects :: TableSchema ( Project ColumnSchema )
--- projects =
---   TableSchema
---     { tableName = "project"
---     , tableSchema = Nothing
---     , tableColumns = Project { projectId = "id" }
---     }
+data ProjectPart f =
+  ProjectPart
+    { projectPartProjectId :: Column f Int32
+    , projectPartPartId :: Column f Int32
+    }
+  deriving
+    ( Generic, HigherKindedTable )
 
 
--- data ProjectPart f =
---   ProjectPart
---     { projectPartProjectId :: Column f Int32
---     , projectPartPartId :: Column f Int32
---     }
+projectParts :: TableSchema ( ProjectPart ColumnSchema )
+projectParts =
+  TableSchema
+    { tableName = "project_part"
+    , tableSchema = Nothing
+    , tableColumns = ProjectPart { projectPartPartId = "part_id"
+                                 , projectPartProjectId = "project_id"
+                                 }
+    }
 
 
--- -- TODO Generically derive.
--- instance HigherKindedTable ProjectPart where
---   type HConstrainTraverse ProjectPart c=
---     c Int32
+leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
+leftJoinTest = do
+  Part{ partId } <-
+    each parts
+
+  projectPart <-
+    leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
+      projectPartPartId ==. partId
+
+  return ( partId, projectPart )
 
 
--- projectParts :: TableSchema ( ProjectPart ColumnSchema )
--- projectParts =
---   TableSchema
---     { tableName = "project_part"
---     , tableSchema = Nothing
---     , tableColumns = ProjectPart { projectPartPartId = "part_id"
---                                  , projectPartProjectId = "project_id"
---                                  }
---     }
+data PartWithProject f =
+  PartWithProject
+    { part :: Part f
+    , project :: Project f
+    }
+  deriving
+    ( Generic, HigherKindedTable )
 
 
--- leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
--- leftJoinTest = do
---   Part{ partId } <-
---     each parts
+partsWithProjects :: MonadQuery m => m ( PartWithProject ( Expr m ) )
+partsWithProjects = do
+  part <-
+    each parts
 
---   projectPart <-
---     leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
---       projectPartPartId ==. partId
+  projectPart <-
+    each projectParts
 
---   return ( partId, projectPart )
+  where_ ( projectPartPartId projectPart ==. partId part )
 
+  project <-
+    each projects
 
--- data PartWithProject f =
---   PartWithProject
---     { part :: Part f
---     , project :: Project f
---     }
+  where_ ( projectPartProjectId projectPart ==. projectId project )
 
-
--- -- TODO Generically derive.
--- instance HigherKindedTable PartWithProject where
---   type HConstrainTraverse PartWithProject c =
---     ( HConstrainTraverse Part c, HConstrainTraverse Project c )
+  return PartWithProject{..}
 
 
--- partsWithProjects :: MonadQuery m => m ( PartWithProject ( Expr m ) )
--- partsWithProjects = do
---   part <-
---     each parts
-
---   projectPart <-
---     each projectParts
-
---   where_ ( projectPartPartId projectPart ==. partId part )
-
---   project <-
---     each projects
-
---   where_ ( projectPartProjectId projectPart ==. projectId project )
-
---   return PartWithProject{..}
+nestedTableEq :: MonadQuery m => m ( Expr m Bool )
+nestedTableEq = do
+  l <- partsWithProjects
+  r <- partsWithProjects
+  return ( l ==. r )
 
 
--- nestedTableEq :: MonadQuery m => m ( Expr m Bool )
--- nestedTableEq = do
---   l <- partsWithProjects
---   r <- partsWithProjects
---   return ( l ==. r )
-
-
--- -- select_partsWithProjects =
--- --   select partsWithProjects
+-- select_partsWithProjects =
+--   select partsWithProjects
 
 
 -- partsAggregation

@@ -177,6 +177,10 @@ demote ( Expr x ) =
   Expr x
 
 
+data ExprField ( m :: * -> * ) a x where
+  ExprField :: ExprField m a a
+
+
 instance Table ( Expr m a ) where
   type Context ( Expr m a ) =
     Expr m
@@ -184,8 +188,8 @@ instance Table ( Expr m a ) where
   type ConstrainTable ( Expr m a ) c =
     c a
 
-  data Field ( Expr m a ) x where
-    ExprField :: Field ( Expr m a ) a
+  type Field ( Expr m a ) =
+    ExprField m a
 
   field expr ExprField =
     C expr

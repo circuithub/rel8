@@ -33,7 +33,7 @@ instance ( Context ( sqlA, sqlB ) ~ Expr Query, FromRow sqlA haskellA, FromRow s
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( HigherKindedTable t, HConstrainTraverse t FromField, HConstrainTraverse t Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance ( HConstrainTraverse t Identity Unconstrained, HigherKindedTable t, HConstrainTraverse t Identity FromField, HConstrainTraverse t ( Expr Query ) Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
     traverseTableC @FromField ( \_ -> C <$> field )
 

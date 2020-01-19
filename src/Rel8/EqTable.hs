@@ -44,7 +44,7 @@ instance DBEq a => EqTable ( Expr m a ) where
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ( ConstrainTable ( t ( Expr m ) ) Unconstrained, HigherKindedTable t, HConstrainTraverse t DBEq, HConstrainTraverse t Unconstrained ) => EqTable ( t ( Expr m ) ) where
+instance ( ConstrainTable ( t ( Expr m ) ) Unconstrained, HigherKindedTable t, HConstrainTraverse t ( Expr m ) DBEq, HConstrainTraverse t ( Expr m ) Unconstrained ) => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
       (&&.)

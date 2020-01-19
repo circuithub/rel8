@@ -164,7 +164,7 @@ class MonoidTable a where
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ( HConstrainTraverse t Unconstrained, ConstrainHigherKinded m DBMonoid t ) => MonoidTable ( t ( Expr m ) ) where
+instance ( HConstrainTraverse t ( Expr m ) Unconstrained, ConstrainHigherKinded m DBMonoid t ) => MonoidTable ( t ( Expr m ) ) where
   aggregator =
     Opaleye.Aggregator $ Opaleye.PackMap \f ->
       traverseTableC
@@ -209,13 +209,17 @@ data GroupBy k v =
   GroupBy { key :: k, value :: v }
 
 
+data GroupByField k v a where
+  KeyFields :: Field k x -> GroupByField k v x
+  ValueFields :: Field v x -> GroupByField k v x
+
+
 instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) where
   type Context ( GroupBy k v ) =
     Context k
 
-  data Field ( GroupBy k v ) x where
-    KeyFields :: Field k x -> Field ( GroupBy k v ) x
-    ValueFields :: Field v x -> Field ( GroupBy k v ) x
+  type Field ( GroupBy k v ) =
+    GroupByField k v
 
   type ConstrainTable ( GroupBy k v ) c =
     ( ConstrainTable k c, ConstrainTable v c )
