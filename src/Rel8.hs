@@ -65,6 +65,8 @@ module Rel8
   , FromRow(..)
   , Query
 
+    -- * Next Steps
+    -- $nextSteps
   )
   where
 
@@ -81,3 +83,15 @@ import Rel8.MonadQuery
 import Rel8.Query
 import Rel8.Table
 import Rel8.TableSchema
+
+{- $nextSteps
+
+You've now seen the essential parts of Rel8. But the story doesn't finish here!
+Rel8 includes a suite of utilities and patterns to help you write queries, here
+are some jumping off points for more reading:
+
+* "Rel8.Tabulate" - exposes the 'Rel8.Tabulate.Tabulated' and
+  'Rel8.Tabulate.Tabulation' primitives, which make it easy to write queries
+  that are highly composable.
+
+-}
