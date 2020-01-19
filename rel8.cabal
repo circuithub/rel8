@@ -25,6 +25,7 @@ library
   exposed-modules:
     Rel8
     Rel8.ImplementationDetails
+    Rel8.Tabulate
   other-modules:
     Rel8.Aggregate
     Rel8.Column

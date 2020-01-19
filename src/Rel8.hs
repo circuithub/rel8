@@ -38,6 +38,7 @@ module Rel8
 
     -- ** Expressions
   , Expr
+  , ExprIn
   , coerceExpr
   , unsafeCoerceExpr
 
