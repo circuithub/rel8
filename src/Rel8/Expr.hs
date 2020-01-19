@@ -111,6 +111,8 @@ not_ ( Expr a ) =
   Expr ( Opaleye.UnExpr Opaleye.OpNot a )
 
 
+-- | Use Haskell's 'Coercible' type class to witness that two types
+-- are actually compatible in the SQL expressions they produce.
 coerceExpr :: forall b a m. Coercible a b => Expr m a -> Expr m b
 coerceExpr e =
   const
