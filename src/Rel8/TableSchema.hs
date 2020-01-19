@@ -38,7 +38,7 @@ data TableSchema ( schema :: Type ) =
       -- the connection's @search_path@ will be used.
     , tableColumns :: schema
       -- ^ The columns of the table. Typically you would use a a higher-kinded
-      -- data type here, parameterized by the 'Rle8.ColunmSchema.ColumnSchema' functor.
+      -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
     }
   deriving
     ( Functor )
