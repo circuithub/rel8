@@ -61,9 +61,15 @@ module Rel8
   , Function
 
     -- * Running Queries
+    -- ** @SELECT@
   , select
   , FromRow(..)
   , Query
+
+    -- ** @INSERT@
+  , insert
+  , Insert(..)
+  , Returning(..)
 
     -- * Next Steps
     -- $nextSteps
