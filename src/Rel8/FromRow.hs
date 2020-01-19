@@ -8,13 +8,14 @@
 
 module Rel8.FromRow where
 
+import Data.Int
 import Data.Functor.Identity
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.Query
-import Rel8.Table ( Compatible, Context, Table, HConstrainTraverse, traverseTableC )
+import Rel8.Table ( Context, Table, HConstrainTraverse, HigherKindedTable, traverseTableC )
 import Rel8.Unconstrained
 
 
@@ -32,12 +33,12 @@ instance ( Context ( sqlA, sqlB ) ~ Expr Query, FromRow sqlA haskellA, FromRow s
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( Compatible ( t Identity ) ( t ( Expr Query ) ), HConstrainTraverse t FromField, HConstrainTraverse t Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance ( HigherKindedTable t, HConstrainTraverse t FromField, HConstrainTraverse t Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
     traverseTableC @FromField ( \_ -> C <$> field )
 
 
-instance m ~ Query => FromRow ( Expr m Int ) Int where
+instance m ~ Query => FromRow ( Expr m Int32 ) Int32 where
   rowParser _ =
     field
 

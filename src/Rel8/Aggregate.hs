@@ -87,7 +87,7 @@ groupAndAggregate
      , Promote m k' k
      , Promote m v' v
      , ConstrainTable v DBMonoid
-     , Compatible k k
+     , Compatible k ( Expr ( Nest m ) ) k ( Expr ( Nest m ) )
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate = groupAndAggregate_forAll
@@ -99,13 +99,13 @@ groupAndAggregate_forAll
      , MonoidTable v
      , EqTable k
      , ConstrainTable v DBMonoid
-     , Compatible k k
      , Context k ~ Expr ( Nest m )
      , Context k' ~ Context v'
      , Context v ~ Expr ( Nest m )
-     , Compatible k' k
-     , Compatible v' v
      , Context v' ~ Expr m
+     , Compatible k' ( Expr m ) k ( Expr ( Nest m ) )
+     , Compatible v' ( Expr m ) v ( Expr ( Nest m ) )
+     , Compatible k ( Expr ( Nest m ) ) k ( Expr ( Nest m ) )
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate_forAll f query =
@@ -126,7 +126,12 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m, MonoidTable b, Compatible b' b, Context b' ~ Expr m, Context b ~ Expr ( Nest m) )
+  :: ( MonadQuery m
+     , MonoidTable b
+     , Context b' ~ Expr m
+     , Context b ~ Expr ( Nest m)
+     , Compatible b' ( Expr m ) b ( Expr ( Nest m ) )
+     )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
 
@@ -135,9 +140,9 @@ aggregate_forAll
   :: forall a b b' m
    . ( MonadQuery m
      , MonoidTable b
-     , Compatible b' b
      , Context b' ~ Expr m
      , Context b ~ Expr ( Nest m )
+     , Compatible b' ( Expr m ) b ( Expr ( Nest m ) )
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate_forAll f =
@@ -225,13 +230,13 @@ instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) wh
       <*> tabulateMCP proxy ( f . ValueFields )
 
 
-instance ( Context k ~ Context v, Context k' ~ Context v', Compatible k k', Compatible v v' ) => Compatible ( GroupBy k v ) ( GroupBy k' v' ) where
+instance ( Compatible k f k' g, Compatible v f v' g, Context k ~ Context v, Context k' ~ Context v' ) => Compatible ( GroupBy k v ) f ( GroupBy k' v' ) g where
   transferField = \case
     KeyFields i -> KeyFields ( transferField i )
     ValueFields i -> ValueFields ( transferField i )
 
 
-instance ( Compatible k k, ConstrainTable v DBMonoid, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Compatible k ( Expr m ) k ( Expr m ), ConstrainTable k Unconstrained, ConstrainTable v DBMonoid, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group

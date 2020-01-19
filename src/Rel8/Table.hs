@@ -1,7 +1,9 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
@@ -47,7 +49,7 @@ class ConstrainTable t Unconstrained => Table ( t :: * ) where
   type ConstrainTable t ( c :: * -> Constraint ) :: Constraint
 
 
-class ( Table a, Table b ) => Compatible a b where
+class ( Table a, Table b, Context a ~ f, Context b ~ g ) => Compatible a ( f :: * -> * ) b ( g :: * -> * ) | a -> f, b -> g, f b g -> a where
   transferField :: Field a x -> Field b x
 
 
@@ -61,11 +63,11 @@ tabulateC f =
 
 -- | Effectfully map a table from one context to another.
 traverseTableWithIndexC
-  :: forall c t t' f
-   . ( Applicative f, Compatible t' t, ConstrainTable t' c )
-  => ( forall x. c x => Field t x -> C ( Context t ) x -> f ( C ( Context t' ) x ) )
+  :: forall c t t' f g m
+   . ( Applicative m, Compatible t' f t g, ConstrainTable t' c )
+  => ( forall x. c x => Field t x -> C ( Context t ) x -> m ( C ( Context t' ) x ) )
   -> t
-  -> f t'
+  -> m t'
 traverseTableWithIndexC f t =
   tabulateMCP ( Proxy @c ) \index ->
     f ( transferField index ) ( field t ( transferField index ) )
@@ -91,8 +93,10 @@ instance ( Context a ~ Context b, Table a, Table b ) => Table ( a, b ) where
         <*> tabulateMCP proxy ( f . Element2 )
 
 
-instance ( Context a ~ Context b, Table a, Table b ) => Compatible ( a, b ) ( a, b ) where
-  transferField = id
+instance ( Context x ~ Context y, Context a ~ Context b, Compatible a f x g, Compatible b f y g ) => Compatible ( a, b ) f ( x, y ) g where
+  transferField = \case
+    Element1 i -> Element1 ( transferField i )
+    Element2 i -> Element2 ( transferField i )
 
 
 instance Table a => Table ( Sum a ) where
@@ -112,7 +116,7 @@ instance Table a => Table ( Sum a ) where
     Sum <$> tabulateMCP proxy ( f . SumField )
 
 
-instance Compatible a b => Compatible ( Sum a ) ( Sum b ) where
+instance Compatible a f b g => Compatible ( Sum a ) f ( Sum b ) g where
   transferField ( SumField x ) =
     SumField ( transferField x )
 
@@ -123,14 +127,15 @@ tabulate f =
 
 
 mapTable
-  :: Compatible t' t
+  :: forall t' t
+   . ( Compatible t' ( Context t' ) t ( Context t ) )
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
 mapTable f =
   runIdentity . traverseTable ( Identity . f )
 
 
 traverseTable
-  :: ( Applicative f, Compatible t' t )
+  :: ( Applicative f, Compatible t' ( Context t' ) t ( Context t ) )
   => ( forall x. C ( Context t ) x -> f ( C ( Context t' ) x ) )
   -> t
   -> f t'
@@ -139,20 +144,21 @@ traverseTable f =
 
 
 traverseTableC
-  :: forall c f t t'
-   . ( Applicative f, Compatible t' t, ConstrainTable t' c )
-  => ( forall x. c x => C ( Context t ) x -> f ( C ( Context t' ) x ) )
+  :: forall c m t t'
+   . ( Applicative m, ConstrainTable t' c, Compatible t' ( Context t' ) t ( Context t ) )
+  => ( forall x. c x => C ( Context t ) x -> m ( C ( Context t' ) x ) )
   -> t
-  -> f t'
+  -> m t'
 traverseTableC f =
   traverseTableWithIndexC @c ( const f )
 
 
 zipTablesWithM
   :: forall t t' t'' m
-   . ( Table t''
-     , Compatible t'' t, Compatible t'' t'
-     , Applicative m
+   . ( Applicative m
+     , Table t''
+     , Compatible t'' ( Context t'' ) t ( Context t )
+     , Compatible t'' ( Context t'' ) t' ( Context t' )
      )
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
   -> t -> t' -> m t''
@@ -164,8 +170,9 @@ zipTablesWithM f t t' =
 
 zipTablesWithMC
   :: forall c t'' t t' m
-   . ( Compatible t'' t, Compatible t'' t'
-     , ConstrainTable t'' c
+   . ( ConstrainTable t'' c
+     , Compatible t'' ( Context t'' ) t ( Context t )
+     , Compatible t'' ( Context t'' ) t' ( Context t' )
      , Applicative m
      )
   => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
@@ -204,6 +211,6 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     hfield x i
 
 
-instance ( HConstrainTraverse t Unconstrained, HigherKindedTable t ) => Compatible ( t f ) ( t g ) where
+instance ( HConstrainTraverse t Unconstrained, HigherKindedTable t, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
   transferField ( F x ) =
     F x

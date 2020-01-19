@@ -1,3 +1,4 @@
+{-# language RankNTypes #-}
 {-# language BlockArguments #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
@@ -60,24 +61,29 @@ instance MonadQuery Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: ( Compatible row row, FromRow row haskell, MonadIO m )
+  :: ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select = select_forAll
 
 
 select_forAll
   :: forall row haskell m
-   . ( Compatible row row, FromRow row haskell, MonadIO m )
+   . ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select_forAll c ( Query query ) =
-  liftIO ( Opaleye.runSelectExplicit fromFields c query )
+  liftIO ( Opaleye.runSelectExplicit ( queryRunner ) c query )
 
   where
 
-    fromFields :: Opaleye.FromFields row haskell
-    fromFields =
-      Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
 
+queryRunner
+  :: forall row haskell
+   . ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell )
+  => Opaleye.FromFields row haskell
+queryRunner =
+  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
+
+  where
 
     unpackspec :: Opaleye.Unpackspec row row
     unpackspec =
@@ -100,26 +106,29 @@ insert connection Insert{ into, values, onConflict, returning } =
     toOpaleyeInsert
       :: forall schema result value
        . ( Table schema
-         , Compatible schema value
-         , Compatible schema schema
          , Context schema ~ ColumnSchema
          , Context value ~ Expr Query
+         , Compatible schema ColumnSchema schema ColumnSchema
+         , Compatible schema ColumnSchema value ( Expr Query )
          )
       => TableSchema schema
       -> [ value ]
-      -> Returning result
+      -> Returning schema result
       -> Opaleye.Insert result
     toOpaleyeInsert into_ iRows returning_ =
       Opaleye.Insert { iTable, iRows, iReturning, iOnConflict }
 
       where
 
-        iTable :: Opaleye.Table value ()
+        iTable :: Opaleye.Table value schema
         iTable =
-          toOpaleyeTable into writer ( Opaleye.View () )
+          toOpaleyeTable
+            into
+            writer
+            ( Opaleye.View ( tableColumns into_ ) )
 
 
-        writer :: Opaleye.Writer value ()
+        writer :: Opaleye.Writer value schema
         writer =
           let
             go
@@ -144,11 +153,17 @@ insert connection Insert{ into, values, onConflict, returning } =
           Opaleye.Writer ( Opaleye.PackMap go )
 
 
-        iReturning :: Opaleye.Returning () result
+        iReturning :: Opaleye.Returning schema result
         iReturning =
           case returning_ of
             NumberOfRowsInserted ->
               Opaleye.Count
+
+            Projection f ->
+              Opaleye.ReturningExplicit
+                queryRunner
+                ( f . mapTable \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
+                )
 
 
         iOnConflict :: Maybe Opaleye.OnConflict
@@ -165,22 +180,30 @@ data Insert :: * -> * where
   Insert
     :: ( Table schema
        , Table value
-       , Compatible schema value
        , Context schema ~ ColumnSchema
-       , Compatible schema schema
        , Context value ~ Expr Query
+       , Compatible schema ColumnSchema schema ColumnSchema
+       , Compatible schema ColumnSchema value ( Expr Query )
        )
     => { into :: TableSchema schema
        , values :: [ value ]
        , onConflict :: OnConflict
-       , returning :: Returning result
+       , returning :: Returning schema result
        }
     -> Insert result
 
 
-data Returning a where
-  NumberOfRowsInserted :: Returning Int64
-  Projection :: Returning a
+data Returning schema a where
+  NumberOfRowsInserted :: Returning schema Int64
+
+  Projection
+    :: ( Compatible row ( Context row ) schema ColumnSchema
+       , Compatible projection ( Expr Query ) projection ( Expr Query )
+       , Context row ~ Expr Query
+       , FromRow projection a
+       )
+    => ( row -> projection )
+    -> Returning schema [ a ]
 
 
 data OnConflict
@@ -190,7 +213,9 @@ data OnConflict
 
 showSQL
   :: forall a
-   . ( Context a ~ Expr Query, Compatible a a )
+   . ( Context a ~ Expr Query
+     , Compatible a ( Expr Query ) a ( Expr Query )
+     )
   => Query a -> Maybe String
 showSQL ( Query opaleye ) =
   Opaleye.showSqlExplicit unpackspec opaleye

@@ -194,6 +194,6 @@ instance Table ( Expr m a ) where
     toColumn <$> f ExprField
 
 
-instance a ~ b => Compatible ( Expr m a ) ( Expr n b ) where
+instance ( a ~ b, Expr m ~ m', Expr n ~ n' ) => Compatible ( Expr m a ) m' ( Expr n b ) n' where
   transferField ExprField =
     ExprField

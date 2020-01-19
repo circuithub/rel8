@@ -24,8 +24,8 @@ class
   , Context schema ~ ColumnSchema
   , Table schema
   , Table row
-  , Compatible row row
-  , Compatible row schema
+  , Compatible row ( Expr m ) row ( Expr m )
+  , Compatible row ( Expr m ) schema ColumnSchema
   ) => Selects m schema row
 
 
@@ -35,8 +35,8 @@ instance
   , Context schema ~ ColumnSchema
   , Table schema
   , Table row
-  , Compatible row row
-  , Compatible row schema
+  , Compatible row ( Expr m ) row ( Expr m )
+  , Compatible row ( Expr m ) schema ColumnSchema
   ) => Selects m schema row
 
 
@@ -48,8 +48,8 @@ instance
   , Context ( Hidden () ) ~ ColumnSchema
   , Table ( Hidden () )
   , Table row
-  , Compatible row row
-  , Compatible row ( Hidden () )
+  , Compatible row ( Expr m ) row ( Expr m )
+  , Compatible row ( Expr m ) ( Hidden () ) ColumnSchema
   ) => Selects m ( Hidden () ) row
 
 
@@ -57,7 +57,7 @@ instance
 -- | Makes sure that a given table (@a@) contains expressions compatible with
 -- the monad @m@. This type class is essentially a scoping check.
 class
-  ( Compatible a a
+  ( Compatible a ( Expr m ) a ( Expr m )
   , Context a ~ Expr m
   ) => a `IsTableIn` m
 
@@ -66,7 +66,7 @@ class
 -- but exist at different levels of scope. In particular, @Promote m a b@ says
 -- @b@ is the same expression as @a@, where the scope has been increased by one.
 class
-  ( Compatible a b
+  ( Compatible a ( Expr m ) b ( Expr ( Nest m ) )
   , Context a ~ Expr m
   , Context b ~ Expr ( Nest m )
   ) => Promote m a b where
