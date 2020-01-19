@@ -2,6 +2,10 @@
 {-# language DeriveFunctor #-}
 {-# language TypeFamilies #-}
 
+{-| This module exposes an API that you may find useful when working with
+multiple related tables, or to build composable queries.
+
+-}
 module Rel8.Tabulate
   ( Tabulated( Tabulated )
   , singleton
@@ -37,12 +41,13 @@ instance Functor m => Bifunctor ( Tabulated m ) where
     Tabulated ( fmap ( bimap f g ) a )
 
 
+-- | Construct a @Tabulated@ value that contains a single entry.
 singleton :: Applicative m => k -> a -> Tabulated m k a
 singleton k a =
   Tabulated ( pure ( k, a ) )
 
 
--- | Note that 'Tabulated' is a @MultiMap@, so the 'Query' returned by
+-- | Note that 'Tabulated' is a @MultiMap@, so the 'MonadQuery' returned by
 --   'lookup' can and often does contain multiple results.
 lookup
   :: ( ExprIn k ~ Expr m, EqTable k, MonadQuery m )
@@ -53,7 +58,7 @@ lookup =
 
 -- | Like 'lookup' but can take an arbitrary predicate. This can be efficient
 -- if @k@ is an indexed column(s) and your predicate is something like
--- @('Rel8.<.' key)@ which uses 'DBOrd'.
+-- @('Rel8.<.' key)@ which uses 'Rel8.DBOrd'.
 --
 -- See also 'lookup'.
 lookupBy
@@ -84,6 +89,8 @@ zipWith
 zipWith = izipWith . const
 
 
+-- | Combine two @Tabulated@ queries by equality on their key, but combine their
+-- values with access to the matching key.
 izipWith
   :: MonadQuery m
   => ( EqTable k, ExprIn k ~ Expr m )
@@ -112,7 +119,7 @@ izipWithBy f key value ( Tabulated left ) ( Tabulated right ) = Tabulated do
   return ( key k l, value k l a b )
 
 
--- | A @'Tabulation' k i a@ is the ability to transform 'Query's of
+-- | A @'Tabulation' k i a@ is the ability to transform 'MonadQuery's of
 -- @i@ into 'Tabulated's of @a@ indexed by @k@.
 --
 -- 'Tabulation's are built using 'tabulate' and composed using 'cotabulate'.
@@ -121,9 +128,10 @@ izipWithBy f key value ( Tabulated left ) ( Tabulated right ) = Tabulated do
 newtype Tabulation m k i a =
   Tabulation
     { -- | 'run' turns a @'Tabulation' k i a@ into its underlying
-      -- @'Query' i -> 'Tabulated' k a@ function. You generally feed that
-      -- 'queryTable', and then use 'lookup' and friends on the resulting
-      -- 'Tabulated' to get 'Rel8.select'able 'Query's.
+      -- @'MonadQuery' m i -> 'Tabulated' k a@ function. You generally feed that
+      -- a query returning all rows in a table, and then use 'lookup' and
+      -- friends on the resulting 'Tabulated' to get 'Rel8.select'able
+      -- 'MonadQuery's.
       run :: m i -> Tabulated m k a
     }
   deriving
@@ -135,8 +143,8 @@ instance Functor m => Profunctor ( Tabulation m k ) where
     Tabulation ( dimap ( fmap f ) ( fmap g ) t )
 
 
--- | 'tabulate' creates a @'Tabulation' k i a@ that can index a 'Query' of @a@
--- by one or more of the columns @k@ of @a@. Some examples:
+-- | 'tabulate' creates a @'Tabulation' k i a@ that can index a 'MonadQuery' of
+-- @a@ by one or more of the columns @k@ of @a@. Some examples:
 --
 -- [Tabulation by primary key]:
 --   @
@@ -164,8 +172,8 @@ tabulate key =
 
 -- | The main use of 'cotabulate' is to create a 'Tabulation' in the opposite
 -- direction to what you get with 'tabulate someForeignKey'. Taking our
--- 'revisionsByProjectId' example above, we use 'cotabulate' when we want to
--- get 'projectsByRevisionId'.
+-- @revisionsByProjectId@ example above, we use 'cotabulate' when we want to
+-- get @projectsByRevisionId@.
 --
 -- [Reverse-tabulating by foreign key (the ability to tabulate a parent table by child key)]:
 --   @
