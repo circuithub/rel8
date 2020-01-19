@@ -1,11 +1,12 @@
-{-# language RankNTypes #-}
 {-# language BlockArguments #-}
 {-# language DisambiguateRecordFields #-}
+{-# language DuplicateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language KindSignatures #-}
 {-# language NamedFieldPuns #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
@@ -16,6 +17,7 @@ import Control.Monad.IO.Class
 import Data.Int
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Opaleye
+import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -116,17 +118,14 @@ insert connection Insert{ into, values, onConflict, returning } =
       -> Returning schema result
       -> Opaleye.Insert result
     toOpaleyeInsert into_ iRows returning_ =
-      Opaleye.Insert { iTable, iRows, iReturning, iOnConflict }
+      Opaleye.Insert
+        { iTable = ddlTable into_ writer
+        , iRows
+        , iReturning = opaleyeReturning returning_
+        , iOnConflict
+        }
 
       where
-
-        iTable :: Opaleye.Table value schema
-        iTable =
-          toOpaleyeTable
-            into
-            writer
-            ( Opaleye.View ( tableColumns into_ ) )
-
 
         writer :: Opaleye.Writer value schema
         writer =
@@ -153,19 +152,6 @@ insert connection Insert{ into, values, onConflict, returning } =
           Opaleye.Writer ( Opaleye.PackMap go )
 
 
-        iReturning :: Opaleye.Returning schema result
-        iReturning =
-          case returning_ of
-            NumberOfRowsInserted ->
-              Opaleye.Count
-
-            Projection f ->
-              Opaleye.ReturningExplicit
-                queryRunner
-                ( f . mapTable \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
-                )
-
-
         iOnConflict :: Maybe Opaleye.OnConflict
         iOnConflict =
           case onConflict of
@@ -174,6 +160,24 @@ insert connection Insert{ into, values, onConflict, returning } =
 
             Abort ->
               Nothing
+
+
+opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
+opaleyeReturning returning =
+  case returning of
+    NumberOfRowsInserted ->
+      Opaleye.Count
+
+    Projection f ->
+      Opaleye.ReturningExplicit
+        queryRunner
+        ( f . mapTable \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
+        )
+
+
+ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
+ddlTable schema writer =
+  toOpaleyeTable schema writer ( Opaleye.View ( tableColumns schema ) )
 
 
 data Insert :: * -> * where
@@ -228,3 +232,34 @@ showSQL ( Query opaleye ) =
         traverseTable
           ( \( C expr ) -> C . Expr <$> f ( toPrimExpr expr ) )
           row
+
+
+delete :: MonadIO m => Connection -> Delete from result -> m result
+delete c Delete{ from, deleteWhere, returning } =
+  liftIO ( Opaleye.runDelete_ c ( go from deleteWhere returning ) )
+
+  where
+
+    go
+      :: forall schema r row
+       . Compatible row ( Expr Query ) schema ColumnSchema
+      => TableSchema schema
+      -> ( row -> Expr Query Bool )
+      -> Returning schema r
+      -> Opaleye.Delete r
+    go schema deleteWhere_ returning_ =
+      Opaleye.Delete
+        { dTable = ddlTable schema ( Opaleye.Writer ( pure () ) )
+        , dWhere = Opaleye.Column . toPrimExpr . deleteWhere_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
+        , dReturning = opaleyeReturning returning_
+        }
+
+
+data Delete from return where
+  Delete
+    :: Compatible row ( Expr Query ) from ColumnSchema
+    => { from :: TableSchema from
+       , deleteWhere :: row -> Expr Query Bool
+       , returning :: Returning from return
+       }
+    -> Delete from return

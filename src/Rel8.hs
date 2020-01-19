@@ -71,6 +71,10 @@ module Rel8
   , Insert(..)
   , Returning(..)
 
+    -- ** @DELETE@
+  , delete
+  , Delete(..)
+
     -- * Next Steps
     -- $nextSteps
   )
