@@ -86,7 +86,6 @@ groupAndAggregate
      , EqTable k
      , Promote m k' k
      , Promote m v' v
-     , ConstrainTable v DBMonoid
      , Compatible k ( Expr ( Nest m ) ) k ( Expr ( Nest m ) )
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
@@ -98,7 +97,6 @@ groupAndAggregate_forAll
    . ( MonadQuery m
      , MonoidTable v
      , EqTable k
-     , ConstrainTable v DBMonoid
      , Context k ~ Expr ( Nest m )
      , Context k' ~ Context v'
      , Context v ~ Expr ( Nest m )
@@ -240,7 +238,7 @@ instance ( Compatible k f k' g, Compatible v f v' g, Context k ~ Context v, Cont
     ValueFields i -> ValueFields ( transferField i )
 
 
-instance ( Compatible k ( Expr m ) k ( Expr m ), ConstrainTable k Unconstrained, ConstrainTable v DBMonoid, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Compatible k ( Expr m ) k ( Expr m ), ConstrainTable k Unconstrained, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group

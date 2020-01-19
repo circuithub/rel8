@@ -21,6 +21,7 @@
 module Rel8.Tests where
 
 import Data.Int
+import Data.Monoid
 import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics
 import Rel8
@@ -168,13 +169,13 @@ nestedTableEq = do
 --   select partsWithProjects
 
 
--- partsAggregation
---   :: MonadQuery m
---   => m ( Expr m String, Sum ( Expr m Int32 ) )
--- partsAggregation = do
---   groupAndAggregate
---     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
---     allParts
+partsAggregation
+  :: MonadQuery m
+  => m ( Expr m String, Sum ( Expr m Int32 ) )
+partsAggregation = do
+  groupAndAggregate
+    ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
+    allParts
 
 
 -- -- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
