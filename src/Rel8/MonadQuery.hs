@@ -16,18 +16,15 @@
 module Rel8.MonadQuery where
 
 import Control.Applicative ( liftA2 )
-import Data.Proxy
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.MaybeTable
 import Rel8.Nest
-import Rel8.Rewrite
 import Rel8.SimpleConstraints
+import Rel8.Table
 import Rel8.TableSchema
-import Rel8.Unconstrained
-import Rel8.ZipLeaves
 
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
@@ -85,33 +82,19 @@ each_forAll
      )
   => TableSchema schema -> m row
 each_forAll schema =
-  liftOpaleye ( Opaleye.selectTableExplicit unpackspec table )
+  liftOpaleye
+    ( Opaleye.selectTableExplicit
+        unpackspec
+        ( toOpaleyeTable schema writer view )
+    )
 
   where
 
     unpackspec :: Opaleye.Unpackspec row row
     unpackspec =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
-        zipLeaves
-          ( Proxy @Unconstrained )
-          ( \( C expr ) _ -> fmap ( C . Expr ) ( f ( toPrimExpr expr ) ) )
-          row
-          row
-
-
-    table :: Opaleye.Table () row
-    table =
-      case tableSchema schema of
-        Nothing ->
-          Opaleye.Table ( tableName schema ) tableFields
-
-        Just s ->
-          Opaleye.TableWithSchema s ( tableName schema ) tableFields
-
-
-    tableFields :: Opaleye.TableFields () row
-    tableFields =
-      Opaleye.TableProperties writer view
+      Opaleye.Unpackspec $ Opaleye.PackMap \f ->
+        traverseTable
+          ( \( C expr ) -> C . Expr <$> f ( toPrimExpr expr ) )
 
 
     writer :: Opaleye.Writer () row
@@ -122,7 +105,7 @@ each_forAll schema =
     view :: Opaleye.View row
     view =
       Opaleye.View
-        ( rewrite
+        ( mapTable
             ( \( C ColumnSchema{ columnName } ) ->
                 C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
             )
@@ -190,10 +173,8 @@ leftJoin_forAll joinTable condition =
           f ( toPrimExpr tag )
 
         outer <-
-          zipLeaves
-            ( Proxy @Unconstrained )
-            ( \( C a) _ -> C . Expr <$> f ( toPrimExpr a ) )
-            outer'
+          traverseTable
+            ( \( C a) -> C . Expr <$> f ( toPrimExpr a ) )
             outer'
 
         return ( Expr tag', outer )
@@ -219,8 +200,8 @@ union_forAll l r =
   liftOpaleye
     ( Opaleye.unionExplicit
         binaryspec
-        ( toOpaleye ( rewriteExpr @( Nest m ) @m <$> l ) )
-        ( toOpaleye ( rewriteExpr @( Nest m ) @m <$> r ) )
+        ( toOpaleye ( mapTable ( C . demote . toColumn) <$> l ) )
+        ( toOpaleye ( mapTable ( C . demote . toColumn ) <$> r ) )
     )
 
   where
@@ -228,8 +209,7 @@ union_forAll l r =
     binaryspec :: Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
-        zipLeaves
-          ( Proxy @Unconstrained )
+        zipTablesWithM
           ( \( C x ) ( C y ) -> C . Expr <$> f ( toPrimExpr x, toPrimExpr y ) )
           a
           b
@@ -254,10 +234,9 @@ distinct_forAll query =
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
-        zipLeaves
-          ( Proxy @Unconstrained )
-          ( \( C x) _ -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
-          a a
+        traverseTable
+          ( \( C x ) -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
+          a
 
 
 -- | @limit n@ select at most @n@ rows from a query.

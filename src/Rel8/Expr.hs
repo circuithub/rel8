@@ -1,5 +1,6 @@
 {-# language DefaultSignatures #-}
 {-# language FlexibleInstances #-}
+{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
@@ -16,8 +17,8 @@ import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
+import Rel8.Nest
 import Rel8.Table
-import Rel8.ZipLeaves
 
 
 -- | Typed SQL expressions
@@ -26,10 +27,6 @@ newtype Expr ( m :: Type -> Type ) ( a :: Type ) =
 
 
 type role Expr representational representational
-
-
-instance Table ( Expr m a ) where
-  type ExprIn ( Expr m a ) = Expr m
 
 
 instance ( IsString a, DBType a ) => IsString ( Expr m a ) where
@@ -83,14 +80,6 @@ instance DBType Text where
 instance DBType String where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.StringLit
-
-
-instance a ~ b => ZipLeaves ( Expr m a ) ( Expr n b ) ( Expr m ) ( Expr n ) where
-  type CanZipLeaves ( Expr m a ) ( Expr n b ) c =
-    c a
-
-  zipLeaves _ f e1 e2 =
-    toColumn <$> f ( C e1 ) ( C e2 )
 
 
 -- | The SQL @AND@ operator.
@@ -176,3 +165,35 @@ nullaryFunction = nullaryFunction_forAll
 nullaryFunction_forAll :: forall a m. DBType a => String -> Expr m a
 nullaryFunction_forAll name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
+
+
+promote :: Expr m a -> Expr ( Nest m ) a
+promote ( Expr x ) =
+  Expr x
+
+
+demote :: Expr ( Nest m ) a -> Expr m a
+demote ( Expr x ) =
+  Expr x
+
+
+instance Table ( Expr m a ) where
+  type Context ( Expr m a ) =
+    Expr m
+
+  type ConstrainTable ( Expr m a ) c =
+    c a
+
+  data Field ( Expr m a ) x where
+    ExprField :: Field ( Expr m a ) a
+
+  field expr ExprField =
+    C expr
+
+  tabulateMCP _ f =
+    toColumn <$> f ExprField
+
+
+instance a ~ b => Compatible ( Expr m a ) ( Expr n b ) where
+  transferField ExprField =
+    ExprField

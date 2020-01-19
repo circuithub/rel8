@@ -2,17 +2,16 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
-module Rel8.EqTable where
+module Rel8.EqTable ( EqTable, (==.) ) where
 
 import Control.Applicative
-import Data.Proxy
 import Rel8.Column
 import Rel8.DBEq
 import Rel8.Expr
-import Rel8.HigherKinded
-import Rel8.SimpleConstraints
 import Rel8.Table
+import Rel8.Unconstrained
 
 
 -- | The class of database tables (containing one or more columns) that can be
@@ -33,7 +32,7 @@ class Table a => EqTable a where
   --
   -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
   -- Expr m Bool
-  (==.) :: a -> a -> ExprIn a Bool
+  (==.) :: a -> a -> Context a Bool
 
 
 -- | Any @Expr@s can be compared for equality as long as the underlying
@@ -45,18 +44,15 @@ instance DBEq a => EqTable ( Expr m a ) where
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ConstrainHigherKinded m DBEq t => EqTable ( t ( Expr m ) ) where
+instance ( ConstrainTable ( t ( Expr m ) ) Unconstrained, HigherKindedTable t, HConstrainTraverse t DBEq, HConstrainTraverse t Unconstrained ) => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
       (&&.)
       ( lit True )
       ( getConst
-          ( zipRecord
-              @_
+          ( zipTablesWithMC
               @DBEq
-              @_
-              @(Expr m)
-              Proxy
+              @( t ( Expr m ) )
               ( \( C a ) ( C b ) -> Const [ eqExprs a b ] )
               l
               r

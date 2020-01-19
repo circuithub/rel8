@@ -28,7 +28,7 @@ import Prelude hiding ( lookup, zip, zipWith )
 import Data.Profunctor ( Profunctor, dimap )
 
 -- rel8
-import Rel8 ( EqTable, Expr, ExprIn, MonadQuery, (==.), where_ )
+import Rel8 ( EqTable, Expr, Context, MonadQuery, (==.), where_ )
 
 -- | @Tabulated m k a@ can be thought of as a @MultiMap@ from @k@ to @a@.
 newtype Tabulated m k a =
@@ -50,7 +50,7 @@ singleton k a =
 -- | Note that 'Tabulated' is a @MultiMap@, so the 'MonadQuery' returned by
 --   'lookup' can and often does contain multiple results.
 lookup
-  :: ( ExprIn k ~ Expr m, EqTable k, MonadQuery m )
+  :: ( Context k ~ Expr m, EqTable k, MonadQuery m )
   => k -> Tabulated m k a -> m a
 lookup =
   lookupBy . (==.)
@@ -73,7 +73,7 @@ lookupBy f ( Tabulated query ) = do
 
 -- | Can also be thought of as @intersection@.
 zip
-  :: ( EqTable k, ExprIn k ~ Expr m, MonadQuery m )
+  :: ( EqTable k, Context k ~ Expr m, MonadQuery m )
   => Tabulated m k a -> Tabulated m k b -> Tabulated m k ( a, b )
 zip =
   zipWith (,)
@@ -81,7 +81,7 @@ zip =
 
 -- | Can also be thought of @intersectionWith@.
 zipWith
-  :: ( EqTable k, ExprIn k ~ Expr m, MonadQuery m )
+  :: ( EqTable k, Context k ~ Expr m, MonadQuery m )
   => ( a -> b -> c )
   -> Tabulated m k a
   -> Tabulated m k b
@@ -93,7 +93,7 @@ zipWith = izipWith . const
 -- values with access to the matching key.
 izipWith
   :: MonadQuery m
-  => ( EqTable k, ExprIn k ~ Expr m )
+  => ( EqTable k, Context k ~ Expr m )
   => ( k -> a -> b -> c )
   -> Tabulated m k a
   -> Tabulated m k b
@@ -216,7 +216,7 @@ tabulate key =
 --    revisionsByProjectId = 'tabulate' revisionProjectId
 -- @
 cotabulate
-  :: ( ExprIn k ~ Expr m, EqTable k, MonadQuery m )
+  :: ( Context k ~ Expr m, EqTable k, MonadQuery m )
   => ( a -> l )
   -> Tabulated m k a
   -> Tabulation m k j b

@@ -1,9 +1,11 @@
 {-# language DeriveFunctor #-}
 {-# language KindSignatures #-}
+{-# language NamedFieldPuns #-}
 
-module Rel8.TableSchema ( TableSchema(..) ) where
+module Rel8.TableSchema where
 
 import Data.Kind
+import qualified Opaleye.Internal.Table as Opaleye
 
 
 {-| The schema for a table. This is used to specify the name and schema
@@ -42,3 +44,22 @@ data TableSchema ( schema :: Type ) =
     }
   deriving
     ( Functor )
+
+
+toOpaleyeTable
+  :: TableSchema schema
+  -> Opaleye.Writer write view
+  -> Opaleye.View view
+  -> Opaleye.Table write view
+toOpaleyeTable TableSchema{ tableName, tableSchema } writer view =
+  case tableSchema of
+    Nothing ->
+      Opaleye.Table tableName tableFields
+
+    Just s ->
+      Opaleye.TableWithSchema s tableName tableFields
+
+  where
+
+    tableFields =
+      Opaleye.TableProperties writer view

@@ -1,6 +1,8 @@
 {-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -8,12 +10,19 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Aggregate where
+module Rel8.Aggregate
+  ( aggregateExpr
+  , aggregator
+  , groupAndAggregate
+  , aggregate
+  , MonoidTable
+  , DBMonoid
+  , GroupBy(..)
+  ) where
 
 import Data.Functor
 import Data.Monoid
 import Data.Profunctor ( dimap, lmap )
-import Data.Proxy
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -21,13 +30,11 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Column
 import Rel8.EqTable
 import Rel8.Expr
-import Rel8.HigherKinded
 import Rel8.MonadQuery
 import Rel8.Nest
-import Rel8.Rewrite
 import Rel8.SimpleConstraints
+import Rel8.Table
 import Rel8.Unconstrained
-import Rel8.ZipLeaves
 
 
 {-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
@@ -79,6 +86,8 @@ groupAndAggregate
      , EqTable k
      , Promote m k' k
      , Promote m v' v
+     , ConstrainTable v DBMonoid
+     , Compatible k k
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate = groupAndAggregate_forAll
@@ -89,8 +98,14 @@ groupAndAggregate_forAll
    . ( MonadQuery m
      , MonoidTable v
      , EqTable k
-     , Promote m k' k
-     , Promote m v' v
+     , ConstrainTable v DBMonoid
+     , Compatible k k
+     , Context k ~ Expr ( Nest m )
+     , Context k' ~ Context v'
+     , Context v ~ Expr ( Nest m )
+     , Compatible k' k
+     , Compatible v' v
+     , Context v' ~ Expr m
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate_forAll f query =
@@ -111,7 +126,7 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m, MonoidTable b, Promote m b' b )
+  :: ( MonadQuery m, MonoidTable b, Compatible b' b, Context b' ~ Expr m, Context b ~ Expr ( Nest m) )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
 
@@ -120,7 +135,9 @@ aggregate_forAll
   :: forall a b b' m
    . ( MonadQuery m
      , MonoidTable b
-     , Promote m b' b
+     , Compatible b' b
+     , Context b' ~ Expr m
+     , Context b ~ Expr ( Nest m )
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate_forAll f =
@@ -130,7 +147,7 @@ aggregate_forAll f =
 
     to :: b -> b'
     to =
-      rewrite ( \( C x ) -> C ( Expr ( toPrimExpr x ) ) )
+      mapTable ( \( C x ) -> C ( demote x ) )
 
 
 -- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
@@ -142,14 +159,12 @@ class MonoidTable a where
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ConstrainHigherKinded m DBMonoid t => MonoidTable ( t ( Expr m ) ) where
+instance ( HConstrainTraverse t Unconstrained, ConstrainHigherKinded m DBMonoid t ) => MonoidTable ( t ( Expr m ) ) where
   aggregator =
-    Opaleye.Aggregator $ Opaleye.PackMap \f r ->
-      zipRecord
-        ( Proxy @DBMonoid )
-        ( \( C x ) _ -> C <$> Opaleye.runAggregator aggregateExpr f x )
-        r
-        r
+    Opaleye.Aggregator $ Opaleye.PackMap \f ->
+      traverseTableC
+        @DBMonoid
+        ( \( C x ) -> C <$> Opaleye.runAggregator aggregateExpr f x )
 
 
 -- | The class of database types that have an aggregation operator.
@@ -189,20 +204,34 @@ data GroupBy k v =
   GroupBy { key :: k, value :: v }
 
 
-instance ( Rewrite f g k1 k2, Rewrite f g v1 v2 ) => Rewrite f g ( GroupBy k1 v1 ) ( GroupBy k2 v2 ) where
-  rewrite f ( GroupBy k v ) =
-    GroupBy ( rewrite f k ) ( rewrite f v )
+instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) where
+  type Context ( GroupBy k v ) =
+    Context k
+
+  data Field ( GroupBy k v ) x where
+    KeyFields :: Field k x -> Field ( GroupBy k v ) x
+    ValueFields :: Field v x -> Field ( GroupBy k v ) x
+
+  type ConstrainTable ( GroupBy k v ) c =
+    ( ConstrainTable k c, ConstrainTable v c )
+
+  field GroupBy{ key, value } = \case
+    KeyFields i -> field key i
+    ValueFields i -> field value i
+
+  tabulateMCP proxy f =
+    GroupBy
+      <$> tabulateMCP proxy ( f . KeyFields )
+      <*> tabulateMCP proxy ( f . ValueFields )
 
 
-instance ( ZipLeaves k1 k2 f g, ZipLeaves v1 v2 f g ) => ZipLeaves ( GroupBy k1 v1 ) ( GroupBy k2 v2 ) f g where
-  type CanZipLeaves ( GroupBy k1 v1 ) ( GroupBy k2 v2 ) c =
-    ( CanZipLeaves k1 k2 c, CanZipLeaves v1 v2 c )
-
-  zipLeaves proxy f a b =
-    GroupBy <$> zipLeaves proxy f ( key a ) ( key b ) <*> zipLeaves proxy f ( value a ) ( value b )
+instance ( Context k ~ Context v, Context k' ~ Context v', Compatible k k', Compatible v v' ) => Compatible ( GroupBy k v ) ( GroupBy k' v' ) where
+  transferField = \case
+    KeyFields i -> KeyFields ( transferField i )
+    ValueFields i -> ValueFields ( transferField i )
 
 
-instance ( ZipLeaves k k ( Expr m ) ( Expr m ), CanZipLeaves k k Unconstrained, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Compatible k k, ConstrainTable v DBMonoid, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group
@@ -212,9 +241,6 @@ instance ( ZipLeaves k k ( Expr m ) ( Expr m ), CanZipLeaves k k Unconstrained, 
 
       group :: Opaleye.Aggregator k k
       group =
-        Opaleye.Aggregator $ Opaleye.PackMap \f a ->
-          zipLeaves
-            ( Proxy @Unconstrained )
-            ( \( C x ) _ -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
-            a
-            a
+        Opaleye.Aggregator $ Opaleye.PackMap \f ->
+          traverseTable
+            ( \( C x ) -> C . Expr <$> f ( Nothing, toPrimExpr x ) )

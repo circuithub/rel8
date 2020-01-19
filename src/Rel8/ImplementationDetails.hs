@@ -7,30 +7,26 @@
 
 module Rel8.ImplementationDetails
   ( C(..)
-  , CanZipLeaves
+  -- , CanZipLeaves
   , ConstrainHigherKinded
-  , ExprIn
+  -- , ExprIn
   , IsTableIn
   , MonadQuery(..)
   , Nest
   , Promote
-  , Rewrite( rewrite )
+  -- , Rewrite( rewrite )
   , Selects
   , Unconstrained
-  , ZipLeaves( zipLeaves )
-  , HigherKinded( ZipRecord, zipRecord )
-  , WFHigherKinded
+  -- , ZipLeaves( zipLeaves )
+  -- , HigherKinded( ZipRecord, zipRecord )
+  -- , WFHigherKinded
   , aggregateExpr
   , aggregator
   ) where
 
 import Rel8.Aggregate
 import Rel8.Column ( C(..) )
-import Rel8.HigherKinded
 import Rel8.MonadQuery
 import Rel8.Nest
-import Rel8.Rewrite
 import Rel8.SimpleConstraints
-import Rel8.Table
 import Rel8.Unconstrained
-import Rel8.ZipLeaves

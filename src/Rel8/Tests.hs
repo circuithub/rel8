@@ -1,5 +1,9 @@
+{-# language ApplicativeDo #-}
+{-# language LambdaCase #-}
+{-# language TypeOperators #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
+{-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
@@ -15,13 +19,21 @@
 module Rel8.Tests where
 
 import Data.Int
-import Data.Monoid
 import Rel8
 
 -- TODO Users should not need these imports
-import Rel8.HigherKinded
-import Rel8.ZipLeaves
 import Rel8.Column
+import Rel8.Table
+
+
+-- TODO Part of generic derivation
+data Refl a b where
+  Refl :: Refl a a
+
+
+data ( l & r ) a =
+  L ( l a ) | R ( r a )
+
 
 
 data Part f =
@@ -32,26 +44,27 @@ data Part f =
 
 
 -- TODO Generically derive.
-instance HigherKinded Part where
-  type ZipRecord Part f g c =
-    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
-    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
-    , CanZipLeaves ( C f String ) ( C g String ) c
-    , ZipLeaves ( C f String ) ( C g String ) f g
-    )
+instance HigherKindedTable Part where
+  type HConstrainTraverse Part c = ( c Int32, c String )
+  data HField Part x where
+    PartId :: HField Part Int32
+    PartName :: HField Part String
+  hfield Part{ partId } PartId = C partId
+  hfield Part{ partName } PartName = C partName
+  htabulate _ f =
+    Part <$> do toColumn <$> f PartId
+         <*> do toColumn <$> f PartName
+  -- htraverseTableWithIndexC f Part{ partId, partName } = do
+  --   partId' <-
+  --     f ( L Refl ) ( C partId )
 
-  zipRecord
-    :: forall proxy c f g m
-     . ( Applicative m, ZipRecord Part f g c )
-    => proxy c
-    -> (forall x. c x => C f x -> C f x -> m (C g x))
-    -> Part f -> Part f -> m (Part g)
-  zipRecord proxy f a b =
-    Part
-      <$> do toColumn @g @Int32 <$>
-               zipLeaves proxy f (C @f @Int32 (partId a)) (C (partId b))
-      <*> do toColumn @g @String <$>
-               zipLeaves proxy f (C @f @String (partName a)) (C (partName b))
+  --   partName' <-
+  --     f ( R Refl ) ( C partName )
+
+  --   pure ( tabulate \case ( L Refl ) -> partId'
+  --                         ( R Refl ) -> partName'
+  --        )
+
 
 
 -- TODO Maybe provide a generic version?
@@ -71,198 +84,155 @@ allParts =
   each parts
 
 
-partsEq :: MonadQuery m => m ( Expr m Bool )
-partsEq = do
-  parts1 <- allParts
-  parts2 <- allParts
-  return (parts1 ==. parts2)
+-- partsEq :: MonadQuery m => m ( Expr m Bool )
+-- partsEq = do
+--   parts1 <- allParts
+--   parts2 <- allParts
+--   return (parts1 ==. parts2)
 
 
 
--- select_allParts :: m [ Part Identity ]
--- select_allParts =
---   select allParts
+-- -- select_allParts :: m [ Part Identity ]
+-- -- select_allParts =
+-- --   select allParts
 
 
--- TODO Can we make this infer?
--- allParts_inferred =
---   each parts
+-- -- TODO Can we make this infer?
+-- -- allParts_inferred =
+-- --   each parts
 
 
-allPartIds :: MonadQuery m => m ( Expr m Int32 )
-allPartIds =
-  partId <$> allParts
+-- allPartIds :: MonadQuery m => m ( Expr m Int32 )
+-- allPartIds =
+--   partId <$> allParts
 
 
--- selectAllPartIds :: IO [ Int32 ]
--- selectAllPartIds =
---   select allPartIds
+-- -- selectAllPartIds :: IO [ Int32 ]
+-- -- selectAllPartIds =
+-- --   select allPartIds
 
 
-data Project f =
-  Project
-    { projectId :: Column f Int32
-    }
+-- data Project f =
+--   Project
+--     { projectId :: Column f Int32
+--     }
 
 
--- TODO Generically derive.
-instance HigherKinded Project where
-  type ZipRecord Project f g c =
-    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
-    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
-    )
-
-  zipRecord
-    :: forall proxy c f g m
-     . ( Applicative m, ZipRecord Project f g c )
-    => proxy c
-    -> (forall x. c x => C f x -> C f x -> m (C g x))
-    -> Project f -> Project f -> m (Project g)
-  zipRecord proxy f a b =
-    Project
-      <$> do toColumn @g @Int32 <$>
-               zipLeaves proxy f (C @f @Int32 (projectId a)) (C (projectId b))
+-- -- TODO Generically derive.
+-- instance HigherKindedTable Project where
+--   type HConstrainTraverse Project c =
+--     c Int32
 
 
-projects :: TableSchema ( Project ColumnSchema )
-projects =
-  TableSchema
-    { tableName = "project"
-    , tableSchema = Nothing
-    , tableColumns = Project { projectId = "id" }
-    }
+-- projects :: TableSchema ( Project ColumnSchema )
+-- projects =
+--   TableSchema
+--     { tableName = "project"
+--     , tableSchema = Nothing
+--     , tableColumns = Project { projectId = "id" }
+--     }
 
 
-data ProjectPart f =
-  ProjectPart
-    { projectPartProjectId :: Column f Int32
-    , projectPartPartId :: Column f Int32
-    }
+-- data ProjectPart f =
+--   ProjectPart
+--     { projectPartProjectId :: Column f Int32
+--     , projectPartPartId :: Column f Int32
+--     }
 
 
--- TODO Generically derive.
-instance HigherKinded ProjectPart where
-  type ZipRecord ProjectPart f g c =
-    ( CanZipLeaves ( C f Int32 ) ( C g Int32 ) c
-    , ZipLeaves ( C f Int32 ) ( C g Int32 ) f g
-    )
-
-  zipRecord
-    :: forall proxy c f g m
-     . ( Applicative m, ZipRecord ProjectPart f g c )
-    => proxy c
-    -> (forall x. c x => C f x -> C f x -> m (C g x))
-    -> ProjectPart f -> ProjectPart f -> m (ProjectPart g)
-  zipRecord proxy f a b =
-    ProjectPart
-      <$> do toColumn @g @Int32 <$>
-               zipLeaves proxy f (C @f @Int32 (projectPartProjectId a)) (C (projectPartProjectId b))
-      <*> do toColumn @g @Int32 <$>
-               zipLeaves proxy f (C @f @Int32 (projectPartPartId a)) (C (projectPartPartId b))
+-- -- TODO Generically derive.
+-- instance HigherKindedTable ProjectPart where
+--   type HConstrainTraverse ProjectPart c=
+--     c Int32
 
 
-projectParts :: TableSchema ( ProjectPart ColumnSchema )
-projectParts =
-  TableSchema
-    { tableName = "project_part"
-    , tableSchema = Nothing
-    , tableColumns = ProjectPart { projectPartPartId = "part_id"
-                                 , projectPartProjectId = "project_id"
-                                 }
-    }
+-- projectParts :: TableSchema ( ProjectPart ColumnSchema )
+-- projectParts =
+--   TableSchema
+--     { tableName = "project_part"
+--     , tableSchema = Nothing
+--     , tableColumns = ProjectPart { projectPartPartId = "part_id"
+--                                  , projectPartProjectId = "project_id"
+--                                  }
+--     }
 
 
-leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
-leftJoinTest = do
-  Part{ partId } <-
-    each parts
+-- leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
+-- leftJoinTest = do
+--   Part{ partId } <-
+--     each parts
 
-  projectPart <-
-    leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
-      projectPartPartId ==. partId
+--   projectPart <-
+--     leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
+--       projectPartPartId ==. partId
 
-  return ( partId, projectPart )
-
-
-data PartWithProject f =
-  PartWithProject
-    { part :: Part f
-    , project :: Project f
-    }
+--   return ( partId, projectPart )
 
 
--- TODO Generically derive.
-instance HigherKinded PartWithProject where
-  type ZipRecord PartWithProject f g c =
-    ( CanZipLeaves ( Part f ) ( Part g ) c
-    , ZipLeaves ( Part f ) ( Part g ) f g
-    , CanZipLeaves ( Project f ) ( Project g ) c
-    , ZipLeaves ( Project f ) ( Project g ) f g
-    )
-
-  zipRecord
-    :: forall proxy c f g m
-     . ( Applicative m, ZipRecord PartWithProject f g c )
-    => proxy c
-    -> (forall x. c x => C f x -> C f x -> m (C g x))
-    -> PartWithProject f -> PartWithProject f -> m (PartWithProject g)
-  zipRecord proxy f a b =
-    PartWithProject
-      <$> zipLeaves proxy f (part a) (part b)
-      <*> zipLeaves proxy f (project a) (project b)
+-- data PartWithProject f =
+--   PartWithProject
+--     { part :: Part f
+--     , project :: Project f
+--     }
 
 
-partsWithProjects :: MonadQuery m => m ( PartWithProject ( Expr m ) )
-partsWithProjects = do
-  part <-
-    each parts
-
-  projectPart <-
-    each projectParts
-
-  where_ ( projectPartPartId projectPart ==. partId part )
-
-  project <-
-    each projects
-
-  where_ ( projectPartProjectId projectPart ==. projectId project )
-
-  return PartWithProject{..}
+-- -- TODO Generically derive.
+-- instance HigherKindedTable PartWithProject where
+--   type HConstrainTraverse PartWithProject c =
+--     ( HConstrainTraverse Part c, HConstrainTraverse Project c )
 
 
-nestedTableEq :: MonadQuery m => m ( Expr m Bool )
-nestedTableEq = do
-  l <- partsWithProjects
-  r <- partsWithProjects
-  return ( l ==. r )
+-- partsWithProjects :: MonadQuery m => m ( PartWithProject ( Expr m ) )
+-- partsWithProjects = do
+--   part <-
+--     each parts
+
+--   projectPart <-
+--     each projectParts
+
+--   where_ ( projectPartPartId projectPart ==. partId part )
+
+--   project <-
+--     each projects
+
+--   where_ ( projectPartProjectId projectPart ==. projectId project )
+
+--   return PartWithProject{..}
 
 
--- select_partsWithProjects =
---   select partsWithProjects
+-- nestedTableEq :: MonadQuery m => m ( Expr m Bool )
+-- nestedTableEq = do
+--   l <- partsWithProjects
+--   r <- partsWithProjects
+--   return ( l ==. r )
 
 
-partsAggregation
-  :: MonadQuery m
-  => m ( Expr m String, Sum ( Expr m Int32 ) )
-partsAggregation = do
-  groupAndAggregate
-    ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
-    allParts
+-- -- select_partsWithProjects =
+-- --   select partsWithProjects
 
 
--- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
--- illegalPartsAggregation1 = do
---   unreachable <- allParts
-
+-- partsAggregation
+--   :: MonadQuery m
+--   => m ( Expr m String, Sum ( Expr m Int32 ) )
+-- partsAggregation = do
 --   groupAndAggregate
---     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
+--     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
 --     allParts
 
 
--- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
--- illegalPartsAggregation2 = do
---   unreachable <- allParts
+-- -- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- -- illegalPartsAggregation1 = do
+-- --   unreachable <- allParts
 
---   groupAndAggregate
---     ( \part -> unreachable )
---     allParts
+-- --   groupAndAggregate
+-- --     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
+-- --     allParts
+
+
+-- -- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- -- illegalPartsAggregation2 = do
+-- --   unreachable <- allParts
+
+-- --   groupAndAggregate
+-- --     ( \part -> unreachable )
+-- --     allParts

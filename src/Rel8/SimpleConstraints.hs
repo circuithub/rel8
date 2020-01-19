@@ -1,116 +1,75 @@
-{-# language PolyKinds #-}
-{-# language RankNTypes #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
+{-# language QuantifiedConstraints #-}
+{-# language RankNTypes #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.SimpleConstraints ( Selects, IsTableIn, Promote, WFHigherKinded, ConstrainHigherKinded ) where
+module Rel8.SimpleConstraints where
 
-import Data.Functor.Identity
 import Rel8.ColumnSchema
 import Rel8.Expr
-import Rel8.HigherKinded
 import Rel8.Nest
-import Rel8.Rewrite
-import Rel8.Unconstrained
-import Rel8.ZipLeaves
-import {-# source #-} Rel8.Query
+import Rel8.Table
 
 
 -- | @Selects m schema row@ says that in the monad @m@, the schema definition
 -- @schema@ can be @SELECT@ed into the Haskell type @row@.
 class
-  ( Rewrite ColumnSchema ( Expr m ) schema row
-  , ZipLeaves row row ( Expr m ) ( Expr m )
+  ( Context row ~ Expr m
+  , Context schema ~ ColumnSchema
+  , Table schema
+  , Table row
+  , Compatible row row
+  , Compatible row schema
   ) => Selects m schema row
 
 
 instance
   {-# overlapping #-}
-  ( Rewrite ColumnSchema ( Expr m ) schema row
-  , ZipLeaves row row ( Expr m ) ( Expr m )
+  ( Context row ~ Expr m
+  , Context schema ~ ColumnSchema
+  , Table schema
+  , Table row
+  , Compatible row row
+  , Compatible row schema
   ) => Selects m schema row
 
 
 data Hidden ( a :: k )
 
+
 instance
-  ( Rewrite ColumnSchema ( Expr m ) ( Hidden () ) row
-  , ZipLeaves row row ( Expr m ) ( Expr m )
+  ( Context row ~ Expr m
+  , Context ( Hidden () ) ~ ColumnSchema
+  , Table ( Hidden () )
+  , Table row
+  , Compatible row row
+  , Compatible row ( Hidden () )
   ) => Selects m ( Hidden () ) row
+
 
 
 -- | Makes sure that a given table (@a@) contains expressions compatible with
 -- the monad @m@. This type class is essentially a scoping check.
 class
-  ZipLeaves a a (Expr m) (Expr m)
-  => a `IsTableIn` m
-
-
-instance
-  {-# overlapping #-}
-  ZipLeaves a a (Expr m) (Expr m)
-  => a `IsTableIn` m
-
-
-instance
-  ( ZipLeaves ( Hidden () ) ( Hidden () ) ( Expr m ) ( Expr m )
-  ) => ( Hidden () ) `IsTableIn` m
+  ( Compatible a a
+  , Context a ~ Expr m
+  ) => a `IsTableIn` m
 
 
 -- | @Promote m a b@ witnesses that the types @a@ and @b@ are morally the same,
 -- but exist at different levels of scope. In particular, @Promote m a b@ says
 -- @b@ is the same expression as @a@, where the scope has been increased by one.
 class
-  ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b a
-  , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a b
-  , ZipLeaves b a ( Expr ( Nest m ) ) ( Expr m )
-  , ZipLeaves a b ( Expr m ) ( Expr ( Nest m ) )
-  , ZipLeaves a a ( Expr m ) ( Expr m )
-  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
-  ) => Promote m a b
-
-
-instance
-  {-# overlapping #-}
-  ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b a
-  , Rewrite ( Expr m ) ( Expr ( Nest m ) ) a b
-  , ZipLeaves b a ( Expr ( Nest m ) ) ( Expr m )
-  , ZipLeaves a b ( Expr m ) ( Expr ( Nest m ) )
-  , ZipLeaves a a ( Expr m ) ( Expr m )
-  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
-  ) => Promote m a b
-
-
-instance
-  ( Rewrite ( Expr ( Nest m ) ) ( Expr m ) b ( Hidden () )
-  , Rewrite ( Expr m ) ( Expr ( Nest m ) ) ( Hidden () ) b
-  , ZipLeaves b ( Hidden () ) ( Expr ( Nest m ) ) ( Expr m )
-  , ZipLeaves ( Hidden () ) b ( Expr m ) ( Expr ( Nest m ) )
-  , ZipLeaves ( Hidden () ) ( Hidden () ) ( Expr m ) ( Expr m )
-  , ZipLeaves b b ( Expr ( Nest m ) ) ( Expr ( Nest m ) )
-  ) => Promote m ( Hidden () ) b
-
-
--- | "Well-formed" higher-kinded data types. Anything that derives
--- 'HigherKinded' generically will satisfy these constraints, but we use a
--- helper type class to simplify type signatures.
-class
-  ( HigherKinded t
-  , ZipRecord t ( Expr Query ) ( Expr Query ) Unconstrained
-  , ZipRecord t ( Expr Query ) Identity Unconstrained
-  ) => WFHigherKinded t
-
-
-instance
-  {-# overlapping #-}
-  ( HigherKinded t
-  , ZipRecord t ( Expr Query ) ( Expr Query ) Unconstrained
-  , ZipRecord t ( Expr Query ) Identity Unconstrained
-  ) => WFHigherKinded t
+  ( Compatible a b
+  , Context a ~ Expr m
+  , Context b ~ Expr ( Nest m )
+  ) => Promote m a b where
 
 
 -- | The sub-class of higher-kinded data types where all columns satisfy
@@ -118,19 +77,6 @@ instance
 -- the class of higher-kinded data types where all columns can be compared
 -- for equality.
 class
-  ( HigherKinded t
-  , ZipRecord t ( Expr m ) ( Expr m ) c
+  ( HigherKindedTable t
+  , HConstrainTraverse t c
   ) => ConstrainHigherKinded m c t
-
-
-instance
-  {-# overlapping #-}
-  ( HigherKinded t
-  , ZipRecord t ( Expr m ) ( Expr m ) c
-  ) => ConstrainHigherKinded m c t
-
-
-instance
-  ( HigherKinded Hidden
-  , ZipRecord Hidden ( Expr m ) ( Expr m ) c
-  ) => ConstrainHigherKinded m c Hidden

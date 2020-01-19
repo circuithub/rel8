@@ -9,38 +9,32 @@
 module Rel8.FromRow where
 
 import Data.Functor.Identity
-import Data.Proxy
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
 import Rel8.Column
 import Rel8.Expr
-import Rel8.HigherKinded
 import Rel8.Query
-import Rel8.ZipLeaves
-import Rel8.SimpleConstraints
+import Rel8.Table ( Compatible, Context, Table, HConstrainTraverse, traverseTableC )
+import Rel8.Unconstrained
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class ZipLeaves sql sql ( Expr Query ) ( Expr Query ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
+class ( Context sql ~ Expr Query, Table sql ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
 
-instance ( FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sqlB ) ( haskellA, haskellB ) where
+instance ( Context ( sqlA, sqlB ) ~ Expr Query, FromRow sqlA haskellA, FromRow sqlB haskellB ) => FromRow ( sqlA, sqlB ) ( haskellA, haskellB ) where
   rowParser ( a, b ) =
     (,) <$> rowParser a <*> rowParser b
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( WFHigherKinded t, expr ~ Expr Query, identity ~ Identity, ZipRecord t ( Expr Query ) Identity FromField ) => FromRow ( t expr ) ( t identity ) where
-  rowParser sql =
-    zipLeaves
-      ( Proxy @FromField )
-      ( \_ _ -> C <$> field )
-      sql
-      sql
+instance ( Compatible ( t Identity ) ( t ( Expr Query ) ), HConstrainTraverse t FromField, HConstrainTraverse t Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+  rowParser =
+    traverseTableC @FromField ( \_ -> C <$> field )
 
 
 instance m ~ Query => FromRow ( Expr m Int ) Int where
