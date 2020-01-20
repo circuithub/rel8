@@ -34,11 +34,6 @@ instance ( IsString a, DBType a ) => IsString ( Expr m a ) where
     lit . fromString
 
 
-instance {-# overlaps #-} ( IsString a, DBType a ) => IsString ( Expr m ( Maybe a ) ) where
-  fromString =
-    lit . Just . fromString
-
-
 {-| Haskell types that can be represented as expressiosn in a database. There
 should be an instance of @DBType@ for all column types in your database
 schema (e.g., @int@, @timestamptz@, etc).
@@ -79,11 +74,6 @@ class DBType ( a :: Type ) where
 
   default lit :: Show a => a -> Expr m a
   lit = unsafeCoerceExpr . lit . show
-
-
-instance DBType a => DBType ( Maybe a ) where
-  lit =
-    maybe ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) ) ( unsafeCoerceExpr .  lit )
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.
