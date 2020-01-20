@@ -1,24 +1,59 @@
-{-# language DataKinds #-}
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
+{-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
-{-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 {-# language TypeFamilyDependencies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Table where
+{-| Every relational library also tries to build some type of record system,
+and Rel8 is no exception! We've tried hard to make sure you don't have to
+understand this module to enjoy using Rel8 - in fact, you can probably close
+your browser tab now if you want to! However, this is the API that's used
+behind the scenes, and is safely exported if you want to use it in your own
+work, or if you want to understand further how Rel8 works.
+
+-}
+module Rel8.Table
+  ( -- * Tables of kind @*@
+    Table(..)
+  , mapTable
+  , traverseTable
+  , traverseTableC
+  , traverseTableWithIndexC
+  , zipTablesWithM
+  , zipTablesWithMC
+
+    -- ** Sub-tables
+  , ConstrainedTable
+  , Unconstrained
+
+    -- ** Relationships Between Tables
+  , CompatibleTables
+  , Compatible(..)
+
+    -- * Higher-kinded tables
+  , HigherKindedTable(..)
+
+    -- * Columns
+  , Column
+  , C( MkC )
+  , mapC
+  , traverseC
+  , traverseCC
+  , zipCWithM
+  , zipCWithMC
+  ) where
 
 import Data.Functor.Identity
 import Data.Kind
@@ -117,6 +152,10 @@ class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrain
   -- the table @t@, build a @t@ by calling that function for every field.
   -- The function can also request constraints to hold on all @x@s in the
   -- structure by using 'ConstrainTable'.
+  --
+  -- MCP stands for "monadic", "constrained" and "by proxy". The various other
+  -- tabulate functions will probably be more convenient, but this the
+  -- fundamental operator.
   tabulateMCP
     :: forall c f proxy
      . ( ConstrainTable t c, Applicative f )
@@ -150,14 +189,6 @@ class ( Context a ~ f, Context b ~ g ) => Compatible a ( f :: Type -> Type ) b (
   transferField :: Field a x -> Field b x
 
 
-tabulateC
-  :: forall c t. ( Table t, ConstrainTable t c )
-  => ( forall x. c x => Field t x -> C ( Context t ) x )
-  -> t
-tabulateC f =
-  runIdentity ( tabulateMCP ( Proxy @c ) ( Identity . f ) )
-
-
 -- | Effectfully map a table from one context to another.
 traverseTableWithIndexC
   :: forall c t t' f g m
@@ -175,6 +206,8 @@ data TupleField a b x where
   Element2 :: Field b x -> TupleField a b x
 
 
+-- | The product of two tables is also a table, provided that they share the
+-- same 'Context'.
 instance ( Context a ~ Context b, Table a, Table b ) => Table ( a, b ) where
   type Context ( a, b ) =
     Context a
@@ -224,11 +257,8 @@ instance Compatible a f b g => Compatible ( Sum a ) f ( Sum b ) g where
     SumField ( transferField x )
 
 
-tabulate :: Table t => ( forall x. Field t x -> C ( Context t ) x ) -> t
-tabulate f =
-  tabulateC @Unconstrained f
-
-
+-- | Map a 'Table' from one type to another. The table types must be compatible,
+-- see 'Compatible' for what that means.
 mapTable
   :: forall t' t
    . CompatibleTables t' t
@@ -237,6 +267,8 @@ mapTable f =
   runIdentity . traverseTable ( Identity . f )
 
 
+-- | Effectfully traverse all fields in a 'Table', potentially producing another
+-- @Table@.
 traverseTable
   :: ( Applicative f, Table t', CompatibleTables t' t )
   => ( forall x. C ( Context t ) x -> f ( C ( Context t' ) x ) )
@@ -246,6 +278,13 @@ traverseTable f =
   traverseTableWithIndexC @Unconstrained ( const f )
 
 
+-- | Effectfully traverse all fields in a 'Table', provided that all fields
+-- satisfy a given constraint. For example, if all fields in a table have an
+-- instance for 'Read', we can apply 'readMaybe' to all fields in the table,
+-- failing if any read fails:
+--
+-- >>> traverseTableC @Read ( traverseC readMaybe ) MyTable{ fieldA = "True" }
+-- Just MyTable{ fieldA = True }
 traverseTableC
   :: forall c m t t'
    . ( Applicative m, ConstrainedTable t' c, CompatibleTables t' t )
@@ -374,6 +413,7 @@ data TableHField t ( f :: Type -> Type ) x where
   F :: HField t x -> TableHField t f x
 
 
+-- | Any 'HigherKindedTable' is also a 'Table'.
 instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table ( t f ) where
   type Field ( t f ) =
     TableHField t f
@@ -481,7 +521,7 @@ instance a ~ Column f b => DispatchK1 'True f a ( Spine b ) where
     c b
 
   k1field a K1True =
-    C a
+    MkC a
 
   k1tabulate _ f =
     toColumn <$> f @b K1True

@@ -34,7 +34,6 @@ import Rel8.MonadQuery
 import Rel8.Nest
 import Rel8.SimpleConstraints
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
@@ -148,7 +147,7 @@ aggregate_forAll f =
 
     to :: b -> b'
     to =
-      mapTable ( \( C x ) -> C ( demote x ) )
+      mapTable ( mapC demote )
 
 
 -- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
@@ -165,7 +164,7 @@ instance ( HConstrainTraverse t ( Expr m ) Unconstrained, ConstrainHigherKinded 
     Opaleye.Aggregator $ Opaleye.PackMap \f ->
       traverseTableC
         @DBMonoid
-        ( \( C x ) -> C <$> Opaleye.runAggregator aggregateExpr f x )
+        ( traverseCC @DBMonoid ( Opaleye.runAggregator aggregateExpr f ) )
 
 
 -- | The class of database types that have an aggregation operator.
@@ -247,5 +246,4 @@ instance ( ConstrainedTable k Unconstrained, Context k ~ Expr m, MonoidTable v )
       group :: Opaleye.Aggregator k k
       group =
         Opaleye.Aggregator $ Opaleye.PackMap \f ->
-          traverseTable
-            ( \( C x ) -> C . fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+          traverseTable ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )

@@ -20,7 +20,6 @@ import Data.Functor.Identity
 import Data.Proxy
 import Rel8.Column
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the
@@ -67,10 +66,10 @@ instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null 
 
   field MaybeTable{ isNull, maybeTable } = \case
     MaybeTableIsNull ->
-      C isNull
+      MkC isNull
 
     MaybeTableField i ->
-      case field maybeTable i of C x -> C x
+      castC ( field maybeTable i )
 
   tabulateMCP
     :: forall proxy c m
@@ -83,7 +82,7 @@ instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null 
       <$> do toColumn <$> f MaybeTableIsNull
       <*> tabulateMCP
             ( Proxy @( HoldsUnderMaybe c ) )
-            ( fmap ( \( C x ) -> C x ) . f . MaybeTableField )
+            ( fmap castC . f . MaybeTableField )
 
 
 -- | If you 'Rel8.Query.select' a @MaybeTable@, you'll get back a @MaybeTable@
@@ -97,4 +96,4 @@ toMaybe
   => MaybeTable Identity null -> Maybe notNull
 toMaybe MaybeTable{ isNull, maybeTable }
   | isNull = Nothing
-  | otherwise = traverseTable ( \( C x ) -> C <$> x ) maybeTable
+  | otherwise = traverseTable sequenceC maybeTable

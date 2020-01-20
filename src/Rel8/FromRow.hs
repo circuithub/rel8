@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
@@ -35,7 +36,7 @@ instance ( Context ( sqlA, sqlB ) ~ Expr Query, FromRow sqlA haskellA, FromRow s
 -- decode all of the records constituent parts.
 instance ( HConstrainTraverse t Identity Unconstrained, HigherKindedTable t, HConstrainTraverse t Identity FromField, HConstrainTraverse t ( Expr Query ) Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
-    traverseTableC @FromField ( \_ -> C <$> field )
+    traverseTableC @FromField ( traverseCC @FromField \_ -> field )
 
 
 instance m ~ Query => FromRow ( Expr m Int32 ) Int32 where

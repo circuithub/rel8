@@ -91,9 +91,8 @@ each_forAll schema =
 
     unpackspec :: Opaleye.Unpackspec row row
     unpackspec =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-        traverseTable
-          ( \( C expr ) -> C . fromPrimExpr <$> f ( toPrimExpr expr ) )
+      Opaleye.Unpackspec
+        $ Opaleye.PackMap \f -> traverseTable ( traverseC ( traversePrimExpr f ) )
 
 
     writer :: Opaleye.Writer () row
@@ -105,9 +104,7 @@ each_forAll schema =
     view =
       Opaleye.View
         ( mapTable
-            ( \( C ColumnSchema{ columnName } ) ->
-                C ( column columnName )
-            )
+            ( mapC ( column . columnName ) )
             ( tableColumns schema )
         )
 
@@ -162,7 +159,7 @@ leftJoin_forAll joinTable condition =
 
     in ( MaybeTable
            { isNull = tag
-           , maybeTable = mapTable ( \( C expr ) -> C ( retype expr ) ) renamed
+           , maybeTable = mapTable ( mapC retype ) renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
@@ -184,7 +181,7 @@ leftJoin_forAll joinTable condition =
 
         outer <-
           traverseTable
-            ( \( C a ) -> C . fromPrimExpr <$> f ( toPrimExpr a ) )
+            ( traverseC ( fmap demote . traversePrimExpr f ) )
             outer'
 
         return ( fromPrimExpr tag', outer )
@@ -209,8 +206,8 @@ union_forAll l r =
   liftOpaleye
     ( Opaleye.unionExplicit
         binaryspec
-        ( toOpaleye ( mapTable ( C . demote . toColumn) <$> l ) )
-        ( toOpaleye ( mapTable ( C . demote . toColumn ) <$> r ) )
+        ( toOpaleye ( mapTable ( mapC demote ) <$> l ) )
+        ( toOpaleye ( mapTable ( mapC demote ) <$> r ) )
     )
 
   where
@@ -219,7 +216,7 @@ union_forAll l r =
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
         zipTablesWithM
-          ( \( C x ) ( C y ) -> C . fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
+          ( zipCWithM \x y -> fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
           a
           b
 
@@ -244,7 +241,7 @@ distinct_forAll query =
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
         traverseTable
-          ( \( C x ) -> C . fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+          ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
           a
 
 

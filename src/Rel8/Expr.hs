@@ -30,6 +30,7 @@ module Rel8.Expr
   , toPrimExpr
   , unsafeCoerceExpr
   , null_
+  , traversePrimExpr
   ) where
 
 import Data.Coerce
@@ -250,6 +251,7 @@ data ExprField ( m :: * -> * ) a x where
   ExprField :: ExprField m a a
 
 
+-- | Any 'Expr' can be seen as a 'Table' with only one column.
 instance Table ( Expr m a ) where
   type Context ( Expr m a ) =
     Expr m
@@ -261,7 +263,7 @@ instance Table ( Expr m a ) where
     ExprField m a
 
   field expr ExprField =
-    C expr
+    MkC expr
 
   tabulateMCP _ f =
     toColumn <$> f ExprField
@@ -317,3 +319,10 @@ case_ alts def =
 isNull :: Expr m ( Maybe a ) -> Expr m Bool
 isNull =
   fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+
+
+traversePrimExpr
+  :: Applicative f
+  => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr m a -> f ( Expr m a )
+traversePrimExpr f =
+  fmap fromPrimExpr . f . toPrimExpr

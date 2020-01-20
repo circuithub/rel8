@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language FlexibleInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -11,7 +12,6 @@ import Rel8.Column
 import Rel8.DBEq
 import Rel8.Expr
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 -- | The class of database tables (containing one or more columns) that can be
@@ -53,7 +53,7 @@ instance ( ConstrainTable ( t ( Expr m ) ) Unconstrained, HigherKindedTable t, H
           ( zipTablesWithMC
               @DBEq
               @( t ( Expr m ) )
-              ( \( C a ) ( C b ) -> Const [ eqExprs a b ] )
+              ( zipCWithMC @DBEq \a b -> Const [ eqExprs a b ] )
               l
               r
           )

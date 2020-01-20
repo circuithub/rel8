@@ -86,6 +86,11 @@ module Rel8
   , update
   , Update(..)
 
+    -- * Common Table Subtypes
+  , CompatibleTables
+  , Compatible
+  , ConstrainedTable
+
     -- * Next Steps
     -- $nextSteps
   )
