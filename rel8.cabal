@@ -38,6 +38,7 @@ library
     Rel8.MonadQuery
     Rel8.MonadQuery
     Rel8.Nest
+    Rel8.Optimize
     Rel8.Query
     Rel8.Query
     Rel8.SimpleConstraints
