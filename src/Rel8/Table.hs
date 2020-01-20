@@ -21,6 +21,7 @@
 module Rel8.Table where
 
 import Data.Functor.Identity
+import Data.Kind
 import Data.Monoid
 import Data.Proxy
 import GHC.Exts ( Constraint )
@@ -29,21 +30,93 @@ import Rel8.Column
 import Rel8.Unconstrained
 
 
--- | The class of Haskell types that represent SQL tables.
-class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrained ) => Table ( t :: * ) where
+{-| Types that represent SQL tables.
+
+You generally should not need to derive instances of this class manually, as
+writing higher-kinded data types is usually more convenient. See also:
+'HigherKindedTable'.
+
+== __Theory__
+
+Theoretically, the @Table@ type class really describes "higher-kinded
+representable functors". A representable functor in Haskell is usually described
+by the type class:
+
+@
+class Functor f => Representable f where
+  type Rep f :: *
+  index :: f a -> Rep f -> a
+  tabulate :: ( Rep f -> a ) -> f a
+@
+
+That is, a representable functor is some functor where you can talk about the
+"locations" of the @a@s that it holds, allowing you to pull individual @a@s out,
+and to construct @f a@'s by repeatedly calling a function for every location.
+While this seems like a lot of work, being @Representable@ has a lot of nice
+properties - it means the functor holds a finite number of elements (known
+statically), and it means we can recover a lot of other operations - the are
+applicative, monadic, zippable, and more.
+
+To see the connection to @Rel8@'s table type, let's build a small representable
+functor for Haskell packages:
+
+@
+data HaskellPackage a = HaskellPackage { packageId, packageName :: a }
+  deriving Functor
+
+data HaskellPackageField = HaskellPackageId | HaskellPackageName
+
+instance Representable HaskellPackage where
+  type Rep HaskellPackage = HaskellPackageField
+  index HaskellPackage{ packageId, packageName } = \\case
+    HaskellPackageId -> packageId
+    HaskellPackageName -> packageName
+@
+
+Hopefully you can see that for records, @Representable@ really speaks about
+records where all fields of the record can be accessed by some kind of first
+class name. However, for our purposes @Representable@ isn't enough - it means
+/all/ fields in the record have to share the same type, but that's not what
+we want!
+
+@Table@ is the solution, which comes from (mostly) mechanically lifting
+@Representable@ up to another kind. Now, our @Rep@ (@Field@ in @Table@) isn't
+of type @*@, but it's now of type @* -> *@. This lets the @Field@ carry type
+information:
+
+@
+data HaskellPackage = HaskellPackage { packageId :: Int, packageName :: String }
+  deriving Functor
+
+data HaskellPackageField :: * -> * where
+  HaskellPackageId   :: HaskellPackageField Int
+  HaskellPackageName :: HaskellPackageName String
+
+instance Table HaskellPackage where
+  type Field HaskellPackage = HaskellPackageField
+  field HaskellPackage{ packageId, packageName } = \\case
+    HaskellPackageId -> packageId
+    HaskellPackageName -> packageName
+@
+
+-}
+class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrained ) => Table ( t :: Type ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
-  -- field in the table.
-  type Field t = ( field :: * -> * ) | field -> t
+  -- field in the table. It describes not just the field itself, but also the
+  -- type of values stored there.
+  type Field t = ( field :: Type -> Type ) | field -> t
 
   -- | All fields in a table are intepreted under a common functor @f@.
   -- This associated type family lets us extract that functor.
-  type Context t :: * -> *
+  type Context t :: Type -> Type
 
   -- | Give the tag of field in the table, look at the contents of that field.
   field :: t -> Field t x -> C ( Context t ) x
 
   -- | Given a function that knows how to construct fields in the 'Context' of
   -- the table @t@, build a @t@ by calling that function for every field.
+  -- The function can also request constraints to hold on all @x@s in the
+  -- structure by using 'ConstrainTable'.
   tabulateMCP
     :: forall c f proxy
      . ( ConstrainTable t c, Applicative f )
@@ -51,7 +124,8 @@ class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrain
     -> ( forall x. c x => Field t x -> f ( C ( Context t ) x ) )
     -> f t
 
-  type ConstrainTable t ( c :: * -> Constraint ) :: Constraint
+  -- | Ensure a constraint holds over all field types in the table.
+  type ConstrainTable t ( c :: Type -> Constraint ) :: Constraint
 
 
 class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
