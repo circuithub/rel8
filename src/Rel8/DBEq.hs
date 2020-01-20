@@ -47,8 +47,8 @@ etc in the database, and they can be compared for equality by just using @=@.
 -}
 class DBEq ( a :: Type ) where
   eqExprs :: Expr m a -> Expr m a -> Expr m Bool
-  eqExprs ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr (Opaleye.:==) a b )
+  eqExprs =
+    binExpr (Opaleye.:==)
 
 
 instance DBEq String

@@ -91,7 +91,7 @@ queryRunner =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f ->
         traverseTable
-          ( \( C x ) -> C . Expr <$> f ( toPrimExpr x ) )
+          ( \( C x ) -> C . fromPrimExpr <$> f ( toPrimExpr x ) )
 
 
 -- | Run an @INSERT@ statement
@@ -175,8 +175,7 @@ opaleyeReturning returning =
     Projection f ->
       Opaleye.ReturningExplicit
         queryRunner
-        ( f . mapTable \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
-        )
+        ( f . mapTable ( C . column . columnName. toColumn ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -246,7 +245,7 @@ showSQL ( Query opaleye ) =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
         traverseTable
-          ( \( C expr ) -> C . Expr <$> f ( toPrimExpr expr ) )
+          ( fmap ( C . fromPrimExpr ) . f . toPrimExpr . toColumn )
           row
 
 
@@ -266,7 +265,7 @@ delete c Delete{ from, deleteWhere, returning } =
     go schema deleteWhere_ returning_ =
       Opaleye.Delete
         { dTable = ddlTable schema ( Opaleye.Writer ( pure () ) )
-        , dWhere = Opaleye.Column . toPrimExpr . deleteWhere_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
+        , dWhere = Opaleye.Column . toPrimExpr . deleteWhere_ . mapTable ( C . column . columnName . toColumn )
         , dReturning = opaleyeReturning returning_
         }
 
@@ -303,8 +302,8 @@ update connection Update{ target, set, updateWhere, returning } =
       Opaleye.Update
         { uTable = ddlTable target_ ( writer target_ )
         , uReturning = opaleyeReturning returning_
-        , uWhere = Opaleye.Column . toPrimExpr . updateWhere_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
-        , uUpdateWith = set_ . mapTable ( \( C ColumnSchema{ columnName } ) -> C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) ) )
+        , uWhere = Opaleye.Column . toPrimExpr . updateWhere_ . mapTable ( C . column . columnName . toColumn )
+        , uUpdateWith = set_ . mapTable ( C . column . columnName . toColumn )
         }
 
 

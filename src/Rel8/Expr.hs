@@ -8,7 +8,26 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Expr where
+module Rel8.Expr
+  ( DBType(..)
+  , (&&.)
+  , (||.)
+  , Expr
+  , Function
+  , applyArgument
+  , binExpr
+  , coerceExpr
+  , column
+  , dbFunction
+  , demote
+  , fromPrimExpr
+  , not_
+  , nullaryFunction
+  , promote
+  , retype
+  , toPrimExpr
+  , unsafeCoerceExpr
+  ) where
 
 import Data.Coerce
 import Data.Int
@@ -225,3 +244,23 @@ instance Table ( Expr m a ) where
 instance ( a ~ b, Expr m ~ m', Expr n ~ n' ) => Compatible ( Expr m a ) m' ( Expr n b ) n' where
   transferField ExprField =
     ExprField
+
+
+binExpr :: Opaleye.BinOp -> Expr m a -> Expr m a -> Expr m b
+binExpr op ( Expr a ) ( Expr b ) =
+    Expr ( Opaleye.BinExpr op a b )
+
+
+column :: String -> Expr m a
+column columnName =
+  Expr ( Opaleye.BaseTableAttrExpr columnName )
+
+
+fromPrimExpr :: Opaleye.PrimExpr -> Expr m a
+fromPrimExpr =
+  Expr
+
+
+retype :: Expr m a -> Expr m b
+retype =
+  fromPrimExpr . toPrimExpr

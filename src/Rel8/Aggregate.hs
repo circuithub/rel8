@@ -178,7 +178,7 @@ class DBMonoid a where
 instance DBMonoid ( Sum a ) where
   aggregateExpr =
     Opaleye.Aggregator $ Opaleye.PackMap \f expr ->
-      Expr
+      fromPrimExpr
         <$> f ( Just ( Opaleye.AggrSum, [], Opaleye.AggrAll )
               , toPrimExpr expr
               )
@@ -192,12 +192,12 @@ instance MonoidTable ( Sum ( Expr m a ) ) where
 
       from :: Sum ( Expr m a ) -> Expr m ( Sum a )
       from ( Sum expr ) =
-        Expr ( toPrimExpr expr )
+        retype expr
 
 
       to :: Expr m ( Sum a ) -> Sum ( Expr m a )
       to expr =
-        Sum ( Expr ( toPrimExpr expr ) )
+        Sum ( retype expr )
 
 
 -- | Group rows of type @v@ by key @k@.
@@ -248,4 +248,4 @@ instance ( ConstrainedTable k Unconstrained, Context k ~ Expr m, MonoidTable v )
       group =
         Opaleye.Aggregator $ Opaleye.PackMap \f ->
           traverseTable
-            ( \( C x ) -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
+            ( \( C x ) -> C . fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )

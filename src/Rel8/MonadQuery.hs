@@ -31,7 +31,6 @@ import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
@@ -94,7 +93,7 @@ each_forAll schema =
     unpackspec =
       Opaleye.Unpackspec $ Opaleye.PackMap \f ->
         traverseTable
-          ( \( C expr ) -> C . Expr <$> f ( toPrimExpr expr ) )
+          ( \( C expr ) -> C . fromPrimExpr <$> f ( toPrimExpr expr ) )
 
 
     writer :: Opaleye.Writer () row
@@ -107,7 +106,7 @@ each_forAll schema =
       Opaleye.View
         ( mapTable
             ( \( C ColumnSchema{ columnName } ) ->
-                C ( Expr ( Opaleye.BaseTableAttrExpr columnName ) )
+                C ( column columnName )
             )
             ( tableColumns schema )
         )
@@ -154,9 +153,7 @@ leftJoin_forAll joinTable condition =
     in ( MaybeTable tag renamed
        , Opaleye.Join
            Opaleye.LeftJoin
-           ( case condition renamed of
-              Expr a -> a
-           )
+           ( toPrimExpr ( condition renamed ) )
            []
            ljPEsB
            left
@@ -174,10 +171,10 @@ leftJoin_forAll joinTable condition =
 
         outer <-
           traverseTable
-            ( \( C a) -> C . Expr <$> f ( toPrimExpr a ) )
+            ( \( C a ) -> C . fromPrimExpr <$> f ( toPrimExpr a ) )
             outer'
 
-        return ( Expr tag', outer )
+        return ( fromPrimExpr tag', outer )
 
 
 -- | Combine the results of two queries of the same type.
@@ -209,7 +206,7 @@ union_forAll l r =
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
         zipTablesWithM
-          ( \( C x ) ( C y ) -> C . Expr <$> f ( toPrimExpr x, toPrimExpr y ) )
+          ( \( C x ) ( C y ) -> C . fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
           a
           b
 
@@ -234,7 +231,7 @@ distinct_forAll query =
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
         traverseTable
-          ( \( C x ) -> C . Expr <$> f ( Nothing, toPrimExpr x ) )
+          ( \( C x ) -> C . fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
           a
 
 
