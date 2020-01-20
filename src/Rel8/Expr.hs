@@ -39,11 +39,40 @@ instance {-# overlaps #-} ( IsString a, DBType a ) => IsString ( Expr m ( Maybe 
     lit . Just . fromString
 
 
--- | The class of all Haskell types that can be represented as expressiosn
--- in a database. There should be an instance of @DBType@ for all column
--- types in your database schema (e.g., @int@, @timestamptz@, etc).
---
--- Rel8 comes with stock instances for all default types in PostgreSQL.
+{-| Haskell types that can be represented as expressiosn in a database. There
+should be an instance of @DBType@ for all column types in your database
+schema (e.g., @int@, @timestamptz@, etc).
+
+Rel8 comes with stock instances for all default types in PostgreSQL.
+
+[ @newtype@ing @DBType@s ]
+
+Generalized newtype deriving can be used when you want use a @newtype@ around a
+database type for clarity and accuracy in your Haskell code. A common example is
+to @newtype@ row id types:
+
+@
+newtype UserId = UserId { toInt32 :: Int32 }
+  deriving ( DBType )
+@
+
+You can now write queries using @UserId@ instead of @Int32@, which may help
+avoid making bad joins. However, when SQL is generated, it will be as if you
+just used integers (the type distinction does not impact query generation).
+
+[ Using @Show@ with @DBType@ ]
+
+@DBType@ also comes with a default instance using @Show@. This can be useful if
+you have a small enumeration type that you need to store in your database, and
+you're happy to just encode it as a string:
+
+@
+data Color = Red | Green | Blue | Purple | Gold
+  deriving ( Show, DBType )
+@
+
+-}
+
 class DBType ( a :: Type ) where
   -- | Lift a Haskell value into a literal SQL expression.
   lit :: a -> Expr m a
