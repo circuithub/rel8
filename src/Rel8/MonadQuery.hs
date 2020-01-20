@@ -121,7 +121,7 @@ leftJoin
   :: ( MonadQuery m, Promote m outer outer' )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable outer ( Expr m ) )
+  -> m ( MaybeTable ( Expr m ) outer )
 leftJoin = leftJoin_forAll
 
 leftJoin_forAll
@@ -129,7 +129,7 @@ leftJoin_forAll
    . ( MonadQuery m, Promote m outer outer' )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable outer ( Expr m ) )
+  -> m ( MaybeTable ( Expr m ) outer )
 leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
