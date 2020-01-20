@@ -1,6 +1,8 @@
+{-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
@@ -27,11 +29,13 @@ module Rel8.Expr
   , retype
   , toPrimExpr
   , unsafeCoerceExpr
+  , null_
   ) where
 
 import Data.Coerce
 import Data.Int
 import Data.Kind
+import Data.Proxy
 import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -123,6 +127,28 @@ instance DBType Text where
 instance DBType String where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.StringLit
+
+
+-- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
+-- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
+instance DBTypeMaybe ( IsMaybe a ) a => DBType ( Maybe a ) where
+  lit =
+    maybe
+      ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) )
+      ( retype . maybeLit ( Proxy @( IsMaybe a ) ) )
+
+
+type family IsMaybe ( a :: Type ) :: Bool where
+  IsMaybe ( Maybe a ) = 'True
+  IsMaybe a = 'False
+
+
+class DBTypeMaybe ( isMaybe :: Bool ) a where
+  maybeLit :: proxy isMaybe -> a -> Expr m a
+
+
+instance DBType a => DBTypeMaybe 'False a where
+  maybeLit _ = lit
 
 
 -- | The SQL @AND@ operator.
@@ -264,3 +290,30 @@ fromPrimExpr =
 retype :: Expr m a -> Expr m b
 retype =
   fromPrimExpr . toPrimExpr
+
+
+null_ :: Expr m b -> ( Expr m a -> Expr m b ) -> Expr m ( Maybe a ) -> Expr m b
+null_ whenNull f a =
+ ifThenElse_ ( isNull a ) whenNull ( f ( retype a ) )
+
+
+ifThenElse_ :: Expr m Bool -> Expr m a -> Expr m a -> Expr m a
+ifThenElse_ bool whenTrue whenFalse =
+  case_ [ ( bool, whenTrue ) ] whenFalse
+
+
+case_
+  :: [ ( Expr m Bool, Expr m a ) ]
+  -> Expr m a
+  -> Expr m a
+case_ alts def =
+  fromPrimExpr
+    ( Opaleye.CaseExpr
+        [ ( toPrimExpr bool, toPrimExpr alt ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr def )
+    )
+
+
+isNull :: Expr m ( Maybe a ) -> Expr m Bool
+isNull =
+  fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
