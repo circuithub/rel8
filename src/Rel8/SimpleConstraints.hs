@@ -89,13 +89,3 @@ instance
   , Context ( Hidden () ) ~ Expr m
   , Context b ~ Expr ( Nest m )
   ) => Promote m ( Hidden () ) b where
-
-
--- | The sub-class of higher-kinded data types where all columns satisfy
--- an extra constraint. For example, @ConstrainHigherKinded m DBEq t@ is
--- the class of higher-kinded data types where all columns can be compared
--- for equality.
-class
-  ( HigherKindedTable t
-  , HConstrainTraverse t ( Expr m ) c
-  ) => ConstrainHigherKinded m c t

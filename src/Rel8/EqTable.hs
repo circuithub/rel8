@@ -16,7 +16,7 @@ import Rel8.Table
 
 -- | The class of database tables (containing one or more columns) that can be
 -- compared for equality as a whole.
-class Table a => EqTable a where
+class EqTable a where
   -- | Compare two tables or expressions for equality.
   --
   -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
@@ -44,7 +44,7 @@ instance DBEq a => EqTable ( Expr m a ) where
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ( ConstrainTable ( t ( Expr m ) ) Unconstrained, HigherKindedTable t, HConstrainTraverse t ( Expr m ) DBEq, HConstrainTraverse t ( Expr m ) Unconstrained ) => EqTable ( t ( Expr m ) ) where
+instance ConstrainedTable ( t ( Expr m ) ) DBEq => EqTable ( t ( Expr m ) ) where
   l ==. r =
     foldl
       (&&.)

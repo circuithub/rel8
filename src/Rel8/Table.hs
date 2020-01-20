@@ -43,7 +43,7 @@ module Rel8.Table
   , Compatible(..)
 
     -- * Higher-kinded tables
-  , HigherKindedTable(..)
+  , HigherKindedTable
 
     -- * Columns
   , Column
@@ -374,14 +374,17 @@ data MyType f = MyType { fieldA :: Column f T }
 
 -}
 class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
+  -- | Like 'Field', but for higher-kinded tables.
   type HField t = ( field :: Type -> Type ) | field -> t
   type HField t =
     GenericField t
 
-  type HConstrainTraverse t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
-  type HConstrainTraverse t f c =
-    GHConstrainTraverse ( Rep ( t f ) ) ( Rep ( t Spine ) ) c
+  -- | Like 'Constraintable', but for higher-kinded tables.
+  type HConstrainTable t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
+  type HConstrainTable t f c =
+    GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c
 
+  -- | Like 'field', but for higher-kinded tables.
   hfield :: t f -> HField t x -> C f x
   default hfield
     :: forall f x
@@ -393,13 +396,14 @@ class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
   hfield x ( GenericField i ) =
     ghfield @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) ( from x ) i
 
+  -- | Like 'tabulateMCP', but for higher-kinded tables.
   htabulate
-    :: ( Applicative m, HConstrainTraverse t f c )
+    :: ( Applicative m, HConstrainTable t f c )
     => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
 
   default htabulate
     :: forall f m c proxy
-     . ( Applicative m, GHConstrainTraverse ( Rep ( t f ) ) ( Rep ( t Spine ) ) c, Generic ( t f )
+     . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c, Generic ( t f )
        , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
        , HField t ~ GenericField t
        )
@@ -422,7 +426,7 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     f
 
   type ConstrainTable ( t f ) c =
-    HConstrainTraverse t f c
+    HConstrainTable t f c
 
   tabulateMCP proxy f =
     htabulate proxy \x -> f ( F x )
@@ -431,7 +435,7 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     hfield x i
 
 
-instance ( HConstrainTraverse t' g Unconstrained, HConstrainTraverse t' f Unconstrained, HConstrainTraverse t f Unconstrained, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
+instance ( HConstrainTable t' g Unconstrained, HConstrainTable t' f Unconstrained, HConstrainTable t f Unconstrained, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
   transferField ( F x ) =
     F x
 
@@ -439,12 +443,12 @@ instance ( HConstrainTraverse t' g Unconstrained, HConstrainTraverse t' f Uncons
 class GHigherKindedTable ( rep :: Type -> Type ) ( t :: ( Type -> Type ) -> Type ) ( f :: Type -> Type ) ( repIdentity :: Type -> Type ) where
   data GHField t repIdentity :: Type -> Type
 
-  type GHConstrainTraverse rep repIdentity ( c :: Type -> Constraint ) :: Constraint
+  type GHConstrainTable rep repIdentity ( c :: Type -> Constraint ) :: Constraint
 
   ghfield :: rep a -> GHField t repIdentity x -> C f x
 
   ghtabulate
-    :: ( Applicative m, GHConstrainTraverse rep repIdentity c )
+    :: ( Applicative m, GHConstrainTable rep repIdentity c )
     => proxy c
     -> ( forall x. c x => GHField t repIdentity x -> m ( C f x ) )
     -> m ( rep a )
@@ -454,8 +458,8 @@ instance GHigherKindedTable x t f x' => GHigherKindedTable ( M1 i c x ) t f ( M1
   data GHField t ( M1 i' c' x' ) a where
     M1Field :: GHField t x' a -> GHField t ( M1 i' c' x' ) a
 
-  type GHConstrainTraverse ( M1 i c x ) ( M1 i' c' x' ) constraint =
-    GHConstrainTraverse x x' constraint
+  type GHConstrainTable ( M1 i c x ) ( M1 i' c' x' ) constraint =
+    GHConstrainTable x x' constraint
 
   ghfield ( M1 a ) ( M1Field i ) =
     ghfield a i
@@ -469,8 +473,8 @@ instance ( GHigherKindedTable x t f x', GHigherKindedTable y t f y' ) => GHigher
     FieldL :: GHField t x' a -> GHField t ( x' :*: y' ) a
     FieldR :: GHField t y' a -> GHField t ( x' :*: y' ) a
 
-  type GHConstrainTraverse ( x :*: y ) ( x' :*: y' ) constraint =
-    ( GHConstrainTraverse x x' constraint, GHConstrainTraverse y y' constraint )
+  type GHConstrainTable ( x :*: y ) ( x' :*: y' ) constraint =
+    ( GHConstrainTable x x' constraint, GHConstrainTable y y' constraint )
 
   ghfield ( x :*: y ) = \case
     FieldL i -> ghfield x i
@@ -491,7 +495,7 @@ instance DispatchK1 ( IsColumnApplication c' ) f c c' => GHigherKindedTable ( K1
   data GHField t ( K1 i' c' ) a where
     K1Field :: K1Field ( IsColumnApplication c' ) c' x -> GHField t ( K1 i' c' ) x
 
-  type GHConstrainTraverse ( K1 i c ) ( K1 i' c' ) constraint =
+  type GHConstrainTable ( K1 i c ) ( K1 i' c' ) constraint =
     ConstrainK1 ( IsColumnApplication c' ) c c' constraint
 
   ghfield ( K1 a ) ( K1Field i ) =

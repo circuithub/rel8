@@ -16,8 +16,7 @@ import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.Query
-import Rel8.Table ( Context, Table, HConstrainTraverse, HigherKindedTable, traverseTableC )
-import Rel8.Unconstrained
+import Rel8.Table ( Context, Table, ConstrainedTable, traverseTableC )
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -34,7 +33,7 @@ instance ( Context ( sqlA, sqlB ) ~ Expr Query, FromRow sqlA haskellA, FromRow s
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent parts.
-instance ( HConstrainTraverse t Identity Unconstrained, HigherKindedTable t, HConstrainTraverse t Identity FromField, HConstrainTraverse t ( Expr Query ) Unconstrained, expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance ( ConstrainedTable ( t identity ) FromField, Table ( t expr ), expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
     traverseTableC @FromField ( traverseCC @FromField \_ -> field )
 
