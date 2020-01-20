@@ -134,6 +134,8 @@ class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
 instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
 
 
+-- | Witness that two tables are compatible with each other. The notion of
+-- compatible is explained in 'Compatible'.
 class ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
 instance ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
 
