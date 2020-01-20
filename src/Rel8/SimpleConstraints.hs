@@ -22,10 +22,8 @@ import Rel8.Table
 class
   ( Context row ~ Expr m
   , Context schema ~ ColumnSchema
-  , Table schema
-  , Table row
-  , Compatible row ( Expr m ) row ( Expr m )
-  , Compatible row ( Expr m ) schema ColumnSchema
+  , CompatibleTables row schema
+  , CompatibleTables schema row
   ) => Selects m schema row
 
 
@@ -33,10 +31,8 @@ instance
   {-# overlapping #-}
   ( Context row ~ Expr m
   , Context schema ~ ColumnSchema
-  , Table schema
-  , Table row
-  , Compatible row ( Expr m ) row ( Expr m )
-  , Compatible row ( Expr m ) schema ColumnSchema
+  , CompatibleTables row schema
+  , CompatibleTables schema row
   ) => Selects m schema row
 
 
@@ -46,10 +42,8 @@ data Hidden ( a :: k )
 instance
   ( Context row ~ Expr m
   , Context ( Hidden () ) ~ ColumnSchema
-  , Table ( Hidden () )
-  , Table row
-  , Compatible row ( Expr m ) row ( Expr m )
-  , Compatible row ( Expr m ) ( Hidden () ) ColumnSchema
+  , CompatibleTables row  ( Hidden () )
+  , CompatibleTables  ( Hidden () ) row
   ) => Selects m ( Hidden () ) row
 
 

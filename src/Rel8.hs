@@ -90,6 +90,7 @@ module Rel8
   , CompatibleTables
   , Compatible
   , ConstrainedTable
+  , Selects
 
     -- * Next Steps
     -- $nextSteps
@@ -109,6 +110,7 @@ import Rel8.MonadQuery
 import Rel8.Query
 import Rel8.Table
 import Rel8.TableSchema
+import Rel8.SimpleConstraints
 
 {- $nextSteps
 

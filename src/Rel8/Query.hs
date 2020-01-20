@@ -17,23 +17,24 @@ import Control.Monad.IO.Class
 import Data.Int
 import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
-import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
+import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
+import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Internal.Optimize as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.MonadQuery
 import qualified Rel8.Optimize
+import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
 import {-# source #-} Rel8.FromRow
@@ -204,13 +205,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: * -> * where
   Insert
-    :: ( Table schema
-       , Table value
-       , Context schema ~ ColumnSchema
-       , Context value ~ Expr Query
-       , Compatible schema ColumnSchema schema ColumnSchema
-       , Compatible schema ColumnSchema value ( Expr Query )
-       )
+    :: Selects Query schema value
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , values :: [ value ]
@@ -236,9 +231,8 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( CompatibleTables row schema
-       , Context row ~ Expr Query
-       , Context schema ~ ColumnSchema
+    :: ( Selects Query schema row
+       , Context row ~ Context projection
        , FromRow projection a
        )
     => ( row -> projection )
@@ -292,7 +286,7 @@ delete c Delete{ from, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: ( CompatibleTables row from, Context from ~ ColumnSchema, Context row ~ Expr Query )
+    :: Selects Query from row
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Query Bool
        , returning :: Returning from return
@@ -329,11 +323,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: ( CompatibleTables row target
-       , CompatibleTables target row
-       , Context target ~ ColumnSchema
-       , Context row ~ Expr Query
-       )
+    :: Selects Query target row
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Query Bool
