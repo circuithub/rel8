@@ -28,6 +28,7 @@ module Rel8
   , leftJoin
   , MaybeTable
   , isNull
+  , maybeTable
   , toMaybe
 
     -- ** Aggregation
@@ -47,6 +48,7 @@ module Rel8
   ,  lit
 
     -- *** Null
+  , Null
   , null_
 
     -- *** Equality

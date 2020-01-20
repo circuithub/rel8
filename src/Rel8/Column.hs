@@ -1,12 +1,16 @@
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
-module Rel8.Column ( Column, C(..), Spine ) where
+module Rel8.Column ( Column, C(..), Null, Spine ) where
 
 import Data.Functor.Identity
 import Data.Kind
 
 
 data Spine a
+
+
+data Null ( f :: * -> * ) a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
@@ -42,6 +46,7 @@ holes should mention precise types, rather than the @Column@ type family. You
 should only need to be aware of the type family when defining your table types.
 -}
 type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
+  Column ( Null f ) a = Column f ( Maybe a )
   Column Identity a = a
   Column Spine a = Spine a
   Column f a = f a

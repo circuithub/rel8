@@ -118,18 +118,28 @@ each_forAll schema =
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 leftJoin
-  :: ( MonadQuery m, Promote m outer outer' )
+  :: ( MonadQuery m
+     , Promote m outer outer'
+     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
+     , Table nullOuter
+     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) outer )
+  -> m ( MaybeTable ( Expr m ) nullOuter )
 leftJoin = leftJoin_forAll
 
 leftJoin_forAll
-  :: forall outer outer' m
-   . ( MonadQuery m, Promote m outer outer' )
+  :: forall outer nullOuter outer' m
+   . ( MonadQuery m
+     , Promote m outer outer'
+     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
+     , Table nullOuter
+     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) outer )
+  -> m ( MaybeTable ( Expr m ) nullOuter )
 leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
@@ -150,7 +160,10 @@ leftJoin_forAll joinTable condition =
               right
           )
 
-    in ( MaybeTable tag renamed
+    in ( MaybeTable
+           { isNull = tag
+           , maybeTable = mapTable ( \( C expr ) -> C ( retype expr ) ) renamed
+           }
        , Opaleye.Join
            Opaleye.LeftJoin
            ( toPrimExpr ( condition renamed ) )
@@ -163,7 +176,7 @@ leftJoin_forAll joinTable condition =
 
   where
 
-    unpackColumns :: Opaleye.Unpackspec ( Expr m Bool, outer' ) ( Expr n Bool, outer )
+    unpackColumns :: Opaleye.Unpackspec ( Expr m Bool, outer' ) ( Expr m Bool, outer )
     unpackColumns =
       Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer' ) -> do
         tag' <-

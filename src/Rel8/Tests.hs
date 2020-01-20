@@ -119,7 +119,9 @@ projectParts =
     }
 
 
-leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( Expr m ) ( ProjectPart ( Expr m ) ) )
+leftJoinTest
+  :: MonadQuery m
+  => m ( Expr m Int32, MaybeTable ( Expr m ) ( ProjectPart ( Null ( Expr m ) ) ) )
 leftJoinTest = do
   Part{ partId } <-
     each parts
@@ -223,10 +225,15 @@ nullTest = do
   return HasNull{ nullId }
 
 
-nullTestLeftJoin :: MonadQuery m => m ( MaybeTable ( Expr m ) ( HasNull ( Expr m ) ) )
+nullTestLeftJoin
+  :: MonadQuery m
+  => m ( Expr m ( Maybe ( Maybe Int32 ) ), Expr m ( Maybe Int32 ) )
 nullTestLeftJoin = do
-  HasNull{ notNullId } <-
+  t1 <-
     each hasNull
 
-  leftJoin ( each hasNull ) \HasNull{ nullId } ->
-    null_ ( lit False  ) ( notNullId ==. ) nullId
+  t2 <-
+    leftJoin ( each hasNull ) \HasNull{ nullId } ->
+      null_ ( lit False ) ( notNullId t1 ==. ) nullId
+
+  return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
