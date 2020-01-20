@@ -119,7 +119,7 @@ projectParts =
     }
 
 
-leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( ProjectPart ( Expr m ) ) ( Expr m ) )
+leftJoinTest :: MonadQuery m => m ( Expr m Int32, MaybeTable ( Expr m ) ( ProjectPart ( Expr m ) ) )
 leftJoinTest = do
   Part{ partId } <-
     each parts
@@ -194,3 +194,39 @@ partsAggregation = do
 -- --   groupAndAggregate
 -- --     ( \part -> unreachable )
 -- --     allParts
+
+
+data HasNull f =
+  HasNull { nullId :: Column f ( Maybe Int32 )
+          , notNullId :: Column f Int32
+          }
+  deriving
+    ( Generic, HigherKindedTable )
+
+
+hasNull :: TableSchema ( HasNull ColumnSchema )
+hasNull =
+  TableSchema
+    { tableName = "has_null"
+    , tableSchema = Nothing
+    , tableColumns = HasNull { nullId = "test", notNullId = "not_null" }
+    }
+
+
+nullTest :: MonadQuery m => m ( HasNull ( Expr m ) )
+nullTest = do
+  HasNull{ nullId } <-
+    each hasNull
+
+  where_ ( null_ ( lit False ) ( lit 42 ==. ) nullId )
+
+  return HasNull{ nullId }
+
+
+nullTestLeftJoin :: MonadQuery m => m ( MaybeTable ( Expr m ) ( HasNull ( Expr m ) ) )
+nullTestLeftJoin = do
+  HasNull{ notNullId } <-
+    each hasNull
+
+  leftJoin ( each hasNull ) \HasNull{ nullId } ->
+    null_ ( lit False  ) ( notNullId ==. ) nullId

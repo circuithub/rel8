@@ -3,12 +3,16 @@
 
 {-# options -fno-warn-name-shadowing #-}
 
-module Rel8.Optimize where
+module Rel8.Optimize ( optimize ) where
 
 import Control.Applicative
 import Data.Functor.Identity
 import Opaleye.Internal.HaskellDB.PrimQuery
 import Opaleye.Internal.PrimQuery
+
+optimize :: PrimQuery' a -> PrimQuery' a
+optimize =
+  transformOf primQuery optimisePredicates
 
 
 primQuery
@@ -62,17 +66,15 @@ primQuery f = \case
 
 
 optimisePredicates :: PrimQuery' a -> PrimQuery' a
-optimisePredicates =
-  rewriteOf primQuery optimisePrimQuery
+optimisePredicates = \case
+  Product primQueries predicates ->
+    Product primQueries ( map nullIsFalse predicates )
 
-  where
+  Join joinType predicate bindingsA bindingsB primQueryA primQueryB ->
+    Join joinType ( nullIsFalse predicate ) bindingsA bindingsB primQueryA primQueryB
 
-    optimisePrimQuery = \case
-      Product primQueries predicates ->
-        Just ( Product primQueries ( map nullIsFalse predicates ) )
-
-      _ ->
-        Nothing
+  other ->
+    other
 
 
 nullIsFalse :: PrimExpr -> PrimExpr

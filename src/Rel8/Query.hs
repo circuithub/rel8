@@ -15,6 +15,9 @@ module Rel8.Query where
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Int
+import Data.String ( fromString )
+import qualified Database.PostgreSQL.Simple
+import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
@@ -25,10 +28,12 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Internal.Optimize as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.MonadQuery
+import qualified Rel8.Optimize
 import Rel8.Table
 import Rel8.TableSchema
 import Rel8.Unconstrained
@@ -72,10 +77,25 @@ select_forAll
   :: forall row haskell m
    . ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
-select_forAll c ( Query query ) =
-  liftIO ( Opaleye.runSelectExplicit ( queryRunner ) c query )
+select_forAll conn query =
+  maybe
+    ( return [] )
+    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
+    ( selectQuery query )
 
   where
+
+queryParser
+  :: FromRow sql haskell
+  => Query sql
+  -> Database.PostgreSQL.Simple.RowParser haskell
+queryParser ( Query q ) =
+  Opaleye.prepareRowParser
+    queryRunner
+    ( case Opaleye.runSimpleQueryArrStart q () of
+        ( b, _, _ ) ->
+          b
+    )
 
 
 queryRunner
@@ -85,13 +105,12 @@ queryRunner
 queryRunner =
   Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
 
-  where
 
-    unpackspec :: Opaleye.Unpackspec row row
-    unpackspec =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-        traverseTable
-          ( \( C x ) -> C . fromPrimExpr <$> f ( toPrimExpr x ) )
+unpackspec :: ( Context row ~ Expr Query, Table row ) => Opaleye.Unpackspec row row
+unpackspec =
+  Opaleye.Unpackspec $ Opaleye.PackMap \f ->
+    traverseTable
+      ( \( C x ) -> C . fromPrimExpr <$> f ( toPrimExpr x ) )
 
 
 -- | Run an @INSERT@ statement
@@ -232,21 +251,23 @@ data OnConflict
   | DoNothing
 
 
-showSQL
+selectQuery
   :: forall a
    . ( Context a ~ Expr Query, Table a )
   => Query a -> Maybe String
-showSQL ( Query opaleye ) =
-  Opaleye.showSqlExplicit unpackspec opaleye
+selectQuery ( Query opaleye ) =
+  showSqlForPostgresExplicit
 
   where
 
-    unpackspec :: Opaleye.Unpackspec a a
-    unpackspec =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f row ->
-        traverseTable
-          ( fmap ( C . fromPrimExpr ) . f . toPrimExpr . toColumn )
-          row
+    showSqlForPostgresExplicit =
+      case Opaleye.runQueryArrUnpack unpackspec opaleye of
+        ( x, y, z ) ->
+          Opaleye.formatAndShowSQL
+            ( x
+            , Rel8.Optimize.optimize ( Opaleye.optimize y )
+            , z
+            )
 
 
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
