@@ -145,7 +145,7 @@ instance ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => Com
 --
 -- * Both tables use the same context functor.
 -- * Both tables have isomorphic fields selectors.
-class ( Context a ~ f, Context b ~ g ) => Compatible a ( f :: * -> * ) b ( g :: * -> * ) | a -> f, b -> g, f b g -> a where
+class ( Context a ~ f, Context b ~ g ) => Compatible a ( f :: Type -> Type ) b ( g :: Type -> Type ) | a -> f, b -> g, f b g -> a where
   -- | Witness the isomorphism between field selectors.
   transferField :: Field a x -> Field b x
 
@@ -334,12 +334,12 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HigherKindedTable ( t :: ( * -> * ) -> * ) where
-  type HField t = ( field :: * -> * ) | field -> t
+class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
+  type HField t = ( field :: Type -> Type ) | field -> t
   type HField t =
     GenericField t
 
-  type HConstrainTraverse t ( f :: * -> * ) ( c :: * -> Constraint ) :: Constraint
+  type HConstrainTraverse t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
   type HConstrainTraverse t f c =
     GHConstrainTraverse ( Rep ( t f ) ) ( Rep ( t Spine ) ) c
 
@@ -370,7 +370,7 @@ class HigherKindedTable ( t :: ( * -> * ) -> * ) where
 
 
 
-data TableHField t ( f :: * -> * ) x where
+data TableHField t ( f :: Type -> Type ) x where
   F :: HField t x -> TableHField t f x
 
 
@@ -396,10 +396,10 @@ instance ( HConstrainTraverse t' g Unconstrained, HConstrainTraverse t' f Uncons
     F x
 
 
-class GHigherKindedTable ( rep :: * -> * ) ( t :: ( * -> * ) -> * ) ( f :: * -> * ) ( repIdentity :: * -> * ) where
-  data GHField t repIdentity :: * -> *
+class GHigherKindedTable ( rep :: Type -> Type ) ( t :: ( Type -> Type ) -> Type ) ( f :: Type -> Type ) ( repIdentity :: Type -> Type ) where
+  data GHField t repIdentity :: Type -> Type
 
-  type GHConstrainTraverse rep repIdentity ( c :: * -> Constraint ) :: Constraint
+  type GHConstrainTraverse rep repIdentity ( c :: Type -> Constraint ) :: Constraint
 
   ghfield :: rep a -> GHField t repIdentity x -> C f x
 
@@ -441,7 +441,7 @@ instance ( GHigherKindedTable x t f x', GHigherKindedTable y t f y' ) => GHigher
           <*> ghtabulate @y @t @f @y' proxy ( f . FieldR )
 
 
-type family IsColumnApplication ( a :: * ) :: Bool where
+type family IsColumnApplication ( a :: Type ) :: Bool where
   IsColumnApplication ( Spine a ) = 'True
   IsColumnApplication _ = 'False
 
@@ -462,9 +462,9 @@ instance DispatchK1 ( IsColumnApplication c' ) f c c' => GHigherKindedTable ( K1
 
 
 class DispatchK1 ( isSpine :: Bool ) f a a' where
-  data K1Field isSpine a' :: * -> *
+  data K1Field isSpine a' :: Type -> Type
 
-  type ConstrainK1 isSpine a a' ( c :: * -> Constraint ) :: Constraint
+  type ConstrainK1 isSpine a a' ( c :: Type -> Constraint ) :: Constraint
 
   k1field :: a -> K1Field isSpine a' x -> C f x
 
