@@ -86,26 +86,31 @@ instance DBType a => DBType ( Maybe a ) where
     maybe ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) ) ( unsafeCoerceExpr .  lit )
 
 
+-- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.BoolLit
 
 
+-- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
 
 
+-- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
 
 
+-- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
   lit =
     unsafeCoerceExpr . lit . unpack
 
 
+-- | Corresponds to the @text@ PostgreSQL type.
 instance DBType String where
   lit =
     Expr . Opaleye.ConstExpr . Opaleye.StringLit
