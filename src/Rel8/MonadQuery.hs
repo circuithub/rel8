@@ -44,8 +44,8 @@ import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 
 
--- | The class of monads that can form SQL queries, along with the corresponding
--- expression type.
+-- | Monads that can form SQL queries. You should write all of your queries
+-- against this type class for maximum composability.
 class Monad m => MonadQuery m where
   liftOpaleye :: Opaleye.Query a -> m a
 
