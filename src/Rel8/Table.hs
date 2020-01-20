@@ -128,6 +128,8 @@ class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrain
   type ConstrainTable t ( c :: Type -> Constraint ) :: Constraint
 
 
+-- | A type class synonym for all tables that can be constrained by a given
+-- class.
 class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
 instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
 
