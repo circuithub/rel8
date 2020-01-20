@@ -46,6 +46,9 @@ module Rel8
     -- *** Literals
   ,  lit
 
+    -- *** Null
+  , null_
+
     -- *** Equality
   , EqTable
   , (==.)
