@@ -184,7 +184,7 @@ leftJoin_forAll joinTable condition =
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
 union
-  :: ( MonadQuery m, a `IsTableIn` m, Promote m a a' )
+  :: ( MonadQuery m, Promote m a a' )
   => Nest m a' -> Nest m a' -> m a
 union = union_forAll
 
@@ -192,7 +192,6 @@ union = union_forAll
 union_forAll
   :: forall a' a m
    . ( MonadQuery m
-     , a `IsTableIn` m
      , Promote m a a'
      )
   => Nest m a' -> Nest m a' -> m a
