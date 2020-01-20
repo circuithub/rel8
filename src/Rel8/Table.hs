@@ -288,7 +288,7 @@ zipTablesWithMC f t t' =
 data GenericField t a where
   GenericField :: GHField t ( Rep ( t Spine ) ) a -> GenericField t a
 
-{-| The class of higher-kinded data types.
+{-| Higher-kinded data types.
 
 Higher-kinded data types are data types of the pattern:
 
