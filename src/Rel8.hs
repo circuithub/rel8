@@ -15,6 +15,7 @@ module Rel8
 
     -- * Writing Queries
   , MonadQuery
+  , Table
   , each
   , where_
   , limit
@@ -48,7 +49,6 @@ module Rel8
     -- *** Equality
   , EqTable
   , (==.)
-  , Table
 
     -- *** Booleans
   , (&&.)
@@ -71,6 +71,7 @@ module Rel8
   , insert
   , Insert(..)
   , Returning(..)
+  , OnConflict(..)
 
     -- ** @DELETE@
   , delete

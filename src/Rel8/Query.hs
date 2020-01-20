@@ -94,7 +94,7 @@ queryRunner =
           ( \( C x ) -> C . Expr <$> f ( toPrimExpr x ) )
 
 
--- Run an @INSERT@ statement
+-- | Run an @INSERT@ statement
 insert :: MonadIO m => Connection -> Insert result -> m result
 insert connection Insert{ into, values, onConflict, returning } =
   liftIO
@@ -108,8 +108,8 @@ insert connection Insert{ into, values, onConflict, returning } =
     toOpaleyeInsert
       :: forall schema result value
        . ( Context value ~ Expr Query
-         , Compatible schema ColumnSchema schema ColumnSchema
-         , Compatible schema ColumnSchema value ( Expr Query )
+         , CompatibleTables schema value
+         , Context schema ~ ColumnSchema
          )
       => TableSchema schema
       -> [ value ]
@@ -137,9 +137,9 @@ insert connection Insert{ into, values, onConflict, returning } =
 
 writer
   :: forall value schema
-   . ( Compatible schema ColumnSchema schema ColumnSchema
-     , Compatible schema ColumnSchema value ( Expr Query )
+   . ( CompatibleTables schema value
      , Context value ~ Expr Query
+     , Context schema ~ ColumnSchema
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -184,6 +184,7 @@ ddlTable schema writer_ =
   toOpaleyeTable schema writer_ ( Opaleye.View ( tableColumns schema ) )
 
 
+-- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: * -> * where
   Insert
     :: ( Table schema
@@ -194,20 +195,33 @@ data Insert :: * -> * where
        , Compatible schema ColumnSchema value ( Expr Query )
        )
     => { into :: TableSchema schema
+         -- ^ Which table to insert into.
        , values :: [ value ]
+         -- ^ The rows to insert.
        , onConflict :: OnConflict
+         -- ^ What to do if the inserted rows conflict with data already in the
+         -- table.
        , returning :: Returning schema result
+         -- ^ What information to return on completion.
        }
     -> Insert result
 
 
+-- | @Returning@ describes what information to return when an @INSERT@
+-- statement completes.
 data Returning schema a where
+  -- | Just return the number of rows inserted.
   NumberOfRowsInserted :: Returning schema Int64
 
+  -- | Return a projection of the rows inserted. This can be useful if your
+  -- insert statement increments sequences by using default values.
+  --
+  -- >>> :t insert Insert{ returning = Projection fooId }
+  -- IO [ FooId ]
   Projection
-    :: ( Compatible row ( Context row ) schema ColumnSchema
-       , Compatible projection ( Expr Query ) projection ( Expr Query )
+    :: ( CompatibleTables row schema
        , Context row ~ Expr Query
+       , Context schema ~ ColumnSchema
        , FromRow projection a
        )
     => ( row -> projection )
@@ -221,9 +235,7 @@ data OnConflict
 
 showSQL
   :: forall a
-   . ( Context a ~ Expr Query
-     , Compatible a ( Expr Query ) a ( Expr Query )
-     )
+   . ( Context a ~ Expr Query, Table a )
   => Query a -> Maybe String
 showSQL ( Query opaleye ) =
   Opaleye.showSqlExplicit unpackspec opaleye
@@ -246,7 +258,7 @@ delete c Delete{ from, deleteWhere, returning } =
 
     go
       :: forall schema r row
-       . Compatible row ( Expr Query ) schema ColumnSchema
+       . ( CompatibleTables row schema, Context schema ~ ColumnSchema, Context row ~ Expr Query )
       => TableSchema schema
       -> ( row -> Expr Query Bool )
       -> Returning schema r
@@ -261,7 +273,7 @@ delete c Delete{ from, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: Compatible row ( Expr Query ) from ColumnSchema
+    :: ( CompatibleTables row from, Context from ~ ColumnSchema, Context row ~ Expr Query )
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Query Bool
        , returning :: Returning from return
@@ -277,9 +289,10 @@ update connection Update{ target, set, updateWhere, returning } =
 
     go
       :: forall returning target row
-       . ( Compatible row ( Expr Query ) target ColumnSchema
-         , Compatible target ColumnSchema target ColumnSchema
-         , Compatible target ColumnSchema row ( Expr Query )
+       . ( CompatibleTables row target
+         , CompatibleTables target row
+         , Context target ~ ColumnSchema
+         , Context row ~ Expr Query
          )
       => TableSchema target
       -> ( row -> row )
@@ -297,9 +310,10 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: ( Compatible row ( Expr Query ) target ColumnSchema
-       , Compatible target ColumnSchema target ColumnSchema
-       , Compatible target ColumnSchema row ( Expr Query )
+    :: ( CompatibleTables row target
+       , CompatibleTables target row
+       , Context target ~ ColumnSchema
+       , Context row ~ Expr Query
        )
     => { target :: TableSchema target
        , set :: row -> row

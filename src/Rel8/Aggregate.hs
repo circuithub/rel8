@@ -86,7 +86,6 @@ groupAndAggregate
      , EqTable k
      , Promote m k' k
      , Promote m v' v
-     , Compatible k ( Expr ( Nest m ) ) k ( Expr ( Nest m ) )
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate = groupAndAggregate_forAll
@@ -101,9 +100,8 @@ groupAndAggregate_forAll
      , Context k' ~ Context v'
      , Context v ~ Expr ( Nest m )
      , Context v' ~ Expr m
-     , Compatible k' ( Expr m ) k ( Expr ( Nest m ) )
-     , Compatible v' ( Expr m ) v ( Expr ( Nest m ) )
-     , Compatible k ( Expr ( Nest m ) ) k ( Expr ( Nest m ) )
+     , CompatibleTables k' k
+     , CompatibleTables v' v
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate_forAll f query =
@@ -128,7 +126,7 @@ aggregate
      , MonoidTable b
      , Context b' ~ Expr m
      , Context b ~ Expr ( Nest m)
-     , Compatible b' ( Expr m ) b ( Expr ( Nest m ) )
+     , CompatibleTables b' b
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
@@ -140,7 +138,7 @@ aggregate_forAll
      , MonoidTable b
      , Context b' ~ Expr m
      , Context b ~ Expr ( Nest m )
-     , Compatible b' ( Expr m ) b ( Expr ( Nest m ) )
+     , CompatibleTables b' b
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate_forAll f =
@@ -238,7 +236,7 @@ instance ( Compatible k f k' g, Compatible v f v' g, Context k ~ Context v, Cont
     ValueFields i -> ValueFields ( transferField i )
 
 
-instance ( Compatible k ( Expr m ) k ( Expr m ), ConstrainTable k Unconstrained, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( ConstrainedTable k Unconstrained, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group

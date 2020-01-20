@@ -57,7 +57,7 @@ instance
 -- | Makes sure that a given table (@a@) contains expressions compatible with
 -- the monad @m@. This type class is essentially a scoping check.
 class
-  ( Compatible a ( Expr m ) a ( Expr m )
+  ( Table a
   , Context a ~ Expr m
   ) => a `IsTableIn` m
 
@@ -66,22 +66,26 @@ class
 -- but exist at different levels of scope. In particular, @Promote m a b@ says
 -- @b@ is the same expression as @a@, where the scope has been increased by one.
 class
-  ( Compatible a ( Expr m ) b ( Expr ( Nest m ) )
+  ( CompatibleTables a b
   , Context a ~ Expr m
   , Context b ~ Expr ( Nest m )
+  , Table a
+  , Table b
   ) => Promote m a b where
 
 
 instance
   {-# overlapping #-}
-  ( Compatible a ( Expr m ) b ( Expr ( Nest m ) )
+  ( CompatibleTables a b
   , Context a ~ Expr m
   , Context b ~ Expr ( Nest m )
+  , Table a
+  , Table b
   ) => Promote m a b where
 
 
 instance
-  ( Compatible ( Hidden () ) ( Expr m ) b ( Expr ( Nest m ) )
+  ( CompatibleTables ( Hidden () ) b
   , Context ( Hidden () ) ~ Expr m
   , Context b ~ Expr ( Nest m )
   ) => Promote m ( Hidden () ) b where

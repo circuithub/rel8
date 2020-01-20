@@ -30,7 +30,7 @@ import Rel8.Unconstrained
 
 
 -- | The class of Haskell types that represent SQL tables.
-class ConstrainTable t Unconstrained => Table ( t :: * ) where
+class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrained ) => Table ( t :: * ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
   -- field in the table.
   type Field t = ( field :: * -> * ) | field -> t
@@ -54,7 +54,21 @@ class ConstrainTable t Unconstrained => Table ( t :: * ) where
   type ConstrainTable t ( c :: * -> Constraint ) :: Constraint
 
 
-class ( Table a, Table b, Context a ~ f, Context b ~ g ) => Compatible a ( f :: * -> * ) b ( g :: * -> * ) | a -> f, b -> g, f b g -> a where
+class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
+instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
+
+
+class ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
+instance ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
+
+
+-- | This type class witnesses that two tables are "compatible" with each over.
+-- Compatible in the sense of Rel8 means:
+--
+-- * Both tables use the same context functor.
+-- * Both tables have isomorphic fields selectors.
+class ( Context a ~ f, Context b ~ g ) => Compatible a ( f :: * -> * ) b ( g :: * -> * ) | a -> f, b -> g, f b g -> a where
+  -- | Witness the isomorphism between field selectors.
   transferField :: Field a x -> Field b x
 
 
@@ -69,7 +83,7 @@ tabulateC f =
 -- | Effectfully map a table from one context to another.
 traverseTableWithIndexC
   :: forall c t t' f g m
-   . ( Applicative m, Compatible t' f t g, ConstrainTable t' c )
+   . ( Applicative m, Table t, Compatible t' f t g, ConstrainedTable t' c )
   => ( forall x. c x => Field t x -> C ( Context t ) x -> m ( C ( Context t' ) x ) )
   -> t
   -> m t'
@@ -139,14 +153,14 @@ tabulate f =
 
 mapTable
   :: forall t' t
-   . ( Compatible t' ( Context t' ) t ( Context t ) )
+   . CompatibleTables t' t
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
 mapTable f =
   runIdentity . traverseTable ( Identity . f )
 
 
 traverseTable
-  :: ( Applicative f, Compatible t' ( Context t' ) t ( Context t ) )
+  :: ( Applicative f, Table t', CompatibleTables t' t )
   => ( forall x. C ( Context t ) x -> f ( C ( Context t' ) x ) )
   -> t
   -> f t'
@@ -156,7 +170,7 @@ traverseTable f =
 
 traverseTableC
   :: forall c m t t'
-   . ( Applicative m, ConstrainTable t' c, Compatible t' ( Context t' ) t ( Context t ) )
+   . ( Applicative m, ConstrainedTable t' c, CompatibleTables t' t )
   => ( forall x. c x => C ( Context t ) x -> m ( C ( Context t' ) x ) )
   -> t
   -> m t'
@@ -168,8 +182,8 @@ zipTablesWithM
   :: forall t t' t'' m
    . ( Applicative m
      , Table t''
-     , Compatible t'' ( Context t'' ) t ( Context t )
-     , Compatible t'' ( Context t'' ) t' ( Context t' )
+     , CompatibleTables t'' t
+     , CompatibleTables t'' t'
      )
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
   -> t -> t' -> m t''
@@ -182,8 +196,8 @@ zipTablesWithM f t t' =
 zipTablesWithMC
   :: forall c t'' t t' m
    . ( ConstrainTable t'' c
-     , Compatible t'' ( Context t'' ) t ( Context t )
-     , Compatible t'' ( Context t'' ) t' ( Context t' )
+     , CompatibleTables t'' t
+     , CompatibleTables t'' t'
      , Applicative m
      )
   => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
@@ -196,7 +210,52 @@ zipTablesWithMC f t t' =
 data GenericField t a where
   GenericField :: GHField t ( Rep ( t Spine ) ) a -> GenericField t a
 
+{-| The class of higher-kinded data types.
 
+Higher-kinded data types are data types of the pattern:
+
+@
+data MyType f =
+  MyType { field1 :: Column f T1 OR HK1 f
+         , field2 :: Column f T2 OR HK2 f
+         , ...
+         , fieldN :: Column f Tn OR HKn f
+         }
+@
+
+where @Tn@ is any Haskell type, and @HKn@ is any higher-kinded type.
+
+That is, higher-kinded data are records where all fields in the record
+are all either of the type @Column f T@ (for any @T@), or are themselves
+higher-kinded data:
+
+[Nested]
+
+@
+data Nested f =
+  Nested { nested1 :: MyType f
+         , nested2 :: MyType f
+         }
+@
+
+The @HigherKindedTable@ type class is used to give us a special mapping
+operation that lets us change the type parameter @f@.
+
+[Supplying @HigherKindedTable@ instances]
+
+This type class should be derived generically for all table types in your
+project. To do this, enable the @DeriveAnyType@ and @DeriveGeneric@ language
+extensions:
+
+@
+\{\-\# LANGUAGE DeriveAnyClass, DeriveGeneric #-\}
+import qualified GHC.Generics
+
+data MyType f = MyType { fieldA :: Column f T }
+  deriving ( GHC.Generics.Generic, HigherKindedTable )
+@
+
+-}
 class HigherKindedTable ( t :: ( * -> * ) -> * ) where
   type HField t = ( field :: * -> * ) | field -> t
   type HField t =
@@ -233,13 +292,13 @@ class HigherKindedTable ( t :: ( * -> * ) -> * ) where
 
 
 
-data HFieldField t ( f :: * -> * ) x where
-  F :: HField t x -> HFieldField t f x
+data TableHField t ( f :: * -> * ) x where
+  F :: HField t x -> TableHField t f x
 
 
 instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table ( t f ) where
   type Field ( t f ) =
-    HFieldField t f
+    TableHField t f
 
   type Context ( t f ) =
     f
@@ -254,7 +313,7 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     hfield x i
 
 
-instance ( HConstrainTraverse t' g Unconstrained, HConstrainTraverse t' f Unconstrained, HConstrainTraverse t f Unconstrained, HigherKindedTable t, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
+instance ( HConstrainTraverse t' g Unconstrained, HConstrainTraverse t' f Unconstrained, HConstrainTraverse t f Unconstrained, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
   transferField ( F x ) =
     F x
 

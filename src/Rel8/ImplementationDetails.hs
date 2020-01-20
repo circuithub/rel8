@@ -7,26 +7,36 @@
 
 module Rel8.ImplementationDetails
   ( C(..)
-  -- , CanZipLeaves
+  , Compatible( transferField )
   , ConstrainHigherKinded
-  -- , ExprIn
+  , ConstrainTable
+  , Field
+  , Table
+  , GHConstrainTraverse
+  , GenericField
+  , HConstrainTraverse
+  , HField
   , IsTableIn
   , MonadQuery(..)
   , Nest
+  , OnConflict
   , Promote
-  -- , Rewrite( rewrite )
   , Selects
+  , Spine
   , Unconstrained
-  -- , ZipLeaves( zipLeaves )
-  -- , HigherKinded( ZipRecord, zipRecord )
-  -- , WFHigherKinded
   , aggregateExpr
   , aggregator
+  , applyArgument
+  , tabulateMCP
+  , field
   ) where
 
 import Rel8.Aggregate
-import Rel8.Column ( C(..) )
+import Rel8.Column
+import Rel8.Expr
 import Rel8.MonadQuery
 import Rel8.Nest
+import Rel8.Query
 import Rel8.SimpleConstraints
+import Rel8.Table
 import Rel8.Unconstrained
