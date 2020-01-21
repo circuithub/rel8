@@ -15,7 +15,7 @@ module Control.Monad.Rel8
   ( -- * @MonadStatement@
     MonadStatement(..),
     select,
-    insert, insert1Returning, insertIgnoringConflicts,
+    insert, insert1Returning, insertIgnoringConflicts, insert1IgnoringConflictsReturning,
     update, updateReturning,
     delete,
 
@@ -50,6 +50,7 @@ import UnliftIO.Exception (throwIO, try, mask)
 import Data.Int (Int64)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.List.NonEmpty (NonEmpty)
+import Data.Maybe (listToMaybe)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Opaleye (Query)
@@ -71,6 +72,9 @@ data StatementSyntax f where
   Insert ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
+  InsertIgnoringConflictsReturning ::
+      BaseTable table =>
+      NonEmpty (table Insert) -> ([table QueryResult] -> k) -> StatementSyntax k
   InsertIgnoringConflicts ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
@@ -124,6 +128,20 @@ insertIgnoringConflicts
   :: MonadStatement m
   => BaseTable table => [table Insert] -> m Int64
 insertIgnoringConflicts rows = liftStatements (liftF (InsertIgnoringConflicts rows id))
+
+insert1IgnoringConflictsReturning
+  :: ( MonadStatement m
+     , BaseTable table
+     )
+  => table Insert -> m (Maybe (table QueryResult))
+insert1IgnoringConflictsReturning = fmap listToMaybe . insertIgnoringConflictsReturning . pure
+
+insertIgnoringConflictsReturning
+  :: ( MonadStatement m
+     , BaseTable table
+     )
+  => NonEmpty (table Insert) -> m [table QueryResult]
+insertIgnoringConflictsReturning rows = liftStatements (liftF (InsertIgnoringConflictsReturning rows id))
 
 update
   :: (MonadStatement m, BaseTable table)
@@ -230,6 +248,8 @@ instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e 
       step pg (InsertReturning q k) =
         runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
+      step pg (InsertIgnoringConflictsReturning q k) =
+        runResourceT (S.toList_ (Rel8.IO.insertIgnoringConflictsReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
       step pg (InsertIgnoringConflicts q k) = liftIO (Rel8.IO.insertIgnoringConflicts pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =

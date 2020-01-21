@@ -12,6 +12,7 @@ module Rel8.IO
   , insertReturning
   , insert1Returning
   , insertIgnoringConflicts
+  , insertIgnoringConflictsReturning
 
     -- * @UPDATE@
   , update
@@ -41,9 +42,10 @@ import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.FromRow as Pg
 import Database.PostgreSQL.Simple.Streaming
        (queryWith_, streamWithOptionsAndParser_)
-import qualified Opaleye as O
+import qualified Opaleye as O hiding (arrangeInsertManyReturningSql)
 import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
+import qualified Opaleye.Internal.Manipulation as O (arrangeInsertManyReturningSql)
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
 import Rel8.Internal.Table hiding (columns)
@@ -111,7 +113,7 @@ insertIgnoringConflicts conn rows =
                                     })
 
 -- | Insert rows into a 'BaseTable', and return the inserted rows. This runs a
--- @INSERT ... RETURNING@ statement, and be useful to immediately retrieve
+-- @INSERT ... RETURNING@ statement, and is useful to immediately retrieve
 -- any default values (such as automatically generated primary keys).
 insertReturning
   :: (BaseTable table, MonadIO m)
@@ -119,10 +121,22 @@ insertReturning
   -> [table Insert]
   -> Stream (Of (table QueryResult)) m ()
 insertReturning io rows =
-  runInsertManyReturningExplicit io queryRunner tableDefinition rows id
+  runInsertManyReturningExplicit io queryRunner tableDefinition rows id Nothing
+
+-- | Insert rows into a 'BaseTable', ignoring any duplicate rows, and return the
+-- inserted rows. This runs a @INSERT ... RETURNING@ statement with
+  -- @ON CONFLICT DO NOTHING@, and is useful to immediately retrieve
+-- any default values (such as automatically generated primary keys).
+insertIgnoringConflictsReturning
+  :: (BaseTable table, MonadIO m)
+  => QueryRunner m
+  -> [table Insert]
+  -> Stream (Of (table QueryResult)) m ()
+insertIgnoringConflictsReturning io rows =
+  runInsertManyReturningExplicit io queryRunner tableDefinition rows id (Just O.DoNothing)
 
 -- | Insert a single row 'BaseTable', and return the inserted row. This runs a
--- @INSERT ... RETURNING@ statement, and be useful to immediately retrieve
+-- @INSERT ... RETURNING@ statement, and is useful to immediately retrieve
 -- any default values (such as automatically generated primary keys).
 --
 -- *WARNING* - it is assumed that the @INSERT@ will insert a row assuming
@@ -203,12 +217,13 @@ runInsertManyReturningExplicit
   -> O.Table columnsW columnsR
   -> [columnsW]
   -> (columnsR -> columnsReturned)
+  -> Maybe O.OnConflict
   -> Stream (Of haskells) m ()
-runInsertManyReturningExplicit io qr t columns r =
+runInsertManyReturningExplicit io qr t columns r o =
   case NEL.nonEmpty columns of
     Nothing -> return ()
     Just columns' ->
-      io parser (fromString (O.arrangeInsertManyReturningSql u t columns' r))
+      io parser (fromString (O.arrangeInsertManyReturningSql u t columns' r o))
   where
     O.QueryRunner u _ _ = qr
     parser = O.prepareRowParser qr (r v)
