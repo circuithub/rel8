@@ -27,7 +27,7 @@ module Rel8
     -- ** Outer Joins
   , leftJoin
   , MaybeTable
-  , isNull
+  , isNullTable
   , maybeTable
   , toMaybe
 
@@ -50,6 +50,8 @@ module Rel8
     -- *** Null
   , Null
   , null_
+  , isNull
+  , liftNull
 
     -- *** Equality
   , EqTable

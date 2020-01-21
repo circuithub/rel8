@@ -158,8 +158,8 @@ leftJoin_forAll joinTable condition =
           )
 
     in ( MaybeTable
-           { isNull = tag
-           , maybeTable = mapTable ( mapC retype ) renamed
+           { isNullTable = tag
+           , maybeTable = mapTable ( mapC liftNull ) renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin

@@ -30,6 +30,8 @@ module Rel8.Expr
   , toPrimExpr
   , unsafeCoerceExpr
   , null_
+  , isNull
+  , liftNull
   , traversePrimExpr
   ) where
 
@@ -326,3 +328,8 @@ traversePrimExpr
   => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr m a -> f ( Expr m a )
 traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
+
+
+liftNull :: Expr m a -> Expr m ( Maybe a )
+liftNull =
+  retype

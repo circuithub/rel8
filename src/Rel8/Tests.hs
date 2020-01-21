@@ -237,3 +237,17 @@ nullTestLeftJoin = do
       null_ ( lit False ) ( notNullId t1 ==. ) nullId
 
   return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
+
+
+nullTestLeftJoinEasyEq
+  :: MonadQuery m
+  => m ( Expr m ( Maybe ( Maybe Int32 ) ), Expr m ( Maybe Int32 ) )
+nullTestLeftJoinEasyEq = do
+  t1 <-
+    each hasNull
+
+  t2 <-
+    leftJoin ( each hasNull ) \HasNull{ nullId } ->
+      nullId ==. liftNull ( notNullId t1 )
+
+  return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )

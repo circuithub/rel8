@@ -32,7 +32,7 @@ data MaybeTable f t where
     :: Context t ~ Null f
     => { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
-         isNull :: Column f Bool
+         isNullTable :: Column f Bool
        , maybeTable :: t
        }
     -> MaybeTable f t
@@ -64,9 +64,9 @@ instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null 
   type Context ( MaybeTable f t ) =
     f
 
-  field MaybeTable{ isNull, maybeTable } = \case
+  field MaybeTable{ isNullTable, maybeTable } = \case
     MaybeTableIsNull ->
-      MkC isNull
+      MkC isNullTable
 
     MaybeTableField i ->
       castC ( field maybeTable i )
@@ -94,6 +94,6 @@ toMaybe
      , Compatible notNull Identity null ( Null Identity )
      )
   => MaybeTable Identity null -> Maybe notNull
-toMaybe MaybeTable{ isNull, maybeTable }
-  | isNull = Nothing
+toMaybe MaybeTable{ isNullTable, maybeTable }
+  | isNullTable = Nothing
   | otherwise = traverseTable sequenceC maybeTable

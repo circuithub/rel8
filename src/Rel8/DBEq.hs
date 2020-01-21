@@ -61,3 +61,8 @@ instance DBEq Int64
 
 
 instance DBEq Text
+
+
+instance DBEq a => DBEq ( Maybe a ) where
+  eqExprs a b =
+    null_ ( isNull b ) ( \a' -> null_ ( lit False ) ( eqExprs a' ) b ) a

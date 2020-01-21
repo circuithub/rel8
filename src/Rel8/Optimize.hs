@@ -10,6 +10,7 @@ import Data.Functor.Identity
 import Opaleye.Internal.HaskellDB.PrimQuery
 import Opaleye.Internal.PrimQuery
 
+
 optimize :: PrimQuery' a -> PrimQuery' a
 optimize =
   transformOf primQuery optimisePredicates
@@ -86,6 +87,14 @@ nullIsFalse =
     simplifyCaseAnalysis = \case
       CaseExpr [ ( UnExpr OpIsNull _, ConstExpr ( BoolLit False ) ) ] notNullBranch ->
         Just notNullBranch
+
+      CaseExpr [ ( UnExpr OpIsNull x, UnExpr OpIsNull y ) ] notNullBranch ->
+        Just
+          ( BinExpr
+              (:||)
+              ( BinExpr (:&&) ( UnExpr OpIsNull x ) ( UnExpr OpIsNull y ) )
+              notNullBranch
+          )
 
       _ ->
         Nothing
