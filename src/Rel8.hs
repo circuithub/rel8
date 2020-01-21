@@ -18,6 +18,7 @@ module Rel8
   , Table
   , each
   , where_
+  , filterMap
   , limit
   , offset
   , union

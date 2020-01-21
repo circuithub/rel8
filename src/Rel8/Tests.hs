@@ -251,3 +251,8 @@ nullTestLeftJoinEasyEq = do
       nullId ==. liftNull ( notNullId t1 )
 
   return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
+
+
+filterMapTest :: MonadQuery m => m _
+filterMapTest =
+  filterMap nullId ( each hasNull )

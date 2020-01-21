@@ -9,6 +9,7 @@
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
+{-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
@@ -282,8 +283,8 @@ filterMap
   :: forall a nullA b nullB m
    . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
      , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
-     , CompatibleTables a b
-     , CompatibleTables nullA nullB
+     , Table a, Table b, Context a ~ Context b
+     , Table nullA, Table nullB, Context nullA ~ Context nullB
      , MonadQuery m
      )
   => ( nullA -> nullB ) -> m a -> m b
