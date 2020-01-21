@@ -15,7 +15,7 @@
 
 module Rel8.MonadQuery where
 
-import Control.Applicative ( liftA2 )
+import Control.Applicative ( Const(..), liftA2 )
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
@@ -276,3 +276,29 @@ where_ :: MonadQuery m => Expr m Bool -> m ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
+
+
+filterMap
+  :: forall a nullA b nullB m
+   . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
+     , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
+     , CompatibleTables a b
+     , CompatibleTables nullA nullB
+     , MonadQuery m
+     )
+  => ( nullA -> nullB ) -> m a -> m b
+filterMap f q = do
+  x <-
+    q
+
+  let
+    y =
+      f ( mapTable ( mapC liftNull ) x )
+
+    allNotNull :: [ Expr m Bool ]
+    allNotNull =
+      getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
+
+  where_ ( and_ allNotNull )
+
+  return ( mapTable ( mapC retype ) y )

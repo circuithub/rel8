@@ -270,7 +270,8 @@ mapTable f =
 -- | Effectfully traverse all fields in a 'Table', potentially producing another
 -- @Table@.
 traverseTable
-  :: ( Applicative f, Table t', CompatibleTables t' t )
+  :: forall t' t f
+   . ( Applicative f, Table t', CompatibleTables t' t )
   => ( forall x. C ( Context t ) x -> f ( C ( Context t' ) x ) )
   -> t
   -> f t'

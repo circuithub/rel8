@@ -16,6 +16,8 @@ module Rel8.Expr
   , (||.)
   , Expr
   , Function
+  , and_
+  , or_
   , applyArgument
   , binExpr
   , coerceExpr
@@ -35,6 +37,7 @@ module Rel8.Expr
   , traversePrimExpr
   ) where
 
+import Data.Foldable ( foldl' )
 import Data.Coerce
 import Data.Int
 import Data.Kind
@@ -333,3 +336,13 @@ traversePrimExpr f =
 liftNull :: Expr m a -> Expr m ( Maybe a )
 liftNull =
   retype
+
+
+and_ :: Foldable f => f ( Expr m Bool ) -> Expr m Bool
+and_ =
+  foldl' (&&.) ( lit True )
+
+
+or_ :: Foldable f => f ( Expr m Bool ) -> Expr m Bool
+or_ =
+  foldl' (||.) ( lit False )
