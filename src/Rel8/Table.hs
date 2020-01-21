@@ -544,3 +544,6 @@ instance ( Context a ~ f, Table a, Compatible a' Spine a f, Compatible a f a' Sp
 
   k1tabulate proxy f =
     tabulateMCP proxy ( f . K1False . transferField )
+
+
+data Spine a

@@ -15,14 +15,10 @@ module Rel8.Column
   , zipCWithM
   , zipCWithMC
   , Null
-  , Spine
   ) where
 
 import Data.Functor.Identity
 import Data.Kind
-
-
-data Spine a
 
 
 data Null ( f :: * -> * ) a
@@ -63,7 +59,6 @@ should only need to be aware of the type family when defining your table types.
 type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
   Column ( Null f ) a = Column f ( Maybe a )
   Column Identity a = a
-  Column Spine a = Spine a
   Column f a = f a
 
 
