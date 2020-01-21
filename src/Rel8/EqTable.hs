@@ -46,9 +46,7 @@ instance DBEq a => EqTable ( Expr m a ) where
 -- if all of their fields are equal.
 instance ConstrainedTable ( t ( Expr m ) ) DBEq => EqTable ( t ( Expr m ) ) where
   l ==. r =
-    foldl
-      (&&.)
-      ( lit True )
+    and_
       ( getConst
           ( zipTablesWithMC
               @DBEq
