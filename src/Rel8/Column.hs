@@ -8,6 +8,7 @@ module Rel8.Column
   ( Column
   , C( MkC, toColumn )
   , mapC
+  , mapCC
   , castC
   , sequenceC
   , traverseC
@@ -72,6 +73,13 @@ newtype C f x =
 -- | Map from one column to another.
 mapC :: ( Column f x -> Column g y ) -> C f x -> C g y
 mapC f ( MkC x ) =
+  MkC ( f x )
+
+
+-- | Map from one column to another, where columns types are subject to a
+-- constraint.
+mapCC :: forall c f g x y. c x => ( c x => Column f x -> Column g y ) -> C f x -> C g y
+mapCC f ( MkC x ) =
   MkC ( f x )
 
 

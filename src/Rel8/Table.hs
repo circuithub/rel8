@@ -28,6 +28,7 @@ module Rel8.Table
   ( -- * Tables of kind @*@
     Table(..)
   , mapTable
+  , mapTableC
   , traverseTable
   , traverseTableC
   , traverseTableWithIndexC
@@ -265,6 +266,17 @@ mapTable
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
 mapTable f =
   runIdentity . traverseTable ( Identity . f )
+
+
+-- | Map a 'Table' from one type to another, where all columns in the table are
+-- subject to a constraint. The table types must be compatible, see 'Compatible'
+-- for what that means.
+mapTableC
+  :: forall c t' t
+   . ( ConstrainedTable t' c, CompatibleTables t' t )
+  => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
+mapTableC f =
+  runIdentity . traverseTableC @c ( Identity . f )
 
 
 -- | Effectfully traverse all fields in a 'Table', potentially producing another

@@ -1,5 +1,6 @@
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
@@ -35,10 +36,12 @@ module Rel8.Expr
   , isNull
   , liftNull
   , traversePrimExpr
+  , litTable
   ) where
 
-import Data.Foldable ( foldl' )
 import Data.Coerce
+import Data.Foldable ( foldl' )
+import Data.Functor.Identity
 import Data.Int
 import Data.Kind
 import Data.Proxy
@@ -103,6 +106,15 @@ class DBType ( a :: Type ) where
 
   default lit :: Show a => a -> Expr m a
   lit = unsafeCoerceExpr . lit . show
+
+
+litTable
+  :: ( Compatible b ( Expr m ) a Identity
+     , ConstrainedTable a DBType
+     , ConstrainedTable b DBType
+     ) => a -> b
+litTable =
+  mapTableC @DBType ( mapCC @DBType lit )
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.

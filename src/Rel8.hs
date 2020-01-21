@@ -80,6 +80,7 @@ module Rel8
   , Insert(..)
   , Returning(..)
   , OnConflict(..)
+  , litTable
 
     -- ** @DELETE@
   , delete
