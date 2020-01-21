@@ -113,7 +113,7 @@ insertIgnoringConflicts conn rows =
                                     })
 
 -- | Insert rows into a 'BaseTable', and return the inserted rows. This runs a
--- @INSERT ... RETURNING@ statement, and be useful to immediately retrieve
+-- @INSERT ... RETURNING@ statement, and is useful to immediately retrieve
 -- any default values (such as automatically generated primary keys).
 insertReturning
   :: (BaseTable table, MonadIO m)
@@ -125,7 +125,7 @@ insertReturning io rows =
 
 -- | Insert rows into a 'BaseTable', ignoring any duplicate rows, and return the
 -- inserted rows. This runs a @INSERT ... RETURNING@ statement with
-  -- @ON CONFLICT DO NOTHING@, and be useful to immediately retrieve
+  -- @ON CONFLICT DO NOTHING@, and is useful to immediately retrieve
 -- any default values (such as automatically generated primary keys).
 insertIgnoringConflictsReturning
   :: (BaseTable table, MonadIO m)
@@ -136,7 +136,7 @@ insertIgnoringConflictsReturning io rows =
   runInsertManyReturningExplicit io queryRunner tableDefinition rows id (Just O.DoNothing)
 
 -- | Insert a single row 'BaseTable', and return the inserted row. This runs a
--- @INSERT ... RETURNING@ statement, and be useful to immediately retrieve
+-- @INSERT ... RETURNING@ statement, and is useful to immediately retrieve
 -- any default values (such as automatically generated primary keys).
 --
 -- *WARNING* - it is assumed that the @INSERT@ will insert a row assuming
