@@ -1,4 +1,5 @@
 {-# language AllowAmbiguousTypes #-}
+{-# language QuantifiedConstraints #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
@@ -54,7 +55,8 @@ module Rel8.Table
   , traverseCC
   , zipCWithM
   , zipCWithMC
-  ) where
+  )
+  where
 
 import Data.Functor.Identity
 import Data.Kind
@@ -63,6 +65,9 @@ import Data.Proxy
 import GHC.Exts ( Constraint )
 import GHC.Generics ( Rep, M1(..), (:*:)(..), K1(..), Generic, to, from )
 import Rel8.Column
+import Rel8.Context
+import Rel8.Null
+import Rel8.Shape
 import Rel8.Unconstrained
 
 
@@ -136,18 +141,18 @@ instance Table HaskellPackage where
 @
 
 -}
-class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrained ) => Table ( t :: Type ) where
+class ConstrainedTable t Unconstrained => Table ( t :: Type ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
   -- field in the table. It describes not just the field itself, but also the
   -- type of values stored there.
-  type Field t = ( field :: Type -> Type ) | field -> t
+  type Field t = ( field :: Null Type -> Type ) | field -> t
 
   -- | All fields in a table are intepreted under a common functor @f@.
   -- This associated type family lets us extract that functor.
-  type Context t :: Type -> Type
+  type TableContext t :: Context
 
   -- | Give the tag of field in the table, look at the contents of that field.
-  field :: t -> Field t x -> C ( Context t ) x
+  field :: t -> Field t x -> C ( TableContext t ) x
 
   -- | Given a function that knows how to construct fields in the 'Context' of
   -- the table @t@, build a @t@ by calling that function for every field.
@@ -161,45 +166,11 @@ class ( Compatible t ( Context t ) t ( Context t ), ConstrainTable t Unconstrain
     :: forall c f proxy
      . ( ConstrainTable t c, Applicative f )
     => proxy c
-    -> ( forall x. c x => Field t x -> f ( C ( Context t ) x ) )
+    -> ( forall null x. c x => Field t ( null x ) -> f ( C ( TableContext t ) ( null x ) ) )
     -> f t
 
   -- | Ensure a constraint holds over all field types in the table.
   type ConstrainTable t ( c :: Type -> Constraint ) :: Constraint
-
-
--- | A type class synonym for all tables that can be constrained by a given
--- class.
-class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
-instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
-
-
--- | Witness that two tables are compatible with each other. The notion of
--- compatible is explained in 'Compatible'.
-class ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
-instance ( Table a, Table b, Compatible a ( Context a ) b ( Context b ) ) => CompatibleTables a b
-
-
--- | This type class witnesses that two tables are "compatible" with each over.
--- Compatible in the sense of Rel8 means:
---
--- * Both tables use the same context functor.
--- * Both tables have isomorphic fields selectors.
-class ( Context a ~ f, Context b ~ g ) => Compatible a ( f :: Type -> Type ) b ( g :: Type -> Type ) | a -> f, b -> g, f b g -> a where
-  -- | Witness the isomorphism between field selectors.
-  transferField :: Field a x -> Field b x
-
-
--- | Effectfully map a table from one context to another.
-traverseTableWithIndexC
-  :: forall c t t' f g m
-   . ( Applicative m, Table t, Compatible t' f t g, ConstrainedTable t' c )
-  => ( forall x. c x => Field t x -> C ( Context t ) x -> m ( C ( Context t' ) x ) )
-  -> t
-  -> m t'
-traverseTableWithIndexC f t =
-  tabulateMCP ( Proxy @c ) \index ->
-    f ( transferField index ) ( field t ( transferField index ) )
 
 
 data TupleField a b x where
@@ -209,9 +180,9 @@ data TupleField a b x where
 
 -- | The product of two tables is also a table, provided that they share the
 -- same 'Context'.
-instance ( Context a ~ Context b, Table a, Table b ) => Table ( a, b ) where
-  type Context ( a, b ) =
-    Context a
+instance ( TableContext a ~ TableContext b, Table a, Table b ) => Table ( a, b ) where
+  type TableContext ( a, b ) =
+    TableContext a
 
   type ConstrainTable ( a, b ) c =
     ( ConstrainTable a c, ConstrainTable b c )
@@ -227,10 +198,45 @@ instance ( Context a ~ Context b, Table a, Table b ) => Table ( a, b ) where
         <*> tabulateMCP proxy ( f . Element2 )
 
 
-instance ( Context x ~ Context y, Context a ~ Context b, Compatible a f x g, Compatible b f y g ) => Compatible ( a, b ) f ( x, y ) g where
+-- | A type class synonym for all tables that can be constrained by a given
+-- class.
+class ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
+instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
+
+
+-- | This type class witnesses that two tables are "compatible" with each over.
+-- Compatible in the sense of Rel8 means:
+--
+-- * Both tables use the same context functor.
+-- * Both tables have isomorphic fields selectors.
+class ( TableContext a ~ f, TableContext b ~ g ) => Compatible a ( f :: Context ) b ( g :: Context ) | a -> f, b -> g, f b g -> a where
+  -- | Witness the isomorphism between field selectors.
+  transferField :: Field a x -> Field b x
+
+
+-- | Tuples are compatible if their elements are compatible.
+instance ( TableContext x ~ TableContext y, TableContext a ~ TableContext b, Compatible a f x g, Compatible b f y g ) => Compatible ( a, b ) f ( x, y ) g where
   transferField = \case
     Element1 i -> Element1 ( transferField i )
     Element2 i -> Element2 ( transferField i )
+
+
+-- | Witness that two tables are compatible with each other. The notion of
+-- compatible is explained in 'Compatible'.
+class ( Table a, Table b, Compatible a ( TableContext a ) b ( TableContext b ) ) => CompatibleTables a b
+instance ( Table a, Table b, Compatible a ( TableContext a ) b ( TableContext b ) ) => CompatibleTables a b
+
+
+-- | Effectfully map a table from one context to another.
+traverseTableWithIndexC
+  :: forall c t t' f g m
+   . ( Applicative m, Table t, Compatible t' f t g, ConstrainedTable t' c )
+  => ( forall null x. c x => Field t ( null x ) -> C ( TableContext t ) ( null x ) -> m ( C ( TableContext t' ) ( null x ) ) )
+  -> t
+  -> m t'
+traverseTableWithIndexC f t =
+  tabulateMCP ( Proxy @c ) \index ->
+    f ( transferField index ) ( field t ( transferField index ) )
 
 
 data SumField a x where
@@ -241,8 +247,8 @@ instance Table a => Table ( Sum a ) where
   type ConstrainTable ( Sum a ) c =
     ConstrainTable a c
 
-  type Context ( Sum a ) =
-    Context a
+  type TableContext ( Sum a ) =
+    TableContext a
 
   type Field ( Sum a ) = SumField a
 
@@ -263,7 +269,7 @@ instance Compatible a f b g => Compatible ( Sum a ) f ( Sum b ) g where
 mapTable
   :: forall t' t
    . CompatibleTables t' t
-  => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
+  => ( forall x. C ( TableContext t ) x -> C ( TableContext t' ) x ) -> t -> t'
 mapTable f =
   runIdentity . traverseTable ( Identity . f )
 
@@ -274,7 +280,7 @@ mapTable f =
 mapTableC
   :: forall c t' t
    . ( ConstrainedTable t' c, CompatibleTables t' t )
-  => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
+  => ( forall null x. c x => C ( TableContext t ) ( null x ) -> C ( TableContext t' ) ( null x ) ) -> t -> t'
 mapTableC f =
   runIdentity . traverseTableC @c ( Identity . f )
 
@@ -284,7 +290,7 @@ mapTableC f =
 traverseTable
   :: forall t' t f
    . ( Applicative f, Table t', CompatibleTables t' t )
-  => ( forall x. C ( Context t ) x -> f ( C ( Context t' ) x ) )
+  => ( forall x. C ( TableContext t ) x -> f ( C ( TableContext t' ) x ) )
   -> t
   -> f t'
 traverseTable f =
@@ -301,7 +307,7 @@ traverseTable f =
 traverseTableC
   :: forall c m t t'
    . ( Applicative m, ConstrainedTable t' c, CompatibleTables t' t )
-  => ( forall x. c x => C ( Context t ) x -> m ( C ( Context t' ) x ) )
+  => ( forall null x. c x => C ( TableContext t ) ( null x ) -> m ( C ( TableContext t' ) ( null x ) ) )
   -> t
   -> m t'
 traverseTableC f =
@@ -315,7 +321,7 @@ zipTablesWithM
      , CompatibleTables t'' t
      , CompatibleTables t'' t'
      )
-  => ( forall x. C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
+  => ( forall null x. C ( TableContext t ) ( null x ) -> C ( TableContext t' ) ( null x ) -> m ( C ( TableContext t'' ) ( null x ) ) )
   -> t -> t' -> m t''
 zipTablesWithM f t t' =
   tabulateMCP @t'' ( Proxy @Unconstrained ) \index ->
@@ -330,15 +336,15 @@ zipTablesWithMC
      , CompatibleTables t'' t'
      , Applicative m
      )
-  => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x -> m ( C ( Context t'' ) x ) )
+  => ( forall null x. c x => C ( TableContext t ) ( null x ) -> C ( TableContext t' ) ( null x ) -> m ( C ( TableContext t'' ) ( null x ) ) )
   -> t -> t' -> m t''
 zipTablesWithMC f t t' =
   tabulateMCP @t'' ( Proxy @c) \index ->
     f ( field t ( transferField index ) ) ( field t' ( transferField index ) )
 
 
-data GenericField t a where
-  GenericField :: GHField t ( Rep ( t Spine ) ) a -> GenericField t a
+data GenericField :: ( Context -> Type ) -> Null Type -> Type where
+  GenericField :: GHField t ( Rep ( t 'Shape ) ) a -> GenericField t a
 
 {-| Higher-kinded data types.
 
@@ -386,16 +392,16 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
+class ( forall ( f :: Context ). HConstrainTable t f Unconstrained ) => HigherKindedTable ( t :: Context -> Type ) where
   -- | Like 'Field', but for higher-kinded tables.
-  type HField t = ( field :: Type -> Type ) | field -> t
+  type HField t = ( field :: Null Type -> Type ) | field -> t
   type HField t =
     GenericField t
 
   -- | Like 'Constraintable', but for higher-kinded tables.
-  type HConstrainTable t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
+  type HConstrainTable t ( f :: Context ) ( c :: Type -> Constraint ) :: Constraint
   type HConstrainTable t f c =
-    GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c
+    GHConstrainTable ( Rep ( t f ) ) ( Rep ( t 'Shape ) ) c
 
   -- | Like 'field', but for higher-kinded tables.
   hfield :: t f -> HField t x -> C f x
@@ -403,39 +409,43 @@ class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
     :: forall f x
      . ( Generic ( t f )
        , HField t ~ GenericField t
-       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
+       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t 'Shape ) )
        )
     => t f -> HField t x -> C f x
   hfield x ( GenericField i ) =
-    ghfield @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) ( from x ) i
+    ghfield @( Rep ( t f ) ) @t @f @( Rep ( t 'Shape ) ) ( from x ) i
 
   -- | Like 'tabulateMCP', but for higher-kinded tables.
   htabulate
     :: ( Applicative m, HConstrainTable t f c )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
+    => proxy c
+    -> ( forall null x. c x => HField t ( null x ) -> m ( C f ( null x ) ) )
+    -> m ( t f )
 
   default htabulate
     :: forall f m c proxy
-     . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c, Generic ( t f )
-       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
+     . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t 'Shape ) ) c, Generic ( t f )
+       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t 'Shape ) )
        , HField t ~ GenericField t
        )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
+    => proxy c
+    -> ( forall null x. c x => HField t ( null x ) -> m ( C f ( null x ) ) )
+    -> m ( t f )
   htabulate proxy f =
-    fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) proxy ( f . GenericField ) )
+    fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t 'Shape ) ) proxy ( f . GenericField ) )
 
 
 
-data TableHField t ( f :: Type -> Type ) x where
+data TableHField ( t :: Context -> Type ) ( f :: Context ) x where
   F :: HField t x -> TableHField t f x
 
 
 -- | Any 'HigherKindedTable' is also a 'Table'.
-instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table ( t f ) where
+instance ( HConstrainTable t f Unconstrained, HigherKindedTable t ) => Table ( ( t :: Context -> Type ) f ) where
   type Field ( t f ) =
     TableHField t f
 
-  type Context ( t f ) =
+  type TableContext ( t f ) =
     f
 
   type ConstrainTable ( t f ) c =
@@ -448,13 +458,13 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     hfield x i
 
 
-instance ( HConstrainTable t' g Unconstrained, HConstrainTable t' f Unconstrained, HConstrainTable t f Unconstrained, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
-  transferField ( F x ) =
-    F x
+-- instance ( HConstrainTable t' g Unconstrained, HConstrainTable t' f Unconstrained, HConstrainTable t f Unconstrained, t ~ t', f ~ f', g ~ g' ) => Compatible ( t f ) f' ( t' g ) g' where
+--   transferField ( F x ) =
+--     F x
 
 
-class GHigherKindedTable ( rep :: Type -> Type ) ( t :: ( Type -> Type ) -> Type ) ( f :: Type -> Type ) ( repIdentity :: Type -> Type ) where
-  data GHField t repIdentity :: Type -> Type
+class GHigherKindedTable ( rep :: Type -> Type ) ( t :: Context -> Type ) ( f :: Context ) ( repIdentity :: Type -> Type ) where
+  data GHField t repIdentity :: Null Type -> Type
 
   type GHConstrainTable rep repIdentity ( c :: Type -> Constraint ) :: Constraint
 
@@ -463,11 +473,11 @@ class GHigherKindedTable ( rep :: Type -> Type ) ( t :: ( Type -> Type ) -> Type
   ghtabulate
     :: ( Applicative m, GHConstrainTable rep repIdentity c )
     => proxy c
-    -> ( forall x. c x => GHField t repIdentity x -> m ( C f x ) )
+    -> ( forall null x. c x => GHField t repIdentity ( null x ) -> m ( C f ( null x ) ) )
     -> m ( rep a )
 
 
-instance GHigherKindedTable x t f x' => GHigherKindedTable ( M1 i c x ) t f ( M1 i' c' x' ) where
+instance GHigherKindedTable x t f x' => GHigherKindedTable ( M1 i c x ) t ( f :: Context ) ( M1 i' c' x' ) where
   data GHField t ( M1 i' c' x' ) a where
     M1Field :: GHField t x' a -> GHField t ( M1 i' c' x' ) a
 
@@ -499,9 +509,10 @@ instance ( GHigherKindedTable x t f x', GHigherKindedTable y t f y' ) => GHigher
 
 
 type family IsColumnApplication ( a :: Type ) :: Bool where
-  IsColumnApplication ( Spine a ) = 'True
-  IsColumnApplication _ = 'False
-
+  IsColumnApplication ( Rel8.Shape.Shape ( a :: Null Type ) ) =
+    'True
+  IsColumnApplication _ =
+    'False
 
 
 instance DispatchK1 ( IsColumnApplication c' ) f c c' => GHigherKindedTable ( K1 i c ) t f ( K1 i' c' ) where
@@ -518,8 +529,8 @@ instance DispatchK1 ( IsColumnApplication c' ) f c c' => GHigherKindedTable ( K1
     K1 <$> k1tabulate @( IsColumnApplication c' ) @f @c @c' proxy ( f . K1Field )
 
 
-class DispatchK1 ( isSpine :: Bool ) f a a' where
-  data K1Field isSpine a' :: Type -> Type
+class DispatchK1 ( isSpine :: Bool ) ( f :: Context ) a a' where
+  data K1Field isSpine a' :: Null Type -> Type
 
   type ConstrainK1 isSpine a a' ( c :: Type -> Constraint ) :: Constraint
 
@@ -527,35 +538,52 @@ class DispatchK1 ( isSpine :: Bool ) f a a' where
 
   k1tabulate
     :: ( ConstrainK1 isSpine a a' c, Applicative m )
-    => proxy c -> ( forall x. c x => K1Field isSpine a' x -> m ( C f x ) ) -> m a
+    => proxy c
+    -> ( forall null x. c x => K1Field isSpine a' ( null x ) -> m ( C f ( null x ) ) )
+    -> m a
 
 
-instance a ~ Column f b => DispatchK1 'True f a ( Spine b ) where
-  data K1Field 'True ( Spine b ) x where
-    K1True :: K1Field 'True ( Spine b ) b
+instance Column f ( Maybe b ) ~ a => DispatchK1 'True ( f :: Context ) a ( Shape ( 'Null b ) ) where
+  data K1Field 'True ( Shape ( 'Null b ) ) x where
+    K1True :: K1Field 'True ( Shape ( 'Null b ) ) ( 'Null b )
 
-  type ConstrainK1 'True a ( Spine b ) c =
+  type ConstrainK1 'True a ( Shape ( 'Null b ) ) c =
     c b
 
   k1field a K1True =
     MkC a
 
   k1tabulate _ f =
-    toColumn <$> f @b K1True
+    toColumn <$> f K1True
 
 
-instance ( Context a ~ f, Table a, Compatible a' Spine a f, Compatible a f a' Spine ) => DispatchK1 'False f a a' where
-  data K1Field 'False a' x where
-    K1False :: Field a' x -> K1Field 'False a' x
+instance MkColumn f ( 'NotNull b ) ~ a => DispatchK1 'True ( f :: Context ) a ( Shape ( 'NotNull b ) ) where
+  data K1Field 'True ( Shape ( 'NotNull b ) ) x where
+    K1TrueNN :: K1Field 'True ( Shape ( 'NotNull b ) ) ( 'NotNull b )
 
-  type ConstrainK1 'False a a' c =
-    ConstrainTable a c
+  type ConstrainK1 'True a ( Shape ( 'NotNull b ) ) c =
+    c b
 
-  k1field a ( K1False i ) =
-    field a ( transferField i )
+  k1field a K1TrueNN =
+    MkC a
 
-  k1tabulate proxy f =
-    tabulateMCP proxy ( f . K1False . transferField )
+  k1tabulate _ f =
+    toColumn <$> f K1TrueNN
 
 
-data Spine a
+-- instance DispatchK1 'False f
+-- instance ( TableContext a ~ f, Table a ) => DispatchK1 'False f a a' where
+--   data K1Field 'False a' x where
+--     K1False :: Field a' x -> K1Field 'False a' x
+
+--   type ConstrainK1 'False a a' c =
+--     ConstrainTable a c
+
+--   k1field a ( K1False i ) =
+--     field a ( transferField i )
+
+--   k1tabulate proxy f =
+--     tabulateMCP proxy ( f . K1False . transferField )
+
+
+-- data Spine a

@@ -1,9 +1,10 @@
 {-# language ApplicativeDo #-}
 {-# language ConstraintKinds #-}
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language InstanceSigs #-}
 {-# language GADTs #-}
+{-# language InstanceSigs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
@@ -17,8 +18,11 @@
 module Rel8.MaybeTable ( HoldsUnderMaybe, MaybeTable(..), toMaybe ) where
 
 import Data.Functor.Identity
+import Data.Kind
 import Data.Proxy
 import Rel8.Column
+import Rel8.Context
+import Rel8.Null
 import Rel8.Table
 
 
@@ -29,7 +33,7 @@ outer join does match rows, this is like @Just@.
 -}
 data MaybeTable f t where
   MaybeTable
-    :: Context t ~ Null f
+    :: TableContext t ~ ToNull f
     => { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
          isNullTable :: Column f Bool
@@ -38,9 +42,9 @@ data MaybeTable f t where
     -> MaybeTable f t
 
 
-data MaybeTableField ( f :: * -> * ) t a where
-  MaybeTableIsNull :: MaybeTableField f t Bool
-  MaybeTableField :: Field t a -> MaybeTableField f t ( Maybe a )
+data MaybeTableField ( f :: Context ) t ( a :: Null Type ) where
+  MaybeTableIsNull :: MaybeTableField f t ( NotNull Bool )
+  MaybeTableField :: Field t ( null a ) -> MaybeTableField f t ( 'Null a )
 
 
 instance ( f ~ u, g ~ v, Compatible t ( Null f ) s ( Null g ) ) => Compatible ( MaybeTable f t ) u ( MaybeTable g s ) v where
@@ -61,7 +65,7 @@ instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null 
   type ConstrainTable ( MaybeTable f t ) c =
     ( c Bool, ConstrainTable t ( HoldsUnderMaybe c ) )
 
-  type Context ( MaybeTable f t ) =
+  type TableContext ( MaybeTable f t ) =
     f
 
   field MaybeTable{ isNullTable, maybeTable } = \case

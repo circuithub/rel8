@@ -1,10 +1,13 @@
+{-# language DataKinds #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language PolyKinds #-}
 {-# language KindSignatures #-}
 
 module Rel8.ColumnSchema ( ColumnSchema(..) ) where
 
 import Data.Kind
 import Data.String
+import Rel8.Null
 
 
 {-| The schema for a column in a table. To construct values of this type,
@@ -45,7 +48,7 @@ tableSchema =
 @
 
 -}
-newtype ColumnSchema ( a :: Type ) =
+newtype ColumnSchema ( a :: Null Type ) =
   ColumnSchema { columnName :: String }
 
 
