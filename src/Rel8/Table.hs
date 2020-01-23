@@ -42,6 +42,9 @@ module Rel8.Table
     -- ** Relationships Between Tables
   , CompatibleTables
   , Compatible(..)
+  , Rewritable(..)
+  , rewrite
+  , RewriteContext(..)
 
     -- * Higher-kinded tables
   , HigherKindedTable
@@ -559,3 +562,22 @@ instance ( Context a ~ f, Table a, Compatible a' Spine a f, Compatible a f a' Sp
 
 
 data Spine a
+
+
+-- | Rewrite one table into another by mapping over the interpretation.
+class ( Context ( Rewrite t f ) ~ MapContext f ( Context t ) ) => Rewritable t ( f :: ( * -> * ) -> * -> * ) where
+  type Rewrite t f = ( t' :: * ) | t' -> t f
+
+  adjustField :: Field ( Rewrite t f ) x -> Field t x
+
+rewrite :: forall t f. ( RewriteContext f ( Context t ), Table t, Rewritable t f, Table ( Rewrite t f ) ) => t -> Rewrite t f
+rewrite t =
+  runIdentity $
+  tabulateMCP ( Proxy @Unconstrained ) \i ->
+    case field t ( adjustField i ) of
+      x ->
+        pure ( rewriteC @f @( Context t ) x )
+
+
+class RewriteContext ( f :: ( * -> * ) -> * -> * ) ( context :: * -> * ) where
+  rewriteC :: C context x -> C ( MapContext f context ) x

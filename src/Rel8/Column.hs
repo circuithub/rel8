@@ -4,25 +4,26 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Column
-  ( Column
-  , C( MkC, toColumn )
-  , mapC
-  , mapCC
-  , castC
-  , sequenceC
-  , traverseC
-  , traverseCC
-  , zipCWithM
-  , zipCWithMC
-  , Null
-  ) where
+module Rel8.Column where
 
 import Data.Functor.Identity
 import Data.Kind
 
 
 data Null ( f :: * -> * ) a
+
+
+type family DropLeadingMaybes ( a :: * ) :: * where
+  DropLeadingMaybes ( Maybe a ) = DropLeadingMaybes a
+  DropLeadingMaybes a = a
+
+
+type family MapContext ( f :: ( * -> * ) -> * -> * ) ( context :: * -> * ) :: * -> * where
+  MapContext Null f = Null f
+  MapContext Selecting f = f
+
+
+data Selecting ( f :: * -> * ) a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your

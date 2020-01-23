@@ -58,6 +58,11 @@ newtype Expr ( m :: Type -> Type ) ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
+instance RewriteContext Null ( Expr m ) where
+  rewriteC ( MkC x ) =
+    MkC ( liftNull x )
+
+
 type role Expr representational representational
 
 

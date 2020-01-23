@@ -118,26 +118,24 @@ each_forAll schema =
 leftJoin
   :: ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , Rewritable outer Null
+     , Table ( Rewrite outer Null )
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin = leftJoin_forAll
 
 leftJoin_forAll
-  :: forall outer nullOuter outer' m
+  :: forall outer outer' m
    . ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , Rewritable outer Null
+     , Table ( Rewrite outer Null )
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
@@ -160,7 +158,7 @@ leftJoin_forAll joinTable condition =
 
     in ( MaybeTable
            { isNullTable = tag
-           , maybeTable = mapTable ( mapC liftNull ) renamed
+           , maybeTable = rewrite renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
