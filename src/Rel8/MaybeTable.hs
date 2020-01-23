@@ -3,11 +3,13 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -31,25 +33,28 @@ outer join fails to match any rows, this is essentialy @Nothing@, and if the
 outer join does match rows, this is like @Just@.
 
 -}
-data MaybeTable f t where
+data MaybeTable t where
   MaybeTable
-    :: TableContext t ~ ToNull f
+    :: ( Table t', TableContext t' ~ 'ToNull ( TableContext t ), Rewrite t 'ToNull, t' ~ Here t )
     => { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
-         isNullTable :: Column f Bool
-       , maybeTable :: t
-       }
-    -> MaybeTable f t
+         isNullTable :: MkColumn ( TableContext t ) ( 'NotNull Bool )
+       , maybeTable :: t'
+       } -> MaybeTable t
 
 
-data MaybeTableField ( f :: Context ) t ( a :: Null Type ) where
-  MaybeTableIsNull :: MaybeTableField f t ( NotNull Bool )
-  MaybeTableField :: Field t ( null a ) -> MaybeTableField f t ( 'Null a )
+class ( Compatible t ( TableContext t ) ( Here t ) ( 'ToNull ( TableContext t ) ), Table t, Table ( Here t ), TableContext ( Here t ) ~ f ( TableContext t ) ) => Rewrite ( t :: Type ) ( f :: Context -> Context ) where
+  type Here t :: Type
 
 
-instance ( f ~ u, g ~ v, Compatible t ( Null f ) s ( Null g ) ) => Compatible ( MaybeTable f t ) u ( MaybeTable g s ) v where
-  transferField MaybeTableIsNull = MaybeTableIsNull
-  transferField ( MaybeTableField f ) = MaybeTableField ( transferField f )
+data MaybeTableField t ( a :: Null Type ) where
+  MaybeTableIsNull :: MaybeTableField t ( NotNull Bool )
+  MaybeTableField :: Field ( Here t ) ( null a ) -> MaybeTableField t ( 'Null a )
+
+
+-- instance Compatible t f ~ g s => Compatible ( MaybeTable f t ) u ( MaybeTable g s ) v where
+--   transferField MaybeTableIsNull = MaybeTableIsNull
+--   transferField ( MaybeTableField f ) = MaybeTableField ( transferField f )
 
 
 class c ( Maybe x ) => HoldsUnderMaybe c x
@@ -58,35 +63,33 @@ class c ( Maybe x ) => HoldsUnderMaybe c x
 instance c ( Maybe x ) => HoldsUnderMaybe c x
 
 
-instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null f, Table t ) => Table ( MaybeTable f t ) where
-  type Field ( MaybeTable f t ) =
-    MaybeTableField f t
+class MkNull ( a :: Null Type ) where
+  mkNull :: proxy a -> C ( 'ToNull f ) ( null x ) -> C f ( 'Null x )
 
-  type ConstrainTable ( MaybeTable f t ) c =
-    ( c Bool, ConstrainTable t ( HoldsUnderMaybe c ) )
 
-  type TableContext ( MaybeTable f t ) =
-    f
+
+instance ( ConstrainTable ( Here t ) Unconstrained, forall null. MkNull null, Table t, Rewrite t 'ToNull ) => Table ( MaybeTable t ) where
+  type Field ( MaybeTable t ) =
+    MaybeTableField t
+
+  type ConstrainTable ( MaybeTable t ) c =
+    ( c Bool, ConstrainTable t c, ConstrainTable ( Here t ) c )
+
+  type TableContext ( MaybeTable t ) =
+    TableContext t
 
   field MaybeTable{ isNullTable, maybeTable } = \case
     MaybeTableIsNull ->
       MkC isNullTable
 
     MaybeTableField i ->
-      castC ( field maybeTable i )
+      case field maybeTable i of
+        MkC x -> MkC x
 
-  tabulateMCP
-    :: forall proxy c m
-     . ( Applicative m, ConstrainTable ( MaybeTable f t ) c )
-    => proxy c
-    -> ( forall x. c x => Field ( MaybeTable f t ) x -> m ( C f x ) )
-    -> m ( MaybeTable f t )
-  tabulateMCP _ f =
+  tabulateMCP proxy f =
     MaybeTable
       <$> do toColumn <$> f MaybeTableIsNull
-      <*> tabulateMCP
-            ( Proxy @( HoldsUnderMaybe c ) )
-            ( fmap castC . f . MaybeTableField )
+      <*> tabulateMCP @( Here t ) proxy ( \i -> MkC . toColumn <$> f ( MaybeTableField i ) )
 
 
 -- | If you 'Rel8.Query.select' a @MaybeTable@, you'll get back a @MaybeTable@
@@ -94,10 +97,10 @@ instance ( ConstrainTable t ( HoldsUnderMaybe Unconstrained ), Context t ~ Null 
 -- as it's a normal record where all of the fields are wrapped in 'Nothing'.
 -- 'toMaybe' lets you transform a @MaybeTable@ into a normal @Maybe@ value.
 toMaybe
-  :: ( CompatibleTables null notNull
-     , Compatible notNull Identity null ( Null Identity )
+  :: ( Table notNull
+     , TableContext null ~ 'Haskell
      )
-  => MaybeTable Identity null -> Maybe notNull
+  => MaybeTable null -> Maybe notNull
 toMaybe MaybeTable{ isNullTable, maybeTable }
   | isNullTable = Nothing
   | otherwise = traverseTable sequenceC maybeTable

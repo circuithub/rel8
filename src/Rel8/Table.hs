@@ -211,7 +211,7 @@ instance ( ConstrainTable t c, Table t ) => ConstrainedTable t c where
 -- * Both tables have isomorphic fields selectors.
 class ( TableContext a ~ f, TableContext b ~ g ) => Compatible a ( f :: Context ) b ( g :: Context ) | a -> f, b -> g, f b g -> a where
   -- | Witness the isomorphism between field selectors.
-  transferField :: Field a x -> Field b x
+  transferField :: Field a x -> Field b y
 
 
 -- | Tuples are compatible if their elements are compatible.

@@ -31,11 +31,11 @@ import {-# source #-} Rel8.Expr
 
 
 type family MkColumn ( context :: Context ) ( a :: Null Type ) :: Type where
+  MkColumn ( 'ToNull f ) ( _ a ) = MkColumn f ( 'Null a )
+
   MkColumn ( 'SQL m ) a = Expr m a
   MkColumn 'Haskell ( 'Null a ) = Maybe a
   MkColumn 'Haskell ( 'NotNull a ) = a
-  MkColumn ( 'ToNull ( SQL m ) ) ( _ a ) = Expr m ( 'Null a )
-  MkColumn ( 'ToNull Haskell ) ( _ a ) = Maybe a
   MkColumn 'Shape a = Shape a
   MkColumn 'Schema a = ColumnSchema a
 
