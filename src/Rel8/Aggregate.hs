@@ -9,6 +9,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Aggregate
   ( aggregateExpr
@@ -30,10 +31,12 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Column
 import Rel8.EqTable
 import Rel8.Expr
+import Rel8.HigherKindedTable
 import Rel8.MonadQuery
 import Rel8.Nest
 import Rel8.SimpleConstraints
 import Rel8.Table
+import Rel8.Unconstrained
 
 
 {-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
@@ -85,6 +88,9 @@ groupAndAggregate
      , EqTable k
      , Promote m k' k
      , Promote m v' v
+     , MapTable Demote k ~ k'
+     , MapTable Demote v ~ v'
+     , Recontextualise k Id
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate = groupAndAggregate_forAll
@@ -94,13 +100,16 @@ groupAndAggregate_forAll
   :: forall a k k' v v' m
    . ( MonadQuery m
      , MonoidTable v
+     , Recontextualise k Demote
+     , Recontextualise v Demote
      , EqTable k
      , Context k ~ Expr ( Nest m )
+     , MapTable Demote k ~ k'
+     , MapTable Demote v ~ v'
      , Context k' ~ Context v'
      , Context v ~ Expr ( Nest m )
      , Context v' ~ Expr m
-     , CompatibleTables k' k
-     , CompatibleTables v' v
+     , Recontextualise k Id
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate_forAll f query =
@@ -122,10 +131,11 @@ groupAndAggregate_forAll f query =
 -- where there is only one group.
 aggregate
   :: ( MonadQuery m
+     , MapTable Demote b ~ b'
      , MonoidTable b
+     , Recontextualise b Demote
+     , Context b ~ Expr ( Nest m )
      , Context b' ~ Expr m
-     , Context b ~ Expr ( Nest m)
-     , CompatibleTables b' b
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
@@ -134,10 +144,11 @@ aggregate = aggregate_forAll
 aggregate_forAll
   :: forall a b b' m
    . ( MonadQuery m
+     , MapTable Demote b ~ b'
      , MonoidTable b
+     , Recontextualise b Demote
      , Context b' ~ Expr m
      , Context b ~ Expr ( Nest m )
-     , CompatibleTables b' b
      )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate_forAll f =
@@ -147,22 +158,23 @@ aggregate_forAll f =
 
     to :: b -> b'
     to =
-      mapTable ( mapC demote )
+      mapTable @Demote ( mapC demote )
 
 
 -- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
 -- type.
-class MonoidTable a where
+class Table a => MonoidTable a where
   -- | How to aggregate an entire table.
   aggregator :: Opaleye.Aggregator a a
 
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ConstrainedTable ( t ( Expr m ) ) DBMonoid => MonoidTable ( t ( Expr m ) ) where
+instance ( HConstrainTable t ( Expr m ) Unconstrained, HigherKindedTable t, ConstrainTable ( t ( Expr m ) ) DBMonoid ) => MonoidTable ( t ( Expr m ) ) where
   aggregator =
     Opaleye.Aggregator $ Opaleye.PackMap \f ->
       traverseTableC
+        @Id
         @DBMonoid
         ( traverseCC @DBMonoid ( Opaleye.runAggregator aggregateExpr f ) )
 
@@ -229,13 +241,20 @@ instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) wh
       <*> tabulateMCP proxy ( f . ValueFields )
 
 
-instance ( Compatible k f k' g, Compatible v f v' g, Context k ~ Context v, Context k' ~ Context v' ) => Compatible ( GroupBy k v ) f ( GroupBy k' v' ) g where
-  transferField = \case
-    KeyFields i -> KeyFields ( transferField i )
-    ValueFields i -> ValueFields ( transferField i )
+instance ( Context v ~ Expr m, Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable f v ), Recontextualise k f, Recontextualise v f ) => Recontextualise ( GroupBy k v ) f where
+  type MapTable f ( GroupBy k v ) =
+    GroupBy ( MapTable f k ) ( MapTable f v )
+
+  fieldMapping = \case
+    KeyFields i -> KeyFields ( fieldMapping @_ @f i )
+    ValueFields i -> ValueFields ( fieldMapping @_ @f i )
+
+  reverseFieldMapping = \case
+    KeyFields i -> KeyFields ( reverseFieldMapping @_ @f i )
+    ValueFields i -> ValueFields ( reverseFieldMapping @_ @f i )
 
 
-instance ( ConstrainedTable k Unconstrained, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Recontextualise k Id, Context v ~ Expr m, Table k, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group
@@ -246,4 +265,4 @@ instance ( ConstrainedTable k Unconstrained, Context k ~ Expr m, MonoidTable v )
       group :: Opaleye.Aggregator k k
       group =
         Opaleye.Aggregator $ Opaleye.PackMap \f ->
-          traverseTable ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+          traverseTable @Id ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )

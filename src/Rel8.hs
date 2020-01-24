@@ -18,7 +18,7 @@ module Rel8
   , Table
   , each
   , where_
-  , filterMap
+  -- , filterMap
   , limit
   , offset
   , union
@@ -28,9 +28,8 @@ module Rel8
     -- ** Outer Joins
   , leftJoin
   , MaybeTable
-  , isNullTable
+  , nullTag
   , maybeTable
-  , toMaybe
 
     -- ** Aggregation
   , groupAndAggregate
@@ -91,9 +90,11 @@ module Rel8
   , Update(..)
 
     -- * Common Table Subtypes
-  , CompatibleTables
-  , Compatible
-  , ConstrainedTable
+  -- , CompatibleTables
+  -- , Compatible
+  -- , ConstrainedTable
+  , IsTableIn
+  , Promote
   , Selects
 
     -- * Next Steps
@@ -109,6 +110,7 @@ import Rel8.DBEq
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.FromRow
+import Rel8.HigherKindedTable
 import Rel8.MaybeTable
 import Rel8.MonadQuery
 import Rel8.Query

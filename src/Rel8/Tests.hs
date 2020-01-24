@@ -1,25 +1,13 @@
-{-# language ApplicativeDo #-}
 {-# language BlockArguments #-}
-{-# language ConstraintKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
-{-# language GADTs #-}
-{-# language InstanceSigs #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language RankNTypes #-}
 {-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
-
-{-# options -fno-warn-missing-signatures #-}
 
 module Rel8.Tests where
 
+import Data.Functor.Identity ( Identity )
 import Data.Int
 import Data.Monoid
 import Database.PostgreSQL.Simple ( Connection )
@@ -54,6 +42,10 @@ allParts =
   each parts
 
 
+proj1 :: MonadQuery m => m ( Expr m Int32 )
+proj1 = partId <$> allParts
+
+
 partsEq :: MonadQuery m => m ( Expr m Bool )
 partsEq = do
   parts1 <- allParts
@@ -67,7 +59,11 @@ select_allParts c =
   select c allParts
 
 
--- TODO Can we make this infer?
+proj2 :: Connection -> IO [ Int32 ]
+proj2 c = map partId <$> select_allParts c
+
+
+-- -- TODO Can we make this infer?
 -- allParts_inferred =
 --   each parts
 
@@ -121,7 +117,7 @@ projectParts =
 
 leftJoinTest
   :: MonadQuery m
-  => m ( Expr m Int32, MaybeTable ( Expr m ) ( ProjectPart ( Null ( Expr m ) ) ) )
+  => m ( Expr m ( Maybe Int32) )
 leftJoinTest = do
   Part{ partId } <-
     each parts
@@ -130,7 +126,7 @@ leftJoinTest = do
     leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
       projectPartPartId ==. partId
 
-  return ( partId, projectPart )
+  return ( projectPartPartId ( maybeTable projectPart ) )
 
 
 data PartWithProject f =
@@ -180,22 +176,22 @@ partsAggregation = do
     allParts
 
 
--- -- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
--- -- illegalPartsAggregation1 = do
--- --   unreachable <- allParts
+-- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- illegalPartsAggregation1 = do
+--   unreachable <- allParts
 
--- --   groupAndAggregate
--- --     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
--- --     allParts
+--   groupAndAggregate
+--     ( \part -> GroupBy ( partName unreachable ) ( Sum ( partId part ) ) )
+--     allParts
 
 
--- -- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
--- -- illegalPartsAggregation2 = do
--- --   unreachable <- allParts
+-- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- illegalPartsAggregation2 = do
+--   unreachable <- allParts
 
--- --   groupAndAggregate
--- --     ( \part -> unreachable )
--- --     allParts
+--   groupAndAggregate
+--     ( \part -> unreachable )
+--     allParts
 
 
 data HasNull f =
@@ -217,17 +213,17 @@ hasNull =
 
 nullTest :: MonadQuery m => m ( HasNull ( Expr m ) )
 nullTest = do
-  HasNull{ nullId } <-
+  HasNull{ nullId, notNullId } <-
     each hasNull
 
   where_ ( null_ ( lit False ) ( lit 42 ==. ) nullId )
 
-  return HasNull{ nullId }
+  return HasNull{ nullId, notNullId }
 
 
 nullTestLeftJoin
   :: MonadQuery m
-  => m ( Expr m ( Maybe ( Maybe Int32 ) ), Expr m ( Maybe Int32 ) )
+  => m ( Expr m ( Maybe Int32 ), Expr m ( Maybe Int32 ) )
 nullTestLeftJoin = do
   t1 <-
     each hasNull
@@ -241,7 +237,7 @@ nullTestLeftJoin = do
 
 nullTestLeftJoinEasyEq
   :: MonadQuery m
-  => m ( Expr m ( Maybe ( Maybe Int32 ) ), Expr m ( Maybe Int32 ) )
+  => m ( Expr m ( Maybe Int32 ), Expr m ( Maybe Int32 ) )
 nullTestLeftJoinEasyEq = do
   t1 <-
     each hasNull
@@ -253,6 +249,24 @@ nullTestLeftJoinEasyEq = do
   return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
 
 
-filterMapTest :: MonadQuery m => m _
-filterMapTest =
-  filterMap nullId ( each hasNull )
+maybeTableQ :: MonadQuery m => m ( MaybeTable ( HasNull ( Expr m ) ) )
+maybeTableQ = do
+  t1 <-
+    each hasNull
+
+  leftJoin ( each hasNull ) \HasNull{ nullId } ->
+    nullId ==. liftNull ( notNullId t1 )
+
+
+select_maybeTable :: Connection -> IO [ Maybe ( HasNull Identity ) ]
+select_maybeTable c =
+  select c maybeTableQ
+
+-- filterMapTest :: MonadQuery m => m _
+-- filterMapTest =
+--   filterMap nullId ( each hasNull )
+
+
+unionTest :: MonadQuery m => m ( Part ( Expr m ) )
+unionTest =
+  union ( each parts ) ( each parts )

@@ -16,7 +16,7 @@
 
 module Rel8.MonadQuery where
 
-import Control.Applicative ( Const(..), liftA2 )
+import Control.Applicative ( liftA2 )
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
@@ -93,7 +93,8 @@ each_forAll schema =
     unpackspec :: Opaleye.Unpackspec row row
     unpackspec =
       Opaleye.Unpackspec
-        $ Opaleye.PackMap \f -> traverseTable ( traverseC ( traversePrimExpr f ) )
+        $ Opaleye.PackMap \f ->
+            traverseTable @Id ( traverseC ( traversePrimExpr f ) )
 
 
     writer :: Opaleye.Writer () row
@@ -105,6 +106,7 @@ each_forAll schema =
     view =
       Opaleye.View
         ( mapTable
+            @( From m )
             ( mapC ( column . columnName ) )
             ( tableColumns schema )
         )
@@ -118,26 +120,27 @@ each_forAll schema =
 leftJoin
   :: ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , Recontextualise outer Null
+     , Context ( MapTable Null outer ) ~ Null ( Expr m )
+     , MapTable Demote outer' ~ outer
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin = leftJoin_forAll
 
 leftJoin_forAll
-  :: forall outer nullOuter outer' m
+  :: forall outer outer' nullOuter m
    . ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , Recontextualise outer Null
+     , MapTable Null outer ~ nullOuter
+     , Context nullOuter ~ Null ( Context outer )
+     , MapTable Demote outer' ~ outer
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
@@ -159,8 +162,10 @@ leftJoin_forAll joinTable condition =
           )
 
     in ( MaybeTable
-           { isNullTable = tag
-           , maybeTable = mapTable ( mapC liftNull ) renamed
+           { nullTag =
+               liftNull tag
+           , maybeTable =
+               mapTable @Null recontextualiseColumn renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
@@ -181,7 +186,7 @@ leftJoin_forAll joinTable condition =
           f ( toPrimExpr tag )
 
         outer <-
-          traverseTable
+          traverseTable @Demote
             ( traverseC ( fmap demote . traversePrimExpr f ) )
             outer'
 
@@ -192,7 +197,9 @@ leftJoin_forAll joinTable condition =
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
 union
-  :: ( MonadQuery m, Promote m a a' )
+  :: ( MonadQuery m
+     , Promote m a a'
+     )
   => Nest m a' -> Nest m a' -> m a
 union = union_forAll
 
@@ -200,15 +207,20 @@ union = union_forAll
 union_forAll
   :: forall a' a m
    . ( MonadQuery m
-     , Promote m a a'
+     , MapTable Demote a' ~ a
+     , Recontextualise a' Demote
+     , Context a' ~ Expr ( Nest m )
+     , Context a ~ Expr m
      )
-  => Nest m a' -> Nest m a' -> m a
+  => Nest m a'
+  -> Nest m a'
+  -> m a
 union_forAll l r =
   liftOpaleye
     ( Opaleye.unionExplicit
         binaryspec
-        ( toOpaleye ( mapTable ( mapC demote ) <$> l ) )
-        ( toOpaleye ( mapTable ( mapC demote ) <$> r ) )
+        ( toOpaleye ( mapTable @Demote ( mapC demote ) <$> l ) )
+        ( toOpaleye ( mapTable @Demote ( mapC demote ) <$> r ) )
     )
 
   where
@@ -241,7 +253,7 @@ distinct_forAll query =
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
-        traverseTable
+        traverseTable @Id
           ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
           a
 
@@ -279,27 +291,27 @@ where_ x =
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
 
 
-filterMap
-  :: forall a nullA b nullB m
-   . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
-     , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
-     , Table a, Table b, Context a ~ Context b
-     , Table nullA, Table nullB, Context nullA ~ Context nullB
-     , MonadQuery m
-     )
-  => ( nullA -> nullB ) -> m a -> m b
-filterMap f q = do
-  x <-
-    q
+-- filterMap
+--   :: forall a nullA b nullB m
+--    . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
+--      , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
+--      , Table a, Table b, Context a ~ Context b
+--      , Table nullA, Table nullB, Context nullA ~ Context nullB
+--      , MonadQuery m
+--      )
+--   => ( nullA -> nullB ) -> m a -> m b
+-- filterMap f q = do
+--   x <-
+--     q
 
-  let
-    y =
-      f ( mapTable ( mapC liftNull ) x )
+--   let
+--     y =
+--       f ( mapTable ( mapC liftNull ) x )
 
-    allNotNull :: [ Expr m Bool ]
-    allNotNull =
-      getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
+--     allNotNull :: [ Expr m Bool ]
+--     allNotNull =
+--       getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
 
-  where_ ( and_ allNotNull )
+--   where_ ( and_ allNotNull )
 
-  return ( mapTable ( mapC retype ) y )
+--   return ( mapTable ( mapC retype ) y )

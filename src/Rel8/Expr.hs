@@ -3,7 +3,6 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
@@ -44,13 +43,26 @@ import Data.Foldable ( foldl' )
 import Data.Functor.Identity
 import Data.Int
 import Data.Kind
-import Data.Proxy
 import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.Nest
+import Rel8.Stuff
 import Rel8.Table
+
+
+instance ContextMap Null ( Expr m ) where
+  recontextualiseColumn ( MkC ( Expr x ) ) =
+    MkC ( Expr x )
+
+
+instance Recontextualise ( Expr ( Nest m ) a ) Demote where
+  type MapTable Demote ( Expr ( Nest m ) a ) =
+    Expr m a
+
+  fieldMapping ExprField = ExprField
+  reverseFieldMapping ExprField = ExprField
 
 
 -- | Typed SQL expressions
@@ -109,12 +121,14 @@ class DBType ( a :: Type ) where
 
 
 litTable
-  :: ( Compatible b ( Expr m ) a Identity
-     , ConstrainedTable a DBType
-     , ConstrainedTable b DBType
-     ) => a -> b
+  :: ( ConstrainTable ( MapTable Lit a ) DBType
+     , Recontextualise a Lit
+     , Context ( MapTable Lit a ) ~ Expr m
+     , Context a ~ Identity
+     )
+  => a -> MapTable Lit a
 litTable =
-  mapTableC @DBType ( mapCC @DBType lit )
+  mapTableC @DBType @Lit ( mapCC @DBType lit )
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.
@@ -149,24 +163,11 @@ instance DBType String where
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
-instance DBTypeMaybe ( IsMaybe a ) a => DBType ( Maybe a ) where
+instance ( NotMaybe a, DBType a ) => DBType ( Maybe a ) where
   lit =
     maybe
       ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) )
-      ( retype . maybeLit ( Proxy @( IsMaybe a ) ) )
-
-
-type family IsMaybe ( a :: Type ) :: Bool where
-  IsMaybe ( Maybe a ) = 'True
-  IsMaybe a = 'False
-
-
-class DBTypeMaybe ( isMaybe :: Bool ) a where
-  maybeLit :: proxy isMaybe -> a -> Expr m a
-
-
-instance DBType a => DBTypeMaybe 'False a where
-  maybeLit _ = lit
+      ( retype . lit )
 
 
 -- | The SQL @AND@ operator.
@@ -286,10 +287,16 @@ instance Table ( Expr m a ) where
     toColumn <$> f ExprField
 
 
-instance ( a ~ b, Expr m ~ m', Expr n ~ n' ) => Compatible ( Expr m a ) m' ( Expr n b ) n' where
-  transferField ExprField =
-    ExprField
+instance Recontextualise ( Expr m a ) Id where
+  type MapTable Id ( Expr m a ) = Expr m a
+  fieldMapping ExprField = ExprField
+  reverseFieldMapping ExprField = ExprField
 
+
+instance Recontextualise ( Expr m a ) Null where
+  type MapTable Null ( Expr m a ) = Expr m a
+  fieldMapping ExprField = ExprField
+  reverseFieldMapping ExprField = ExprField
 
 binExpr :: Opaleye.BinOp -> Expr m a -> Expr m a -> Expr m b
 binExpr op ( Expr a ) ( Expr b ) =

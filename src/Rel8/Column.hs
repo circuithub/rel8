@@ -16,6 +16,14 @@ module Rel8.Column
   , zipCWithM
   , zipCWithMC
   , Null
+  , Id
+  , Select
+  , From
+  , Demote
+  , Structure
+  , Lit
+  , DropMaybe
+  , NotNull
   ) where
 
 import Data.Functor.Identity
@@ -23,6 +31,27 @@ import Data.Kind
 
 
 data Null ( f :: * -> * ) a
+
+
+data NotNull ( f :: * -> * ) a
+
+
+data Id ( f :: * -> * ) a
+
+
+data From ( m :: * -> * ) ( f :: * -> * ) a
+
+
+data Select ( f :: * -> * ) a
+
+
+data Demote ( f :: * -> * ) a
+
+
+data Structure ( f :: * -> * ) a
+
+
+data Lit ( f :: * -> * ) a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
@@ -57,10 +86,15 @@ In @rel8@ we try hard to always know roughly what @f@ is, which means typed
 holes should mention precise types, rather than the @Column@ type family. You
 should only need to be aware of the type family when defining your table types.
 -}
-type family Column ( f :: Type -> Type ) ( a :: Type ) :: Type where
-  Column ( Null f ) a = Column f ( Maybe a )
+type family Column ( context :: Type -> Type ) ( a :: Type ) :: Type where
+  Column ( Null f ) a = Column f ( Maybe ( DropMaybe a ) )
   Column Identity a = a
   Column f a = f a
+
+
+type family DropMaybe ( a :: Type ) :: Type where
+  DropMaybe ( Maybe a ) = DropMaybe a
+  DropMaybe a = a
 
 
 -- | The @C@ newtype simply wraps 'Column', but this allows us to work
