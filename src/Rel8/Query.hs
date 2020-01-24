@@ -14,6 +14,7 @@ module Rel8.Query where
 
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Functor.Identity
 import Data.Int
 import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
@@ -68,14 +69,14 @@ instance MonadQuery Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell, MonadIO m )
+  :: ( FromRow row haskell, MonadIO m, Recontextualise row Id )
   => Connection -> Query row -> m [ haskell ]
 select = select_forAll
 
 
 select_forAll
   :: forall row haskell m
-   . ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell, MonadIO m )
+   . ( FromRow row haskell, MonadIO m, Recontextualise row Id )
   => Connection -> Query row -> m [ haskell ]
 select_forAll conn query =
   maybe
@@ -83,10 +84,9 @@ select_forAll conn query =
     ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
     ( selectQuery query )
 
-  where
 
 queryParser
-  :: FromRow sql haskell
+  :: ( FromRow sql haskell, Recontextualise sql Id )
   => Query sql
   -> Database.PostgreSQL.Simple.RowParser haskell
 queryParser ( Query q ) =
@@ -100,153 +100,155 @@ queryParser ( Query q ) =
 
 queryRunner
   :: forall row haskell
-   . ( Compatible row ( Expr Query ) row ( Expr Query ), FromRow row haskell )
+   . ( FromRow row haskell, Recontextualise row Id )
   => Opaleye.FromFields row haskell
 queryRunner =
   Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
 
 
-unpackspec :: ( Context row ~ Expr Query, Table row ) => Opaleye.Unpackspec row row
+unpackspec
+  :: ( Table row, Context row ~ Expr Query, Recontextualise row Id )
+  => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    traverseTable ( traverseC ( traversePrimExpr f ) )
+    traverseTable @Id ( traverseC ( traversePrimExpr f ) )
 
 
--- | Run an @INSERT@ statement
-insert :: MonadIO m => Connection -> Insert result -> m result
-insert connection Insert{ into, values, onConflict, returning } =
-  liftIO
-    ( Opaleye.runInsert_
-        connection
-        ( toOpaleyeInsert into values returning )
-    )
+-- -- | Run an @INSERT@ statement
+-- insert :: MonadIO m => Connection -> Insert result -> m result
+-- insert connection Insert{ into, values, onConflict, returning } =
+--   liftIO
+--     ( Opaleye.runInsert_
+--         connection
+--         ( toOpaleyeInsert into values returning )
+--     )
 
-  where
+--   where
 
-    toOpaleyeInsert
-      :: forall schema result value
-       . ( Context value ~ Expr Query
-         , CompatibleTables schema value
-         , Context schema ~ ColumnSchema
-         )
-      => TableSchema schema
-      -> [ value ]
-      -> Returning schema result
-      -> Opaleye.Insert result
-    toOpaleyeInsert into_ iRows returning_ =
-      Opaleye.Insert
-        { iTable = ddlTable into_ ( writer into_ )
-        , iRows
-        , iReturning = opaleyeReturning returning_
-        , iOnConflict
-        }
+--     toOpaleyeInsert
+--       :: forall schema result value
+--        . ( Context value ~ Expr Query
+--          , CompatibleTables schema value
+--          , Context schema ~ ColumnSchema
+--          )
+--       => TableSchema schema
+--       -> [ value ]
+--       -> Returning schema result
+--       -> Opaleye.Insert result
+--     toOpaleyeInsert into_ iRows returning_ =
+--       Opaleye.Insert
+--         { iTable = ddlTable into_ ( writer into_ )
+--         , iRows
+--         , iReturning = opaleyeReturning returning_
+--         , iOnConflict
+--         }
 
-      where
+--       where
 
-        iOnConflict :: Maybe Opaleye.OnConflict
-        iOnConflict =
-          case onConflict of
-            DoNothing ->
-              Just Opaleye.DoNothing
+--         iOnConflict :: Maybe Opaleye.OnConflict
+--         iOnConflict =
+--           case onConflict of
+--             DoNothing ->
+--               Just Opaleye.DoNothing
 
-            Abort ->
-              Nothing
-
-
-writer
-  :: forall value schema
-   . ( CompatibleTables schema value
-     , Context value ~ Expr Query
-     , Context schema ~ ColumnSchema
-     )
-  => TableSchema schema -> Opaleye.Writer value schema
-writer into_ =
-  let
-    go
-      :: forall f list
-       . ( Functor list, Applicative f )
-      => ( ( list Opaleye.PrimExpr, String ) -> f () )
-      -> list value
-      -> f ()
-    go f xs =
-      void
-        ( traverseTableWithIndexC
-            @Unconstrained
-            @schema
-            @schema
-            ( \i ->
-                traverseC \c@ColumnSchema{ columnName } ->
-                  c <$ f ( toPrimExpr . toColumn . flip field ( transferField i ) <$> xs, columnName )
-            )
-            ( tableColumns into_ )
-        )
-
-  in
-  Opaleye.Writer ( Opaleye.PackMap go )
+--             Abort ->
+--               Nothing
 
 
-opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
-opaleyeReturning returning =
-  case returning of
-    NumberOfRowsInserted ->
-      Opaleye.Count
+-- writer
+--   :: forall value schema
+--    . ( CompatibleTables schema value
+--      , Context value ~ Expr Query
+--      , Context schema ~ ColumnSchema
+--      )
+--   => TableSchema schema -> Opaleye.Writer value schema
+-- writer into_ =
+--   let
+--     go
+--       :: forall f list
+--        . ( Functor list, Applicative f )
+--       => ( ( list Opaleye.PrimExpr, String ) -> f () )
+--       -> list value
+--       -> f ()
+--     go f xs =
+--       void
+--         ( traverseTableWithIndexC
+--             @Unconstrained
+--             @schema
+--             @schema
+--             ( \i ->
+--                 traverseC \c@ColumnSchema{ columnName } ->
+--                   c <$ f ( toPrimExpr . toColumn . flip field ( transferField i ) <$> xs, columnName )
+--             )
+--             ( tableColumns into_ )
+--         )
 
-    Projection f ->
-      Opaleye.ReturningExplicit
-        queryRunner
-        ( f . mapTable ( mapC ( column . columnName ) ) )
-
-
-ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
-ddlTable schema writer_ =
-  toOpaleyeTable schema writer_ ( Opaleye.View ( tableColumns schema ) )
-
-
--- | The constituent parts of a SQL @INSERT@ statement.
-data Insert :: * -> * where
-  Insert
-    :: Selects Query schema value
-    => { into :: TableSchema schema
-         -- ^ Which table to insert into.
-       , values :: [ value ]
-         -- ^ The rows to insert.
-       , onConflict :: OnConflict
-         -- ^ What to do if the inserted rows conflict with data already in the
-         -- table.
-       , returning :: Returning schema result
-         -- ^ What information to return on completion.
-       }
-    -> Insert result
+--   in
+--   Opaleye.Writer ( Opaleye.PackMap go )
 
 
--- | @Returning@ describes what information to return when an @INSERT@
--- statement completes.
-data Returning schema a where
-  -- | Just return the number of rows inserted.
-  NumberOfRowsInserted :: Returning schema Int64
+-- opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
+-- opaleyeReturning returning =
+--   case returning of
+--     NumberOfRowsInserted ->
+--       Opaleye.Count
 
-  -- | Return a projection of the rows inserted. This can be useful if your
-  -- insert statement increments sequences by using default values.
-  --
-  -- >>> :t insert Insert{ returning = Projection fooId }
-  -- IO [ FooId ]
-  Projection
-    :: ( Selects Query schema row
-       , Context row ~ Context projection
-       , FromRow projection a
-       )
-    => ( row -> projection )
-    -> Returning schema [ a ]
+--     Projection f ->
+--       Opaleye.ReturningExplicit
+--         queryRunner
+--         ( f . mapTable ( mapC ( column . columnName ) ) )
 
 
-data OnConflict
-  = Abort
-  | DoNothing
+-- ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
+-- ddlTable schema writer_ =
+--   toOpaleyeTable schema writer_ ( Opaleye.View ( tableColumns schema ) )
+
+
+-- -- | The constituent parts of a SQL @INSERT@ statement.
+-- data Insert :: * -> * where
+--   Insert
+--     :: Selects Query schema value
+--     => { into :: TableSchema schema
+--          -- ^ Which table to insert into.
+--        , values :: [ value ]
+--          -- ^ The rows to insert.
+--        , onConflict :: OnConflict
+--          -- ^ What to do if the inserted rows conflict with data already in the
+--          -- table.
+--        , returning :: Returning schema result
+--          -- ^ What information to return on completion.
+--        }
+--     -> Insert result
+
+
+-- -- | @Returning@ describes what information to return when an @INSERT@
+-- -- statement completes.
+-- data Returning schema a where
+--   -- | Just return the number of rows inserted.
+--   NumberOfRowsInserted :: Returning schema Int64
+
+--   -- | Return a projection of the rows inserted. This can be useful if your
+--   -- insert statement increments sequences by using default values.
+--   --
+--   -- >>> :t insert Insert{ returning = Projection fooId }
+--   -- IO [ FooId ]
+--   Projection
+--     :: ( Selects Query schema row
+--        , Context row ~ Context projection
+--        , FromRow projection a
+--        )
+--     => ( row -> projection )
+--     -> Returning schema [ a ]
+
+
+-- data OnConflict
+--   = Abort
+--   | DoNothing
 
 
 selectQuery
   :: forall a
-   . ( Context a ~ Expr Query, Table a )
+   . ( Table a, Context a ~ Expr Query, Recontextualise a Id )
   => Query a -> Maybe String
 selectQuery ( Query opaleye ) =
   showSqlForPostgresExplicit
@@ -263,70 +265,70 @@ selectQuery ( Query opaleye ) =
             )
 
 
-delete :: MonadIO m => Connection -> Delete from returning -> m returning
-delete c Delete{ from, deleteWhere, returning } =
-  liftIO ( Opaleye.runDelete_ c ( go from deleteWhere returning ) )
+-- delete :: MonadIO m => Connection -> Delete from returning -> m returning
+-- delete c Delete{ from, deleteWhere, returning } =
+--   liftIO ( Opaleye.runDelete_ c ( go from deleteWhere returning ) )
 
-  where
+--   where
 
-    go
-      :: forall schema r row
-       . ( CompatibleTables row schema, Context schema ~ ColumnSchema, Context row ~ Expr Query )
-      => TableSchema schema
-      -> ( row -> Expr Query Bool )
-      -> Returning schema r
-      -> Opaleye.Delete r
-    go schema deleteWhere_ returning_ =
-      Opaleye.Delete
-        { dTable = ddlTable schema ( Opaleye.Writer ( pure () ) )
-        , dWhere = Opaleye.Column . toPrimExpr . deleteWhere_ . mapTable ( mapC ( column . columnName ) )
-        , dReturning = opaleyeReturning returning_
-        }
-
-
-data Delete from return where
-  Delete
-    :: Selects Query from row
-    => { from :: TableSchema from
-       , deleteWhere :: row -> Expr Query Bool
-       , returning :: Returning from return
-       }
-    -> Delete from return
+--     go
+--       :: forall schema r row
+--        . ( CompatibleTables row schema, Context schema ~ ColumnSchema, Context row ~ Expr Query )
+--       => TableSchema schema
+--       -> ( row -> Expr Query Bool )
+--       -> Returning schema r
+--       -> Opaleye.Delete r
+--     go schema deleteWhere_ returning_ =
+--       Opaleye.Delete
+--         { dTable = ddlTable schema ( Opaleye.Writer ( pure () ) )
+--         , dWhere = Opaleye.Column . toPrimExpr . deleteWhere_ . mapTable ( mapC ( column . columnName ) )
+--         , dReturning = opaleyeReturning returning_
+--         }
 
 
-update :: MonadIO m => Connection -> Update target returning -> m returning
-update connection Update{ target, set, updateWhere, returning } =
-  liftIO ( Opaleye.runUpdate_ connection ( go target set updateWhere returning ) )
-
-  where
-
-    go
-      :: forall returning target row
-       . ( CompatibleTables row target
-         , CompatibleTables target row
-         , Context target ~ ColumnSchema
-         , Context row ~ Expr Query
-         )
-      => TableSchema target
-      -> ( row -> row )
-      -> ( row -> Expr Query Bool )
-      -> Returning target returning
-      -> Opaleye.Update returning
-    go target_ set_ updateWhere_ returning_ =
-      Opaleye.Update
-        { uTable = ddlTable target_ ( writer target_ )
-        , uReturning = opaleyeReturning returning_
-        , uWhere = Opaleye.Column . toPrimExpr . updateWhere_ . mapTable ( mapC ( column . columnName ) )
-        , uUpdateWith = set_ . mapTable ( mapC ( column . columnName ) )
-        }
+-- data Delete from return where
+--   Delete
+--     :: Selects Query from row
+--     => { from :: TableSchema from
+--        , deleteWhere :: row -> Expr Query Bool
+--        , returning :: Returning from return
+--        }
+--     -> Delete from return
 
 
-data Update target returning where
-  Update
-    :: Selects Query target row
-    => { target :: TableSchema target
-       , set :: row -> row
-       , updateWhere :: row -> Expr Query Bool
-       , returning :: Returning target returning
-       }
-    -> Update target returning
+-- update :: MonadIO m => Connection -> Update target returning -> m returning
+-- update connection Update{ target, set, updateWhere, returning } =
+--   liftIO ( Opaleye.runUpdate_ connection ( go target set updateWhere returning ) )
+
+--   where
+
+--     go
+--       :: forall returning target row
+--        . ( CompatibleTables row target
+--          , CompatibleTables target row
+--          , Context target ~ ColumnSchema
+--          , Context row ~ Expr Query
+--          )
+--       => TableSchema target
+--       -> ( row -> row )
+--       -> ( row -> Expr Query Bool )
+--       -> Returning target returning
+--       -> Opaleye.Update returning
+--     go target_ set_ updateWhere_ returning_ =
+--       Opaleye.Update
+--         { uTable = ddlTable target_ ( writer target_ )
+--         , uReturning = opaleyeReturning returning_
+--         , uWhere = Opaleye.Column . toPrimExpr . updateWhere_ . mapTable ( mapC ( column . columnName ) )
+--         , uUpdateWith = set_ . mapTable ( mapC ( column . columnName ) )
+--         }
+
+
+-- data Update target returning where
+--   Update
+--     :: Selects Query target row
+--     => { target :: TableSchema target
+--        , set :: row -> row
+--        , updateWhere :: row -> Expr Query Bool
+--        , returning :: Returning target returning
+--        }
+--     -> Update target returning

@@ -62,12 +62,12 @@ instance MonadQuery m => MonadQuery ( Nest m ) where
     toOpaleye m
 
 
--- | Exists checks if a query returns at least one row.
---
--- @exists q@ is the same as the SQL expression @EXISTS ( q )@
-exists :: MonadQuery m => m a -> m ( Expr m Bool )
-exists query =
-  liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
+-- -- | Exists checks if a query returns at least one row.
+-- --
+-- -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
+-- exists :: MonadQuery m => m a -> m ( Expr m Bool )
+-- exists query =
+--   liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
 
 
 -- | Select each row from a table definition.
@@ -95,7 +95,8 @@ each_forAll schema =
     unpackspec :: Opaleye.Unpackspec row row
     unpackspec =
       Opaleye.Unpackspec
-        $ Opaleye.PackMap \f -> traverseTable ( traverseC ( traversePrimExpr f ) )
+        $ Opaleye.PackMap \f ->
+            traverseTable @Id ( traverseC ( traversePrimExpr f ) )
 
 
     writer :: Opaleye.Writer () row
@@ -107,6 +108,7 @@ each_forAll schema =
     view =
       Opaleye.View
         ( mapTable
+            @( From m )
             ( mapC ( column . columnName ) )
             ( tableColumns schema )
         )
@@ -120,26 +122,31 @@ each_forAll schema =
 leftJoin
   :: ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , Recontextualise outer Null
+     , ConstrainTable ( MapContext Null outer ) Unconstrained
+     , Context ( MapContext Null outer ) ~ Null ( Expr m )
+     , MapContext Demote outer' ~ outer
+     , Recontextualise outer' Demote
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin = leftJoin_forAll
 
 leftJoin_forAll
-  :: forall outer nullOuter outer' m
+  :: forall outer outer' nullOuter m
    . ( MonadQuery m
      , Promote m outer outer'
-     , Compatible outer ( Expr m ) nullOuter ( Null ( Expr m ) )
-     , Table nullOuter
-     , Compatible nullOuter ( Null ( Expr m ) ) outer ( Expr m )
+     , ConstrainTable ( MapContext Null outer ) Unconstrained
+     , Recontextualise outer Null
+     , MapContext Null outer ~ nullOuter
+     , Context nullOuter ~ Null ( Context outer )
+     , MapContext Demote outer' ~ outer
+     , Recontextualise outer' Demote
      )
   => Nest m outer'
   -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable ( Expr m ) nullOuter )
+  -> m ( MaybeTable outer )
 leftJoin_forAll joinTable condition =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     let
@@ -161,8 +168,10 @@ leftJoin_forAll joinTable condition =
           )
 
     in ( MaybeTable
-           { isNullTable = tag
-           , maybeTable = mapTable ( mapC liftNull ) renamed
+           { isNullTable =
+               tag
+           , maybeTable =
+               mapTable @Null recontextualiseColumn renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
@@ -183,93 +192,93 @@ leftJoin_forAll joinTable condition =
           f ( toPrimExpr tag )
 
         outer <-
-          traverseTable
+          traverseTable @Demote
             ( traverseC ( fmap demote . traversePrimExpr f ) )
             outer'
 
         return ( fromPrimExpr tag', outer )
 
 
--- | Combine the results of two queries of the same type.
---
--- @union a b@ is the same as the SQL statement @x UNION b@.
-union
-  :: ( MonadQuery m, Promote m a a' )
-  => Nest m a' -> Nest m a' -> m a
-union = union_forAll
+-- -- | Combine the results of two queries of the same type.
+-- --
+-- -- @union a b@ is the same as the SQL statement @x UNION b@.
+-- union
+--   :: ( MonadQuery m, Promote m a a' )
+--   => Nest m a' -> Nest m a' -> m a
+-- union = union_forAll
 
 
-union_forAll
-  :: forall a' a m
-   . ( MonadQuery m
-     , Promote m a a'
-     )
-  => Nest m a' -> Nest m a' -> m a
-union_forAll l r =
-  liftOpaleye
-    ( Opaleye.unionExplicit
-        binaryspec
-        ( toOpaleye ( mapTable ( mapC demote ) <$> l ) )
-        ( toOpaleye ( mapTable ( mapC demote ) <$> r ) )
-    )
+-- union_forAll
+--   :: forall a' a m
+--    . ( MonadQuery m
+--      , Promote m a a'
+--      )
+--   => Nest m a' -> Nest m a' -> m a
+-- union_forAll l r =
+--   liftOpaleye
+--     ( Opaleye.unionExplicit
+--         binaryspec
+--         ( toOpaleye ( mapTable ( mapC demote ) <$> l ) )
+--         ( toOpaleye ( mapTable ( mapC demote ) <$> r ) )
+--     )
 
-  where
+--   where
 
-    binaryspec :: Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
-        zipTablesWithM
-          ( zipCWithM \x y -> fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
-          a
-          b
-
-
--- | Select all distinct rows from a query, removing duplicates.
---
--- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
-distinct :: ( MonadQuery m, a `IsTableIn` m ) => m a -> m a
-distinct = distinct_forAll
+--     binaryspec :: Opaleye.Binaryspec a a
+--     binaryspec =
+--       Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
+--         zipTablesWithM
+--           ( zipCWithM \x y -> fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
+--           a
+--           b
 
 
-distinct_forAll
-  :: forall a m
-   . ( MonadQuery m, a `IsTableIn` m )
-  => m a -> m a
-distinct_forAll query =
-  liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
-
-  where
-
-    distinctspec :: Opaleye.Distinctspec a a
-    distinctspec =
-      Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
-        traverseTable
-          ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
-          a
+-- -- | Select all distinct rows from a query, removing duplicates.
+-- --
+-- -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
+-- distinct :: ( MonadQuery m, a `IsTableIn` m ) => m a -> m a
+-- distinct = distinct_forAll
 
 
--- | @limit n@ select at most @n@ rows from a query.
---
--- @limit n@ is equivalent to the SQL @LIMIT n@.
-limit :: MonadQuery m => Natural -> m a -> m a
-limit n query =
-  liftOpaleye
-    ( Opaleye.limit
-        ( fromIntegral n )
-        ( toOpaleye query )
-    )
+-- distinct_forAll
+--   :: forall a m
+--    . ( MonadQuery m, a `IsTableIn` m )
+--   => m a -> m a
+-- distinct_forAll query =
+--   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
+
+--   where
+
+--     distinctspec :: Opaleye.Distinctspec a a
+--     distinctspec =
+--       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
+--         traverseTable
+--           ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+--           a
 
 
--- | @offset n@ drops the first @n@ rows from a query.
---
--- @offset n@ is equivalent to the SQL @OFFSET n@.
-offset :: MonadQuery m => Natural -> m a -> m a
-offset n query =
-  liftOpaleye
-    ( Opaleye.offset
-        ( fromIntegral n )
-        ( toOpaleye query )
-    )
+-- -- | @limit n@ select at most @n@ rows from a query.
+-- --
+-- -- @limit n@ is equivalent to the SQL @LIMIT n@.
+-- limit :: MonadQuery m => Natural -> m a -> m a
+-- limit n query =
+--   liftOpaleye
+--     ( Opaleye.limit
+--         ( fromIntegral n )
+--         ( toOpaleye query )
+--     )
+
+
+-- -- | @offset n@ drops the first @n@ rows from a query.
+-- --
+-- -- @offset n@ is equivalent to the SQL @OFFSET n@.
+-- offset :: MonadQuery m => Natural -> m a -> m a
+-- offset n query =
+--   liftOpaleye
+--     ( Opaleye.offset
+--         ( fromIntegral n )
+--         ( toOpaleye query )
+--     )
 
 
 -- | Drop any rows that don't match a predicate.
@@ -281,27 +290,27 @@ where_ x =
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
 
 
-filterMap
-  :: forall a nullA b nullB m
-   . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
-     , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
-     , Table a, Table b, Context a ~ Context b
-     , Table nullA, Table nullB, Context nullA ~ Context nullB
-     , MonadQuery m
-     )
-  => ( nullA -> nullB ) -> m a -> m b
-filterMap f q = do
-  x <-
-    q
+-- filterMap
+--   :: forall a nullA b nullB m
+--    . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
+--      , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
+--      , Table a, Table b, Context a ~ Context b
+--      , Table nullA, Table nullB, Context nullA ~ Context nullB
+--      , MonadQuery m
+--      )
+--   => ( nullA -> nullB ) -> m a -> m b
+-- filterMap f q = do
+--   x <-
+--     q
 
-  let
-    y =
-      f ( mapTable ( mapC liftNull ) x )
+--   let
+--     y =
+--       f ( mapTable ( mapC liftNull ) x )
 
-    allNotNull :: [ Expr m Bool ]
-    allNotNull =
-      getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
+--     allNotNull :: [ Expr m Bool ]
+--     allNotNull =
+--       getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
 
-  where_ ( and_ allNotNull )
+--   where_ ( and_ allNotNull )
 
-  return ( mapTable ( mapC retype ) y )
+--   return ( mapTable ( mapC retype ) y )

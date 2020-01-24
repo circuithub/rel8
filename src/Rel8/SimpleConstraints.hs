@@ -11,6 +11,7 @@
 
 module Rel8.SimpleConstraints where
 
+import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.Nest
@@ -22,8 +23,11 @@ import Rel8.Table
 class
   ( Context row ~ Expr m
   , Context schema ~ ColumnSchema
-  , CompatibleTables row schema
-  , CompatibleTables schema row
+  , MapContext ( From m ) schema ~ row
+  , Recontextualise schema ( From m )
+  , Recontextualise row Id
+  -- , CompatibleTables row schema
+  -- , CompatibleTables schema row
   ) => Selects m schema row
 
 
@@ -31,8 +35,12 @@ instance
   {-# overlapping #-}
   ( Context row ~ Expr m
   , Context schema ~ ColumnSchema
-  , CompatibleTables row schema
-  , CompatibleTables schema row
+  , MapContext ( From m ) schema ~ row
+  , Recontextualise schema ( From m )
+  , Table row
+  , Recontextualise row Id
+  -- , CompatibleTables row schema
+  -- , CompatibleTables schema row
   ) => Selects m schema row
 
 
@@ -42,8 +50,12 @@ data Hidden ( a :: k )
 instance
   ( Context row ~ Expr m
   , Context ( Hidden () ) ~ ColumnSchema
-  , CompatibleTables row  ( Hidden () )
-  , CompatibleTables  ( Hidden () ) row
+  , MapContext ( From m ) ( Hidden () ) ~ row
+  , Recontextualise ( Hidden () ) ( From m )
+  , Table row
+  , Recontextualise row Id
+  -- , CompatibleTables row  ( Hidden () )
+  -- , CompatibleTables  ( Hidden () ) row
   ) => Selects m ( Hidden () ) row
 
 
@@ -60,9 +72,9 @@ class
 -- but exist at different levels of scope. In particular, @Promote m a b@ says
 -- @b@ is the same expression as @a@, where the scope has been increased by one.
 class
-  ( CompatibleTables a b
-  , Context a ~ Expr m
+  ( Context a ~ Expr m
   , Context b ~ Expr ( Nest m )
+  -- , CompatibleTables a b
   , Table a
   , Table b
   ) => Promote m a b where
@@ -70,16 +82,18 @@ class
 
 instance
   {-# overlapping #-}
-  ( CompatibleTables a b
-  , Context a ~ Expr m
+  ( Context a ~ Expr m
   , Context b ~ Expr ( Nest m )
+  -- , CompatibleTables a b
   , Table a
   , Table b
   ) => Promote m a b where
 
 
 instance
-  ( CompatibleTables ( Hidden () ) b
-  , Context ( Hidden () ) ~ Expr m
+  ( Context ( Hidden () ) ~ Expr m
   , Context b ~ Expr ( Nest m )
+  , Table ( Hidden () )
+  , Table b
+  -- , CompatibleTables ( Hidden () ) b
   ) => Promote m ( Hidden () ) b where
