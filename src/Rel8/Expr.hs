@@ -53,6 +53,11 @@ import Rel8.Nest
 import Rel8.Table
 
 
+instance ContextMap Null ( Expr m ) where
+  recontextualiseColumn ( MkC ( Expr x ) ) =
+    MkC ( Expr x )
+
+
 -- | Typed SQL expressions
 newtype Expr ( m :: Type -> Type ) ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
@@ -109,12 +114,14 @@ class DBType ( a :: Type ) where
 
 
 litTable
-  :: ( Compatible b ( Expr m ) a Identity
-     , ConstrainedTable a DBType
-     , ConstrainedTable b DBType
-     ) => a -> b
+  :: ( ConstrainTable ( MapContext Lit a ) DBType
+     , Recontextualise a Lit
+     , Context ( MapContext Lit a ) ~ Expr m
+     , Context a ~ Identity
+     )
+  => a -> MapContext Lit a
 litTable =
-  mapTableC @DBType ( mapCC @DBType lit )
+  mapTableC @DBType @Lit ( mapCC @DBType lit )
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.
@@ -286,9 +293,10 @@ instance Table ( Expr m a ) where
     toColumn <$> f ExprField
 
 
-instance ( a ~ b, Expr m ~ m', Expr n ~ n' ) => Compatible ( Expr m a ) m' ( Expr n b ) n' where
-  transferField ExprField =
-    ExprField
+instance Recontextualise ( Expr m a ) Id where
+  type MapContext Id ( Expr m a ) = Expr m a
+  fieldMapping ExprField = ExprField
+  reverseFieldMapping ExprField = ExprField
 
 
 binExpr :: Opaleye.BinOp -> Expr m a -> Expr m a -> Expr m b

@@ -17,6 +17,7 @@
 module Rel8.MonadQuery where
 
 import Control.Applicative ( Const(..), liftA2 )
+import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
@@ -26,6 +27,7 @@ import Rel8.Nest
 import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
+import Rel8.Unconstrained
 
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
