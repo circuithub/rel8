@@ -24,10 +24,8 @@ import Data.Functor.Identity
 import Data.Kind
 import GHC.Generics hiding ( C )
 import Rel8.Column
-import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.Nest
-import Rel8.Query ( Query )
 import Rel8.Table
 
 
@@ -139,50 +137,19 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
     hfield x i
 
 
-instance ( HigherKindedTable t, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) Id where
-  type MapTable Id ( t f ) = t f
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
+type family Reduce ( f :: * -> * ) :: ( * -> * ) where
+  Reduce ( Id x ) = x
+  Reduce ( Select ( Expr m ) ) = Identity
+  Reduce ( Null ( Expr m ) ) = Null ( Expr m )
+  Reduce ( NotNull ( Null m ) ) = Reduce m
+  Reduce ( Expr m ) = Expr m
+  Reduce ( Structure f ) = Spine
+  Reduce ( From m f ) = Expr m
+  Reduce ( Demote ( Expr ( Nest m ) ) ) = Expr m
 
 
-instance ( HConstrainTable t ColumnSchema Unconstrained, HigherKindedTable t, HConstrainTable t ( Expr m ) Unconstrained ) => Recontextualise ( t ColumnSchema ) ( From m ) where
-  type MapTable ( From m ) ( t ColumnSchema ) = t ( Expr m )
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HConstrainTable t ( Null f ) Unconstrained, HigherKindedTable t, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) Null where
-  type MapTable Null ( t f ) = t ( Null f )
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HConstrainTable t ( Expr ( Nest m ) ) Unconstrained, HigherKindedTable t, HConstrainTable t ( Expr m ) Unconstrained ) => Recontextualise ( t ( Expr ( Nest m ) ) ) Demote where
-  type MapTable Demote ( t ( Expr ( Nest m ) ) ) = t ( Expr m )
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HigherKindedTable t, HConstrainTable t f Unconstrained, HConstrainTable t Spine Unconstrained ) => Recontextualise ( t f ) Structure where
-  type MapTable Structure ( t f ) = t Spine
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HConstrainTable t Identity Unconstrained, HigherKindedTable t, HConstrainTable t ( Expr Query ) Unconstrained, HConstrainTable t ( Expr Query ) Unconstrained ) => Recontextualise ( t ( Expr Query ) ) Select where
-  type MapTable Select ( t ( Expr Query ) ) = t Identity
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HConstrainTable t ( Null Identity ) Unconstrained, HigherKindedTable t, HConstrainTable t ( Null ( Expr Query ) ) Unconstrained, HConstrainTable t ( Null ( Expr Query ) ) Unconstrained ) => Recontextualise ( t ( Null ( Expr Query ) ) ) Select where
-  type MapTable Select ( t ( Null ( Expr Query ) ) ) = t ( Null Identity )
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
-
-
-instance ( HConstrainTable t f Unconstrained, HConstrainTable t ( Null f ) Unconstrained, HigherKindedTable t ) => Recontextualise ( t ( Null f ) ) NotNull where
-  type MapTable NotNull ( t ( Null f ) ) = t f
+instance ( HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
+  type MapTable g ( t f ) = t ( Reduce ( g f ) )
   fieldMapping ( F i ) = F i
   reverseFieldMapping ( F i ) = F i
 
