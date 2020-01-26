@@ -19,7 +19,6 @@ import Rel8.Expr
 import Rel8.HigherKindedTable
 import Rel8.Query
 import Rel8.Table hiding ( field )
-import Rel8.Unconstrained
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,

@@ -13,7 +13,6 @@ import Rel8.DBEq
 import Rel8.Expr
 import Rel8.HigherKindedTable
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 -- | The class of database tables (containing one or more columns) that can be

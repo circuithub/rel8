@@ -36,7 +36,6 @@ import Rel8.MonadQuery
 import Rel8.Nest
 import Rel8.SimpleConstraints
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like

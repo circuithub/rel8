@@ -19,7 +19,6 @@ module Rel8.MaybeTable where
 import Data.Proxy
 import Rel8.Column
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the

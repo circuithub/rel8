@@ -24,37 +24,32 @@ behind the scenes, and is safely exported if you want to use it in your own
 work, or if you want to understand further how Rel8 works.
 
 -}
-module Rel8.Table where
-  -- ( -- * Tables of kind @*@
-  --   Table(..)
-  -- , mapTable
-  -- , mapTableC
-  -- , traverseTable
-  -- , traverseTableC
-  -- , traverseTableWithIndexC
-  -- , zipTablesWithM
-  -- , zipTablesWithMC
+module Rel8.Table
+  ( -- * Tables of kind @*@
+    Table(..)
+  , mapTable
+  , mapTableC
+  , traverseTable
+  , traverseTableC
+  , traverseTableWithIndexC
+  , zipTablesWithM
+  , zipTablesWithMC
 
-  --   -- ** Sub-tables
-  -- , ConstrainedTable
-  -- , Unconstrained
+    -- ** Sub-tables
+  , Unconstrained
 
-  --   -- ** Relationships Between Tables
-  -- , CompatibleTables
-  -- , Compatible(..)
+    -- ** Relationships Between Tables
+  , Recontextualise(..)
 
-  --   -- * Higher-kinded tables
-  -- , HigherKindedTable
-
-  --   -- * Columns
-  -- , Column
-  -- , C( MkC )
-  -- , mapC
-  -- , traverseC
-  -- , traverseCC
-  -- , zipCWithM
-  -- , zipCWithMC
-  -- ) where
+    -- * Columns
+  , Column
+  , C( MkC )
+  , mapC
+  , traverseC
+  , traverseCC
+  , zipCWithM
+  , zipCWithMC
+  ) where
 
 import Data.Functor.Identity
 import Data.Kind
@@ -173,10 +168,6 @@ class ( Table t, Table ( MapTable f t ) ) => Recontextualise ( t :: Type ) ( f :
   fieldMapping :: Field ( MapTable f t ) x -> Field t x
 
   reverseFieldMapping :: Field t x -> Field ( MapTable f t ) x
-
-
-class ContextMap ( f :: ( Type -> Type ) -> Type -> Type ) ( context :: Type -> Type ) where
-  recontextualiseColumn :: C context x -> C ( f context ) x
 
 
 -- | Effectfully map a table from one context to another.

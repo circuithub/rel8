@@ -37,7 +37,6 @@ import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
-import Rel8.Unconstrained
 import {-# source #-} Rel8.FromRow
 
 

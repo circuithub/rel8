@@ -29,7 +29,6 @@ import Rel8.Expr
 import Rel8.Nest
 import Rel8.Query ( Query )
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| Higher-kinded data types.

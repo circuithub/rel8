@@ -52,11 +52,6 @@ import Rel8.Stuff
 import Rel8.Table
 
 
-instance ContextMap Null ( Expr m ) where
-  recontextualiseColumn ( MkC ( Expr x ) ) =
-    MkC ( Expr x )
-
-
 instance Recontextualise ( Expr ( Nest m ) a ) Demote where
   type MapTable Demote ( Expr ( Nest m ) a ) =
     Expr m a
