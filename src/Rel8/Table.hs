@@ -175,10 +175,6 @@ class ( Table t, Table ( MapTable f t ) ) => Recontextualise ( t :: Type ) ( f :
   reverseFieldMapping :: Field t x -> Field ( MapTable f t ) x
 
 
-class ContextMap ( f :: ( Type -> Type ) -> Type -> Type ) ( context :: Type -> Type ) where
-  recontextualiseColumn :: C context x -> C ( f context ) x
-
-
 -- | Effectfully map a table from one context to another.
 traverseTableWithIndexC
   :: forall c f t t' m

@@ -165,7 +165,7 @@ leftJoin_forAll joinTable condition =
            { nullTag =
                liftNull tag
            , maybeTable =
-               mapTable @Null recontextualiseColumn renamed
+               mapTable @Null ( \( MkC x ) -> MkC ( retype x ) ) renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
