@@ -244,20 +244,15 @@ instance Table a => Table ( Sum a ) where
     Sum <$> tabulateMCP proxy ( f . SumField )
 
 
-instance Table a => Recontextualise ( Sum a ) Id where
-  type MapTable Id ( Sum a ) =
-    Sum a
+instance Recontextualise a f => Recontextualise ( Sum a ) f where
+  type MapTable f ( Sum a ) =
+    Sum ( MapTable f a )
 
-  fieldMapping ( SumField i ) = SumField i
-  reverseFieldMapping ( SumField i ) = SumField i
+  fieldMapping ( SumField i ) =
+    SumField ( fieldMapping @_ @f i )
 
-
-instance Recontextualise a Demote => Recontextualise ( Sum a ) Demote where
-  type MapTable Demote ( Sum a ) =
-    Sum ( MapTable Demote a )
-
-  fieldMapping ( SumField i ) = SumField ( fieldMapping @_ @Demote i )
-  reverseFieldMapping ( SumField i ) = SumField ( reverseFieldMapping @_ @Demote i )
+  reverseFieldMapping ( SumField i ) =
+    SumField ( reverseFieldMapping @_ @f i )
 
 
 -- | Map a 'Table' from one type to another. The table types must be compatible,
