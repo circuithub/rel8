@@ -88,9 +88,6 @@ groupAndAggregate
      , EqTable k
      , Promote m k' k
      , Promote m v' v
-     , MapTable Demote k ~ k'
-     , MapTable Demote v ~ v'
-     , Recontextualise k Id
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate = groupAndAggregate_forAll
@@ -109,7 +106,6 @@ groupAndAggregate_forAll
      , Context k' ~ Context v'
      , Context v ~ Expr ( Nest m )
      , Context v' ~ Expr m
-     , Recontextualise k Id
      )
   => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
 groupAndAggregate_forAll f query =
@@ -130,26 +126,14 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m
-     , MapTable Demote b ~ b'
-     , MonoidTable b
-     , Recontextualise b Demote
-     , Context b ~ Expr ( Nest m )
-     , Context b' ~ Expr m
-     )
+  :: ( MonadQuery m , MonoidTable b , Promote m b' b )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
 
 
 aggregate_forAll
   :: forall a b b' m
-   . ( MonadQuery m
-     , MapTable Demote b ~ b'
-     , MonoidTable b
-     , Recontextualise b Demote
-     , Context b' ~ Expr m
-     , Context b ~ Expr ( Nest m )
-     )
+   . ( MonadQuery m , Promote m b' b , MonoidTable b )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate_forAll f =
   liftOpaleye . Opaleye.aggregate ( dimap f to aggregator ) . toOpaleye
@@ -241,7 +225,7 @@ instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) wh
       <*> tabulateMCP proxy ( f . ValueFields )
 
 
-instance ( Context v ~ Expr m, Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable f v ), Recontextualise k f, Recontextualise v f ) => Recontextualise ( GroupBy k v ) f where
+instance ( Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable f v ), Recontextualise k f, Recontextualise v f ) => Recontextualise ( GroupBy k v ) f where
   type MapTable f ( GroupBy k v ) =
     GroupBy ( MapTable f k ) ( MapTable f v )
 

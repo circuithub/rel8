@@ -69,14 +69,14 @@ instance MonadQuery Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: ( FromRow row haskell, MonadIO m, Recontextualise row Id )
+  :: ( FromRow row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select = select_forAll
 
 
 select_forAll
   :: forall row haskell m
-   . ( FromRow row haskell, MonadIO m, Recontextualise row Id )
+   . ( FromRow row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select_forAll conn query =
   maybe
@@ -86,7 +86,7 @@ select_forAll conn query =
 
 
 queryParser
-  :: ( FromRow sql haskell, Recontextualise sql Id )
+  :: FromRow sql haskell
   => Query sql
   -> Database.PostgreSQL.Simple.RowParser haskell
 queryParser ( Query q ) =
@@ -100,14 +100,14 @@ queryParser ( Query q ) =
 
 queryRunner
   :: forall row haskell
-   . ( FromRow row haskell, Recontextualise row Id )
+   . FromRow row haskell
   => Opaleye.FromFields row haskell
 queryRunner =
   Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
 
 
 unpackspec
-  :: ( Table row, Context row ~ Expr Query, Recontextualise row Id )
+  :: ( Table row, Context row ~ Expr Query )
   => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
@@ -129,10 +129,9 @@ insert connection Insert{ into, values, onConflict, returning } =
       :: forall schema result value
        . ( Context value ~ Expr Query
          , Context schema ~ ColumnSchema
-         , Recontextualise schema Id
+         , Table schema
          , MapTable ( From Query ) schema ~ value
          , Recontextualise schema ( From Query )
-         , Recontextualise value Id
          )
       => TableSchema schema
       -> [ value ]
@@ -240,9 +239,9 @@ data Returning schema a where
   -- IO [ FooId ]
   Projection
     :: ( Selects Query schema row
+       , Table projection
        , Context row ~ Context projection
        , FromRow projection a
-       , Recontextualise projection Id
        )
     => ( row -> projection )
     -> Returning schema [ a ]
@@ -323,8 +322,6 @@ update connection Update{ target, set, updateWhere, returning } =
          , Context row ~ Expr Query
          , MapTable ( From Query ) target ~ row
          , Recontextualise target ( From Query )
-         , Recontextualise target Id
-         , Recontextualise row Id
          )
       => TableSchema target
       -> ( row -> row )

@@ -135,7 +135,7 @@ instance Table HaskellPackage where
 @
 
 -}
-class ( ConstrainTable t Unconstrained, MapTable Id t ~ t ) => Table ( t :: Type ) where
+class ( ConstrainTable t Unconstrained, MapTable Id t ~ t, Recontextualise t Id ) => Table ( t :: Type ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
   -- field in the table. It describes not just the field itself, but also the
   -- type of values stored there.

@@ -59,6 +59,7 @@ holdsUnderMaybe _ = Proxy
 
 instance
   ( Table ( MapTable Null t )
+  , ConstrainTable ( MapTable Null t ) Unconstrained
   , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
   , Context ( MapTable Null t ) ~ Null ( Context t )
   ) => Table ( MaybeTable t ) where
