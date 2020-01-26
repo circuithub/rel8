@@ -48,14 +48,12 @@ module Rel8
   ,  lit
 
     -- *** Null
-  , Null
   , null_
   , isNull
   , liftNull
 
     -- *** Equality
-  , EqTable
-  , (==.)
+  , EqTable( (==.) )
 
     -- *** Booleans
   , (&&.)
