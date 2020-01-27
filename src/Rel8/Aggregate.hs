@@ -22,6 +22,7 @@ module Rel8.Aggregate
   ) where
 
 import Data.Functor
+import Data.Functor.Identity
 import Data.Monoid
 import Data.Profunctor ( dimap, lmap )
 import qualified Opaleye.Aggregate as Opaleye
@@ -125,7 +126,7 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m , MonoidTable b , Promote m b' b )
+  :: ( MonadQuery m, MonoidTable b, Promote m b' b )
   => ( a -> b ) -> Nest m a -> m b'
 aggregate = aggregate_forAll
 
@@ -237,7 +238,7 @@ instance ( Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable 
     ValueFields i -> ValueFields ( reverseFieldMapping @_ @f i )
 
 
-instance ( Recontextualise k Id, Context v ~ Expr m, Table k, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Context v ~ Expr m, Table k, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group
@@ -248,4 +249,6 @@ instance ( Recontextualise k Id, Context v ~ Expr m, Table k, Context k ~ Expr m
       group :: Opaleye.Aggregator k k
       group =
         Opaleye.Aggregator $ Opaleye.PackMap \f ->
-          traverseTable @Id ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+          fmap runIdentity
+            . traverseTable @Id ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+            . Identity

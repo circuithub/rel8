@@ -87,21 +87,3 @@ instance
       <*> tabulateMCP
             ( holdsUnderMaybe proxy )
             ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
-
-
-instance
-  ( ConstrainTable ( MapTable Null t ) Unconstrained
-  , Context ( MapTable Null t ) ~ Null ( Context t )
-  , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
-  , Recontextualise ( MapTable Null t ) Id
-  ) => Recontextualise ( MaybeTable t ) Id where
-  type MapTable Id ( MaybeTable t ) =
-    MaybeTable t
-
-  fieldMapping = \case
-    MaybeTableIsNull -> MaybeTableIsNull
-    MaybeTableField i -> MaybeTableField ( fieldMapping @_ @Id i )
-
-  reverseFieldMapping = \case
-    MaybeTableIsNull -> MaybeTableIsNull
-    MaybeTableField i -> MaybeTableField ( reverseFieldMapping @_ @Id i )
