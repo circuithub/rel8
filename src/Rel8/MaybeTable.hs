@@ -52,9 +52,6 @@ class c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 instance c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 
 
-holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
-holdsUnderMaybe _ = Proxy
-
 
 instance
   ( Table ( MapTable Null t )
@@ -87,3 +84,8 @@ instance
       <*> tabulateMCP
             ( holdsUnderMaybe proxy )
             ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
+
+    where
+
+      holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
+      holdsUnderMaybe _ = Proxy
