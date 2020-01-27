@@ -18,7 +18,7 @@
 
 {-# options -fno-warn-orphans #-}
 
-module Rel8.HigherKindedTable where
+module Rel8.HigherKindedTable ( HigherKindedTable(..) ) where
 
 import Data.Functor.Identity
 import Data.Kind
