@@ -19,7 +19,6 @@ import Rel8.Expr
 import Rel8.HigherKindedTable
 import Rel8.Query
 import Rel8.Table hiding ( field )
-import Rel8.Unconstrained
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -47,16 +46,16 @@ instance m ~ Query => FromRow ( Expr m Bool ) Bool where
 
 
 instance
-  ( HigherKindedTable t
-  , t ~ t'
+  ( t ~ t'
   , f ~ Expr Query
   , g ~ Identity
-  , HConstrainTable t ( Null ( Expr Query ) ) Unconstrained
-  , HConstrainTable t ( Null ( Expr Query ) ) ( HoldsUnderMaybe Unconstrained )
-  , HConstrainTable t Identity FromField
-  , HConstrainTable t Identity Unconstrained
   , HConstrainTable t ( Expr Query ) Unconstrained
   , HConstrainTable t ( Null ( Expr Query ) ) FromField
+  , HConstrainTable t ( Null ( Expr Query ) ) Unconstrained
+  , HConstrainTable t Identity FromField
+  , HigherKindedTable t
+  , Table ( MaybeTable ( t f ) )
+  , Table ( t' g )
   ) => FromRow ( MaybeTable ( t f ) ) ( Maybe ( t' g ) ) where
 
   rowParser ( MaybeTable _ t ) = do

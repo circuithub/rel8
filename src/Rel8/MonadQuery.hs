@@ -17,6 +17,7 @@
 module Rel8.MonadQuery where
 
 import Control.Applicative ( liftA2 )
+import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
@@ -94,7 +95,7 @@ each_forAll schema =
     unpackspec =
       Opaleye.Unpackspec
         $ Opaleye.PackMap \f ->
-            traverseTable @Id ( traverseC ( traversePrimExpr f ) )
+            fmap runIdentity . traverseTable @Id ( traverseC ( traversePrimExpr f ) ) . Identity
 
 
     writer :: Opaleye.Writer () row
@@ -165,7 +166,7 @@ leftJoin_forAll joinTable condition =
            { nullTag =
                liftNull tag
            , maybeTable =
-               mapTable @Null ( \( MkC x ) -> MkC ( retype x ) ) renamed
+               mapTable @Null ( mapC retype ) renamed
            }
        , Opaleye.Join
            Opaleye.LeftJoin
@@ -252,10 +253,11 @@ distinct_forAll query =
 
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
-      Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f a ->
-        traverseTable @Id
-          ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
-          a
+      Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
+        fmap runIdentity
+          . traverseTable @Id
+              ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
+          . Identity
 
 
 -- | @limit n@ select at most @n@ rows from a query.

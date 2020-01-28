@@ -26,10 +26,8 @@ class
   , Context schema ~ ColumnSchema
   , MapTable ( From m ) schema ~ row
   , Recontextualise schema ( From m )
-  , Recontextualise row Id
   , Table schema
   , Table row
-  , Recontextualise schema Id
   ) => Selects m schema row
 
 
@@ -41,8 +39,6 @@ instance
   , Recontextualise schema ( From m )
   , Table row
   , Table schema
-  , Recontextualise row Id
-  , Recontextualise schema Id
   ) => Selects m schema row
 
 
@@ -67,7 +63,6 @@ data Hidden ( a :: k )
 class
   ( Table a
   , Context a ~ Expr m
-  , Recontextualise a Id
   ) => a `IsTableIn` m
 
 

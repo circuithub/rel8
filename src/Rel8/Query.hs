@@ -1,3 +1,4 @@
+{-# language ApplicativeDo #-}
 {-# language BlockArguments #-}
 {-# language DisambiguateRecordFields #-}
 {-# language DuplicateRecordFields #-}
@@ -14,6 +15,7 @@ module Rel8.Query where
 
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Functor.Identity
 import Data.Int
 import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
@@ -37,7 +39,6 @@ import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
-import Rel8.Unconstrained
 import {-# source #-} Rel8.FromRow
 
 
@@ -111,7 +112,7 @@ unpackspec
   => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    traverseTable @Id ( traverseC ( traversePrimExpr f ) )
+    fmap runIdentity . traverseTable @Id ( traverseC ( traversePrimExpr f ) ) . Identity
 
 
 -- | Run an @INSERT@ statement
@@ -129,7 +130,6 @@ insert connection Insert{ into, values, onConflict, returning } =
       :: forall schema result value
        . ( Context value ~ Expr Query
          , Context schema ~ ColumnSchema
-         , Table schema
          , MapTable ( From Query ) schema ~ value
          , Recontextualise schema ( From Query )
          )
@@ -161,7 +161,6 @@ writer
   :: forall value schema
    . ( Context value ~ Expr Query
      , Context schema ~ ColumnSchema
-     , Table schema
      , Selects Query schema value
      , MapTable ( From Query ) schema ~ value
      )
@@ -178,12 +177,14 @@ writer into_ =
       void
         ( traverseTableWithIndexC
             @Unconstrained
-            @Id
-            @schema
-            @schema
+            @( From Query )
             ( \i ->
-                traverseC \c@ColumnSchema{ columnName } ->
-                  c <$ f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @( From Query ) i ) <$> xs, columnName )
+                traverseC \ColumnSchema{ columnName } -> do
+                  f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @( From Query ) i ) <$> xs
+                    , columnName
+                    )
+
+                  return ( column columnName )
             )
             ( tableColumns into_ )
         )
@@ -254,7 +255,7 @@ data OnConflict
 
 selectQuery
   :: forall a
-   . ( Context a ~ Expr Query, Recontextualise a Id )
+   . ( Table a, Context a ~ Expr Query )
   => Query a -> Maybe String
 selectQuery ( Query opaleye ) =
   showSqlForPostgresExplicit

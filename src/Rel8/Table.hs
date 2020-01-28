@@ -24,38 +24,34 @@ behind the scenes, and is safely exported if you want to use it in your own
 work, or if you want to understand further how Rel8 works.
 
 -}
-module Rel8.Table where
-  -- ( -- * Tables of kind @*@
-  --   Table(..)
-  -- , mapTable
-  -- , mapTableC
-  -- , traverseTable
-  -- , traverseTableC
-  -- , traverseTableWithIndexC
-  -- , zipTablesWithM
-  -- , zipTablesWithMC
+module Rel8.Table
+  ( -- * Tables of kind @*@
+    Table(..)
+  , mapTable
+  , mapTableC
+  , traverseTable
+  , traverseTableC
+  , traverseTableWithIndexC
+  , zipTablesWithM
+  , zipTablesWithMC
 
-  --   -- ** Sub-tables
-  -- , ConstrainedTable
-  -- , Unconstrained
+    -- ** Sub-tables
+  , Unconstrained
 
-  --   -- ** Relationships Between Tables
-  -- , CompatibleTables
-  -- , Compatible(..)
+    -- ** Relationships Between Tables
+  , Recontextualise(..)
 
-  --   -- * Higher-kinded tables
-  -- , HigherKindedTable
+    -- * Columns
+  , Column
+  , C( MkC )
+  , mapC
+  , traverseC
+  , traverseCC
+  , zipCWithM
+  , zipCWithMC
+  ) where
 
-  --   -- * Columns
-  -- , Column
-  -- , C( MkC )
-  -- , mapC
-  -- , traverseC
-  -- , traverseCC
-  -- , zipCWithM
-  -- , zipCWithMC
-  -- ) where
-
+import Data.Functor.Compose
 import Data.Functor.Identity
 import Data.Kind
 import Data.Monoid
@@ -135,7 +131,7 @@ instance Table HaskellPackage where
 @
 
 -}
-class ( ConstrainTable t Unconstrained, MapTable Id t ~ t, Recontextualise t Id ) => Table ( t :: Type ) where
+class ConstrainTable t Unconstrained => Table ( t :: Type ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
   -- field in the table. It describes not just the field itself, but also the
   -- type of values stored there.
@@ -249,20 +245,15 @@ instance Table a => Table ( Sum a ) where
     Sum <$> tabulateMCP proxy ( f . SumField )
 
 
-instance Table a => Recontextualise ( Sum a ) Id where
-  type MapTable Id ( Sum a ) =
-    Sum a
+instance Recontextualise a f => Recontextualise ( Sum a ) f where
+  type MapTable f ( Sum a ) =
+    Sum ( MapTable f a )
 
-  fieldMapping ( SumField i ) = SumField i
-  reverseFieldMapping ( SumField i ) = SumField i
+  fieldMapping ( SumField i ) =
+    SumField ( fieldMapping @_ @f i )
 
-
-instance Recontextualise a Demote => Recontextualise ( Sum a ) Demote where
-  type MapTable Demote ( Sum a ) =
-    Sum ( MapTable Demote a )
-
-  fieldMapping ( SumField i ) = SumField ( fieldMapping @_ @Demote i )
-  reverseFieldMapping ( SumField i ) = SumField ( reverseFieldMapping @_ @Demote i )
+  reverseFieldMapping ( SumField i ) =
+    SumField ( reverseFieldMapping @_ @f i )
 
 
 -- | Map a 'Table' from one type to another. The table types must be compatible,
@@ -275,6 +266,34 @@ mapTable
   => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
 mapTable f =
   runIdentity . traverseTable @f ( Identity . f )
+
+
+instance Table a => Table ( Identity a ) where
+  type Context ( Identity a ) =
+    Context a
+
+  type ConstrainTable ( Identity a ) c =
+    ConstrainTable a c
+
+  type Field ( Identity a ) =
+    Compose Identity ( Field a )
+
+  field ( Identity a ) ( Compose ( Identity x ) ) =
+    field a x
+
+  tabulateMCP proxy f =
+    Identity <$> tabulateMCP proxy ( f . Compose . Identity )
+
+
+instance Table a => Recontextualise ( Identity a ) Id where
+  type MapTable Id ( Identity a ) =
+    Identity a
+
+  fieldMapping ( Compose ( Identity i ) ) =
+    Compose ( Identity i )
+
+  reverseFieldMapping ( Compose ( Identity i ) ) =
+    Compose ( Identity i )
 
 
 -- | Map a 'Table' from one type to another, where all columns in the table are

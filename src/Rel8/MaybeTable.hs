@@ -19,7 +19,6 @@ module Rel8.MaybeTable where
 import Data.Proxy
 import Rel8.Column
 import Rel8.Table
-import Rel8.Unconstrained
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the
@@ -52,9 +51,6 @@ class c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 
 instance c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 
-
-holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
-holdsUnderMaybe _ = Proxy
 
 
 instance
@@ -89,20 +85,7 @@ instance
             ( holdsUnderMaybe proxy )
             ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
 
+    where
 
-instance
-  ( ConstrainTable ( MapTable Null t ) Unconstrained
-  , Context ( MapTable Null t ) ~ Null ( Context t )
-  , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
-  , Recontextualise ( MapTable Null t ) Id
-  ) => Recontextualise ( MaybeTable t ) Id where
-  type MapTable Id ( MaybeTable t ) =
-    MaybeTable t
-
-  fieldMapping = \case
-    MaybeTableIsNull -> MaybeTableIsNull
-    MaybeTableField i -> MaybeTableField ( fieldMapping @_ @Id i )
-
-  reverseFieldMapping = \case
-    MaybeTableIsNull -> MaybeTableIsNull
-    MaybeTableField i -> MaybeTableField ( reverseFieldMapping @_ @Id i )
+      holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
+      holdsUnderMaybe _ = Proxy
