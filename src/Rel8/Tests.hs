@@ -13,6 +13,7 @@ import Data.Monoid
 import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics
 import Rel8
+import Rel8.Column
 
 
 data Part f =
@@ -262,9 +263,10 @@ select_maybeTable :: Connection -> IO [ Maybe ( HasNull Identity ) ]
 select_maybeTable c =
   select c maybeTableQ
 
--- filterMapTest :: MonadQuery m => m _
--- filterMapTest =
---   filterMap nullId ( each hasNull )
+
+catNullsTest :: MonadQuery m => m ( NotNull ( Expr m ) Int32 )
+catNullsTest =
+  catNulls ( nullId <$> each hasNull )
 
 
 unionTest :: MonadQuery m => m ( Part ( Expr m ) )

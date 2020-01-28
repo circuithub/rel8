@@ -16,7 +16,7 @@
 
 module Rel8.MonadQuery where
 
-import Control.Applicative ( liftA2 )
+import Control.Applicative ( Const(..), liftA2 )
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
@@ -293,27 +293,30 @@ where_ x =
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
 
 
--- filterMap
---   :: forall a nullA b nullB m
---    . ( Compatible nullA ( Null ( Expr m ) ) a ( Expr m )
---      , Compatible b ( Expr m ) nullB ( Null ( Expr m ) )
---      , Table a, Table b, Context a ~ Context b
---      , Table nullA, Table nullB, Context nullA ~ Context nullB
---      , MonadQuery m
---      )
---   => ( nullA -> nullB ) -> m a -> m b
--- filterMap f q = do
---   x <-
---     q
+catNulls
+  :: forall a b m
+   . ( MonadQuery m
+     , Context a ~ Expr m
+     , Context b ~ Expr m
+     , MapTable NotNull a ~ b
+     , Recontextualise a NotNull
+     )
+  => m a -> m b
+catNulls q = do
+  x <-
+    q
 
---   let
---     y =
---       f ( mapTable ( mapC liftNull ) x )
+  let
+    allNotNull :: [ Expr m Bool ]
+    allNotNull =
+      getConst
+        ( runIdentity
+            <$> traverseTable
+                  @Id
+                  ( traverseC ( \expr -> Const [ isNull ( retype expr ) ] ) )
+                  ( Identity x )
+        )
 
---     allNotNull :: [ Expr m Bool ]
---     allNotNull =
---       getConst ( traverseTable @nullB ( traverseC ( \expr -> Const [ isNull expr ] ) ) y )
+  where_ ( and_ allNotNull )
 
---   where_ ( and_ allNotNull )
-
---   return ( mapTable ( mapC retype ) y )
+  return ( mapTable @NotNull ( mapC retype ) x )

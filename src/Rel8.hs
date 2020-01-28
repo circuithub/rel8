@@ -19,7 +19,7 @@ module Rel8
   , Table
   , each
   , where_
-  -- , filterMap
+  , catNulls
   , limit
   , offset
   , union
