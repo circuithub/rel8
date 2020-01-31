@@ -42,6 +42,7 @@ import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Table as O
 import qualified Opaleye.Internal.Unpackspec as O
+import qualified Opaleye.Internal.Values as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
 import Prelude hiding (not, id)
@@ -240,6 +241,12 @@ traversePrimExprs f expr =
 --------------------------------------------------------------------------------
 unpackColumns :: Table expr haskell => O.Unpackspec expr expr
 unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
+
+
+--------------------------------------------------------------------------------
+valuesColumns :: Table expr haskell => O.Valuesspec expr expr
+valuesColumns = O.Valuesspec $ O.PackMap $ dimap id $
+  fmap (view (from expressions)) . sequenceA . tabulate . const
 
 
 --------------------------------------------------------------------------------

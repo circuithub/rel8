@@ -88,6 +88,9 @@ module Rel8
   , (||?), (&&?), (+?), (*?), (-?)
   , (/?)
 
+    -- * Values
+  , values
+
     -- * Running Queries
     -- ** @SELECT@
   , select
@@ -145,6 +148,7 @@ import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
+import qualified Opaleye.Values as O
 import Prelude hiding (not, (.), id)
 import Rel8.Internal
 import Streaming (Of, Stream)
@@ -304,6 +308,10 @@ unionAll =
                       (\prim1 prim2 -> f (prim1, prim2))
                       (view expressions l)
                       (view expressions r)))))))
+
+
+values :: Table table haskell => [table] -> O.Query table
+values = O.valuesExplicit unpackColumns valuesColumns
 
 {- $welcome
 
