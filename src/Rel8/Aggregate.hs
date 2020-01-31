@@ -233,9 +233,8 @@ instance ( Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable 
     KeyFields i -> KeyFields ( fieldMapping @_ @f i )
     ValueFields i -> ValueFields ( fieldMapping @_ @f i )
 
-  reverseFieldMapping = \case
-    KeyFields i -> KeyFields ( reverseFieldMapping @_ @f i )
-    ValueFields i -> ValueFields ( reverseFieldMapping @_ @f i )
+  reverseMapping ( KeyFields i ) k = reverseMapping @k @f i ( k . KeyFields )
+  reverseMapping ( ValueFields i ) k = reverseMapping @v @f i ( k . ValueFields )
 
 
 instance ( Context v ~ Expr m, Table k, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where

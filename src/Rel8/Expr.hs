@@ -10,6 +10,8 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
+{-# options -fno-warn-orphans #-}
+
 module Rel8.Expr
   ( DBType(..)
   , (&&.)
@@ -52,12 +54,39 @@ import Rel8.Stuff
 import Rel8.Table
 
 
+instance ContextTransformer Select where
+  type MapColumn Select _ a = a
+
+
+instance ContextTransformer ( From m ) where
+  type MapColumn ( From m ) _ a = a
+
+
+instance ContextTransformer NotNull where
+  type MapColumn NotNull _ a = DropMaybe a
+
+
+instance ContextTransformer Demote where
+  type MapColumn Demote _ a = a
+
+
+instance ContextTransformer Lit where
+  type MapColumn Lit _ a = a
+
+
+instance ContextTransformer Null where
+  type MapColumn Null _ a = Maybe ( DropMaybe a )
+
+
 instance Recontextualise ( Expr ( Nest m ) a ) Demote where
   type MapTable Demote ( Expr ( Nest m ) a ) =
     Expr m a
 
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
+  reverseMapping ExprField k =
+    k ExprField
+
+  fieldMapping ExprField =
+    ExprField
 
 
 -- | Typed SQL expressions
@@ -283,15 +312,37 @@ instance Table ( Expr m a ) where
 
 
 instance Recontextualise ( Expr m a ) Id where
-  type MapTable Id ( Expr m a ) = Expr m a
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
+  type MapTable Id ( Expr m a ) =
+    Expr m a
+
+  reverseMapping ExprField k =
+    k ExprField
+
+  fieldMapping ExprField =
+    ExprField
 
 
 instance Recontextualise ( Expr m a ) Null where
-  type MapTable Null ( Expr m a ) = Expr m a
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
+  type MapTable Null ( Expr m a ) =
+    Expr m ( Maybe ( DropMaybe a ) )
+
+  reverseMapping ExprField k =
+    k ExprField
+
+  fieldMapping ExprField =
+    ExprField
+
+
+instance Recontextualise ( Expr m a ) NotNull where
+  type MapTable NotNull ( Expr m a ) =
+    Expr m ( DropMaybe a )
+
+  reverseMapping ExprField k =
+    k ExprField
+
+  fieldMapping ExprField =
+    ExprField
+
 
 binExpr :: Opaleye.BinOp -> Expr m a -> Expr m a -> Expr m b
 binExpr op ( Expr a ) ( Expr b ) =

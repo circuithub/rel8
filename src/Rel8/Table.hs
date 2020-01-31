@@ -49,6 +49,8 @@ module Rel8.Table
   , traverseCC
   , zipCWithM
   , zipCWithMC
+
+  , ContextTransformer(..)
   ) where
 
 import Data.Functor.Compose
@@ -163,12 +165,21 @@ class ConstrainTable t Unconstrained => Table ( t :: Type ) where
     -> f t
 
 
-class ( Table t, Table ( MapTable f t ) ) => Recontextualise ( t :: Type ) ( f :: ( Type -> Type ) -> Type -> Type ) where
-  type MapTable f t :: Type
+class ContextTransformer ( t :: ( * -> * ) -> * -> * ) where
+  type MapColumn t ( f :: * -> * ) ( a :: * )
 
-  fieldMapping :: Field ( MapTable f t ) x -> Field t x
 
-  reverseFieldMapping :: Field t x -> Field ( MapTable f t ) x
+class ( ContextTransformer f, Table t, Table ( MapTable f t ) ) => Recontextualise ( t :: Type ) ( f :: ( Type -> Type ) -> Type -> Type ) where
+  type MapTable f t :: *
+
+  reverseMapping
+    :: Field ( MapTable f t ) y
+    -> ( forall x. MapColumn f ( Context t ) x ~ y => Field t x -> r )
+    -> r
+
+  fieldMapping
+    :: Field t x
+    -> Field ( MapTable f t ) ( MapColumn f ( Context t ) x )
 
 
 -- | Effectfully map a table from one context to another.
@@ -179,12 +190,13 @@ traverseTableWithIndexC
      , MapTable f t ~ t'
      , Recontextualise t f
      )
-  => ( forall x. c x => Field t x -> C ( Context t ) x -> m ( C ( Context t' ) x ) )
+  => ( forall x. c ( MapColumn f ( Context t ) x ) => Field t x -> C ( Context t ) x -> m ( C ( Context t' ) ( MapColumn f ( Context t ) x ) ) )
   -> t
   -> m t'
 traverseTableWithIndexC f t =
-  tabulateMCP ( Proxy @c ) \index ->
-    f ( fieldMapping @_ @f index ) ( field t ( fieldMapping @_ @f index ) )
+  tabulateMCP
+    ( Proxy @c )
+    ( \index -> reverseMapping @t @f index ( \index' -> f index' ( field t index' ) ) )
 
 
 data TupleField a b x where
@@ -216,13 +228,11 @@ instance ( Context a ~ Context b, Context ( MapTable f a ) ~ Context ( MapTable 
   type MapTable f ( a, b ) =
     ( MapTable f a, MapTable f b )
 
-  fieldMapping = \case
-    Element1 i -> Element1 ( fieldMapping @a @f i )
-    Element2 i -> Element2 ( fieldMapping @b @f i )
+  reverseMapping ( Element1 i ) f = reverseMapping @a @f i ( \j -> f ( Element1 j ) )
+  reverseMapping ( Element2 i ) f = reverseMapping @b @f i ( \j -> f ( Element2 j ) )
 
-  reverseFieldMapping = \case
-    Element1 i -> Element1 ( reverseFieldMapping @a @f i )
-    Element2 i -> Element2 ( reverseFieldMapping @b @f i )
+  fieldMapping ( Element1 i ) = Element1 ( fieldMapping @_ @f i )
+  fieldMapping ( Element2 i ) = Element2 ( fieldMapping @_ @f i )
 
 
 data SumField a x where
@@ -249,11 +259,11 @@ instance Recontextualise a f => Recontextualise ( Sum a ) f where
   type MapTable f ( Sum a ) =
     Sum ( MapTable f a )
 
+  reverseMapping ( SumField i ) f =
+    reverseMapping @a @f i ( \j -> f ( SumField j ) )
+
   fieldMapping ( SumField i ) =
     SumField ( fieldMapping @_ @f i )
-
-  reverseFieldMapping ( SumField i ) =
-    SumField ( reverseFieldMapping @_ @f i )
 
 
 -- | Map a 'Table' from one type to another. The table types must be compatible,
@@ -263,7 +273,8 @@ mapTable
    . ( MapTable f t ~ t'
      , Recontextualise t f
      )
-  => ( forall x. C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
+  => ( forall x. C ( Context t ) x -> C ( Context t' ) ( MapColumn f ( Context t ) x ) )
+  -> t -> t'
 mapTable f =
   runIdentity . traverseTable @f ( Identity . f )
 
@@ -285,15 +296,18 @@ instance Table a => Table ( Identity a ) where
     Identity <$> tabulateMCP proxy ( f . Compose . Identity )
 
 
+instance ContextTransformer Id where
+  type MapColumn Id _ a = a
+
+
 instance Table a => Recontextualise ( Identity a ) Id where
   type MapTable Id ( Identity a ) =
     Identity a
 
-  fieldMapping ( Compose ( Identity i ) ) =
-    Compose ( Identity i )
+  reverseMapping i k =
+    k i
 
-  reverseFieldMapping ( Compose ( Identity i ) ) =
-    Compose ( Identity i )
+  fieldMapping = id
 
 
 -- | Map a 'Table' from one type to another, where all columns in the table are
@@ -302,7 +316,8 @@ instance Table a => Recontextualise ( Identity a ) Id where
 mapTableC
   :: forall c f t' t
    . ( ConstrainTable t' c, MapTable f t ~ t', Recontextualise t f )
-  => ( forall x. c x => C ( Context t ) x -> C ( Context t' ) x ) -> t -> t'
+  => ( forall x. c ( MapColumn f ( Context t ) x ) => C ( Context t ) x -> C ( Context t' ) ( MapColumn f ( Context t ) x ) )
+  -> t -> t'
 mapTableC f =
   runIdentity . traverseTableC @f @c ( Identity . f )
 
@@ -312,7 +327,7 @@ mapTableC f =
 traverseTable
   :: forall f t' t m
    . ( Applicative m, MapTable f t ~ t', Recontextualise t f )
-  => ( forall x. C ( Context t ) x -> m ( C ( Context t' ) x ) )
+  => ( forall x. C ( Context t ) x -> m ( C ( Context t' ) ( MapColumn f ( Context t ) x ) ) )
   -> t
   -> m t'
 traverseTable f =
@@ -329,7 +344,7 @@ traverseTable f =
 traverseTableC
   :: forall f c m t t'
    . ( Applicative m, MapTable f t ~ t', ConstrainTable t' c, Recontextualise t f )
-  => ( forall x. c x => C ( Context t ) x -> m ( C ( Context t' ) x ) )
+  => ( forall x. c ( MapColumn f ( Context t ) x ) => C ( Context t ) x -> m ( C ( Context t' ) ( MapColumn f ( Context t ) x ) ) )
   -> t
   -> m t'
 traverseTableC f =

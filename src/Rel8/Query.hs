@@ -180,7 +180,7 @@ writer into_ =
             @( From Query )
             ( \i ->
                 traverseC \ColumnSchema{ columnName } -> do
-                  f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @( From Query ) i ) <$> xs
+                  f ( toPrimExpr . toColumn . flip field ( fieldMapping @_ @( From Query ) i ) <$> xs
                     , columnName
                     )
 

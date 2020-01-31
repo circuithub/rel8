@@ -77,9 +77,9 @@ data MyType f = MyType { fieldA :: Column f T }
 -}
 class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
   -- | Like 'Field', but for higher-kinded tables.
-  type HField t = ( field :: Type -> Type ) | field -> t
-  type HField t =
-    GenericField t
+  type HField t ( f :: Type -> Type ) = ( field :: Type -> Type ) | field -> t f
+  -- type HField t f =
+  --   GenericField t
 
   -- | Like 'Constraintable', but for higher-kinded tables.
   type HConstrainTable t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
@@ -87,36 +87,40 @@ class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
     GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c
 
   -- | Like 'field', but for higher-kinded tables.
-  hfield :: t f -> HField t x -> C f x
-  default hfield
-    :: forall f x
-     . ( Generic ( t f )
-       , HField t ~ GenericField t
-       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
-       )
-    => t f -> HField t x -> C f x
-  hfield x ( GenericField i ) =
-    ghfield @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) ( from x ) i
+  hfield :: t f -> HField t f x -> C f x
+  -- default hfield
+  --   :: forall f x
+  --    . ( Generic ( t f )
+  --      , HField t ~ GenericField t
+  --      , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
+  --      )
+  --   => t f -> HField t x -> C f x
+  -- hfield x ( GenericField i ) =
+  --   ghfield @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) ( from x ) i
 
   -- | Like 'tabulateMCP', but for higher-kinded tables.
   htabulate
     :: ( Applicative m, HConstrainTable t f c )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
+    => proxy c
+    -> ( forall x. c x => HField t f x -> m ( C f x ) )
+    -> m ( t f )
 
-  default htabulate
-    :: forall f m c proxy
-     . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c, Generic ( t f )
-       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
-       , HField t ~ GenericField t
-       )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
-  htabulate proxy f =
-    fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) proxy ( f . GenericField ) )
+  -- default htabulate
+  --   :: forall f m c proxy
+  --    . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t Spine ) ) c, Generic ( t f )
+  --      , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t Spine ) )
+  --      , HField t ~ GenericField t
+  --      )
+  --   => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
+  -- htabulate proxy f =
+  --   fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t Spine ) ) proxy ( f . GenericField ) )
 
+
+  adjustHField :: forall f g x. HField t f x -> HField t ( Reduce ( g f ) ) ( MapColumn g f x )
 
 
 data TableHField t ( f :: Type -> Type ) x where
-  F :: HField t x -> TableHField t f x
+  F :: HField t f x -> TableHField t f x
 
 
 -- | Any 'HigherKindedTable' is also a 'Table'.
@@ -148,10 +152,12 @@ type family Reduce ( f :: * -> * ) :: ( * -> * ) where
   Reduce ( Demote ( Expr ( Nest m ) ) ) = Expr m
 
 
-instance ( HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
-  type MapTable g ( t f ) = t ( Reduce ( g f ) )
-  fieldMapping ( F i ) = F i
-  reverseFieldMapping ( F i ) = F i
+instance ( ContextTransformer g, HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
+  type MapTable g ( t f ) =
+    t ( Reduce ( g f ) )
+
+  fieldMapping ( F i ) =
+    F ( adjustHField @t @f @g i )
 
 
 data GenericField t a where
@@ -257,10 +263,14 @@ instance ( Context a ~ f, Table a, Field a' ~ Field ( MapTable Structure a ), Re
     ConstrainTable a c
 
   k1field a ( K1False i ) =
-    field a ( fieldMapping @_ @Structure i )
+    reverseMapping @a @Structure i ( \j -> field a j )
 
   k1tabulate proxy f =
-    tabulateMCP proxy ( f . K1False . reverseFieldMapping @_ @Structure )
+    tabulateMCP proxy ( f . K1False . fieldMapping @a @Structure )
 
 
 data Spine a
+
+
+instance ContextTransformer Structure where
+  type MapColumn Structure _ a = a
