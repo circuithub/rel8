@@ -33,6 +33,7 @@ module Rel8
   , leftJoin
   , leftJoinA
   , unionAll
+  , exceptAll
   , O.restrictExists, O.restrictNotExists
 
     -- ** Filtering
@@ -122,9 +123,7 @@ module Rel8
 
 import Control.Applicative (liftA2)
 import Control.Category ((.), id)
-import Control.Lens (view, from)
 import Control.Monad.Rel8
-import Data.Functor.Rep (mzipWithRep)
 import Data.List (foldl')
 import Data.Profunctor (lmap)
 import Data.Text (Text)
@@ -134,12 +133,10 @@ import GHC.Generics (Generic)
 import qualified Opaleye.Binary as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
-import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
-import qualified Opaleye.Internal.PGTypes as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
@@ -293,21 +290,17 @@ dbBinOp op a b =
 dbNow :: Expr UTCTime
 dbNow = nullaryFunction "now"
 
+
 -- | Take the union of all rows in the first query and all rows in the second
 -- query. Corresponds to the PostgreSQL @UNION ALL@ operator.
 unionAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
-unionAll =
-  O.unionAllExplicit
-    (O.Binaryspec
-       (O.PackMap
-          (\f (l, r) ->
-             fmap
-               (view (from expressions))
-               (sequenceA
-                  ((mzipWithRep
-                      (\prim1 prim2 -> f (prim1, prim2))
-                      (view expressions l)
-                      (view expressions r)))))))
+unionAll = O.unionAllExplicit binaryColumns
+
+
+-- | Take all of the rows in the first query minus all the rows in the second
+-- query. Corresponds to the PostgreSQL @EXCEPT ALL@ operator.
+exceptAll :: Table table haskell => O.Query table -> O.Query table -> O.Query table
+exceptAll = O.exceptAllExplicit binaryColumns
 
 
 values :: Table table haskell => [table] -> O.Query table

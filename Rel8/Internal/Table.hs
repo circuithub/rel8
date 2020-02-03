@@ -24,7 +24,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Functor.Product
-import Data.Functor.Rep (Representable, index, tabulate, pureRep)
+import Data.Functor.Rep (Representable, index, mzipWithRep, tabulate, pureRep)
 import qualified Data.Functor.Rep as Representable
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
@@ -37,6 +37,7 @@ import Generics.OneLiner (nullaryOp, ADTRecord, Constraints)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
+import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
@@ -246,7 +247,15 @@ unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 --------------------------------------------------------------------------------
 valuesColumns :: Table expr haskell => O.Valuesspec expr expr
 valuesColumns = O.Valuesspec $ O.PackMap $ dimap id $
-  fmap (view (from expressions)) . sequenceA . tabulate . const
+  fmap (view (from expressions)) . sequenceA . pureRep
+
+
+--------------------------------------------------------------------------------
+binaryColumns :: Table expr haskell => O.Binaryspec expr expr
+binaryColumns = O.Binaryspec $ O.PackMap $ \f (l, r) ->
+  fmap (view (from expressions)) . sequenceA $ mzipWithRep (curry f)
+    (view expressions l)
+    (view expressions r)
 
 
 --------------------------------------------------------------------------------
