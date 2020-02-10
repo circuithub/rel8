@@ -47,6 +47,7 @@ module Rel8
 
     -- ** Ordering
   , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
+  , distinctOn, distinctOnBy
 
     -- * Aggregation
   , aggregate
