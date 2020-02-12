@@ -20,7 +20,7 @@ module Control.Monad.Rel8
     delete,
 
     -- ** Running @MonadStatement@
-    runPostgreSQLStatements,
+    runPostgreSQLStatements, runPostgreSQLStatementsWithDebug,
     PostgreSQLStatementT,
 
     -- ** @MonadStatement@ syntax
@@ -48,12 +48,17 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
 import UnliftIO.Exception (throwIO, try, mask)
 import Data.Int (Int64)
+import Data.Foldable (fold, for_)
+import Data.Functor (void)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (listToMaybe)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
-import Opaleye (Query)
+import Opaleye (OnConflict ( DoNothing ), Query)
+import qualified Opaleye.Internal.Manipulation as O
+import qualified Opaleye.Manipulation as O (arrangeDeleteSql, arrangeUpdateSql, arrangeUpdateReturningSql)
+import qualified Opaleye.Sql as O
 import qualified Streaming.Prelude as S
 
 import Rel8.Internal
@@ -229,32 +234,53 @@ instance (MonadIO m, MonadUnliftIO m) =>
 -- | A handler that runs individual statements against a PostgreSQL connection.
 -- Again, we just use a reader monad to pass the connection handle around.
 newtype PostgreSQLStatementT e m a =
-  PostgreSQLStatementT (ExceptT e (ReaderT Pg.Connection m) a)
+  PostgreSQLStatementT (ExceptT e (ReaderT (Maybe (String -> m ()), Pg.Connection) m) a)
   deriving (Functor,Applicative,Monad)
 
 runPostgreSQLStatements
   :: PostgreSQLStatementT e m a -> Pg.Connection -> m (Either e a)
-runPostgreSQLStatements (PostgreSQLStatementT r) = runReaderT (runExceptT r)
+runPostgreSQLStatements (PostgreSQLStatementT r) pg =
+  runReaderT (runExceptT r) (Nothing, pg)
+
+runPostgreSQLStatementsWithDebug
+  :: PostgreSQLStatementT e m a -> Pg.Connection -> (String -> m ()) -> m (Either e a)
+runPostgreSQLStatementsWithDebug (PostgreSQLStatementT r) pg debug =
+  runReaderT (runExceptT r) (Just debug, pg)
 
 instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e m) where
   liftStatements =
     PostgreSQLStatementT . ExceptT . fmap Right .
     iterM
       (\op -> do
-         conn <- ask
-         step conn op)
+         (debug, conn) <- ask
+         step (maybe (\_ -> pure ()) (lift .) debug) conn op)
     where
-      step pg (Select q k) = runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
-      step pg (InsertReturning q k) =
+      step debug pg (Select q k) = do
+        void $ debug $ fold $ O.showSqlExplicit unpackColumns q
+        runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
+      step debug pg (InsertReturning q k) = do
+        void $ debug $ O.arrangeInsertManyReturningSql unpackColumns tableDefinition q id Nothing
         runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
-      step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
-      step pg (InsertIgnoringConflictsReturning q k) =
+      step debug pg (Insert q k) = do
+        for_ (NonEmpty.nonEmpty q) $ \rows ->
+          debug $ O.arrangeInsertManySql tableDefinition rows Nothing
+        liftIO (Rel8.IO.insert pg q) >>= k
+      step debug pg (InsertIgnoringConflictsReturning q k) = do
+        void $ debug $ O.arrangeInsertManyReturningSql unpackColumns tableDefinition q id (Just DoNothing)
         runResourceT (S.toList_ (Rel8.IO.insertIgnoringConflictsReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
-      step pg (InsertIgnoringConflicts q k) = liftIO (Rel8.IO.insertIgnoringConflicts pg q) >>= k
-      step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
-      step pg (UpdateReturning a b k) =
+      step debug pg (InsertIgnoringConflicts q k) = do
+        for_ (NonEmpty.nonEmpty q) $ \rows ->
+          debug $ O.arrangeInsertManySql tableDefinition rows (Just DoNothing)
+        liftIO (Rel8.IO.insertIgnoringConflicts pg q) >>= k
+      step debug pg (Update a b k) = do
+        void $ debug $ O.arrangeUpdateSql tableDefinitionUpdate b (exprToColumn . a)
+        liftIO (Rel8.IO.update pg a b) >>= k
+      step debug pg (UpdateReturning a b k) = do
+        void $ debug $ O.arrangeUpdateReturningSql unpackColumns tableDefinitionUpdate b (exprToColumn . a) id
         runResourceT (S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b)) >>= k
-      step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
+      step debug pg (Delete q k) = do
+        void $ debug $ O.arrangeDeleteSql tableDefinition (exprToColumn . q)
+        liftIO (Rel8.IO.delete pg q) >>= k
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where
   abortTransaction l = PostgreSQLStatementT (ExceptT (return (Left l)))
