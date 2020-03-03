@@ -48,6 +48,7 @@ library
   build-depends:       aeson
                      , base >=4.9 && <4.14
                      , bytestring
+                     , case-insensitive
                      , contravariant
                      , exceptions
                      , free
