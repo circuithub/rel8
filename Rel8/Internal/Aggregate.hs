@@ -11,6 +11,7 @@ import Data.Int (Int16, Int32, Int64)
 import Data.Scientific (Scientific)
 import Data.Text (Text)
 import Data.Time (UTCTime, LocalTime)
+import Data.Vector (Vector)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.QueryArr as O
@@ -101,7 +102,7 @@ boolAnd :: Expr Bool -> Aggregate Bool
 boolAnd (Expr a) = Aggregate (Just (O.AggrBoolAnd, [], O.AggrAll)) a
 
 -- | Aggregate with @array_agg@.
-arrayAgg :: Expr a -> Aggregate [a]
+arrayAgg :: Expr a -> Aggregate (Vector a)
 arrayAgg (Expr a) = Aggregate (Just (O.AggrArr, [], O.AggrAll)) a
 
 -- | Aggregate with @string_agg@.
