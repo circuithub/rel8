@@ -64,6 +64,7 @@ library
                      , streaming-postgresql-simple
                      , tagged >=0.8 && <0.9
                      , text
+                     , these
                      , time
                      , transformers
                      , unliftio >= 0.2.7.0 && < 0.3

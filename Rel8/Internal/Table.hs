@@ -21,10 +21,11 @@ import Control.Applicative
 import Control.Lens (Iso', from, iso, view)
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Bifunctor
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Functor.Product
-import Data.Functor.Rep (Representable, index, mzipWithRep, tabulate, pureRep)
+import Data.Functor.Rep (Representable, index, liftR3, mzipWithRep, tabulate, pureRep)
 import qualified Data.Functor.Rep as Representable
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
@@ -38,6 +39,7 @@ import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Aggregate as O
 import qualified Opaleye.Internal.Binary as O
+import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
 import qualified Opaleye.Internal.QueryArr as O
@@ -50,6 +52,7 @@ import Prelude hiding (not, id)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Types
+import Data.These ( These( This, That, These ) )
 
 type family MkRowF a :: * -> * where
   MkRowF (M1 i c f) = MkRowF f
@@ -180,6 +183,60 @@ f $? MaybeTable _ x = toNullable (f x)
 -- that did match any rows.
 isTableNull :: MaybeTable a -> Expr Bool
 isTableNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
+
+
+--------------------------------------------------------------------------------
+-- | A pair of 'Table's where at most one might be @null@. This is the result of
+-- an @FULL OUTER JOIN@ between tables.
+data TheseTable a b = TheseTable (MaybeTable a) (MaybeTable b)
+  deriving (Functor)
+
+
+instance Bifunctor TheseTable where
+  bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
+
+
+-- | The result of a full outer join is a pair of tables, but one of the tables
+-- may be entirely @null@ sometimes.
+instance (Table exprA a, Table exprB b) => Table (TheseTable exprA exprB) (These a b) where
+  type RowF (TheseTable exprA exprB) =
+    Product (RowF (MaybeTable exprA)) (RowF (MaybeTable exprB))
+
+  expressions = dimap back (fmap forth)
+    where
+      back (TheseTable a b) =
+         Pair (view expressions a) (view expressions b)
+      forth (Pair a b) =
+        TheseTable (view (from expressions) a) (view (from expressions) b)
+
+  rowParser = do
+    ma <- rowParser
+    mb <- rowParser
+    case (ma, mb) of
+      (Just a, Just b) -> pure $ These a b
+      (Just a, _) -> pure $ This a
+      (_, Just b) -> pure $ That b
+      _ -> empty
+
+
+theseTable :: Table c haskell
+  => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
+theseTable f g h (TheseTable (MaybeTable aNull a) (MaybeTable bNull b)) =
+  view (from expressions) $ liftR3 go
+    (view expressions (f a))
+    (view expressions (g b))
+    (view expressions (h a b))
+  where
+    ifNull :: Expr (Maybe Bool) -> O.PrimExpr -> O.PrimExpr -> O.PrimExpr
+    ifNull conditional true false = unColumn $ O.matchNullable
+      (O.Column true)
+      (\_ -> O.Column false)
+      (exprToColumn conditional)
+      where
+        unColumn (O.Column result) = result
+
+    go this that these = ifNull bNull this (ifNull aNull that these)
+
 
 --------------------------------------------------------------------------------
 -- | Eliminate 'Maybe' from the type of an 'Expr'. Like 'maybe' for Haskell
