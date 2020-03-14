@@ -185,6 +185,22 @@ isTableNull :: MaybeTable a -> Expr Bool
 isTableNull (MaybeTable tag _) = nullable (lit True) (\_ -> lit False) tag
 
 
+maybeTable :: Table b haskell
+  => b -> (a -> b) -> MaybeTable a -> b
+maybeTable b f (MaybeTable tag a) =
+  view (from expressions) $ mzipWithRep (ifNull tag)
+    (view expressions b)
+    (view expressions (f a))
+  where
+    ifNull :: Expr (Maybe Bool) -> O.PrimExpr -> O.PrimExpr -> O.PrimExpr
+    ifNull conditional true false = unColumn $ O.matchNullable
+      (O.Column true)
+      (\_ -> O.Column false)
+      (exprToColumn conditional)
+      where
+        unColumn (O.Column result) = result
+
+
 --------------------------------------------------------------------------------
 -- | A pair of 'Table's where at most one might be @null@. This is the result of
 -- an @FULL OUTER JOIN@ between tables.

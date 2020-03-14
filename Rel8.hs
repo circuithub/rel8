@@ -58,7 +58,7 @@ module Rel8
   , countRows, Aggregate
 
     -- * Tables
-  , MaybeTable, isTableNull
+  , MaybeTable, isTableNull, maybeTable
   , TheseTable, theseTable
   , Col(..)
 
