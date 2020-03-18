@@ -32,6 +32,7 @@ module Rel8
   , queryTable
   , leftJoin
   , leftJoinA
+  , fullJoin
   , unionAll
   , exceptAll
   , O.restrictExists, O.restrictNotExists
@@ -57,7 +58,8 @@ module Rel8
   , countRows, Aggregate
 
     -- * Tables
-  , MaybeTable, isTableNull
+  , MaybeTable, isTableNull, maybeTable
+  , TheseTable, theseTable
   , Col(..)
 
     -- * Expressions
@@ -247,6 +249,26 @@ leftJoinA q =
            left
            pqR
        , O.next t')
+
+
+--------------------------------------------------------------------------------
+-- | Take the @FULL OUTER JOIN@ of two queries.
+fullJoin
+  :: (Table left a, Table right b, Predicate bool)
+  => (left -> right -> Expr bool) -- ^ The condition to join upon.
+  -> O.Query left -- ^ The left table
+  -> O.Query right -- ^ The right table
+  -> O.Query (TheseTable left right)
+fullJoin condition l r = uncurry TheseTable <$>
+  O.fullJoinExplicit
+    unpackColumns
+    unpackColumns
+    (O.NullMaker (\(tag, t) -> MaybeTable tag t))
+    (O.NullMaker (\(tag, t) -> MaybeTable tag t))
+    (liftA2 (,) (pure (lit (Just False))) l)
+    (liftA2 (,) (pure (lit (Just False))) r)
+    (\((_, a), (_, b)) -> exprToColumn (toNullable (condition a b)))
+
 
 -- | Take only distinct rows in a 'O.Query'. This maps to grouping by every
 -- column in the table.

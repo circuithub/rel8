@@ -22,6 +22,7 @@ import Control.Category ((.))
 import Data.Aeson (Value)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LazyByteString
+import Data.CaseInsensitive (CI)
 import Data.Foldable (toList)
 import Data.Functor.Contravariant (Contravariant(..))
 import Data.Int (Int16, Int32, Int64)
@@ -109,6 +110,10 @@ instance DBType a =>
 instance DBType Text where
   dbTypeInfo = typeInfoFromOpaleye O.pgStrictText
 
+-- | ci text
+instance DBType (CI Text) where
+  dbTypeInfo = typeInfoFromOpaleye O.pgCiStrictText
+
 -- | text
 instance a ~ Char => DBType [a] where
   dbTypeInfo = contramap pack dbTypeInfo
@@ -124,6 +129,10 @@ instance DBType UTCTime where
 -- | text
 instance DBType LazyText.Text where
   dbTypeInfo = typeInfoFromOpaleye O.pgLazyText
+
+-- | ci text
+instance DBType (CI LazyText.Text) where
+  dbTypeInfo = typeInfoFromOpaleye O.pgCiLazyText
 
 -- | bytea
 instance DBType LazyByteString.ByteString where
