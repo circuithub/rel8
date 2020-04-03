@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -21,7 +21,9 @@ import Control.Applicative
 import Control.Lens (Iso', from, iso, view)
 import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Bifunctor
+import Data.Bifoldable ( Bifoldable, bifoldMap )
+import Data.Bifunctor ( Bifunctor, bimap )
+import Data.Bitraversable ( Bitraversable, bitraverse )
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Functor.Product
@@ -144,7 +146,7 @@ instance DBType a =>
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
 data MaybeTable row = MaybeTable (Expr (Maybe Bool)) row
-  deriving (Functor)
+  deriving (Foldable, Functor, Traversable)
 
 -- | The result of a left/right join is a table, but the table may be entirely
 -- @null@ sometimes.
@@ -205,11 +207,19 @@ maybeTable b f (MaybeTable tag a) =
 -- | A pair of 'Table's where at most one might be @null@. This is the result of
 -- an @FULL OUTER JOIN@ between tables.
 data TheseTable a b = TheseTable (MaybeTable a) (MaybeTable b)
-  deriving (Functor)
+  deriving (Foldable, Functor, Traversable)
+
+
+instance Bifoldable TheseTable where
+  bifoldMap f g (TheseTable a b) = foldMap f a <> foldMap g b
 
 
 instance Bifunctor TheseTable where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
+
+
+instance Bitraversable TheseTable where
+  bitraverse f g (TheseTable a b) = TheseTable <$> traverse f a <*> traverse g b
 
 
 -- | The result of a full outer join is a pair of tables, but one of the tables
