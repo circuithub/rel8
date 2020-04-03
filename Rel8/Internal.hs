@@ -7,5 +7,6 @@ import Rel8.Internal.DBType as X
 import Rel8.Internal.Expr as X
 import Rel8.Internal.Operators as X
 import Rel8.Internal.Order as X
+import Rel8.Internal.Orphans as X ()
 import Rel8.Internal.Table as X
 import Rel8.Internal.Types as X
