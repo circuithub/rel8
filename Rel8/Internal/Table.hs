@@ -53,6 +53,7 @@ import Prelude hiding (not)
 import Prelude hiding (not, id)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
+import Rel8.Internal.Operators
 import Rel8.Internal.Types
 import Data.These ( These( This, That, These ) )
 
@@ -147,6 +148,14 @@ instance DBType a =>
 -- @LEFT JOIN@ between tables.
 data MaybeTable row = MaybeTable (Expr (Maybe Bool)) row
   deriving (Foldable, Functor, Traversable)
+
+instance Applicative MaybeTable where
+  pure = MaybeTable (lit (Just False))
+  MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftOpNull (||.) t t') (f a)
+
+instance Monad MaybeTable where
+  MaybeTable t a >>= f = case f a of
+    MaybeTable t' b -> MaybeTable (liftOpNull (||.) t t') b
 
 -- | The result of a left/right join is a table, but the table may be entirely
 -- @null@ sometimes.
