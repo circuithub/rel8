@@ -1,0 +1,50 @@
+cabal-version:
+  2.0.0
+name:
+  rel8
+version:
+  1.0.0
+license-file:
+  LICENSE
+author:
+  Oliver Charles
+maintainer:
+  ollie@ocharles.org.uk
+build-type:
+  Simple
+extra-source-files:
+  ChangeLog.md
+
+library
+  build-depends:
+      base                    ^>= 4.12 || ^>= 4.13
+    , adjunctions             ^>= 4.4
+    , distributive            ^>= 0.6
+    , postgresql-simple       ^>= 0.6.2
+    , profunctors             ^>= 5.3
+    , record-dot-preprocessor ^>= 0.2
+    , record-hasfield         ^>= 1.0
+    , transformers            ^>= 0.5.6.2
+    , singletons              ^>= 2.6
+  hs-source-dirs:
+    src
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
+  exposed-modules:
+    Data.Indexed.Functor
+    Data.Indexed.Functor.Identity
+    Data.Indexed.Functor.Product
+    Data.Indexed.Functor.Representable
+    Data.Tagged.PolyKinded
+    Data.Type.Demote
+    Rel8
+    Rel8.Expr
+    Rel8.IO
+    Rel8.Primitive
+    Rel8.Query
+    Rel8.SQL
+    Rel8.Schema
+    Rel8.Table
+    Rel8.Testing
