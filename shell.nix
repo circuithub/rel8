@@ -4,7 +4,7 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, adjunctions, base, distributive
+  f = { mkDerivation, adjunctions, base, distributive, opaleye
       , postgresql-simple, profunctors, record-dot-preprocessor
       , record-hasfield, singletons, stdenv, transformers
       }:
@@ -13,7 +13,7 @@ let
         version = "1.0.0";
         src = ./.;
         libraryHaskellDepends = [
-          adjunctions base distributive postgresql-simple profunctors
+          adjunctions base distributive opaleye postgresql-simple profunctors
           record-dot-preprocessor record-hasfield singletons transformers
         ];
         license = "unknown";
@@ -26,6 +26,7 @@ let
 
   overrides = {
     overrides = self: super: {
+      opaleye = self.callPackage ./opaleye.nix {};
       singletons = self.callPackage ./singletons.nix {};
       postgresql-libpq = self.callPackage ./postgresql-libpq.nix {};
       th-desugar = self.callPackage ./th-desugar.nix {};

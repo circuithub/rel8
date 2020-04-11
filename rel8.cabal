@@ -20,6 +20,7 @@ library
       base                    ^>= 4.12 || ^>= 4.13
     , adjunctions             ^>= 4.4
     , distributive            ^>= 0.6
+    , opaleye
     , postgresql-simple       ^>= 0.6.2
     , profunctors             ^>= 5.3
     , record-dot-preprocessor ^>= 0.2
