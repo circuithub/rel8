@@ -11,7 +11,7 @@ let
       mkDerivation {
         pname = "rel8";
         version = "1.0.0";
-        src = ./.;
+        src = pkgs.nix-gitignore.gitignoreSource [] ./.;
         libraryHaskellDepends = [
           adjunctions base distributive opaleye postgresql-simple profunctors
           record-dot-preprocessor record-hasfield singletons transformers
