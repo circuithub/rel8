@@ -41,22 +41,8 @@ module Rel8
   , catMaybe_
   ) where
 
-import Data.Functor.Product
-import Data.Functor.Sum
-import Data.Type.Equality
 import Rel8.Expr
 import Rel8.Query
 import Rel8.IO
 import Rel8.Schema
 import Rel8.Table
-
-
-instance TestEquality g => TestEquality (Product f g) where
-  testEquality (Pair _ b) (Pair _ y) =
-    testEquality b y
-
-
-instance (TestEquality f, TestEquality g) => TestEquality (Sum f g) where
-  testEquality (InL a) (InL b) = testEquality a b
-  testEquality (InR a) (InR b) = testEquality a b
-  testEquality _       _       = Nothing

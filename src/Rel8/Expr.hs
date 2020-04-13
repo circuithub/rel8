@@ -13,19 +13,11 @@ module Rel8.Expr where
 
 import Control.Applicative ( Const(..) )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Product ( Product(..) )
-import Data.Functor.Sum ( Sum(..) )
-import Data.Indexed.Functor.Identity ( HIdentity )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
-import Data.Singletons ( TyCon1 )
-import Data.Singletons.Prelude ( Fmap, If )
-import Data.Singletons.Prelude.Foldable (Asum)
-import Data.Singletons.Prelude.Maybe ( FromJust )
+import Data.Singletons.Prelude ( If )
 import Data.Tagged.PolyKinded ( Tagged(..) )
-import Data.Type.Equality ( (:~:)(..), TestEquality(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
 import qualified Rel8.SQL as SQL
@@ -35,27 +27,6 @@ import Rel8.Table ( Table(..) )
 -- | Typed expressions.
 newtype Expr a =
   Expr (Pattern a (Const SQL.Expr))
-
-
--- Try and find the path to a given named field.
-type family FindName k (name :: Symbol) f :: Maybe k where
-  FindName (Product (Const ()) f r) name (Compose (Tagged (t :: *)) g) =
-    Fmap (TyCon1 ('Pair ('Const '()))) (FindName (f r) name g)
-
-  FindName (Product (Const ()) ((:~:) x) x) name (Compose (Tagged name) (HIdentity r)) =
-    'Just ('Pair ('Const '()) 'Refl)
-
-  FindName (Sum (Product (Const ()) ((:~:) r)) _ r) name (HProduct (Compose (Tagged name) (HIdentity r)) _) =
-    'Just ('InL ('Pair ('Const '()) 'Refl))
-
-  FindName (Sum l r x) name (HProduct f g) =
-    Asum
-      '[ Fmap (TyCon1 'InL ) (FindName (l x) name f)
-       , Fmap (TyCon1 'InR) (FindName (r x) name g)
-       ]
-
-  FindName _ _ _ =
-    'Nothing
 
 
 type family HasName (name :: Symbol) f :: Bool where
@@ -86,7 +57,9 @@ instance HasField name (g i) r => HProductHasField f g r 'R name i where
     getter = snd (hasField @name y)
 
 
-instance HProductHasField f g r (WhichSide name f g r) name i => HasField name (HProduct f g i) r
+instance HProductHasField f g r (WhichSide name f g r) name i => HasField name (HProduct f g i) r where
+  hasField =
+    hproductHasField (Proxy @(WhichSide name f g r)) (Proxy @name)
 
 
 instance (name ~ name', f ~ g) => HasField name (Compose (Tagged name') f i) (g i) where

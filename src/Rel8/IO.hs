@@ -35,7 +35,9 @@ unpackspec = undefined
 
 rowParser :: (Table a, All (Pattern a) FromField) => Expr a -> RowParser a
 rowParser (Expr f) =
-  fmap to $ hsequence $ hzipWith (\(Compose Dict) _ -> Compose $ Identity <$> field) (hconstrained (Proxy @FromField)) f
+  fmap to $ hsequence $
+  hzipWith (\(Compose Dict) _ -> Compose $ Identity <$> field) fromFieldDicts f
+  where fromFieldDicts = hconstrained (Proxy @FromField)
 
 
 hasColumns :: Expr a -> Bool
