@@ -1,3 +1,4 @@
+{-# language Arrows #-}
 {-# language BlockArguments #-}
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
@@ -8,7 +9,7 @@
 module Rel8.Query where
 
 import Control.Applicative ( Const(..) )
-import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..) )
+import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..), returnA )
 import Control.Category ( Category )
 import Control.Monad.Trans.State.Strict ( State, runState, state )
 import Data.Coerce
@@ -94,8 +95,11 @@ where_ =
   fromOpaleye $ lmap (\(Expr (HIdentity (Const prim))) -> Opaleye.Column prim) Opaleye.restrict
 
 
-catMaybe_ :: Query a (Expr (Maybe b)) -> Query a (Expr b)
-catMaybe_ = undefined
+catMaybe_ :: Table b => Query a (Expr (Maybe b)) -> Query a (Expr b)
+catMaybe_ q = proc a -> do
+  Expr (Compose (Tagged (HProduct isNull (HCompose row)))) <- q -< a
+  where_ -< Expr $ isNull
+  returnA -< Expr $ hmap (\(Compose (Const x)) -> Const x) row
 
 
 data QueryState =
