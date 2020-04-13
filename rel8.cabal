@@ -19,6 +19,7 @@ library
   build-depends:
       base                    ^>= 4.12 || ^>= 4.13
     , adjunctions             ^>= 4.4
+    , bytestring              ^>= 0.10.9.0
     , distributive            ^>= 0.6
     , opaleye
     , postgresql-simple       ^>= 0.6.2

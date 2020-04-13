@@ -1,26 +1,36 @@
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table where
 
+import Control.Monad.Trans.Reader ( ReaderT(..) )
+import Data.ByteString ( ByteString )
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
+import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor.Constrained ( HConstrained(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable )
-import Data.Indexed.Functor.Traversable ( HTraversable )
+import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Kind ( Type )
+import Data.Proxy ( Proxy(..) )
 import Data.Tagged.PolyKinded ( Tagged(..) )
+import Database.PostgreSQL.Simple.FromField ( Conversion, Field, fromField )
+import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 
 -- | The class of "table-like" things.
@@ -48,11 +58,27 @@ class (HConstrained (Pattern a), HTraversable (Pattern a), HRepresentable (Patte
   to = GHC.Generics.to . gto . unTagged . getCompose
 
 
+  decode :: Pattern a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  default decode
+    :: (GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
+    => Pattern a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  decode = Compose $ Tagged $ gdecode (Proxy @(Rep a ()))
+
+  encode :: Pattern a (Op O.Literal)
+  default encode
+    :: (GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
+    => Pattern a (Op O.Literal)
+  encode = Compose $ Tagged $ gencode (Proxy @(Rep a ()))
+
+
 class GTable (f :: * -> *) where
   type GPattern f :: (* -> *) -> *
 
   gfrom :: f x -> GPattern f Identity
   gto :: GPattern f Identity -> f x
+
+  gdecode :: Proxy (f x) -> GPattern f (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  gencode :: Proxy (f x) -> GPattern f (Op O.Literal)
 
 
 instance GTable f => GTable (M1 D c f) where
@@ -60,11 +86,17 @@ instance GTable f => GTable (M1 D c f) where
   gfrom = gfrom . unM1
   gto = M1 . gto
 
+  gencode proxy = gencode (unM1 <$> proxy)
+  gdecode proxy = gdecode (unM1 <$> proxy)
+
 
 instance GTable f => GTable (M1 C c f) where
   type GPattern (M1 C c f) = GPattern f
   gfrom = gfrom . unM1
   gto = M1 . gto
+
+  gencode proxy = gencode (unM1 <$> proxy)
+  gdecode proxy = gdecode (unM1 <$> proxy)
 
 
 instance (GTable f, GTable g) => GTable (f :*: g) where
@@ -72,6 +104,9 @@ instance (GTable f, GTable g) => GTable (f :*: g) where
 
   gfrom (a :*: b) = HProduct (gfrom a) (gfrom b)
   gto (HProduct a b) = gto a :*: gto b
+
+  gencode proxy = HProduct (gencode (fmap (\(x :*: _) -> x) proxy)) (gencode (fmap (\(_ :*: y) -> y) proxy))
+  gdecode proxy = HProduct (gdecode (fmap (\(x :*: _) -> x) proxy)) (gdecode (fmap (\(_ :*: y) -> y) proxy))
 
 
 instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
@@ -81,6 +116,9 @@ instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
   gfrom = Compose . Tagged . gfrom . unM1
   gto = M1 . gto . unTagged . getCompose
 
+  gencode proxy = Compose $ Tagged $ gencode (unM1 <$> proxy)
+  gdecode proxy = Compose $ Tagged $ gdecode (unM1 <$> proxy)
+
 
 instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
   type GPattern (M1 S ('MetaSel 'Nothing x y z) f) =
@@ -89,11 +127,17 @@ instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
   gfrom = gfrom . unM1
   gto = M1 . gto
 
+  gencode proxy = gencode (unM1 <$> proxy)
+  gdecode proxy = gdecode (unM1 <$> proxy)
+
 
 instance Table a => GTable (K1 i a) where
   type GPattern (K1 i a) = Pattern a
   gfrom = from . unK1
   gto = K1 . to
+
+  gencode _ = encode
+  gdecode _ = decode
 
 
 
@@ -104,12 +148,22 @@ instance Table Bool where
   type Pattern Bool = HIdentity Bool
   from = coerce
   to = coerce
+  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
+  encode = HIdentity $ Op O.BoolLit
 
 
 instance Table Int where
   type Pattern Int = HIdentity Int
   from = coerce
   to = coerce
+  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
+  encode = HIdentity $ Op $ O.IntegerLit . fromIntegral
 
 
-instance (Table a, Table b) => Table (a, b)
+instance (Table a, Table b) => Table (a, b) where
+  decode = Compose $ Tagged $ HProduct decode decode
+  encode = Compose $ Tagged $ HProduct encode encode
+
+
+rowParser :: Table a => RowParser a
+rowParser = fmap to $ htraverse (coerce fieldWith) decode
