@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DerivingVia #-}
 {-# language GeneralizedNewtypeDeriving #-}
 
@@ -10,6 +11,7 @@ import Data.Coerce
 import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
 import Data.Profunctor.Traversing ( Traversing )
 import qualified Opaleye.Internal.PrimQuery as Opaleye
+import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import Rel8.Expr
 import Rel8.Schema
@@ -51,3 +53,10 @@ data QueryState =
 emptyQueryState :: QueryState
 emptyQueryState =
   QueryState { primQuery = Opaleye.Unit, tag = Opaleye.start }
+
+
+toOpaleye :: Query a b -> Opaleye.QueryArr a b
+toOpaleye (Query (Star m)) =
+  Opaleye.QueryArr \(a, pq, t0) -> out (runState (m a) (QueryState pq t0))
+  where
+    out (b, QueryState pq t) = (b, pq, t)

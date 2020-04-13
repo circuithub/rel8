@@ -21,7 +21,6 @@ import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
-import Data.Indexed.Functor.Constrained ( HConstrained(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
@@ -37,7 +36,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 
 -- | The class of "table-like" things.
-class (HConstrained (Pattern a), HTraversable (Pattern a), HRepresentable (Pattern a)) => Table (a :: Type) where
+class (HTraversable (Pattern a), HRepresentable (Pattern a)) => Table (a :: Type) where
   -- | A higher-kinded pattern functor for this table.
   --
   -- This is a bit like a generic encoding of 'a', but lifted to higher-kinded

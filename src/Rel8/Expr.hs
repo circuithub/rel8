@@ -20,14 +20,14 @@ import Data.Singletons.Prelude ( If )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
-import qualified Rel8.SQL as SQL
 import Rel8.Table ( Table(..) )
 import Data.Functor.FieldName ( FieldName(..) )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
 -- | Typed expressions.
 newtype Expr a =
-  Expr (Pattern a (Const SQL.Expr))
+  Expr (Pattern a (Const Opaleye.PrimExpr))
 
 
 type family HasName (name :: Symbol) f :: Bool where
@@ -75,7 +75,7 @@ instance HasField name (g i) r => HasField name (Compose (Tagged (x :: Type)) g 
     getter = snd $ hasField @name x
 
 
-instance (HasField name a r, HasField name (Pattern a (Const SQL.Expr)) (Pattern r (Const SQL.Expr))) => HasField (name :: Symbol) (Expr a) (Expr r) where
+instance (HasField name a r, HasField name (Pattern a (Const Opaleye.PrimExpr)) (Pattern r (Const Opaleye.PrimExpr))) => HasField (name :: Symbol) (Expr a) (Expr r) where
   hasField (Expr x) = (setter, getter) where
     setter (Expr r) = Expr $ fst (hasField @name x) r
     getter = Expr $ snd $ hasField @name x

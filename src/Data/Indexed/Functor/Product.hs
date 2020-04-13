@@ -6,7 +6,6 @@ module Data.Indexed.Functor.Product where
 
 import Data.Functor.Sum ( Sum(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Constrained ( HConstrained(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Kind ( Type )
@@ -27,11 +26,6 @@ instance (HRepresentable f, HRepresentable g) => HRepresentable (HProduct f g) w
   hindex (HProduct _x y) (InR rep) = hindex y rep
 
   htabulate f = HProduct (htabulate (f . InL)) (htabulate (f . InR))
-
-
-instance (HConstrained f, HConstrained g) => HConstrained (HProduct f g) where
-  type All (HProduct f g) c = (All f c, All g c)
-  hconstrained c = HProduct (hconstrained c) (hconstrained c)
 
 
 instance (HTraversable f, HTraversable g) => HTraversable (HProduct f g) where
