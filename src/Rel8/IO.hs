@@ -4,7 +4,10 @@
 
 module Rel8.IO where
 
+import Control.Applicative ( Const(..) )
 import Data.Indexed.Functor.Constrained ( HConstrained(..) )
+import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Monoid ( Any(..) )
 import Database.PostgreSQL.Simple ( Connection )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import qualified Opaleye.Internal.RunQuery as Opaleye
@@ -26,5 +29,5 @@ unpackspec :: Opaleye.Unpackspec (Expr a) ()
 unpackspec = undefined
 
 
-hasColumns :: Expr a -> Bool
-hasColumns = undefined
+hasColumns :: HTraversable (Pattern a) => Expr a -> Bool
+hasColumns (Expr f) = getAny $ getConst $ htraverse (\_ -> Const $ Any True) f
