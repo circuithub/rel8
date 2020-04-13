@@ -12,19 +12,21 @@ import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..) )
 import Control.Category ( Category )
 import Control.Monad.Trans.State.Strict ( State, runState, state )
 import Data.Coerce
+import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
 import Data.Profunctor ( lmap )
 import Data.Profunctor.Traversing ( Traversing )
+import qualified Opaleye
+import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'( Unit ) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Table as Opaleye
 import Rel8.Expr
 import Rel8.Schema
 import Rel8.Table
@@ -59,8 +61,9 @@ optional :: Query a (Expr b) -> Query a (Expr (Maybe b))
 optional = undefined
 
 
-where_ :: Query Bool ()
-where_ = undefined
+where_ :: Query (Expr Bool) ()
+where_ =
+  fromOpaleye $ lmap (\(Expr (HIdentity (Const prim))) -> Opaleye.Column prim) Opaleye.restrict
 
 
 catMaybe_ :: Query a (Expr (Maybe b)) -> Query a (Expr b)
