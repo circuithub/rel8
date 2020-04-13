@@ -162,6 +162,14 @@ instance Table Int where
   encode = HIdentity $ Op $ O.IntegerLit . fromIntegral
 
 
+instance Table String where
+  type Pattern String = HIdentity String
+  from = coerce
+  to = coerce
+  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
+  encode = HIdentity $ Op $ O.StringLit
+
+
 instance (Table a, Table b) => Table (a, b) where
   decode = Compose $ Tagged $ HProduct decode decode
   encode = Compose $ Tagged $ HProduct encode encode
