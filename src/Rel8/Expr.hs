@@ -16,8 +16,11 @@ import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Identity ( Identity(..) )
+import Data.Indexed.Functor ( hmap )
+import Data.Indexed.Functor.Compose ( HCompose(..) )
+import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( hzipWith )
+import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Singletons.Prelude ( If )
@@ -31,6 +34,10 @@ import Rel8.Table ( Table(..) )
 -- | Typed expressions.
 newtype Expr a =
   Expr (Pattern a (Const Opaleye.PrimExpr))
+
+
+toPrimExprs :: Expr a -> Pattern a (Const Opaleye.PrimExpr)
+toPrimExprs (Expr x) = x
 
 
 type family HasName (name :: Symbol) f :: Bool where
@@ -92,14 +99,16 @@ snd_ :: Expr (a, b) -> Expr b
 snd_ (Expr (Compose (Tagged (HProduct _ y)))) = Expr y
 
 
-isNothing :: Expr (Maybe a) -> Expr Bool
+isNothing :: Table a => Expr (Maybe a) -> Expr Bool
 isNothing = maybe_ (lit True) (const $ lit False)
 
 
-maybe_ :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-maybe_ = undefined
-
-
+maybe_ :: (Table a, Table b) => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+maybe_ (Expr def) f (Expr (Compose (Tagged (HProduct (HIdentity isNull) (HCompose row))))) = Expr $ htabulate \i ->
+  Const $
+  Opaleye.CaseExpr
+    [(getConst isNull, getConst (hindex def i))]
+    (getConst (hindex (toPrimExprs (f (Expr $ hmap (\(Compose (Const x)) -> Const x) row))) i))
 
 
 lit :: forall a. Table a => a -> Expr a
