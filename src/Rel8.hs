@@ -26,7 +26,7 @@
 
 module Rel8
   ( Table(..)
-  , InferSchema
+  , Query
   , Schema
   , genericSchema
   , Expr

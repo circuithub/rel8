@@ -22,6 +22,7 @@ import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
 import qualified Rel8.SQL as SQL
 import Rel8.Table ( Table(..) )
+import Data.Functor.FieldName ( FieldName(..) )
 
 
 -- | Typed expressions.
@@ -30,7 +31,7 @@ newtype Expr a =
 
 
 type family HasName (name :: Symbol) f :: Bool where
-  HasName name (Compose (Tagged name) y) = 'True
+  HasName name (Compose (FieldName name) y) = 'True
   HasName name _ = 'False
 
 
@@ -62,9 +63,9 @@ instance HProductHasField f g r (WhichSide name f g r) name i => HasField name (
     hproductHasField (Proxy @(WhichSide name f g r)) (Proxy @name)
 
 
-instance (name ~ name', f ~ g) => HasField name (Compose (Tagged name') f i) (g i) where
-  hasField (Compose (Tagged x)) = (setter, getter) where
-    setter = Compose . Tagged
+instance (name ~ name', f ~ g) => HasField name (Compose (FieldName name') f i) (g i) where
+  hasField (Compose (FieldName x)) = (setter, getter) where
+    setter = Compose . FieldName
     getter = x
 
 

@@ -1,42 +1,51 @@
+{-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
+{-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Schema where
 
 import Control.Applicative ( Const(..) )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
+import Data.Functor.FieldName ( FieldName(..) )
+import Data.Functor.Product ( Product(..) )
+import Data.Functor.Sum ( Sum(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Kind ( Type )
+import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy(..) )
-import Data.Tagged.PolyKinded ( Tagged(..) )
-import GHC.TypeLits ( KnownSymbol, symbolVal )
+import Data.Type.Equality ((:~:))
+import GHC.TypeLits
 import Rel8.Table ( Table(..) )
 
 
-newtype Schema a = Schema (Pattern a (Const String))
+newtype Schema a = Schema { unSchema :: Pattern a (Const String) }
 
 
-genericSchema :: InferSchema (Pattern a) => Schema a
-genericSchema = Schema inferSchema
+genericSchema :: (ColumnName (HRep (Pattern a)), Table a) => Schema a
+genericSchema = Schema $ htabulate \i -> Const $ columnName i
 
 
-class HRepresentable f => InferSchema (f :: (Type -> Type) -> Type) where
-  inferSchema :: f (Const String)
+class ColumnName f where
+  columnName :: f a -> String
+
+instance ColumnName f => ColumnName (Product (Const ()) f) where
+  columnName (Pair _ r) = columnName r
 
 
-instance InferSchema f => InferSchema (Compose (Tagged (t :: *)) f) where
-  inferSchema = Compose $ Tagged inferSchema
+instance (ColumnName f, ColumnName g) => ColumnName (Sum f g) where
+  columnName (InL x) = columnName x
+  columnName (InR x) = columnName x
 
 
-instance (InferSchema l, InferSchema r) => InferSchema (HProduct l r) where
-  inferSchema = HProduct inferSchema inferSchema
+type family Simple (f :: Type -> Type) :: Constraint where
+  Simple ((:~:) x) = ()
+  Simple _ = TypeError ('Text "Nested schema detected")
 
 
-instance KnownSymbol name => InferSchema (Compose (Tagged name) (HIdentity x)) where
-  inferSchema = Compose $ Tagged $ HIdentity $ Const $ symbolVal $ Proxy @name
+instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName name ())) f) where
+  columnName _ = symbolVal (Proxy @name)

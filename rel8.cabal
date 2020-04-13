@@ -36,6 +36,7 @@ library
     -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
   exposed-modules:
     Data.Dict
+    Data.Functor.FieldName
     Data.Indexed.Functor
     Data.Indexed.Functor.Compose
     Data.Indexed.Functor.Constrained

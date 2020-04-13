@@ -12,6 +12,7 @@
 
 module Rel8.Table where
 
+import Data.Functor.FieldName ( FieldName(..) )
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.ByteString ( ByteString )
 import Data.Coerce ( coerce )
@@ -113,13 +114,13 @@ instance (GTable f, GTable g) => GTable (f :*: g) where
 
 instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
   type GPattern (M1 S ('MetaSel ('Just name) x y z) f) =
-    Compose (Tagged name) (GPattern f)
+    Compose (FieldName name) (GPattern f)
 
-  gfrom = Compose . Tagged . gfrom . unM1
-  gto = M1 . gto . unTagged . getCompose
+  gfrom = Compose . FieldName . gfrom . unM1
+  gto = M1 . gto . unFieldName . getCompose
 
-  gencode proxy = Compose $ Tagged $ gencode (unM1 <$> proxy)
-  gdecode proxy = Compose $ Tagged $ gdecode (unM1 <$> proxy)
+  gencode proxy = Compose $ FieldName $ gencode (unM1 <$> proxy)
+  gdecode proxy = Compose $ FieldName $ gdecode (unM1 <$> proxy)
 
 
 instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where

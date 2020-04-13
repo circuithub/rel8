@@ -17,10 +17,10 @@
 module Rel8.Testing where
 
 import GHC.Generics ( Generic )
-import Rel8 ( Expr, Table, Schema, genericSchema, each )
+import Rel8 ( Expr, Query, Table, Schema, genericSchema, each )
 import Rel8.IO ( select )
 
-data MyTable = MyTable { columnA :: Bool, columnB :: Int, columnC :: Int }
+data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will fail, as 'Maybe Int' has no schema: , columnC :: Maybe Int }
   deriving (Generic, Table)
 
 
@@ -28,16 +28,16 @@ myTable :: Schema MyTable
 myTable = genericSchema
 
 
-dotTestColumnA :: Expr Bool
-dotTestColumnA = (undefined :: Expr MyTable).columnA
+dotTestColumnA :: Query x (Expr Bool)
+dotTestColumnA = fmap (.columnA) (each myTable)
 
 
-dotTestColumnB :: Expr Int
-dotTestColumnB = (undefined :: Expr MyTable).columnB
+dotTestColumnB :: Query x (Expr Int)
+dotTestColumnB = fmap (.columnB) (each myTable)
 
 
-dotTestColumnC :: Expr Int
-dotTestColumnC = (undefined :: Expr MyTable).columnC
+-- dotTestColumnC :: Expr (Maybe Int)
+-- dotTestColumnC = (undefined :: Expr MyTable).columnC
 
 
 selectTest :: IO [MyTable]
