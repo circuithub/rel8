@@ -37,6 +37,7 @@ library
   exposed-modules:
     Data.Dict
     Data.Indexed.Functor
+    Data.Indexed.Functor.Compose
     Data.Indexed.Functor.Constrained
     Data.Indexed.Functor.Identity
     Data.Indexed.Functor.Product

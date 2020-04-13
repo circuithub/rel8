@@ -18,10 +18,12 @@ import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.Identity ( Identity(..) )
+import Data.Indexed.Functor ( HFunctor(..) )
+import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
 import Data.Indexed.Functor.Constrained ( HConstrained(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable )
+import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
@@ -167,3 +169,23 @@ instance (Table a, Table b) => Table (a, b) where
 
 rowParser :: Table a => RowParser a
 rowParser = fmap to $ htraverse (coerce fieldWith) decode
+
+
+instance Table a => Table (Maybe a) where
+  type Pattern (Maybe a) =
+    Compose (Tagged (Maybe a)) (HProduct (HIdentity Bool) (HCompose (Pattern a) Maybe))
+
+  from =
+    maybe
+      (Compose $ Tagged $ HProduct (HIdentity $ pure True) $ htabulate \(I _) -> Identity Nothing)
+      (\x -> Compose $ Tagged $ HProduct (HIdentity $ pure False) $ htabulate \(I i) -> Just <$> hindex (from x) i)
+
+  to (Compose (Tagged (HProduct _ (HCompose x)))) = do
+    to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
+
+  encode =
+    Compose $ Tagged $ HProduct encode $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe O.NullLit f) $ encode @a
+
+  decode = Compose $ Tagged $ HProduct decode $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
+    where
+      nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))

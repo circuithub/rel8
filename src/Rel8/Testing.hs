@@ -20,7 +20,6 @@ import GHC.Generics ( Generic )
 import Rel8 ( Expr, Table, Schema, genericSchema, each )
 import Rel8.IO ( select )
 
-
 data MyTable = MyTable { columnA :: Bool, columnB :: Int, columnC :: Int }
   deriving (Generic, Table)
 
