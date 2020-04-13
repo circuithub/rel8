@@ -43,3 +43,10 @@ dotTestColumnB = fmap (.columnB) (each myTable)
 
 selectTest :: Connection -> IO [MyTable]
 selectTest c = select c ( each myTable )
+
+
+data Part = Part { mfrId :: Int }
+  deriving (Generic, Table, Show)
+
+part :: Schema Part
+part = Schema "part" genericColumns
