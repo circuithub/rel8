@@ -12,17 +12,22 @@ import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..) )
 import Control.Category ( Category )
 import Control.Monad.Trans.State.Strict ( State, runState, state )
 import Data.Coerce
+import Data.Functor.Compose ( Compose(..) )
+import Data.Indexed.Functor ( hmap )
+import Data.Indexed.Functor.Compose ( HCompose(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
+import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
 import Data.Profunctor ( lmap )
 import Data.Profunctor.Traversing ( Traversing )
+import Data.Tagged.PolyKinded ( Tagged(..) )
 import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'( Unit ) )
+import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType( LeftJoinLateral ) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
@@ -57,8 +62,31 @@ unpackspec :: HTraversable (Pattern a) => Opaleye.Unpackspec (Expr a) (Expr a)
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (fmap Const . f . getConst) x
 
 
-optional :: Query a (Expr b) -> Query a (Expr (Maybe b))
-optional = undefined
+optional :: Table b => Query a (Expr b) -> Query a (Expr (Maybe b))
+optional query = fromOpaleye $ Opaleye.QueryArr arrow
+  where
+    arrow (a, left, tag) = (maybeB, join, Opaleye.next tag')
+      where
+        join =
+          Opaleye.Join Opaleye.LeftJoinLateral true [] bindings left right
+
+        ((t, b), right, tag') = f (a, Opaleye.Unit, tag)
+          where
+            Opaleye.QueryArr f = (,) <$> pure (lit False) <*> toOpaleye query
+
+        (t', bindings) =
+          Opaleye.run
+            ( Opaleye.runUnpackspec
+                unpackspec
+                ( Opaleye.extractAttr "maybe" tag' )
+                t
+            )
+
+        maybeB =
+          Expr $ Compose $ Tagged $ HProduct (toPrimExprs t') (HCompose (hmap (Compose . Const . getConst) (toPrimExprs b)))
+
+    true =
+      case lit True of Expr (HIdentity (Const prim)) -> prim
 
 
 where_ :: Query (Expr Bool) ()
