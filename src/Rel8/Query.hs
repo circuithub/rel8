@@ -2,6 +2,7 @@
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language NamedFieldPuns #-}
 {-# language TypeApplications #-}
 
 module Rel8.Query where
@@ -40,11 +41,11 @@ runQuery a q = runState (coerce q a) emptyQueryState
 
 
 each :: Table a => Schema a -> Query x (Expr a)
-each (Schema columnNames) =
+each Schema{ tableName, schema = Columns columnNames } =
   lmap (const ()) $
   fromOpaleye $
   Opaleye.selectTableExplicit unpackspec $
-  Opaleye.Table "foo" $
+  Opaleye.Table tableName $
   Opaleye.TableProperties
     (Opaleye.Writer @() $ Opaleye.PackMap \_ _ -> pure ())
     (Opaleye.View $ Expr $ htabulate \i -> Const $ Opaleye.BaseTableAttrExpr $ getConst $ hindex columnNames i)

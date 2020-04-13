@@ -18,7 +18,7 @@ module Rel8.Testing where
 
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics ( Generic )
-import Rel8 ( Expr, Query, Table, Schema, genericSchema, each )
+import Rel8 ( Expr, Query, Table, Schema(..), genericColumns, each )
 import Rel8.IO ( select )
 
 data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will fail, as 'Maybe Int' has no schema: , columnC :: Maybe Int }
@@ -26,7 +26,7 @@ data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will f
 
 
 myTable :: Schema MyTable
-myTable = genericSchema
+myTable = Schema{ tableName = "my_table", schema = genericColumns }
 
 
 dotTestColumnA :: Query x (Expr Bool)

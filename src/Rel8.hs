@@ -27,8 +27,8 @@
 module Rel8
   ( Table(..)
   , Query
-  , Schema
-  , genericSchema
+  , Schema(..)
+  , genericColumns
   , Expr
   , each
   , select

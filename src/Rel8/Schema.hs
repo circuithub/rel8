@@ -23,11 +23,18 @@ import GHC.TypeLits
 import Rel8.Table ( Table(..) )
 
 
-newtype Schema a = Schema { unSchema :: Pattern a (Const String) }
+data Schema a =
+  Schema
+    { tableName :: String
+    , schema :: Columns a
+    }
 
 
-genericSchema :: (ColumnName (HRep (Pattern a)), Table a) => Schema a
-genericSchema = Schema $ htabulate \i -> Const $ columnName i
+newtype Columns a = Columns (Pattern a (Const String))
+
+
+genericColumns :: (ColumnName (HRep (Pattern a)), Table a) => Columns a
+genericColumns = Columns $ htabulate \i -> Const $ columnName i
 
 
 class ColumnName f where
