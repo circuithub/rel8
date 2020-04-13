@@ -17,12 +17,29 @@
 module Rel8.Testing where
 
 import GHC.Generics ( Generic )
-import Rel8 ( Expr, Table )
+import Rel8 ( Expr, Table, Schema, genericSchema, each )
+import Rel8.IO ( select )
 
 
-data MyTable = MyTable { columnA :: Bool, columnB :: Int }
+data MyTable = MyTable { columnA :: Bool, columnB :: Int, columnC :: Int }
   deriving (Generic, Table)
 
 
-dotTest :: Expr Bool
-dotTest = (undefined :: Expr MyTable).columnA
+myTable :: Schema MyTable
+myTable = genericSchema
+
+
+dotTestColumnA :: Expr Bool
+dotTestColumnA = (undefined :: Expr MyTable).columnA
+
+
+dotTestColumnB :: Expr Int
+dotTestColumnB = (undefined :: Expr MyTable).columnB
+
+
+dotTestColumnC :: Expr Int
+dotTestColumnC = (undefined :: Expr MyTable).columnC
+
+
+selectTest :: IO [MyTable]
+selectTest = select undefined ( each myTable )

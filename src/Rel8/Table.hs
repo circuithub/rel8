@@ -12,17 +12,19 @@ module Rel8.Table where
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity(..) )
+import Data.Indexed.Functor.Constrained ( HConstrained(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
+import Data.Indexed.Functor.Representable ( HRepresentable )
+import Data.Indexed.Functor.Traversable ( HTraversable )
 import Data.Kind ( Type )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
-import Rel8.Primitive
 
 
 -- | The class of "table-like" things.
-class Table (a :: Type) where
+class (HConstrained (Pattern a), HTraversable (Pattern a), HRepresentable (Pattern a)) => Table (a :: Type) where
   -- | A higher-kinded pattern functor for this table.
   --
   -- This is a bit like a generic encoding of 'a', but lifted to higher-kinded
@@ -88,10 +90,10 @@ instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
   gto = M1 . gto
 
 
-instance GTable (K1 i a) where
-  type GPattern (K1 i a) = HIdentity a
-  gfrom = coerce
-  gto = coerce
+instance Table a => GTable (K1 i a) where
+  type GPattern (K1 i a) = Pattern a
+  gfrom = from . unK1
+  gto = K1 . to
 
 
 
@@ -99,15 +101,15 @@ instance GTable (K1 i a) where
 
 
 instance Table Bool where
-  type Pattern Bool = Primitive Bool
+  type Pattern Bool = HIdentity Bool
   from = coerce
   to = coerce
 
 
 instance Table Int where
-  type Pattern Int = Primitive Int
+  type Pattern Int = HIdentity Int
   from = coerce
   to = coerce
 
 
-instance Table (a, b)
+instance (Table a, Table b) => Table (a, b)

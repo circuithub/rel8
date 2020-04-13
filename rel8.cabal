@@ -34,16 +34,18 @@ library
   ghc-options:
     -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
   exposed-modules:
+    Data.Dict
     Data.Indexed.Functor
+    Data.Indexed.Functor.Constrained
     Data.Indexed.Functor.Identity
     Data.Indexed.Functor.Product
     Data.Indexed.Functor.Representable
+    Data.Indexed.Functor.Traversable
     Data.Tagged.PolyKinded
     Data.Type.Demote
     Rel8
     Rel8.Expr
     Rel8.IO
-    Rel8.Primitive
     Rel8.Query
     Rel8.SQL
     Rel8.Schema

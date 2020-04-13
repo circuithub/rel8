@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language KindSignatures #-}
 {-# language RankNTypes #-}
 {-# language TypeFamilies #-}
@@ -24,3 +25,7 @@ instance (Representable f, HRepresentable g) => HRepresentable (Compose f g) whe
 
   hindex (Compose x) (Pair (Const i) j) = hindex (index x i) j
   htabulate f = Compose (tabulate (\i -> htabulate (f . Pair (Const i))))
+
+
+hzipWith :: HRepresentable f => (forall x. i x -> j x -> k x) -> f i -> f j -> f k
+hzipWith f x y = htabulate \i -> f (hindex x i) (hindex y i)
