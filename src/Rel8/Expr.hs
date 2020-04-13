@@ -13,16 +13,19 @@ module Rel8.Expr where
 
 import Control.Applicative ( Const(..) )
 import Data.Functor.Compose ( Compose(..) )
+import Data.Functor.Contravariant ( Op(..) )
+import Data.Functor.FieldName ( FieldName(..) )
+import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
+import Data.Indexed.Functor.Representable ( hzipWith )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Singletons.Prelude ( If )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
-import Rel8.Table ( Table(..) )
-import Data.Functor.FieldName ( FieldName(..) )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Table ( Table(..) )
 
 
 -- | Typed expressions.
@@ -97,9 +100,7 @@ maybe_ :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 maybe_ = undefined
 
 
-class DBType a where
-  lit :: a -> Expr a
 
 
-instance DBType Bool where
-  lit = undefined
+lit :: forall a. Table a => a -> Expr a
+lit = Expr . hzipWith (\(Op f) (Identity x) -> Const $ Opaleye.ConstExpr $ f x) (encode @a) . from
