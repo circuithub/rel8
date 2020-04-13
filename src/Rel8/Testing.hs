@@ -16,6 +16,7 @@
 
 module Rel8.Testing where
 
+import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics ( Generic )
 import Rel8 ( Expr, Query, Table, Schema, genericSchema, each )
 import Rel8.IO ( select )
@@ -37,8 +38,8 @@ dotTestColumnB = fmap (.columnB) (each myTable)
 
 
 -- dotTestColumnC :: Expr (Maybe Int)
--- dotTestColumnC = (undefined :: Expr MyTable).columnC
+-- dotTestColumnC = fmap (.columnC) (each myTable)
 
 
-selectTest :: IO [MyTable]
-selectTest = select undefined ( each myTable )
+selectTest :: Connection -> IO [MyTable]
+selectTest c = select c ( each myTable )
