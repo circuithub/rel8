@@ -47,6 +47,7 @@ library
     Rel8
     Rel8.Expr
     Rel8.IO
+    Rel8.Null
     Rel8.Query
     Rel8.SQL
     Rel8.Schema

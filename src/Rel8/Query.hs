@@ -8,6 +8,7 @@
 
 module Rel8.Query where
 
+import Numeric.Natural ( Natural )
 import Control.Applicative ( Const(..) )
 import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..), returnA )
 import Control.Category ( Category )
@@ -126,3 +127,12 @@ fromOpaleye (Opaleye.QueryArr f) =
   Query $ Star $ \a -> state \(QueryState pq t) -> out (f (a, pq, t))
   where
     out (b, pq, t) = (b, QueryState pq t)
+
+
+-- TODO Is Query () right? Can we have Query a? (forall a. Query a b)?
+limit :: Natural -> Query () b -> Query () b
+limit n = fromOpaleye . Opaleye.limit ( fromIntegral n ) . toOpaleye
+
+
+offset :: Natural -> Query () b -> Query () b
+offset n = fromOpaleye . Opaleye.offset ( fromIntegral n ) . toOpaleye

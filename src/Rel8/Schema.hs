@@ -15,11 +15,14 @@ import Control.Applicative ( Const(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Product ( Product(..) )
 import Data.Functor.Sum ( Sum(..) )
+import Data.Indexed.Functor.Compose ( I )
+import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Type.Equality ((:~:))
 import GHC.TypeLits
+import Rel8.Null
 import Rel8.Table ( Table(..) )
 
 
@@ -49,8 +52,10 @@ instance (ColumnName f, ColumnName g) => ColumnName (Sum f g) where
   columnName (InR x) = columnName x
 
 
+-- TODO Yuck. We really want to know if Rep f is isomorphic to unit (or f is isomorphic to Identity)
 type family Simple (f :: Type -> Type) :: Constraint where
   Simple ((:~:) x) = ()
+  Simple (Product (Const ()) (I (HIdentity t) Null)) = ()
   Simple _ = TypeError ('Text "Nested schema detected")
 
 
