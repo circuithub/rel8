@@ -38,6 +38,7 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Internal.Values as Opaleye
 import Rel8.Expr
 import Rel8.Schema
 import Rel8.Table
@@ -207,3 +208,11 @@ distinct = lmap (const ()) . fromOpaleye . Opaleye.distinctExplicit distinctspec
 
 distinctspec :: Table a => Opaleye.Distinctspec (Expr a) (Expr a)
 distinctspec = Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (\(Const a) -> Const <$> f (Nothing, a)) x
+
+
+values :: (Foldable f, Table a) => f a -> Query x (Expr a)
+values = lmap (const ()) . fromOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . foldMap (pure . lit)
+
+
+valuesspec :: Table a => Opaleye.Valuesspec (Expr a) (Expr a)
+valuesspec = Opaleye.Valuesspec $ Opaleye.PackMap \f () -> fmap Expr $ hsequence $ htabulate \_ -> Compose $ Const <$> f ()
