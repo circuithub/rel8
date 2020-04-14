@@ -9,7 +9,6 @@
 
 module Rel8.Query where
 
-import Numeric.Natural ( Natural )
 import Control.Applicative ( Const(..) )
 import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..), returnA )
 import Control.Category ( Category )
@@ -21,12 +20,14 @@ import Data.Indexed.Functor.Compose ( HCompose(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence )
 import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
 import Data.Profunctor ( lmap )
 import Data.Profunctor.Traversing ( Traversing )
 import Data.Tagged.PolyKinded ( Tagged(..) )
+import Numeric.Natural ( Natural )
 import qualified Opaleye
+import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -168,3 +169,31 @@ leftJoin query = fromOpaleye $ Opaleye.QueryArr arrow
 
     boolPrimExpr :: Expr Bool -> Opaleye.PrimExpr
     boolPrimExpr = coerce
+
+
+union :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+union x y = lmap (const ()) $ fromOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+unionAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+unionAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+intersect :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+intersect x y = lmap (const ()) $ fromOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+intersectAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+intersectAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+except :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+except x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+exceptAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+exceptAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+
+
+binaryspec :: Table a => Opaleye.Binaryspec (Expr a) (Expr a)
+binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap \f (Expr l, Expr r) -> fmap Expr $ hsequence $ htabulate \i -> Compose $ Const <$> f (getConst $ hindex l i, getConst $ hindex r i)
