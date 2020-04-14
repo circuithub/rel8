@@ -33,7 +33,6 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType(..) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
@@ -55,15 +54,7 @@ runQuery a q =
 
 
 each :: Table a => Schema a -> Query x (Expr a)
-each Schema{ tableName, schema = Columns columnNames } =
-  lmap mempty $ fromOpaleye $ Opaleye.selectTableExplicit unpackspec table
-  where
-    table = Opaleye.Table tableName tableProperties
-      where
-        tableProperties = Opaleye.TableProperties writer view
-          where
-            writer = Opaleye.Writer $ pure ()
-            view = Opaleye.View $ Expr $ hmap selectColumn columnNames
+each = lmap mempty . fromOpaleye . Opaleye.selectTableExplicit unpackspec . table
 
 
 unpackspec :: Table a => Opaleye.Unpackspec (Expr a) (Expr a)

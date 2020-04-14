@@ -3,6 +3,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
+{-# language NamedFieldPuns #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -12,16 +13,24 @@
 module Rel8.Schema where
 
 import Control.Applicative ( Const(..) )
+import Control.Monad ( void )
+import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Product ( Product(..) )
 import Data.Functor.Sum ( Sum(..) )
+import Data.Indexed.Functor ( hmap )
 import Data.Indexed.Functor.Compose ( I )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
+import Data.Indexed.Functor.Traversable ( hsequence )
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Type.Equality ((:~:))
 import GHC.TypeLits
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.Table as Opaleye
+import Rel8.Column
+import Rel8.Expr
 import Rel8.Null
 import Rel8.Table ( Table(..) )
 
@@ -61,3 +70,14 @@ type family Simple (f :: Type -> Type) :: Constraint where
 
 instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName name ())) f) where
   columnName _ = symbolVal (Proxy @name)
+
+
+table :: forall a. Table a => Schema a -> Opaleye.Table (Expr a) (Expr a)
+table Schema{ tableName, schema = Columns columnNames } = Opaleye.Table tableName tableProperties
+  where
+    tableProperties = Opaleye.TableProperties writer view
+      where
+        writer = Opaleye.Writer $ Opaleye.PackMap \f values ->
+          void $ hsequence $ htabulate @(Pattern a) \i ->
+            Compose $ fmap Const $ f (fmap (toPrimExpr . flip hindex i . toColumns) values, getConst $ hindex columnNames i)
+        view = Opaleye.View $ Expr $ hmap selectColumn columnNames
