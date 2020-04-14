@@ -17,12 +17,11 @@
 
 module Rel8.Testing where
 
-import Control.Arrow ( arr )
+import Control.Arrow ( arr, returnA )
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics ( Generic )
 import Rel8
 import Rel8.Null
-import Rel8.IO ( select )
 
 data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will fail, as 'Maybe Int' has no schema: , columnC :: Maybe Int }
   deriving (Generic, Table)
@@ -102,8 +101,10 @@ fetchUsers :: Connection -> IO [User]
 fetchUsers c = select c users
 
 
-
 leftJoinTest :: Query x (Expr (Maybe User))
-leftJoinTest = proc x -> do
+leftJoinTest = proc _ -> do
   user1 <- each userSchema -< ()
-  leftJoin (each userSchema) -< \user2 -> lit False
+  optional (proc _user1 -> do
+    user2 <- each userSchema -< ()
+    where_ -< lit False
+    returnA -< user2) -< user1

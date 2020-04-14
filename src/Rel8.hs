@@ -1,48 +1,54 @@
-{-# language DefaultSignatures #-}
-{-# language DeriveAnyClass #-}
-{-# language DerivingStrategies #-}
-{-# language DeriveFunctor #-}
-{-# language DeriveGeneric #-}
-{-# language AllowAmbiguousTypes #-}
-{-# language BlockArguments #-}
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language FunctionalDependencies #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language NamedFieldPuns #-}
-{-# language PolyKinds #-}
-{-# language RankNTypes #-}
-{-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeFamilyDependencies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
-
-{-# options -fplugin=RecordDotPreprocessor #-}
-
 module Rel8
-  ( Table(..)
-  , Query
+  ( -- * Schema Definition
+    -- ** Defining Tables
+    Table
   , Schema(..)
   , genericColumns
-  , lit
+
+    -- * Writing Queries
+  , Query
+  , each
+  , where_
+  , catMaybe_
   , limit
   , offset
-  , Expr
-  , each
-  , select
-  , where_
+  , union
+  , unionAll
+  , except
+  , exceptAll
+  , intersect
+  , intersectAll
+  , distinct
   , optional
-  , fst_
-  , snd_
-  , maybe_
+
+    -- ** Expressions
+  , Expr
+
+    -- *** Literals
+  , lit
+
+    -- *** Null and Maybe
   , isNothing
-  , catMaybe_
-  , leftJoin
+  , maybe_
+
+
+    -- * Running Queries
+    -- ** @SELECT@
+  , select
+
+    -- ** @INSERT@
+  , insert
+  , Insert(..)
+  , Returning(..)
+  , OnConflict(..)
+
+    -- ** @DELETE@
+  , delete
+  , Delete(..)
+
+    -- ** @UPDATE@
+  , update
+  , Update(..)
   ) where
 
 import Rel8.Expr

@@ -29,7 +29,6 @@ import qualified Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType(..) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
@@ -133,38 +132,6 @@ limit n = lmap (const ()) . fromOpaleye . Opaleye.limit (fromIntegral n) . toOpa
 
 offset :: Natural -> Query () a -> Query x a
 offset n = lmap (const ()) . fromOpaleye . Opaleye.offset (fromIntegral n) . toOpaleye . lmap (const ())
-
-
-leftJoin :: Table b => (forall a. Query a (Expr b)) -> Query (Expr b -> Expr Bool) (Expr (Maybe b))
-leftJoin query = fromOpaleye $ Opaleye.QueryArr arrow
-  where
-    arrow (f, left, tag) = (maybeB, join, Opaleye.next tag')
-      where
-        join =
-          Opaleye.Join Opaleye.LeftJoin
-            (boolPrimExpr (f b))
-            []
-            bindings
-            left
-            right
-
-        ((t, b), right, tag') = inner ((), Opaleye.Unit, tag)
-          where
-            Opaleye.QueryArr inner = (,) <$> pure (lit False) <*> toOpaleye query
-
-        (t', bindings) =
-          Opaleye.run
-            ( Opaleye.runUnpackspec
-                unpackspec
-                ( Opaleye.extractAttr "maybe" tag' )
-                t
-            )
-
-        maybeB =
-          Expr $ Compose $ Tagged $ HProduct (toColumns t') (HCompose (hmap (Compose . Column . toPrimExpr) (toColumns b)))
-
-    boolPrimExpr :: Expr Bool -> Opaleye.PrimExpr
-    boolPrimExpr = coerce
 
 
 union :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
