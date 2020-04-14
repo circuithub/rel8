@@ -43,8 +43,8 @@ library
     Data.Indexed.Functor.Representable
     Data.Indexed.Functor.Traversable
     Data.Tagged.PolyKinded
-    Data.Type.Demote
     Rel8
+    Rel8.Column
     Rel8.Expr
     Rel8.IO
     Rel8.Null

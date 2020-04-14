@@ -1,7 +1,7 @@
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
-{-# language GADTs #-}
 {-# language FlexibleInstances #-}
+{-# language GADTs #-}
 {-# language KindSignatures #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
@@ -12,37 +12,51 @@
 
 module Data.Indexed.Functor.Compose where
 
-import Data.Kind ( Constraint, Type )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
+import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Kind ( Constraint, Type )
 
 
-newtype HCompose (h :: (Type -> Type) -> Type) (f :: Type -> Type) (i :: Type -> Type) =
+-- | Pre-apply a functor to an indexed type, thus transforming the index.
+--
+-- This can be used to transform the index. For example,
+-- @HCompose (HIdentity Bool) Maybe@ is the same as @HIdentity (Maybe Bool)@.
+newtype HCompose (h :: (x -> Type) -> Type) (f :: x -> y) (i :: y -> Type) =
   HCompose (h (Compose i f))
 
 
 instance HFunctor h => HFunctor (HCompose h g) where
-  hmap f (HCompose x) = HCompose $ hmap (\(Compose y) -> Compose (f y)) x
-
-
-class g (f x) => CCompose (g :: j -> Constraint) (f :: k -> j) (x :: k) where
+  hmap f (HCompose x) =
+    HCompose $ hmap (Compose . f . getCompose) x
 
 
 class (forall x. c x => c (g x)) => Imply (c :: Type -> Constraint) (g :: Type -> Type)
+
+
 instance (forall x. c x => c (g x)) => Imply (c :: Type -> Constraint) (g :: Type -> Type)
 
 
 instance HTraversable h => HTraversable (HCompose h g) where
-  htraverse f (HCompose x) = HCompose <$> htraverse (\(Compose y) -> Compose <$> f y) x
+  htraverse f (HCompose x) =
+    HCompose <$> htraverse (\(Compose y) -> Compose <$> f y) x
 
 
+-- | A witness that the index has been transformed by a functor.
+--
+-- This type is used to form the representation of @HCompose h g@. See the
+-- @HRepresentable@ instance for more.
 data I (h :: (Type -> Type) -> Type) (g :: Type -> Type) (x :: Type) where
-  I :: HRep h y -> I h g (g y)
+  I :: { unI :: HRep h y } -> I h g (g y)
 
 
 instance HRepresentable h => HRepresentable (HCompose h g) where
-  type HRep (HCompose h g) = I h g
-  hindex (HCompose a) (I i) = getCompose $ hindex a i
-  htabulate f = HCompose $ htabulate \i -> Compose (f (I i))
+  type HRep (HCompose h g) =
+    I h g
+
+  hindex (HCompose a) (I i) =
+    getCompose $ hindex a i
+
+  htabulate f =
+    HCompose $ htabulate $ Compose . f . I

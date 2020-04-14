@@ -9,7 +9,6 @@
 
 module Rel8.Query where
 
-import Control.Applicative ( Const(..) )
 import Control.Arrow ( Arrow, ArrowChoice, Kleisli(..), returnA )
 import Control.Category ( Category )
 import Control.Monad.Trans.State.Strict ( State, runState, state )
@@ -39,6 +38,7 @@ import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
+import Rel8.Column
 import Rel8.Expr
 import Rel8.Schema
 import Rel8.Table
@@ -51,22 +51,25 @@ newtype Query a b =
 
 
 runQuery :: a -> Query a b -> (b, QueryState)
-runQuery a q = runState (coerce q a) emptyQueryState
+runQuery a q =
+  runState (coerce q a) emptyQueryState
 
 
 each :: Table a => Schema a -> Query x (Expr a)
 each Schema{ tableName, schema = Columns columnNames } =
-  lmap (const ()) $
-  fromOpaleye $
-  Opaleye.selectTableExplicit unpackspec $
-  Opaleye.Table tableName $
-  Opaleye.TableProperties
-    (Opaleye.Writer @() $ Opaleye.PackMap \_ _ -> pure ())
-    (Opaleye.View $ Expr $ htabulate \i -> Const $ Opaleye.BaseTableAttrExpr $ getConst $ hindex columnNames i)
+  lmap mempty $ fromOpaleye $ Opaleye.selectTableExplicit unpackspec table
+  where
+    table = Opaleye.Table tableName tableProperties
+      where
+        tableProperties = Opaleye.TableProperties writer view
+          where
+            writer = Opaleye.Writer $ pure ()
+            view = Opaleye.View $ Expr $ htabulate $ selectColumn . hindex columnNames
 
 
-unpackspec :: HTraversable (Pattern a) => Opaleye.Unpackspec (Expr a) (Expr a)
-unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (fmap Const . f . getConst) x
+unpackspec :: Table a => Opaleye.Unpackspec (Expr a) (Expr a)
+unpackspec =
+  Opaleye.Unpackspec $ Opaleye.PackMap \f -> traverseColumns (traversePrimExpr f)
 
 
 optional :: Table b => Query a (Expr b) -> Query a (Expr (Maybe b))
@@ -90,22 +93,22 @@ optional query = fromOpaleye $ Opaleye.QueryArr arrow
             )
 
         maybeB =
-          Expr $ Compose $ Tagged $ HProduct (toPrimExprs t') (HCompose (hmap (Compose . Const . getConst) (toPrimExprs b)))
+          Expr $ Compose $ Tagged $ HProduct (toColumns t') (HCompose (hmap (Compose . Column . toPrimExpr) (toColumns b)))
 
     true =
-      case lit True of Expr (HIdentity (Const prim)) -> prim
+      case lit True of Expr (HIdentity (Column prim)) -> prim
 
 
 where_ :: Query (Expr Bool) ()
 where_ =
-  fromOpaleye $ lmap (\(Expr (HIdentity (Const prim))) -> Opaleye.Column prim) Opaleye.restrict
+  fromOpaleye $ lmap (\(Expr (HIdentity (Column prim))) -> Opaleye.Column prim) Opaleye.restrict
 
 
 catMaybe_ :: Table b => Query a (Expr (Maybe b)) -> Query a (Expr b)
 catMaybe_ q = proc a -> do
   Expr (Compose (Tagged (HProduct isNull (HCompose row)))) <- q -< a
   where_ -< Expr $ isNull
-  returnA -< Expr $ hmap (\(Compose (Const x)) -> Const x) row
+  returnA -< Expr $ hmap (\(Compose (Column x)) -> Column x) row
 
 
 data QueryState =
@@ -135,11 +138,11 @@ fromOpaleye (Opaleye.QueryArr f) =
 
 
 limit :: Natural -> Query () a -> Query x a
-limit n = lmap (const ()) . fromOpaleye . Opaleye.limit ( fromIntegral n ) . toOpaleye . lmap (const ())
+limit n = lmap (const ()) . fromOpaleye . Opaleye.limit (fromIntegral n) . toOpaleye . lmap (const ())
 
 
 offset :: Natural -> Query () a -> Query x a
-offset n = lmap (const ()) . fromOpaleye . Opaleye.offset ( fromIntegral n ) . toOpaleye . lmap (const ())
+offset n = lmap (const ()) . fromOpaleye . Opaleye.offset (fromIntegral n) . toOpaleye . lmap (const ())
 
 
 leftJoin :: Table b => (forall a. Query a (Expr b)) -> Query (Expr b -> Expr Bool) (Expr (Maybe b))
@@ -168,7 +171,7 @@ leftJoin query = fromOpaleye $ Opaleye.QueryArr arrow
             )
 
         maybeB =
-          Expr $ Compose $ Tagged $ HProduct (toPrimExprs t') (HCompose (hmap (Compose . Const . getConst) (toPrimExprs b)))
+          Expr $ Compose $ Tagged $ HProduct (toColumns t') (HCompose (hmap (Compose . Column . toPrimExpr) (toColumns b)))
 
     boolPrimExpr :: Expr Bool -> Opaleye.PrimExpr
     boolPrimExpr = coerce
@@ -199,7 +202,7 @@ exceptAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptAllExplicit binary
 
 
 binaryspec :: Table a => Opaleye.Binaryspec (Expr a) (Expr a)
-binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap \f (Expr l, Expr r) -> fmap Expr $ hsequence $ htabulate \i -> Compose $ Const <$> f (getConst $ hindex l i, getConst $ hindex r i)
+binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap \f (Expr l, Expr r) -> fmap Expr $ hsequence $ htabulate \i -> Compose $ Column <$> f (toPrimExpr $ hindex l i, toPrimExpr $ hindex r i)
 
 
 distinct :: Table a => Query () (Expr a) -> Query x (Expr a)
@@ -207,7 +210,7 @@ distinct = lmap (const ()) . fromOpaleye . Opaleye.distinctExplicit distinctspec
 
 
 distinctspec :: Table a => Opaleye.Distinctspec (Expr a) (Expr a)
-distinctspec = Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (\(Const a) -> Const <$> f (Nothing, a)) x
+distinctspec = Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (\(Column a) -> Column <$> f (Nothing, a)) x
 
 
 values :: (Foldable f, Table a) => f a -> Query x (Expr a)
@@ -215,4 +218,4 @@ values = lmap (const ()) . fromOpaleye . Opaleye.valuesExplicit unpackspec value
 
 
 valuesspec :: Table a => Opaleye.Valuesspec (Expr a) (Expr a)
-valuesspec = Opaleye.Valuesspec $ Opaleye.PackMap \f () -> fmap Expr $ hsequence $ htabulate \_ -> Compose $ Const <$> f ()
+valuesspec = Opaleye.Valuesspec $ Opaleye.PackMap \f () -> fmap Expr $ hsequence $ htabulate \_ -> Compose $ Column <$> f ()

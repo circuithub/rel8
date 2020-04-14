@@ -13,4 +13,5 @@ class HFunctor (f :: (Type -> Type) -> Type) where
 
 
 instance (Functor f, HFunctor g) => HFunctor (Compose f g) where
-  hmap f (Compose x) = Compose (fmap (hmap f) x)
+  hmap f (Compose x) =
+    Compose (fmap (hmap f) x)

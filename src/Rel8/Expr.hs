@@ -4,14 +4,14 @@
 {-# language FunctionalDependencies #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeFamilies #-}
 {-# language TypeApplications #-}
+{-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Expr where
 
-import Control.Applicative ( Const(..) )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.FieldName ( FieldName(..) )
@@ -21,6 +21,7 @@ import Data.Indexed.Functor.Compose ( HCompose(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
+import Data.Indexed.Functor.Traversable ( htraverse )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Singletons.Prelude ( If )
@@ -28,16 +29,24 @@ import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Column
 import Rel8.Table ( Table(..) )
 
 
 -- | Typed expressions.
 newtype Expr a =
-  Expr (Pattern a (Const Opaleye.PrimExpr))
+  Expr (Pattern a Column)
 
 
-toPrimExprs :: Expr a -> Pattern a (Const Opaleye.PrimExpr)
-toPrimExprs (Expr x) = x
+traverseColumns
+  :: (Applicative f, Table a)
+  => (forall x. Column x -> f (Column x))
+  -> Expr a -> f (Expr a)
+traverseColumns f (Expr x) = fmap Expr $ htraverse f x
+
+
+toColumns :: Expr a -> Pattern a Column
+toColumns (Expr x) = x
 
 
 type family HasName (name :: Symbol) f :: Bool where
@@ -85,7 +94,7 @@ instance HasField name (g i) r => HasField name (Compose (Tagged (x :: Type)) g 
     getter = snd $ hasField @name x
 
 
-instance (HasField name a r, HasField name (Pattern a (Const Opaleye.PrimExpr)) (Pattern r (Const Opaleye.PrimExpr))) => HasField (name :: Symbol) (Expr a) (Expr r) where
+instance (HasField name a r, HasField name (Pattern a Column) (Pattern r Column)) => HasField (name :: Symbol) (Expr a) (Expr r) where
   hasField (Expr x) = (setter, getter) where
     setter (Expr r) = Expr $ fst (hasField @name x) r
     getter = Expr $ snd $ hasField @name x
@@ -105,11 +114,11 @@ isNothing = maybe_ (lit True) (const $ lit False)
 
 maybe_ :: (Table a, Table b) => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 maybe_ (Expr def) f (Expr (Compose (Tagged (HProduct (HIdentity isNull) (HCompose row))))) = Expr $ htabulate \i ->
-  Const $
+  Column $
   Opaleye.CaseExpr
-    [(getConst isNull, getConst (hindex def i))]
-    (getConst (hindex (toPrimExprs (f (Expr $ hmap (\(Compose (Const x)) -> Const x) row))) i))
+    [(toPrimExpr isNull, toPrimExpr (hindex def i))]
+    (toPrimExpr (hindex (toColumns (f (Expr $ hmap (\(Compose (Column x)) -> Column x) row))) i))
 
 
 lit :: forall a. Table a => a -> Expr a
-lit = Expr . hzipWith (\(Op f) (Identity x) -> Const $ Opaleye.ConstExpr $ f x) (encode @a) . from
+lit = Expr . hzipWith (\(Op f) (Identity x) -> Column $ Opaleye.ConstExpr $ f x) (encode @a) . from

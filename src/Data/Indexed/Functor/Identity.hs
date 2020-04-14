@@ -11,19 +11,30 @@ import Data.Kind ( Type )
 import Data.Type.Equality ( (:~:)(..) )
 
 
+-- | The identity indexed-type functor maps the supplied functor to the functor
+-- applied at a given index.
+--
+-- @HIdentity Bool Identity@ ~ @Identity Bool@
 newtype HIdentity (a :: Type) (g :: Type -> Type) =
   HIdentity { unHIdentity :: g a }
 
 
 instance HFunctor (HIdentity a) where
-  hmap f (HIdentity x) = HIdentity (f x)
+  hmap f =
+    HIdentity . f . unHIdentity
 
 
 instance HRepresentable (HIdentity a) where
-  type HRep (HIdentity a) = (:~:) a
-  hindex (HIdentity x) Refl = x
-  htabulate f = HIdentity (f Refl)
+  type HRep (HIdentity a) =
+    (:~:) a
+
+  hindex (HIdentity x) Refl =
+    x
+
+  htabulate f =
+    HIdentity (f Refl)
 
 
 instance HTraversable (HIdentity a) where
-  htraverse f (HIdentity x) = HIdentity <$> f x
+  htraverse f (HIdentity x) =
+    HIdentity <$> f x

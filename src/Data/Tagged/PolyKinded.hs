@@ -1,4 +1,5 @@
 {-# language DeriveFunctor #-}
+{-# language DerivingVia #-}
 {-# language PolyKinds #-}
 {-# language TypeFamilies #-}
 
@@ -8,32 +9,29 @@ module Data.Tagged.PolyKinded where
 
 import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )
+import Data.Functor.Identity ( Identity(..) )
 import Data.Functor.Rep ( Representable(..), pureRep, apRep )
 
 
 newtype Tagged (a :: k) x =
   Tagged { unTagged :: x }
-  deriving (Functor)
+  deriving (Functor, Foldable, Representable) via Identity
+  deriving (Semigroup, Monoid) via Identity x
 
 
 instance Distributive (Tagged a) where
-  distribute y = Tagged $ fmap coerce y
-
-
-instance Representable (Tagged a) where
-  type Rep (Tagged a) = ()
-  index (Tagged x) () = x
-  tabulate f = Tagged (f ())
-
-
-instance Foldable (Tagged a) where
-  foldMap f (Tagged a) = f a
+  distribute y =
+    Tagged $ fmap coerce y
 
 
 instance Traversable (Tagged a) where
-  traverse f (Tagged x) = Tagged <$> f x
+  traverse f (Tagged x) =
+    Tagged <$> f x
 
 
 instance Applicative (Tagged a) where
-  pure = pureRep
-  (<*>) = apRep
+  pure =
+    pureRep
+
+  (<*>) =
+    apRep
