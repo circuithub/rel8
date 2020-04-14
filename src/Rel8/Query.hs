@@ -171,27 +171,27 @@ leftJoin query = fromOpaleye $ Opaleye.QueryArr arrow
     boolPrimExpr = coerce
 
 
-union :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+union :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 union x y = lmap (const ()) $ fromOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
-unionAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+unionAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 unionAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
-intersect :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+intersect :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 intersect x y = lmap (const ()) $ fromOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
-intersectAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+intersectAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 intersectAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
-except :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+except :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 except x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
-exceptAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query () (Expr a)
+exceptAll :: Table a => Query () (Expr a) -> Query () (Expr a) -> Query x (Expr a)
 exceptAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
 
 
