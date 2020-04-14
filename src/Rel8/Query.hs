@@ -27,8 +27,10 @@ import Data.Profunctor.Traversing ( Traversing )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import Numeric.Natural ( Natural )
 import qualified Opaleye
+import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
+import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType(..) )
@@ -197,3 +199,11 @@ exceptAll x y = lmap (const ()) $ fromOpaleye $ Opaleye.exceptAllExplicit binary
 
 binaryspec :: Table a => Opaleye.Binaryspec (Expr a) (Expr a)
 binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap \f (Expr l, Expr r) -> fmap Expr $ hsequence $ htabulate \i -> Compose $ Const <$> f (getConst $ hindex l i, getConst $ hindex r i)
+
+
+distinct :: Table a => Query () (Expr a) -> Query x (Expr a)
+distinct = lmap (const ()) . fromOpaleye . Opaleye.distinctExplicit distinctspec . toOpaleye
+
+
+distinctspec :: Table a => Opaleye.Distinctspec (Expr a) (Expr a)
+distinctspec = Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f (Expr x) -> fmap Expr $ htraverse (\(Const a) -> Const <$> f (Nothing, a)) x
