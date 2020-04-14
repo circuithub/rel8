@@ -25,6 +25,7 @@ import Data.Indexed.Functor.Traversable ( htraverse )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Singletons.Prelude ( If )
+import Data.String ( IsString(..) )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
@@ -122,3 +123,7 @@ maybe_ (Expr def) f (Expr (Compose (Tagged (HProduct (HIdentity isNull) (HCompos
 
 lit :: forall a. Table a => a -> Expr a
 lit = Expr . hzipWith (\(Op f) (Identity x) -> Column $ Opaleye.ConstExpr $ f x) (encode @a) . from
+
+
+instance (Table a, IsString a) => IsString (Expr a) where
+  fromString = lit . fromString
