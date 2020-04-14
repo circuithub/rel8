@@ -1,6 +1,7 @@
 module Rel8.Column where
 
 import Control.Applicative ( Const(..) )
+import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
@@ -17,3 +18,8 @@ traversePrimExpr
   => (Opaleye.PrimExpr -> f Opaleye.PrimExpr) -> Column a -> f (Column a)
 traversePrimExpr f (Column x) =
   Column <$> f x
+
+
+toOpaleyeColumn :: Column a -> Opaleye.Column b
+toOpaleyeColumn =
+  Opaleye.Column . toPrimExpr

@@ -28,7 +28,6 @@ import Numeric.Natural ( Natural )
 import qualified Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -64,7 +63,7 @@ each Schema{ tableName, schema = Columns columnNames } =
         tableProperties = Opaleye.TableProperties writer view
           where
             writer = Opaleye.Writer $ pure ()
-            view = Opaleye.View $ Expr $ htabulate $ selectColumn . hindex columnNames
+            view = Opaleye.View $ Expr $ hmap selectColumn columnNames
 
 
 unpackspec :: Table a => Opaleye.Unpackspec (Expr a) (Expr a)
@@ -101,7 +100,7 @@ optional query = fromOpaleye $ Opaleye.QueryArr arrow
 
 where_ :: Query (Expr Bool) ()
 where_ =
-  fromOpaleye $ lmap (\(Expr (HIdentity (Column prim))) -> Opaleye.Column prim) Opaleye.restrict
+  fromOpaleye $ lmap (toOpaleyeColumn . unHIdentity . toColumns) Opaleye.restrict
 
 
 catMaybe_ :: Table b => Query a (Expr (Maybe b)) -> Query a (Expr b)
