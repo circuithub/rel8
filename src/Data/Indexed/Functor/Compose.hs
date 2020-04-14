@@ -1,11 +1,9 @@
 {-# language BlockArguments #-}
-{-# language ConstraintKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language KindSignatures #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
-{-# language QuantifiedConstraints #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
@@ -16,7 +14,7 @@ import Data.Functor.Compose ( Compose(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 
 
 -- | Pre-apply a functor to an indexed type, thus transforming the index.
@@ -30,12 +28,6 @@ newtype HCompose (h :: (x -> Type) -> Type) (f :: x -> y) (i :: y -> Type) =
 instance HFunctor h => HFunctor (HCompose h g) where
   hmap f (HCompose x) =
     HCompose $ hmap (Compose . f . getCompose) x
-
-
-class (forall x. c x => c (g x)) => Imply (c :: Type -> Constraint) (g :: Type -> Type)
-
-
-instance (forall x. c x => c (g x)) => Imply (c :: Type -> Constraint) (g :: Type -> Type)
 
 
 instance HTraversable h => HTraversable (HCompose h g) where
