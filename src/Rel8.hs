@@ -29,6 +29,9 @@ module Rel8
   , Query
   , Schema(..)
   , genericColumns
+  , lit
+  , limit
+  , offset
   , Expr
   , each
   , select
@@ -39,6 +42,7 @@ module Rel8
   , maybe_
   , isNothing
   , catMaybe_
+  , leftJoin
   ) where
 
 import Rel8.Expr

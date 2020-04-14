@@ -4,6 +4,7 @@
 {-# language FlexibleContexts #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language NamedFieldPuns #-}
+{-# language RankNTypes #-}
 {-# language TypeApplications #-}
 
 module Rel8.Query where
@@ -29,7 +30,7 @@ import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType( LeftJoinLateral ) )
+import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType(..) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
@@ -130,9 +131,41 @@ fromOpaleye (Opaleye.QueryArr f) =
 
 
 -- TODO Is Query () right? Can we have Query a? (forall a. Query a b)?
-limit :: Natural -> Query () b -> Query () b
-limit n = fromOpaleye . Opaleye.limit ( fromIntegral n ) . toOpaleye
+limit :: Natural -> (forall i. Query i b) -> Query x b
+limit n = lmap (const ()) . fromOpaleye . Opaleye.limit ( fromIntegral n ) . toOpaleye . lmap (const ())
 
 
 offset :: Natural -> Query () b -> Query () b
 offset n = fromOpaleye . Opaleye.offset ( fromIntegral n ) . toOpaleye
+
+
+leftJoin :: Table b => (forall a. Query a (Expr b)) -> Query (Expr b -> Expr Bool) (Expr (Maybe b))
+leftJoin query = fromOpaleye $ Opaleye.QueryArr arrow
+  where
+    arrow (f, left, tag) = (maybeB, join, Opaleye.next tag')
+      where
+        join =
+          Opaleye.Join Opaleye.LeftJoin
+            (boolPrimExpr (f b))
+            []
+            bindings
+            left
+            right
+
+        ((t, b), right, tag') = inner ((), Opaleye.Unit, tag)
+          where
+            Opaleye.QueryArr inner = (,) <$> pure (lit False) <*> toOpaleye query
+
+        (t', bindings) =
+          Opaleye.run
+            ( Opaleye.runUnpackspec
+                unpackspec
+                ( Opaleye.extractAttr "maybe" tag' )
+                t
+            )
+
+        maybeB =
+          Expr $ Compose $ Tagged $ HProduct (toPrimExprs t') (HCompose (hmap (Compose . Const . getConst) (toPrimExprs b)))
+
+    boolPrimExpr :: Expr Bool -> Opaleye.PrimExpr
+    boolPrimExpr = coerce
