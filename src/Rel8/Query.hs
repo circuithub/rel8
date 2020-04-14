@@ -130,13 +130,12 @@ fromOpaleye (Opaleye.QueryArr f) =
     out (b, pq, t) = (b, QueryState pq t)
 
 
--- TODO Is Query () right? Can we have Query a? (forall a. Query a b)?
-limit :: Natural -> (forall i. Query i b) -> Query x b
+limit :: Natural -> Query () a -> Query x a
 limit n = lmap (const ()) . fromOpaleye . Opaleye.limit ( fromIntegral n ) . toOpaleye . lmap (const ())
 
 
-offset :: Natural -> Query () b -> Query () b
-offset n = fromOpaleye . Opaleye.offset ( fromIntegral n ) . toOpaleye
+offset :: Natural -> Query () a -> Query x a
+offset n = lmap (const ()) . fromOpaleye . Opaleye.offset ( fromIntegral n ) . toOpaleye . lmap (const ())
 
 
 leftJoin :: Table b => (forall a. Query a (Expr b)) -> Query (Expr b -> Expr Bool) (Expr (Maybe b))
