@@ -30,8 +30,8 @@ import GHC.TypeLits
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Rel8.Column as Column
-import Rel8.Expr
 import Rel8.Null
+import Rel8.Row
 import Rel8.Table ( Table(..) )
 
 
@@ -72,7 +72,7 @@ instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName n
   columnName _ = symbolVal (Proxy @name)
 
 
-table :: forall a. Table a => Schema a -> Opaleye.Table (Expr a) (Expr a)
+table :: forall a. Table a => Schema a -> Opaleye.Table (Row a) (Row a)
 table Schema{ tableName, schema = Columns columnNames } = Opaleye.Table tableName tableProperties
   where
     tableProperties = Opaleye.TableProperties writer view
@@ -83,4 +83,4 @@ table Schema{ tableName, schema = Columns columnNames } = Opaleye.Table tableNam
                 columnValues = fmap (flip hindex i . toColumns) values
             in Compose $ fmap Const $ Column.write f columnValues columnName
 
-        view = Opaleye.View $ Expr $ hmap Column.selectColumn columnNames
+        view = Opaleye.View $ Row $ hmap Column.selectColumn columnNames

@@ -10,7 +10,7 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Expr where
+module Rel8.Row where
 
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
@@ -32,61 +32,61 @@ import Rel8.Table ( Table(..) )
 
 
 -- | Typed expressions.
-newtype Expr a =
-  Expr (Pattern a Column)
+newtype Row a =
+  Row (Pattern a Column)
 
 
 traverseColumns
   :: (Applicative f, Table a)
   => (forall x. Column x -> f (Column x))
-  -> Expr a -> f (Expr a)
-traverseColumns f (Expr x) = fmap Expr $ htraverse f x
+  -> Row a -> f (Row a)
+traverseColumns f (Row x) = fmap Row $ htraverse f x
 
 
 zipColumnsM
   :: (Applicative m, Table a)
   => (forall x. Column x -> Column x -> m (Column x))
-  -> Expr a -> Expr a -> m (Expr a)
-zipColumnsM f (Expr x) (Expr y) =
-  fmap Expr $ hsequence $ htabulate \i -> Compose $ f (hindex x i) (hindex y i)
+  -> Row a -> Row a -> m (Row a)
+zipColumnsM f (Row x) (Row y) =
+  fmap Row $ hsequence $ htabulate \i -> Compose $ f (hindex x i) (hindex y i)
 
 
-sequenceColumns :: (Table a, Applicative m) => (forall x. m (Column x)) -> m (Expr a)
-sequenceColumns m = fmap Expr $ hsequence $ htabulate \_ -> Compose m
+sequenceColumns :: (Table a, Applicative m) => (forall x. m (Column x)) -> m (Row a)
+sequenceColumns m = fmap Row $ hsequence $ htabulate \_ -> Compose m
 
 
-toColumns :: Expr a -> Pattern a Column
-toColumns (Expr x) = x
+toColumns :: Row a -> Pattern a Column
+toColumns (Row x) = x
 
 
-instance (HasField name a r, HasField name (Pattern a Column) (Pattern r Column)) => HasField (name :: Symbol) (Expr a) (Expr r) where
-  hasField (Expr x) = (setter, getter) where
-    setter (Expr r) = Expr $ fst (hasField @name x) r
-    getter = Expr $ snd $ hasField @name x
+instance (HasField name a r, HasField name (Pattern a Column) (Pattern r Column)) => HasField (name :: Symbol) (Row a) (Row r) where
+  hasField (Row x) = (setter, getter) where
+    setter (Row r) = Row $ fst (hasField @name x) r
+    getter = Row $ snd $ hasField @name x
 
 
-fst_ :: Expr (a, b) -> Expr a
-fst_ (Expr (Compose (Tagged (HProduct x _)))) = Expr x
+fst_ :: Row (a, b) -> Row a
+fst_ (Row (Compose (Tagged (HProduct x _)))) = Row x
 
 
-snd_ :: Expr (a, b) -> Expr b
-snd_ (Expr (Compose (Tagged (HProduct _ y)))) = Expr y
+snd_ :: Row (a, b) -> Row b
+snd_ (Row (Compose (Tagged (HProduct _ y)))) = Row y
 
 
-isNothing :: Table a => Expr (Maybe a) -> Expr Bool
+isNothing :: Table a => Row (Maybe a) -> Row Bool
 isNothing = maybe_ (lit True) (const $ lit False)
 
 
-maybe_ :: (Table a, Table b) => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-maybe_ (Expr def) f (Expr (Compose (Tagged (HProduct (HIdentity isNull) (HCompose row))))) = Expr $ htabulate \i ->
+maybe_ :: (Table a, Table b) => Row b -> (Row a -> Row b) -> Row (Maybe a) -> Row b
+maybe_ (Row def) f (Row (Compose (Tagged (HProduct (HIdentity isNull) (HCompose row))))) = Row $ htabulate \i ->
   Column.case_
     [(isNull, hindex def i)]
-    (hindex (toColumns (f (Expr $ hmap (coerce Column.fromJust) row))) i)
+    (hindex (toColumns (f (Row $ hmap (coerce Column.fromJust) row))) i)
 
 
-lit :: forall a. Table a => a -> Expr a
-lit = Expr . hzipWith (\f x -> Column.lit (coerce f x)) (encode @a) . from
+lit :: forall a. Table a => a -> Row a
+lit = Row . hzipWith (\f x -> Column.lit (coerce f x)) (encode @a) . from
 
 
-instance (Table a, IsString a) => IsString (Expr a) where
+instance (Table a, IsString a) => IsString (Row a) where
   fromString = lit . fromString

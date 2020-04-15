@@ -31,15 +31,15 @@ myTable :: Schema MyTable
 myTable = Schema{ tableName = "my_table", schema = genericColumns }
 
 
-dotTestColumnA :: Query x (Expr Bool)
+dotTestColumnA :: Query x (Row Bool)
 dotTestColumnA = fmap (.columnA) (each myTable)
 
 
-dotTestColumnB :: Query x (Expr Int)
+dotTestColumnB :: Query x (Row Int)
 dotTestColumnB = fmap (.columnB) (each myTable)
 
 
--- dotTestColumnC :: Expr (Maybe Int)
+-- dotTestColumnC :: Row (Maybe Int)
 -- dotTestColumnC = fmap (.columnC) (each myTable)
 
 
@@ -54,11 +54,11 @@ part :: Schema Part
 part = Schema "part" genericColumns
 
 
-allMfrIds :: Query x (Expr Int)
+allMfrIds :: Query x (Row Int)
 allMfrIds = fmap (.mfrId) (each part)
 
 
-descs :: Query x (Expr (Null String))
+descs :: Query x (Row (Null String))
 descs = fmap (.description) (each part)
 
 
@@ -80,19 +80,19 @@ userSchema =
 
 -- This lets us construct a query that selects all users:
 
-users :: Query x (Expr User)
+users :: Query x (Row User)
 users = each userSchema
 
 
--- Note that our Query produces 'Expr User', rather than just 'User'. Unlike
--- other Expr types in other libraries, expressions aren't limited to just
--- being single columns, so Expr User is a two-column expression, and that's
+-- Note that our Query produces 'Row User', rather than just 'User'. Unlike
+-- other Row types in other libraries, expressions aren't limited to just
+-- being single columns, so Row User is a two-column expression, and that's
 -- perfectly fine.
 
--- Expr's have a 'HasField' instance, so we can also project single columns
+-- Row's have a 'HasField' instance, so we can also project single columns
 -- just using normal Haskell:
 
-userNames :: Query (Expr User) (Expr String)
+userNames :: Query (Row User) (Row String)
 userNames = arr (.username)
 
 
@@ -101,7 +101,7 @@ fetchUsers :: Connection -> IO [User]
 fetchUsers c = select c users
 
 
-leftJoinTest :: Query x (Expr (Maybe User))
+leftJoinTest :: Query x (Row (Maybe User))
 leftJoinTest = proc _ -> do
   user1 <- each userSchema -< ()
   optional (proc _user1 -> do

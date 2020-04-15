@@ -24,23 +24,23 @@ import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
 import qualified Opaleye.RunQuery as Opaleye
 import Rel8.Column
-import Rel8.Expr
 import Rel8.Query ( Query, toOpaleye, unpackspec )
+import Rel8.Row
 import Rel8.Schema ( Schema, table )
 import Rel8.Table ( Table, Pattern, rowParser )
 
 
 -- | Run a @SELECT@ query, returning all rows.
-select :: (MonadIO m, Table a) => Connection ->  Query () (Expr a) -> m [a]
+select :: (MonadIO m, Table a) => Connection ->  Query () (Row a) -> m [a]
 select c = liftIO . Opaleye.runQueryExplicit queryRunner c . toOpaleye
 
 
-queryRunner :: Table a  => Opaleye.QueryRunner (Expr a) a
+queryRunner :: Table a  => Opaleye.QueryRunner (Row a) a
 queryRunner = Opaleye.QueryRunner (void unpackspec) (const rowParser) hasColumns
 
 
-hasColumns :: HTraversable (Pattern a) => Expr a -> Bool
-hasColumns (Expr f) = getAny $ getConst $ htraverse (\_ -> Const $ Any True) f
+hasColumns :: HTraversable (Pattern a) => Row a -> Bool
+hasColumns (Row f) = getAny $ getConst $ htraverse (\_ -> Const $ Any True) f
 
 
 -- | Run an @INSERT@ statement
@@ -67,7 +67,7 @@ insert connection Insert{ into, values, onConflict, returning } =
             Abort     -> Nothing
 
 
-opaleyeReturning :: Returning schema result -> Opaleye.Returning (Expr schema) result
+opaleyeReturning :: Returning schema result -> Opaleye.Returning (Row schema) result
 opaleyeReturning = \case
   NumberOfRowsInserted -> Opaleye.Count
   Projection f         -> Opaleye.ReturningExplicit queryRunner f
@@ -79,7 +79,7 @@ data Insert :: Type -> Type where
     :: Table table
     => { into :: Schema table
          -- ^ Which table to insert into.
-       , values :: [ Expr table ]
+       , values :: [ Row table ]
          -- ^ The rows to insert.
        , onConflict :: OnConflict
          -- ^ What to do if the inserted rows conflict with data already in the
@@ -101,7 +101,7 @@ data Returning table a where
   --
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
-  Projection :: Table a => (Expr table -> Expr a) -> Returning table [a]
+  Projection :: Table a => (Row table -> Row a) -> Returning table [a]
 
 
 data OnConflict
@@ -131,7 +131,7 @@ data Delete return where
   Delete
     :: Table from
     => { from :: Schema from
-       , deleteWhere :: Expr from -> Expr Bool
+       , deleteWhere :: Row from -> Row Bool
        , returning :: Returning from return
        }
     -> Delete return
@@ -166,8 +166,8 @@ data Update returning where
   Update
     :: Table row
     => { target :: Schema row
-       , set :: Expr row -> Expr row
-       , updateWhere :: Expr row -> Expr Bool
+       , set :: Row row -> Row row
+       , updateWhere :: Row row -> Row Bool
        , returning :: Returning row returning
        }
     -> Update returning

@@ -21,8 +21,8 @@ module Rel8
   , distinct
   , optional
 
-    -- ** Expressions
-  , Expr
+    -- ** Rows
+  , Row
 
     -- *** Literals
   , lit
@@ -51,7 +51,7 @@ module Rel8
   , Update(..)
   ) where
 
-import Rel8.Expr
+import Rel8.Row
 import Rel8.Query
 import Rel8.IO
 import Rel8.Schema
