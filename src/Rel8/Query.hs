@@ -128,36 +128,47 @@ fromOpaleye (Opaleye.QueryArr f) =
     out (b, pq, t) = (b, QueryState pq t)
 
 
+liftOpaleye :: (Opaleye.QueryArr s t -> Opaleye.QueryArr a b) -> Query s t -> Query a b
+liftOpaleye f = fromOpaleye . f . toOpaleye
+
+liftOpaleye2
+  :: ( Opaleye.QueryArr a1 b1 -> Opaleye.QueryArr a2 b2 -> Opaleye.QueryArr a3 b3 )
+  -> Query a1 b1
+  -> Query a2 b2
+  -> Query a3 b3
+liftOpaleye2 f x y = fromOpaleye $ f (toOpaleye x) (toOpaleye y)
+
+
 limit :: Natural -> Query () a -> Query x a
-limit n = generalise . fromOpaleye . Opaleye.limit (fromIntegral n) . toOpaleye . generalise
+limit n = liftOpaleye (generalise . Opaleye.limit (fromIntegral n))
 
 
 offset :: Natural -> Query () a -> Query x a
-offset n = generalise . fromOpaleye . Opaleye.offset (fromIntegral n) . toOpaleye . generalise
+offset n = liftOpaleye (generalise . Opaleye.offset (fromIntegral n))
 
 
 union :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-union x y = generalise $ fromOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye x) (toOpaleye y)
+union x y = generalise $ liftOpaleye2 (Opaleye.unionExplicit binaryspec) x y
 
 
 unionAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-unionAll x y = generalise $ fromOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+unionAll x y = generalise $ liftOpaleye2 (Opaleye.unionAllExplicit binaryspec) x y
 
 
 intersect :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-intersect x y = generalise $ fromOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye x) (toOpaleye y)
+intersect x y = generalise $ liftOpaleye2 (Opaleye.intersectExplicit binaryspec) x y
 
 
 intersectAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-intersectAll x y = generalise $ fromOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+intersectAll x y = generalise $ liftOpaleye2 (Opaleye.intersectAllExplicit binaryspec) x y
 
 
 except :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-except x y = generalise $ fromOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye x) (toOpaleye y)
+except x y = generalise $ liftOpaleye2 (Opaleye.exceptExplicit binaryspec) x y
 
 
 exceptAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-exceptAll x y = generalise $ fromOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye x) (toOpaleye y)
+exceptAll x y = generalise $ liftOpaleye2 (Opaleye.exceptAllExplicit binaryspec) x y
 
 
 binaryspec :: Table a => Opaleye.Binaryspec (Row a) (Row a)
@@ -165,7 +176,7 @@ binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap \f -> uncurry (zipColumnsM (Co
 
 
 distinct :: Table a => Query () (Row a) -> Query x (Row a)
-distinct = generalise . fromOpaleye . Opaleye.distinctExplicit distinctspec . toOpaleye
+distinct = liftOpaleye (generalise . Opaleye.distinctExplicit distinctspec)
 
 
 distinctspec :: Table a => Opaleye.Distinctspec (Row a) (Row a)
