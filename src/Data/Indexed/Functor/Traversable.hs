@@ -1,6 +1,6 @@
 {-# language RankNTypes #-}
 
-module Data.Indexed.Functor.Traversable where
+module Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence ) where
 
 import Data.Functor.Compose ( Compose(..) )
 import Data.Indexed.Functor ( HFunctor )

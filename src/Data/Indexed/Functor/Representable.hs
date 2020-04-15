@@ -4,7 +4,7 @@
 {-# language TypeFamilies #-}
 
 -- | Representable functors from indexed-types to types.
-module Data.Indexed.Functor.Representable where
+module Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith ) where
 
 import Control.Applicative ( Const(..), liftA2 )
 import Data.Functor.Compose ( Compose(..) )

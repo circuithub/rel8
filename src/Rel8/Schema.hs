@@ -29,7 +29,7 @@ import Data.Type.Equality ((:~:))
 import GHC.TypeLits
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import Rel8.Column
+import qualified Rel8.Column as Column
 import Rel8.Expr
 import Rel8.Null
 import Rel8.Table ( Table(..) )
@@ -79,5 +79,8 @@ table Schema{ tableName, schema = Columns columnNames } = Opaleye.Table tableNam
       where
         writer = Opaleye.Writer $ Opaleye.PackMap \f values ->
           void $ hsequence $ htabulate @(Pattern a) \i ->
-            Compose $ fmap Const $ f (fmap (toPrimExpr . flip hindex i . toColumns) values, getConst $ hindex columnNames i)
-        view = Opaleye.View $ Expr $ hmap selectColumn columnNames
+            let columnName = hindex columnNames i
+                columnValues = fmap (flip hindex i . toColumns) values
+            in Compose $ fmap Const $ Column.write f columnValues columnName
+
+        view = Opaleye.View $ Expr $ hmap Column.selectColumn columnNames

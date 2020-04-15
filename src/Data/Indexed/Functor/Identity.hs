@@ -2,7 +2,7 @@
 {-# language TypeFamilies #-}
 
 -- | The identity functor on indexed-types.
-module Data.Indexed.Functor.Identity where
+module Data.Indexed.Functor.Identity ( HIdentity(..) ) where
 
 import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )

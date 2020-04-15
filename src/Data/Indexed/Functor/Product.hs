@@ -11,7 +11,7 @@
 {-# language UndecidableInstances #-}
 
 -- | The product of two functors on indexed-types.
-module Data.Indexed.Functor.Product where
+module Data.Indexed.Functor.Product ( HProduct(..) ) where
 
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )

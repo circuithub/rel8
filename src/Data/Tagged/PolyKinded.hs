@@ -10,7 +10,7 @@
 
 -- | Poly-kinded Tagged, until https://github.com/ekmett/adjunctions/pull/68 is
 -- merged.
-module Data.Tagged.PolyKinded where
+module Data.Tagged.PolyKinded ( Tagged(..) ) where
 
 import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )

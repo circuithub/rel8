@@ -2,7 +2,7 @@
 {-# language RankNTypes #-}
 
 -- | Functors from indexed-types to types.
-module Data.Indexed.Functor where
+module Data.Indexed.Functor ( HFunctor(..) ) where
 
 import Data.Functor.Compose ( Compose(..) )
 import Data.Kind ( Type )

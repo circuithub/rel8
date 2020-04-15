@@ -8,7 +8,7 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Data.Indexed.Functor.Compose where
+module Data.Indexed.Functor.Compose ( HCompose(..), I(..) ) where
 
 import Data.Functor.Compose ( Compose(..) )
 import Data.Indexed.Functor ( HFunctor(..) )

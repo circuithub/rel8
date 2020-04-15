@@ -8,7 +8,7 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Data.Functor.FieldName where
+module Data.Functor.FieldName ( FieldName(..) ) where
 
 import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )
