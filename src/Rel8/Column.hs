@@ -6,7 +6,6 @@ module Rel8.Column
   , lit
   , selectColumn
   , toOpaleyeColumn
-  , toPrimExpr
   , traversePrimExpr
   , write
   , zipColumnsM
@@ -41,12 +40,11 @@ zipColumnsM f (Column x) (Column y) = fmap Column $ f x y
 
 
 toOpaleyeColumn :: Column a -> Opaleye.Column b
-toOpaleyeColumn =
-  Opaleye.Column . toPrimExpr
+toOpaleyeColumn = coerce
 
 
 fromJust :: Column (Maybe a) -> Column a
-fromJust (Column a) = Column a
+fromJust = coerce
 
 
 case_ :: [(Column Bool, Column a)] -> Column a -> Column a
@@ -62,4 +60,4 @@ write f values (Const columnName) = f (fmap toPrimExpr values, columnName)
 
 
 just :: Column a -> Column (Maybe a)
-just (Column x) = Column x
+just = coerce
