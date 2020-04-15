@@ -49,7 +49,6 @@ library
     Rel8.IO
     Rel8.Null
     Rel8.Query
-    Rel8.SQL
     Rel8.Schema
     Rel8.Table
     Rel8.Testing
