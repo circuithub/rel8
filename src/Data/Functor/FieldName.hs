@@ -1,16 +1,22 @@
 {-# language DataKinds #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingVia #-}
+{-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
+{-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Data.Functor.FieldName where
 
 import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )
+import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Rep ( Representable(..), pureRep, apRep )
 import Data.Kind ( Type )
 import Data.Tagged.PolyKinded ( Tagged(..) )
+import GHC.Records.Extra ( HasField(..) )
 import GHC.TypeLits ( Symbol )
 
 
@@ -52,3 +58,9 @@ instance Representable (FieldName name) where
 instance Distributive (FieldName name) where
   distribute y =
     FieldName $ fmap coerce y
+
+
+instance (name ~ name', f ~ g) => HasField name (Compose (FieldName name') f i) (g i) where
+  hasField (Compose (FieldName x)) = (setter, getter) where
+    setter = Compose . FieldName
+    getter = x
