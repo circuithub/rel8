@@ -150,24 +150,24 @@ instance Table Bool where
   type Pattern Bool = HIdentity Bool
   from = coerce
   to = coerce
-  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
-  encode = HIdentity $ Op O.BoolLit
+  decode = coerce $ fromField @Bool
+  encode = coerce O.BoolLit
 
 
 instance Table Int where
   type Pattern Int = HIdentity Int
   from = coerce
   to = coerce
-  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
-  encode = HIdentity $ Op $ O.IntegerLit . fromIntegral
+  decode = coerce $ fromField @Int
+  encode = coerce (O.IntegerLit . fromIntegral @Int)
 
 
 instance Table String where
   type Pattern String = HIdentity String
   from = coerce
   to = coerce
-  decode = HIdentity $ ReaderT \field -> ReaderT \mByteString -> fromField field mByteString
-  encode = HIdentity $ Op $ O.StringLit
+  decode = coerce $ fromField @String
+  encode = coerce O.StringLit
 
 
 instance (Table a, Table b) => Table (a, b) where
@@ -176,7 +176,7 @@ instance (Table a, Table b) => Table (a, b) where
 
 
 rowParser :: Table a => RowParser a
-rowParser = fmap to $ htraverse (coerce fieldWith) decode
+rowParser = to <$> htraverse (coerce fieldWith) decode
 
 
 instance Table a => Table (Maybe a) where
@@ -185,8 +185,8 @@ instance Table a => Table (Maybe a) where
 
   from =
     maybe
-      (Compose $ Tagged $ HProduct (HIdentity $ pure True) $ htabulate \(I _) -> Identity Nothing)
-      (\x -> Compose $ Tagged $ HProduct (HIdentity $ pure False) $ htabulate \(I i) -> Just <$> hindex (from x) i)
+      (Compose $ Tagged $ HProduct (coerce True) $ htabulate \(I _) -> Identity Nothing)
+      (\x -> Compose $ Tagged $ HProduct (coerce False) $ htabulate \(I i) -> Just <$> hindex (from x) i)
 
   to (Compose (Tagged (HProduct _ (HCompose x)))) = do
     to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
@@ -197,3 +197,4 @@ instance Table a => Table (Maybe a) where
   decode = Compose $ Tagged $ HProduct decode $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where
       nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))
+

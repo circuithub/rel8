@@ -51,7 +51,7 @@ fromJust (Column a) = Column a
 
 case_ :: [(Column Bool, Column a)] -> Column a -> Column a
 case_ = coerce Opaleye.CaseExpr
-    -- (toPrimExpr (hindex (toColumns (f (Expr $ hmap (compose . fromJust) row))) i))
+
 
 lit :: Opaleye.Literal -> Column a
 lit = coerce Opaleye.ConstExpr
