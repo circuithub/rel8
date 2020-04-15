@@ -90,3 +90,18 @@ lit = Row . hzipWith (\f x -> Column.lit (coerce f x)) (encode @a) . from
 
 instance (Table a, IsString a) => IsString (Row a) where
   fromString = lit . fromString
+
+
+class Table a => EqTable a where
+  (==.) :: Row a -> Row a -> Row Bool
+
+
+implode :: (Row a, Row b) -> Row (a, b)
+implode (Row x, Row y) = Row $ Compose $ Tagged $ HProduct x y
+
+
+class TableFunctor f where
+  mapTable :: (Row a -> Row b) -> Row (f a) -> Row (f b)
+
+
+instance TableFunctor Maybe where

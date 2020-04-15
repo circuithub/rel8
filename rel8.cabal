@@ -19,6 +19,7 @@ library
   build-depends:
       base                    ^>= 4.12 || ^>= 4.13
     , adjunctions             ^>= 4.4
+    , bifunctors              ^>= 5.5.5
     , bytestring              ^>= 0.10.9.0
     , distributive            ^>= 0.6
     , opaleye
@@ -27,6 +28,7 @@ library
     , record-dot-preprocessor ^>= 0.2
     , record-hasfield         ^>= 1.0
     , transformers            ^>= 0.5.6.2
+    , semigroupoids           ^>= 5.3.3
     , singletons              ^>= 2.6
   hs-source-dirs:
     src
@@ -51,4 +53,5 @@ library
     Rel8.Row
     Rel8.Schema
     Rel8.Table
+    Rel8.Tabulate
     Rel8.Testing

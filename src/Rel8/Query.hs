@@ -182,3 +182,14 @@ valuesspec = Opaleye.Valuesspec $ Opaleye.PackMap \f () -> sequenceColumns (Colu
 
 generalise :: Profunctor p => p () b -> p a b
 generalise = lmap mempty
+
+
+filter :: (a -> Row Bool) -> Query a a
+filter f = lmap (f ,) $ filterA returnA
+
+
+filterA :: Query i a -> Query (a -> Row Bool, i) a
+filterA query = proc (f, i) -> do
+  a <- query -< i
+  where_ -< f a
+  returnA -< a
