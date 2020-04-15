@@ -23,8 +23,8 @@ data Null a = Null (Maybe a)
 
 
 instance Table a => Table (Null a) where
-  type Pattern (Null a) =
-    Compose (Tagged (Null a)) (HCompose (Pattern a) Null)
+  type Schema (Null a) =
+    Compose (Tagged (Null a)) (HCompose (Schema a) Null)
 
   from (Null (Just x)) = Compose $ Tagged $ HCompose $ hmap (\(Identity y) -> Compose $ Identity $ Null $ Just y) (from x)
   from (Null Nothing) = Compose $ Tagged $ HCompose $ htabulate \_ -> Compose $ Identity $ Null Nothing

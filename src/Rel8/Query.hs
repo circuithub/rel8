@@ -52,7 +52,7 @@ runQuery a q =
   runState (coerce q a) emptyQueryState
 
 
-each :: Table a => Schema a -> Query x (Row a)
+each :: Table a => TableSchema a -> Query x (Row a)
 each = generalise . fromOpaleye . Opaleye.selectTableExplicit unpackspec . table
 
 

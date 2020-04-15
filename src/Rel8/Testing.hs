@@ -27,8 +27,8 @@ data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will f
   deriving (Generic, Table)
 
 
-myTable :: Schema MyTable
-myTable = Schema{ tableName = "my_table", schema = genericColumns }
+myTable :: TableSchema MyTable
+myTable = TableSchema{ tableName = "my_table", schema = genericColumns }
 
 
 dotTestColumnA :: Query x (Row Bool)
@@ -50,8 +50,8 @@ selectTest c = select c ( each myTable )
 data Part = Part { mfrId :: Int, description :: Null String }
   deriving (Generic, Table)
 
-part :: Schema Part
-part = Schema "part" genericColumns
+part :: TableSchema Part
+part = TableSchema "part" genericColumns
 
 
 allMfrIds :: Query x (Row Int)
@@ -73,9 +73,9 @@ data User = User { username :: String, email :: String }
 -- To be able to SELECT this table, we need to provide a schema. This can be
 -- done generically, provided our type is just a product of single columns.
 
-userSchema :: Schema User
+userSchema :: TableSchema User
 userSchema =
-  Schema { tableName = "user", schema = genericColumns }
+  TableSchema { tableName = "user", schema = genericColumns }
 
 
 -- This lets us construct a query that selects all users:

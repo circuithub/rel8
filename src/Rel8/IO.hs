@@ -26,8 +26,8 @@ import qualified Opaleye.RunQuery as Opaleye
 import Rel8.Column
 import Rel8.Query ( Query, toOpaleye, unpackspec )
 import Rel8.Row
-import Rel8.Schema ( Schema, table )
-import Rel8.Table ( Table, Pattern, rowParser )
+import Rel8.Schema ( TableSchema, table )
+import Rel8.Table ( Table, rowParser )
 
 
 -- | Run a @SELECT@ query, returning all rows.
@@ -39,7 +39,7 @@ queryRunner :: Table a  => Opaleye.QueryRunner (Row a) a
 queryRunner = Opaleye.QueryRunner (void unpackspec) (const rowParser) hasColumns
 
 
-hasColumns :: HTraversable (Pattern a) => Row a -> Bool
+hasColumns :: Table a => Row a -> Bool
 hasColumns (Row f) = getAny $ getConst $ htraverse (\_ -> Const $ Any True) f
 
 
@@ -77,7 +77,7 @@ opaleyeReturning = \case
 data Insert :: Type -> Type where
   Insert
     :: Table table
-    => { into :: Schema table
+    => { into :: TableSchema table
          -- ^ Which table to insert into.
        , values :: [ Row table ]
          -- ^ The rows to insert.
@@ -130,7 +130,7 @@ delete c Delete{ from, deleteWhere, returning } =
 data Delete return where
   Delete
     :: Table from
-    => { from :: Schema from
+    => { from :: TableSchema from
        , deleteWhere :: Row from -> Row Bool
        , returning :: Returning from return
        }
@@ -165,7 +165,7 @@ update connection Update{ target, set, updateWhere, returning } =
 data Update returning where
   Update
     :: Table row
-    => { target :: Schema row
+    => { target :: TableSchema row
        , set :: Row row -> Row row
        , updateWhere :: Row row -> Row Bool
        , returning :: Returning row returning

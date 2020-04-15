@@ -35,17 +35,17 @@ import Rel8.Row
 import Rel8.Table ( Table(..) )
 
 
-data Schema a =
-  Schema
+data TableSchema a =
+  TableSchema
     { tableName :: String
     , schema :: Columns a
     }
 
 
-newtype Columns a = Columns (Pattern a (Const String))
+newtype Columns a = Columns (Schema a (Const String))
 
 
-genericColumns :: (ColumnName (HRep (Pattern a)), Table a) => Columns a
+genericColumns :: (ColumnName (HRep (Schema a)), Table a) => Columns a
 genericColumns = Columns $ htabulate \i -> Const $ columnName i
 
 
@@ -72,13 +72,13 @@ instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName n
   columnName _ = symbolVal (Proxy @name)
 
 
-table :: forall a. Table a => Schema a -> Opaleye.Table (Row a) (Row a)
-table Schema{ tableName, schema = Columns columnNames } = Opaleye.Table tableName tableProperties
+table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)
+table TableSchema{ tableName, schema = Columns columnNames } = Opaleye.Table tableName tableProperties
   where
     tableProperties = Opaleye.TableProperties writer view
       where
         writer = Opaleye.Writer $ Opaleye.PackMap \f values ->
-          void $ hsequence $ htabulate @(Pattern a) \i ->
+          void $ hsequence $ htabulate @(Schema a) \i ->
             let columnName = hindex columnNames i
                 columnValues = fmap (flip hindex i . toColumns) values
             in Compose $ fmap Const $ Column.write f columnValues columnName

@@ -2,7 +2,7 @@ module Rel8
   ( -- * Schema Definition
     -- ** Defining Tables
     Table
-  , Schema(..)
+  , TableSchema(..)
   , genericColumns
 
     -- * Writing Queries

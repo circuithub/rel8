@@ -36,7 +36,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 
 -- | The class of "table-like" things.
-class (HTraversable (Pattern a), HRepresentable (Pattern a)) => Table (a :: Type) where
+class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) where
   -- | A higher-kinded pattern functor for this table.
   --
   -- This is a bit like a generic encoding of 'a', but lifted to higher-kinded
@@ -44,47 +44,47 @@ class (HTraversable (Pattern a), HRepresentable (Pattern a)) => Table (a :: Type
   --
   -- This is an injective type family rather than a data family to aid
   -- generic deriving.
-  type Pattern a = (r :: (Type -> Type) -> Type) | r -> a
-  type Pattern a = Compose (Tagged a) (GPattern (Rep a))
+  type Schema a = (r :: (Type -> Type) -> Type) | r -> a
+  type Schema a = Compose (Tagged a) (GSchema (Rep a))
 
-  from :: a -> Pattern a Identity
+  from :: a -> Schema a Identity
   default from
-    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
-    => a -> Pattern a Identity
+    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    => a -> Schema a Identity
   from = Compose . Tagged . gfrom . GHC.Generics.from
 
-  to :: Pattern a Identity -> a
+  to :: Schema a Identity -> a
   default to
-    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
-    => Pattern a Identity -> a
+    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    => Schema a Identity -> a
   to = GHC.Generics.to . gto . unTagged . getCompose
 
 
-  decode :: Pattern a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  decode :: Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
   default decode
-    :: (GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
-    => Pattern a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+    :: (GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    => Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
   decode = Compose $ Tagged $ gdecode (Proxy @(Rep a ()))
 
-  encode :: Pattern a (Op O.Literal)
+  encode :: Schema a (Op O.Literal)
   default encode
-    :: (GTable (Rep a), Compose (Tagged a) (GPattern (Rep a)) ~ Pattern a)
-    => Pattern a (Op O.Literal)
+    :: (GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    => Schema a (Op O.Literal)
   encode = Compose $ Tagged $ gencode (Proxy @(Rep a ()))
 
 
 class GTable (f :: * -> *) where
-  type GPattern f :: (* -> *) -> *
+  type GSchema f :: (* -> *) -> *
 
-  gfrom :: f x -> GPattern f Identity
-  gto :: GPattern f Identity -> f x
+  gfrom :: f x -> GSchema f Identity
+  gto :: GSchema f Identity -> f x
 
-  gdecode :: Proxy (f x) -> GPattern f (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
-  gencode :: Proxy (f x) -> GPattern f (Op O.Literal)
+  gdecode :: Proxy (f x) -> GSchema f (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  gencode :: Proxy (f x) -> GSchema f (Op O.Literal)
 
 
 instance GTable f => GTable (M1 D c f) where
-  type GPattern (M1 D c f) = GPattern f
+  type GSchema (M1 D c f) = GSchema f
   gfrom = gfrom . unM1
   gto = M1 . gto
 
@@ -93,7 +93,7 @@ instance GTable f => GTable (M1 D c f) where
 
 
 instance GTable f => GTable (M1 C c f) where
-  type GPattern (M1 C c f) = GPattern f
+  type GSchema (M1 C c f) = GSchema f
   gfrom = gfrom . unM1
   gto = M1 . gto
 
@@ -102,7 +102,7 @@ instance GTable f => GTable (M1 C c f) where
 
 
 instance (GTable f, GTable g) => GTable (f :*: g) where
-  type GPattern (f :*: g) = HProduct (GPattern f) (GPattern g)
+  type GSchema (f :*: g) = HProduct (GSchema f) (GSchema g)
 
   gfrom (a :*: b) = HProduct (gfrom a) (gfrom b)
   gto (HProduct a b) = gto a :*: gto b
@@ -112,8 +112,8 @@ instance (GTable f, GTable g) => GTable (f :*: g) where
 
 
 instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
-  type GPattern (M1 S ('MetaSel ('Just name) x y z) f) =
-    Compose (FieldName name) (GPattern f)
+  type GSchema (M1 S ('MetaSel ('Just name) x y z) f) =
+    Compose (FieldName name) (GSchema f)
 
   gfrom = Compose . FieldName . gfrom . unM1
   gto = M1 . gto . unFieldName . getCompose
@@ -123,8 +123,8 @@ instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
 
 
 instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
-  type GPattern (M1 S ('MetaSel 'Nothing x y z) f) =
-    GPattern f
+  type GSchema (M1 S ('MetaSel 'Nothing x y z) f) =
+    GSchema f
 
   gfrom = gfrom . unM1
   gto = M1 . gto
@@ -134,7 +134,7 @@ instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
 
 
 instance Table a => GTable (K1 i a) where
-  type GPattern (K1 i a) = Pattern a
+  type GSchema (K1 i a) = Schema a
   gfrom = from . unK1
   gto = K1 . to
 
@@ -147,7 +147,7 @@ instance Table a => GTable (K1 i a) where
 
 
 instance Table Bool where
-  type Pattern Bool = HIdentity Bool
+  type Schema Bool = HIdentity Bool
   from = coerce
   to = coerce
   decode = coerce $ fromField @Bool
@@ -155,7 +155,7 @@ instance Table Bool where
 
 
 instance Table Int where
-  type Pattern Int = HIdentity Int
+  type Schema Int = HIdentity Int
   from = coerce
   to = coerce
   decode = coerce $ fromField @Int
@@ -163,7 +163,7 @@ instance Table Int where
 
 
 instance Table String where
-  type Pattern String = HIdentity String
+  type Schema String = HIdentity String
   from = coerce
   to = coerce
   decode = coerce $ fromField @String
@@ -180,8 +180,8 @@ rowParser = to <$> htraverse (coerce fieldWith) decode
 
 
 instance Table a => Table (Maybe a) where
-  type Pattern (Maybe a) =
-    Compose (Tagged (Maybe a)) (HProduct (HIdentity Bool) (HCompose (Pattern a) Maybe))
+  type Schema (Maybe a) =
+    Compose (Tagged (Maybe a)) (HProduct (HIdentity Bool) (HCompose (Schema a) Maybe))
 
   from =
     maybe

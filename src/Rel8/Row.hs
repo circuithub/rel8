@@ -33,7 +33,7 @@ import Rel8.Table ( Table(..) )
 
 -- | Typed expressions.
 newtype Row a =
-  Row (Pattern a Column)
+  Row (Schema a Column)
 
 
 traverseColumns
@@ -55,11 +55,11 @@ sequenceColumns :: (Table a, Applicative m) => (forall x. m (Column x)) -> m (Ro
 sequenceColumns m = fmap Row $ hsequence $ htabulate \_ -> Compose m
 
 
-toColumns :: Row a -> Pattern a Column
+toColumns :: Row a -> Schema a Column
 toColumns (Row x) = x
 
 
-instance (HasField name a r, HasField name (Pattern a Column) (Pattern r Column)) => HasField (name :: Symbol) (Row a) (Row r) where
+instance (HasField name a r, HasField name (Schema a Column) (Schema r Column)) => HasField (name :: Symbol) (Row a) (Row r) where
   hasField (Row x) = (setter, getter) where
     setter (Row r) = Row $ fst (hasField @name x) r
     getter = Row $ snd $ hasField @name x
