@@ -12,12 +12,12 @@
 
 module Rel8.Table where
 
-import Data.Functor.FieldName ( FieldName(..) )
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.ByteString ( ByteString )
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
+import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
@@ -25,6 +25,7 @@ import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Int ( Int32 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Tagged.PolyKinded ( Tagged(..) )
@@ -160,6 +161,14 @@ instance Table Int where
   to = coerce
   decode = coerce $ fromField @Int
   encode = coerce (O.IntegerLit . fromIntegral @Int)
+
+
+instance Table Int32 where
+  type Schema Int32 = HIdentity Int32
+  from = coerce
+  to = coerce
+  decode = coerce $ fromField @Int32
+  encode = coerce (O.IntegerLit . fromIntegral @Int32)
 
 
 instance Table String where
