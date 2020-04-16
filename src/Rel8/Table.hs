@@ -29,6 +29,7 @@ import Data.Int ( Int32 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Tagged.PolyKinded ( Tagged(..) )
+import qualified Data.Text
 import Database.PostgreSQL.Simple.FromField ( Conversion, Field, fromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified GHC.Generics
@@ -177,6 +178,14 @@ instance Table String where
   to = coerce
   decode = coerce $ fromField @String
   encode = coerce O.StringLit
+
+
+instance Table Data.Text.Text where
+  type Schema Data.Text.Text = HIdentity Data.Text.Text
+  from = coerce
+  to = coerce
+  decode = coerce $ fromField @Data.Text.Text
+  encode = coerce (O.StringLit . Data.Text.unpack)
 
 
 instance (Table a, Table b) => Table (a, b) where
