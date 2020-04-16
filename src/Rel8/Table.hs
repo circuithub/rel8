@@ -30,6 +30,7 @@ import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import qualified Data.Text
+import Data.Time ( UTCTime )
 import Database.PostgreSQL.Simple.FromField ( Conversion, Field, fromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified GHC.Generics
@@ -186,6 +187,14 @@ instance Table Data.Text.Text where
   to = coerce
   decode = coerce $ fromField @Data.Text.Text
   encode = coerce (O.StringLit . Data.Text.unpack)
+
+
+instance Table UTCTime where
+  type Schema UTCTime = HIdentity UTCTime
+  from = coerce
+  to = coerce
+  decode = coerce $ fromField @UTCTime
+  encode = undefined
 
 
 instance (Table a, Table b) => Table (a, b) where
