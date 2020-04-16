@@ -207,6 +207,11 @@ deriving via (PostgreSQLSimpleField Rational) instance Table Rational
 
 
 instance (Table a, Table b) => Table (a, b)
+instance (Table a, Table b, Table c) => Table (a, b, c)
+instance (Table a, Table b, Table c, Table d) => Table (a, b, c, d)
+instance (Table a, Table b, Table c, Table d, Table e) => Table (a, b, c, d, e)
+instance (Table a, Table b, Table c, Table d, Table e, Table f) => Table (a, b, c, d, e, f)
+instance (Table a, Table b, Table c, Table d, Table e, Table f, Table g) => Table (a, b, c, d, e, f, g)
 
 
 rowParser :: Table a => RowParser a
