@@ -214,6 +214,22 @@ instance (Table a, Table b, Table c, Table d, Table e, Table f) => Table (a, b, 
 instance (Table a, Table b, Table c, Table d, Table e, Table f, Table g) => Table (a, b, c, d, e, f, g)
 
 
+
+-- | This @newtype@ can be used to derive 'Table' instances for types that are
+-- stored in the database as a single text column, using Haskell's 'Show' and
+-- 'Read' type classes as a serialization format.
+newtype ReadShowColumn a = ReadShowColumn a
+
+
+instance (Read a, Show a) => Table (ReadShowColumn a) where
+  type Schema (ReadShowColumn a) = HIdentity a
+  to = coerce
+  from = coerce
+
+  encode = HIdentity $ coerce (O.StringLit . show @a)
+  decode = HIdentity $ coerce $ \x -> fmap (read @a) . fromField @String x
+
+
 rowParser :: Table a => RowParser a
 rowParser = rowParser'
   where
