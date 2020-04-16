@@ -3,7 +3,7 @@ cabal-version:
 name:
   rel8
 version:
-  1.0.0
+  0.1.0.0
 license-file:
   LICENSE
 author:
