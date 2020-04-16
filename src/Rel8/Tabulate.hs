@@ -20,7 +20,6 @@ import Data.Profunctor ( Choice, Profunctor, Strong, dimap, lmap, right', second
 import Prelude hiding ( filter, lookup, zip, zipWith )
 import Rel8.Query
 import Rel8.Row
-import Rel8.Table
 
 
 -- | To understand what a @'Tabulation' k i a@ is, consider first a
@@ -278,7 +277,7 @@ lookupAnyBy f ks (Tabulation tabulation) = proc i -> do
 -- the 'MaybeTable').
 --
 -- Analagous to [@rpadZip@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:rpadZip).
-leftAlign :: (EqTable k, Table b)
+leftAlign :: (EqTable k)
   => Tabulation k i a
   -> Tabulation k i b
   -> Tabulation k i (a, MaybeRow b)
@@ -288,7 +287,7 @@ leftAlign = leftAlignWith (,)
 -- | See 'zipWith' and 'leftAlign'.
 --
 -- Analagous to [@rpadZipWith@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:rpadZipWith).
-leftAlignWith :: (EqTable k, Table b)
+leftAlignWith :: (EqTable k)
   => (a -> MaybeRow b -> c)
   -> Tabulation k i a
   -> Tabulation k i b
@@ -298,8 +297,7 @@ leftAlignWith = leftAlignWithBy (==.)
 
 -- | See 'zipWithBy' and 'leftAlign'
 leftAlignWithBy
-  :: (Table b, Table l)
-  => (Row k -> Row l -> Row Bool)
+  :: (Row k -> Row l -> Row Bool)
   -> (a -> MaybeRow b -> c)
   -> Tabulation k i a
   -> Tabulation l i b
