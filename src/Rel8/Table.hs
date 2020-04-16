@@ -1,10 +1,13 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language TypeOperators #-}
@@ -13,7 +16,9 @@
 module Rel8.Table where
 
 import Control.Monad.Trans.Reader ( ReaderT(..) )
+import Data.Aeson ( Value )
 import Data.ByteString ( ByteString )
+import qualified Data.ByteString.Lazy
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
@@ -25,14 +30,20 @@ import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
-import Data.Int ( Int32 )
+import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
+import Data.Scientific ( Scientific )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import qualified Data.Text
-import Data.Time ( UTCTime )
-import Database.PostgreSQL.Simple.FromField ( Conversion, Field, fromField )
+import qualified Data.Text.Lazy
+import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
+import Data.UUID ( UUID )
+import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField, fromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
+import Database.PostgreSQL.Simple.HStore ( HStoreList, HStoreMap )
+import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, ZonedTimestamp )
+import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -47,7 +58,7 @@ class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) 
   --
   -- This is an injective type family rather than a data family to aid
   -- generic deriving.
-  type Schema a = (r :: (Type -> Type) -> Type) | r -> a
+  type Schema a :: (Type -> Type) -> Type
   type Schema a = Compose (Tagged a) (GSchema (Rep a))
 
   from :: a -> Schema a Identity
@@ -141,69 +152,68 @@ instance Table a => GTable (K1 i a) where
   gfrom = from . unK1
   gto = K1 . to
 
-  gencode _ = encode
-  gdecode _ = decode
+  gencode _ = encode @a
+  gdecode _ = decode @a
 
 
 
 -- Base types are one column tables.
 
 
-instance Table Bool where
-  type Schema Bool = HIdentity Bool
+newtype PostgreSQLSimpleField a =
+  PostgreSQLSimpleField a
+
+
+instance FromField a => Table (PostgreSQLSimpleField a) where
+  type Schema (PostgreSQLSimpleField a) = HIdentity a
   from = coerce
   to = coerce
-  decode = coerce $ fromField @Bool
-  encode = coerce O.BoolLit
-
-
-instance Table Int where
-  type Schema Int = HIdentity Int
-  from = coerce
-  to = coerce
-  decode = coerce $ fromField @Int
-  encode = coerce (O.IntegerLit . fromIntegral @Int)
-
-
-instance Table Int32 where
-  type Schema Int32 = HIdentity Int32
-  from = coerce
-  to = coerce
-  decode = coerce $ fromField @Int32
-  encode = coerce (O.IntegerLit . fromIntegral @Int32)
-
-
-instance Table String where
-  type Schema String = HIdentity String
-  from = coerce
-  to = coerce
-  decode = coerce $ fromField @String
-  encode = coerce O.StringLit
-
-
-instance Table Data.Text.Text where
-  type Schema Data.Text.Text = HIdentity Data.Text.Text
-  from = coerce
-  to = coerce
-  decode = coerce $ fromField @Data.Text.Text
-  encode = coerce (O.StringLit . Data.Text.unpack)
-
-
-instance Table UTCTime where
-  type Schema UTCTime = HIdentity UTCTime
-  from = coerce
-  to = coerce
-  decode = coerce $ fromField @UTCTime
+  decode = coerce $ fromField @a
   encode = undefined
 
 
-instance (Table a, Table b) => Table (a, b) where
-  decode = Compose $ Tagged $ HProduct decode decode
-  encode = Compose $ Tagged $ HProduct encode encode
+deriving via (PostgreSQLSimpleField Bool) instance Table Bool
+deriving via (PostgreSQLSimpleField Char) instance Table Char
+deriving via (PostgreSQLSimpleField Double) instance Table Double
+deriving via (PostgreSQLSimpleField Float) instance Table Float
+deriving via (PostgreSQLSimpleField Int) instance Table Int
+deriving via (PostgreSQLSimpleField Int16) instance Table Int16
+deriving via (PostgreSQLSimpleField Int32) instance Table Int32
+deriving via (PostgreSQLSimpleField Int64) instance Table Int64
+deriving via (PostgreSQLSimpleField Integer) instance Table Integer
+deriving via (PostgreSQLSimpleField ()) instance Table ()
+deriving via (PostgreSQLSimpleField Data.ByteString.ByteString) instance Table Data.ByteString.ByteString
+deriving via (PostgreSQLSimpleField Data.ByteString.Lazy.ByteString) instance Table Data.ByteString.Lazy.ByteString
+deriving via (PostgreSQLSimpleField Scientific) instance Table Scientific
+deriving via (PostgreSQLSimpleField Data.Text.Text) instance Table Data.Text.Text
+deriving via (PostgreSQLSimpleField UTCTime) instance Table UTCTime
+deriving via (PostgreSQLSimpleField Value) instance Table Value
+deriving via (PostgreSQLSimpleField Data.Text.Lazy.Text) instance Table Data.Text.Lazy.Text
+deriving via (PostgreSQLSimpleField Oid) instance Table Oid
+deriving via (PostgreSQLSimpleField ZonedTime) instance Table ZonedTime
+deriving via (PostgreSQLSimpleField LocalTime) instance Table LocalTime
+deriving via (PostgreSQLSimpleField TimeOfDay) instance Table TimeOfDay
+deriving via (PostgreSQLSimpleField Day) instance Table Day
+deriving via (PostgreSQLSimpleField UUID) instance Table UUID
+deriving via (PostgreSQLSimpleField Date) instance Table Date
+deriving via (PostgreSQLSimpleField ZonedTimestamp) instance Table ZonedTimestamp
+deriving via (PostgreSQLSimpleField UTCTimestamp) instance Table UTCTimestamp
+deriving via (PostgreSQLSimpleField LocalTimestamp) instance Table LocalTimestamp
+deriving via (PostgreSQLSimpleField Null) instance Table Null
+deriving via (PostgreSQLSimpleField HStoreMap) instance Table HStoreMap
+deriving via (PostgreSQLSimpleField HStoreList) instance Table HStoreList
+deriving via (PostgreSQLSimpleField String) instance Table String
+deriving via (PostgreSQLSimpleField Rational) instance Table Rational
+
+
+instance (Table a, Table b) => Table (a, b)
 
 
 rowParser :: Table a => RowParser a
-rowParser = to <$> htraverse (coerce fieldWith) decode
+rowParser = rowParser'
+  where
+    rowParser' :: forall a. Table a => RowParser a
+    rowParser' = to <$> htraverse (coerce fieldWith) (decode @a)
 
 
 instance Table a => Table (Maybe a) where
@@ -219,8 +229,8 @@ instance Table a => Table (Maybe a) where
     to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
 
   encode =
-    Compose $ Tagged $ HProduct encode $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe O.NullLit f) $ encode @a
+    Compose $ Tagged $ HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe O.NullLit f) $ encode @a
 
-  decode = Compose $ Tagged $ HProduct decode $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
+  decode = Compose $ Tagged $ HProduct (decode @Bool) $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where
       nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))
