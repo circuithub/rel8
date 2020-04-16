@@ -102,7 +102,7 @@ fetchUsers c = select c users
 
 
 leftJoinTest :: Query x (Row (Maybe User))
-leftJoinTest = proc _ -> do
+leftJoinTest = fmap toRow $ proc _ -> do
   user1 <- each userSchema -< ()
   optional (proc _user1 -> do
     user2 <- each userSchema -< ()

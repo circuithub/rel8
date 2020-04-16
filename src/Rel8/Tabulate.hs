@@ -36,9 +36,9 @@ import Rel8.Table
 -- \"Identity\" 'Tabulation's are created using 'tabulate'. 'Tabulation's can
 -- be 'precompose'd or 'postcompose'd with 'QueryArr's to form new
 -- 'Tabulation's.
-newtype Tabulation k i a = Tabulation (Query i (k, a))
+newtype Tabulation k i a = Tabulation (Query i (Row k, a))
   deriving (Functor)
-  deriving (Profunctor) via Biff Query Identity ((,) k)
+  deriving (Profunctor) via Biff Query Identity ((,) (Row k))
 
 
 instance Strong (Tabulation k) where
@@ -47,11 +47,7 @@ instance Strong (Tabulation k) where
       twist (c, (k, b)) = (k, (c, b))
 
 
-instance Monoid k => Choice (Tabulation k) where
-  right' (Tabulation f) = Tabulation $ fmap sequence $ A.right f
-
-
-instance (EqTable k', k ~ Row k') => Apply (Tabulation k i) where
+instance EqTable k => Apply (Tabulation k i) where
   liftF2 = zipWith
 
 
@@ -78,7 +74,7 @@ instance (EqTable k', k ~ Row k') => Apply (Tabulation k i) where
 --   revisionsByProjectId :: 'Tabulation' ('Expr' ProjectId) (Revision 'Expr') (Revision 'Expr')
 --   revisionsByProjectId = 'tabulate' revisionProjectId
 --   @
-tabulate :: (a -> k) -> Tabulation k a a
+tabulate :: (a -> Row k) -> Tabulation k a a
 tabulate key = Tabulation $ liftA2 (,) key id <$> returnA
 
 
@@ -87,83 +83,83 @@ untabulate :: Tabulation _k i a -> Query i a
 untabulate (Tabulation tabulation) = snd <$> tabulation
 
 
-keys :: Tabulation k i _a -> Query i k
+keys :: Tabulation k i _a -> Query i (Row k)
 keys (Tabulation tabulation) = fst <$> tabulation
 
 
 -- | 'retabulate' re-indexes a 'Tabulation' by a new key @k@ which is given by
 -- the first half of the tuple of the output of the prior tabulation.
-retabulate :: Tabulation _k i (k, a) -> Tabulation k i a
+retabulate :: Tabulation _k i (Row k, a) -> Tabulation k i a
 retabulate = Tabulation . untabulate
 
 
--- -- | The main use of 'cotabulate' is to create a 'Tabulation' in the opposite
--- -- direction to what you get with 'tabulate someForeignKey'. Taking our
--- -- 'revisionsByProjectId' example above, we use 'cotabulate' when we want to
--- -- get 'projectsByRevisionId'.
--- --
--- -- [Reverse-tabulating by foreign key (tabulate a parent table by child key)]:
--- --   @
--- --   projectsByRevisionId :: 'Tabulation' ('Expr' RevisionId) (Project 'Expr') (Project 'Expr')
--- --   projectsByRevisionId = 'cotabulate' revisionId revisionsByProjectId projectsById
--- --     where
--- --       revisionsByProjectId = 'tabulate' revisionProjectId
--- --       projectsById = 'tabulate' projectId
--- --   @
--- --
--- -- Unfortunately, 'cotabulate' can't just take @revisionsByProjectId@ and
--- -- reverse it. It needs to know how to get the primary key of the child table
--- -- (@revisionId@), how to tabulate the child table (@Revision@) by the foreign
--- -- key to the parent table (@revisionsByProjectId@) and how to tabulate the
--- -- parent table (@Project@) by this same key (@projectsById@). It returns a
--- -- 'Tabulation' of the parent table by the primary key of the child table
--- -- (@RevisionId@).
--- --
--- -- 'Tabulation's created with 'cotabulate' can themselves be composed, e.g.:
--- --
--- -- @
--- -- revisionsByOrderId :: 'Tabulation' ('Expr' OrderId) (Revision 'Expr') (Revision 'Expr')
--- -- revisionsByOrderId = 'cotabulate' orderId ordersByQuoteId revisionsByQuoteId
--- --  where
--- --    ordersByQuoteId = 'tabulate' orderProjectQuoteId
--- --    revisionsByQuoteId = 'cotabulate' quoteId quotesByRevisionId revisionsById
--- --      where
--- --        quotesByRevisionId = 'tabulate' quoteProjectRevisionId
--- --        revisionsById = 'tabulate' revisionId
--- -- @
--- --
--- -- It isn't also isn't necessary to stick strictly to primary keys when
--- -- creating 'Tabulation's with 'cotabulate'. Here's another example:
--- --
--- -- @
--- -- revisionsByProjectUrn :: 'Tabulation' ('Expr' Urn) (Revision 'Expr') (Revision 'Expr')
--- -- revisionsByProjectUrn = 'cotabulate' projectUrn projectsById revisionsByProjectId
--- --  where
--- --    projectsById = 'tabulate' projectId
--- --    revisionsByProjectId = 'tabulate' revisionProjectId
--- -- @
--- cotabulate :: (Key k, BaseTable t, table ~ t Expr)
---   => (a -> l) -> Tabulation k table a -> Tabulation k i b -> Tabulation l i b
--- cotabulate key f g = retabulate $ zipWith ((,) . key) (precompose f (lmap mempty queryTable)) g
+-- | The main use of 'cotabulate' is to create a 'Tabulation' in the opposite
+-- direction to what you get with 'tabulate someForeignKey'. Taking our
+-- 'revisionsByProjectId' example above, we use 'cotabulate' when we want to
+-- get 'projectsByRevisionId'.
+--
+-- [Reverse-tabulating by foreign key (tabulate a parent table by child key)]:
+--   @
+--   projectsByRevisionId :: 'Tabulation' ('Expr' RevisionId) (Project 'Expr') (Project 'Expr')
+--   projectsByRevisionId = 'cotabulate' revisionId revisionsByProjectId projectsById
+--     where
+--       revisionsByProjectId = 'tabulate' revisionProjectId
+--       projectsById = 'tabulate' projectId
+--   @
+--
+-- Unfortunately, 'cotabulate' can't just take @revisionsByProjectId@ and
+-- reverse it. It needs to know how to get the primary key of the child table
+-- (@revisionId@), how to tabulate the child table (@Revision@) by the foreign
+-- key to the parent table (@revisionsByProjectId@) and how to tabulate the
+-- parent table (@Project@) by this same key (@projectsById@). It returns a
+-- 'Tabulation' of the parent table by the primary key of the child table
+-- (@RevisionId@).
+--
+-- 'Tabulation's created with 'cotabulate' can themselves be composed, e.g.:
+--
+-- @
+-- revisionsByOrderId :: 'Tabulation' ('Expr' OrderId) (Revision 'Expr') (Revision 'Expr')
+-- revisionsByOrderId = 'cotabulate' orderId ordersByQuoteId revisionsByQuoteId
+--  where
+--    ordersByQuoteId = 'tabulate' orderProjectQuoteId
+--    revisionsByQuoteId = 'cotabulate' quoteId quotesByRevisionId revisionsById
+--      where
+--        quotesByRevisionId = 'tabulate' quoteProjectRevisionId
+--        revisionsById = 'tabulate' revisionId
+-- @
+--
+-- It isn't also isn't necessary to stick strictly to primary keys when
+-- creating 'Tabulation's with 'cotabulate'. Here's another example:
+--
+-- @
+-- revisionsByProjectUrn :: 'Tabulation' ('Expr' Urn) (Revision 'Expr') (Revision 'Expr')
+-- revisionsByProjectUrn = 'cotabulate' projectUrn projectsById revisionsByProjectId
+--  where
+--    projectsById = 'tabulate' projectId
+--    revisionsByProjectId = 'tabulate' revisionProjectId
+-- @
+cotabulate :: (EqTable k)
+  => (a -> Row l) -> Tabulation k () a -> Tabulation k i b -> Tabulation l i b
+cotabulate key f g = retabulate $ zipWith ((,) . key) (lmap mempty f) g
 
 
--- -- | `intertabulate` takes two `Tabulation`s with 'match'ing keys @k@, and
--- -- returns a 'QueryArr' whose input @i@ goes into the first 'Tabulation'
--- -- and whose output @b@ comes out of the second 'Tabulation', whereby the
--- -- keys @k@ are used to map inputs @i@ to outputs @b@.
--- intertabulate :: (Key k, BaseTable t, table ~ t Expr)
---   => Tabulation k i a -> Tabulation k table b -> QueryArr i b
--- intertabulate = intertabulateBy match
+-- | `intertabulate` takes two `Tabulation`s with 'match'ing keys @k@, and
+-- returns a 'QueryArr' whose input @i@ goes into the first 'Tabulation'
+-- and whose output @b@ comes out of the second 'Tabulation', whereby the
+-- keys @k@ are used to map inputs @i@ to outputs @b@.
+intertabulate :: (EqTable k)
+  => Tabulation k i a -> Tabulation k () b -> Query i b
+intertabulate = intertabulateBy (==.)
 
 
--- -- | `intertabulateBy` is like 'intertabulate', except you can specify a
--- -- custom equality predicate.
--- intertabulateBy :: (Predicate bool, BaseTable t, table ~ t Expr)
---   => (k -> l -> Expr bool) -> Tabulation k i a -> Tabulation l table b -> QueryArr i b
--- intertabulateBy predicate f g = untabulate $ zipWithBy predicate (const id) f (precompose g (lmap mempty queryTable))
+-- | `intertabulateBy` is like 'intertabulate', except you can specify a
+-- custom equality predicate.
+intertabulateBy :: ()
+  => (Row k -> Row l -> Row Bool) -> Tabulation k i a -> Tabulation l () b -> Query i b
+intertabulateBy predicate f g = untabulate $ zipWithBy predicate (const id) f (lmap mempty g)
 
 
-ifilter :: (k -> a -> Row Bool) -> Tabulation k i a -> Tabulation k i a
+ifilter :: (Row k -> a -> Row Bool) -> Tabulation k i a -> Tabulation k i a
 ifilter f (Tabulation g) = Tabulation $ proc i -> do
   (k, a) <- g -< i
   where_ -< f k a
@@ -194,19 +190,19 @@ infixr 8 `postcompose`
 
 
 -- | Map a 'QueryArr' over the keys of a 'Tabulation'.
-mapKeys :: Query k l -> Tabulation k i a -> Tabulation l i a
+mapKeys :: Query (Row k) (Row l) -> Tabulation k i a -> Tabulation l i a
 mapKeys f (Tabulation g) = Tabulation $ first f <<< g
 
 
 -- | Note that because 'Tabulation' is a @MultiMap@, the 'Query' returned by
 -- 'lookup' can and often does contain multiple results.
-lookup :: EqTable k => Row k -> Tabulation (Row k) i a -> Query i a
+lookup :: EqTable k => Row k -> Tabulation k i a -> Query i a
 lookup = lookupBy . (==.)
 
 
 -- | Convert a ('precompose'd) 'Tabulation' to a 'QueryArr'. Useful for
 -- working inside @proc@ notation when you have a @k@ and just want an @a@.
-lookupA :: EqTable k => Tabulation (Row k) () a -> Query (Row k) a
+lookupA :: EqTable k => Tabulation k () a -> Query (Row k) a
 lookupA = lmap (==.) . lookupByA
 
 
@@ -215,7 +211,7 @@ lookupA = lmap (==.) . lookupByA
 -- @('Rel8.<.' key)@ which uses 'DBOrd'.
 --
 -- See also 'lookup'.
-lookupBy :: (k -> Row Bool) -> Tabulation k i a -> Query i a
+lookupBy :: (Row k -> Row Bool) -> Tabulation k i a -> Query i a
 lookupBy f (Tabulation tabulation) = proc i -> do
   (k, a) <- tabulation -< i
   where_ -< f k
@@ -223,7 +219,7 @@ lookupBy f (Tabulation tabulation) = proc i -> do
 
 
 -- | Like 'lookupA' but can take an arbitrary predicate. See also 'lookupBy'.
-lookupByA :: Tabulation k () a -> Query (k -> Row Bool) a
+lookupByA :: Tabulation k () a -> Query (Row k -> Row Bool) a
 lookupByA (Tabulation tabulation) = proc f -> do
   (k, a) <- tabulation -< ()
   where_ -< f k
@@ -233,12 +229,12 @@ lookupByA (Tabulation tabulation) = proc f -> do
 -- | 'lookupAny' is like 'lookup', but instead of taking a single @k@, it
 -- takes a 'Query' of @k@s, and the resulting query will include @a@s that
 -- 'match'ed /any/ of the given @k@s. This is often used with 'Rel8.values'.
-lookupAny :: EqTable k => Query () (Row k) -> Tabulation (Row k) i a -> Query i a
+lookupAny :: EqTable k => Query () (Row k) -> Tabulation k i a -> Query i a
 lookupAny = lookupAnyBy (==.)
 
 
 -- | See 'lookupAny' and 'lookupBy'.
-lookupAnyBy :: (k -> l -> Row Bool) -> Query () l -> Tabulation k i a -> Query i a
+lookupAnyBy :: (Row k -> l -> Row Bool) -> Query () l -> Tabulation k i a -> Query i a
 lookupAnyBy f ks (Tabulation tabulation) = proc i -> do
   (k, a) <- tabulation -< i
   l <- ks -< ()
@@ -283,9 +279,9 @@ lookupAnyBy f ks (Tabulation tabulation) = proc i -> do
 --
 -- Analagous to [@rpadZip@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:rpadZip).
 leftAlign :: (EqTable k, Table b)
-  => Tabulation (Row k) i a
-  -> Tabulation (Row k) i (Row b)
-  -> Tabulation (Row k) i (a, Row (Maybe b))
+  => Tabulation k i a
+  -> Tabulation k i b
+  -> Tabulation k i (a, MaybeRow b)
 leftAlign = leftAlignWith (,)
 
 
@@ -293,25 +289,25 @@ leftAlign = leftAlignWith (,)
 --
 -- Analagous to [@rpadZipWith@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:rpadZipWith).
 leftAlignWith :: (EqTable k, Table b)
-  => (a -> Row (Maybe b) -> c)
-  -> Tabulation (Row k) i a
-  -> Tabulation (Row k) i (Row b)
-  -> Tabulation (Row k) i c
+  => (a -> MaybeRow b -> c)
+  -> Tabulation k i a
+  -> Tabulation k i b
+  -> Tabulation k i c
 leftAlignWith = leftAlignWithBy (==.)
 
 
 -- | See 'zipWithBy' and 'leftAlign'
 leftAlignWithBy
   :: (Table b, Table l)
-  => (k -> Row l -> Row Bool)
-  -> (a -> Row (Maybe b) -> c)
+  => (Row k -> Row l -> Row Bool)
+  -> (a -> MaybeRow b -> c)
   -> Tabulation k i a
-  -> Tabulation (Row l) i (Row b)
+  -> Tabulation l i b
   -> Tabulation k i c
 leftAlignWithBy predicate value (Tabulation left) (Tabulation right) = Tabulation $ proc i -> do
   (k, a) <- left -< i
-  mlb <- optional (filterA (toRow <$> right)) -< (predicate k . fst . fromRow, i)
-  returnA -< (k, value a (underRowProduct (fmap (snd . fromRow)) mlb))
+  mlb <- optional (filterA right) -< (predicate k . fst, i)
+  returnA -< (k, value a (snd <$> mlb))
 
 
 -- | Analagous to [@zip@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:zip).
@@ -334,9 +330,9 @@ leftAlignWithBy predicate value (Tabulation left) (Tabulation right) = Tabulatio
 -- in terms of the number of keys, but \(\sum_{k} n_k \times m_k\) in terms
 -- of the number of values.
 zip :: EqTable k
-  => Tabulation (Row k) i a
-  -> Tabulation (Row k) i b
-  -> Tabulation (Row k) i (a, b)
+  => Tabulation k i a
+  -> Tabulation k i b
+  -> Tabulation k i (a, b)
 zip = zipWith (,)
 
 
@@ -344,16 +340,16 @@ zip = zipWith (,)
 -- See 'zip'.
 zipWith :: EqTable k
   => (a -> b -> c)
-  -> Tabulation (Row k) i a
-  -> Tabulation (Row k) i b
-  -> Tabulation (Row k) i c
+  -> Tabulation k i a
+  -> Tabulation k i b
+  -> Tabulation k i c
 zipWith = zipWithBy (==.)
 
 
 -- | Like 'zipWith' but you can override the equality predicate with something
 -- other than 'match'.
 zipWithBy :: ()
-  => (k -> l -> Row Bool)
+  => (Row k -> Row l -> Row Bool)
   -> (a -> b -> c)
   -> Tabulation k i a -> Tabulation l i b -> Tabulation k i c
 zipWithBy predicate value (Tabulation left) (Tabulation right) = Tabulation $ proc i -> do

@@ -61,7 +61,7 @@ unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f -> traverseColumns (Column.traversePrimExpr f)
 
 
-optional :: Table b => Query a (Row b) -> Query a (Row (Maybe b))
+optional :: Query a b -> Query a (MaybeRow b)
 optional query = fromOpaleye $ Opaleye.QueryArr arrow
   where
     arrow (a, left, tag) = (maybeB, join, Opaleye.next tag')
@@ -82,10 +82,7 @@ optional query = fromOpaleye $ Opaleye.QueryArr arrow
             )
 
         maybeB =
-          Row $ Compose $ Tagged $
-          HProduct
-            (toColumns t')
-            (HCompose (hmap (coerce Column.just) (toColumns b)))
+          MaybeRow t' b
 
     true = Column.toPrimExpr $ Column.lit $ Opaleye.BoolLit True
 
