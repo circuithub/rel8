@@ -23,6 +23,8 @@ module Rel8
 
     -- ** Rows
   , Row
+  , MaybeRow
+  , RowProduct(..)
 
     -- *** Literals
   , lit
@@ -30,7 +32,6 @@ module Rel8
     -- *** Null and Maybe
   , isNothing
   , maybe_
-
 
     -- * Running Queries
     -- ** @SELECT@
