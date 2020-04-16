@@ -1,8 +1,10 @@
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language DeriveFunctor #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language PolyKinds #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
@@ -65,14 +67,6 @@ instance (HasField name a r, HasField name (Schema a Column) (Schema r Column)) 
     getter = Row $ snd $ hasField @name x
 
 
-fst_ :: Row (a, b) -> Row a
-fst_ (Row (Compose (Tagged (HProduct x _)))) = Row x
-
-
-snd_ :: Row (a, b) -> Row b
-snd_ (Row (Compose (Tagged (HProduct _ y)))) = Row y
-
-
 isNothing :: Table a => Row (Maybe a) -> Row Bool
 isNothing = maybe_ (lit True) (const $ lit False)
 
@@ -96,12 +90,27 @@ class Table a => EqTable a where
   (==.) :: Row a -> Row a -> Row Bool
 
 
-implode :: (Row a, Row b) -> Row (a, b)
-implode (Row x, Row y) = Row $ Compose $ Tagged $ HProduct x y
+class Table y => RowProduct x y | x -> y, y -> x where
+  toRow :: x -> Row y
+  fromRow :: Row y -> x
 
 
-class TableFunctor f where
-  mapTable :: (Row a -> Row b) -> Row (f a) -> Row (f b)
+instance (Table x', Table y', x ~ Row x', y ~ Row y') => RowProduct (x, y) (x', y') where
+  toRow (Row a, Row b) = Row $ Compose $ Tagged $ HProduct a b
+  fromRow (Row (Compose (Tagged (HProduct l r)))) = (Row l, Row r)
 
 
-instance TableFunctor Maybe where
+data MaybeRow a = MaybeRow { rowIsNull :: Row Bool, row :: a }
+  deriving (Functor)
+
+
+instance (a ~ Row b, Table b) => RowProduct (MaybeRow a) (Maybe b) where
+  toRow MaybeRow{ rowIsNull, row } =
+    Row $ Compose $ Tagged $ HProduct (toColumns rowIsNull) (HCompose $ hmap coerce $ toColumns row)
+
+  fromRow (Row (Compose (Tagged (HProduct a (HCompose b))))) =
+    MaybeRow (Row a) (Row $ hmap coerce b)
+
+
+underRowProduct :: (RowProduct t b, RowProduct s a) => (s -> t) -> Row a -> Row b
+underRowProduct f = toRow . f . fromRow

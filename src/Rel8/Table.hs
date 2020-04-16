@@ -197,4 +197,3 @@ instance Table a => Table (Maybe a) where
   decode = Compose $ Tagged $ HProduct decode $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where
       nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))
-

@@ -310,8 +310,8 @@ leftAlignWithBy
   -> Tabulation k i c
 leftAlignWithBy predicate value (Tabulation left) (Tabulation right) = Tabulation $ proc i -> do
   (k, a) <- left -< i
-  mlb <- optional (filterA (fmap implode right)) -< (predicate k . fst_, i)
-  returnA -< (k, value a (mapTable snd_ mlb))
+  mlb <- optional (filterA (toRow <$> right)) -< (predicate k . fst . fromRow, i)
+  returnA -< (k, value a (underRowProduct (fmap (snd . fromRow)) mlb))
 
 
 -- | Analagous to [@zip@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:zip).
