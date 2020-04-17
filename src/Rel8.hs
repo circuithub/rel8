@@ -2,6 +2,8 @@ module Rel8
   ( -- * Schema Definition
     -- ** Defining Tables
     Table
+  , ReadShowColumn(..)
+  , CompositeColumn(..)
   , TableSchema(..)
   , genericColumns
 

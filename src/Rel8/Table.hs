@@ -15,6 +15,7 @@
 
 module Rel8.Table where
 
+import Control.Applicative ( Const(..), getConst )
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.Aeson ( Value )
 import Data.ByteString ( ByteString )
@@ -28,8 +29,8 @@ import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
+import Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
@@ -46,6 +47,7 @@ import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, Zon
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
+import Generics.OneLiner (ADT, Constraints, gfoldMap)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
 
@@ -80,10 +82,10 @@ class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) 
     => Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
   decode = Compose $ Tagged $ gdecode (Proxy @(Rep a ()))
 
-  encode :: Schema a (Op O.Literal)
+  encode :: Schema a (Op O.PrimExpr)
   default encode
     :: (GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
-    => Schema a (Op O.Literal)
+    => Schema a (Op O.PrimExpr)
   encode = Compose $ Tagged $ gencode (Proxy @(Rep a ()))
 
 
@@ -94,7 +96,7 @@ class GTable (f :: * -> *) where
   gto :: GSchema f Identity -> f x
 
   gdecode :: Proxy (f x) -> GSchema f (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
-  gencode :: Proxy (f x) -> GSchema f (Op O.Literal)
+  gencode :: Proxy (f x) -> GSchema f (Op O.PrimExpr)
 
 
 instance GTable f => GTable (M1 D c f) where
@@ -226,8 +228,31 @@ instance (Read a, Show a) => Table (ReadShowColumn a) where
   to = coerce
   from = coerce
 
-  encode = HIdentity $ coerce (O.StringLit . show @a)
+  encode = HIdentity $ coerce (O.ConstExpr . O.StringLit . show @a)
   decode = HIdentity $ coerce $ \x -> fmap (read @a) . fromField @String x
+
+
+newtype CompositeColumn a = CompositeColumn a
+
+
+instance (ADT a, Constraints a Table, FromField a) => Table (CompositeColumn a) where
+  type Schema (CompositeColumn a) = HIdentity a
+  to = coerce
+  from = coerce
+
+  encode = HIdentity $ Op $ catPrimExprs . gfoldMap @Table primExprs
+    where
+      catPrimExprs = O.FunExpr ""
+
+      primExprs :: forall s. Table s => s -> [O.PrimExpr]
+      primExprs s =
+        getConst $ hsequence $ hzipWith (\(Op encoder) (Identity x) -> Compose $ Const [ encoder x ]) (encode @s) (from s)
+
+
+  -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
+  -- have good support for composite types. For now, force the user to do this.
+  decode = coerce $ fromField @a
+
 
 
 rowParser :: Table a => RowParser a
@@ -250,7 +275,7 @@ instance Table a => Table (Maybe a) where
     to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
 
   encode =
-    Compose $ Tagged $ HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe O.NullLit f) $ encode @a
+    Compose $ Tagged $ HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe (O.ConstExpr O.NullLit) f) $ encode @a
 
   decode = Compose $ Tagged $ HProduct (decode @Bool) $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where

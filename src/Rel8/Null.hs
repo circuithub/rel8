@@ -33,7 +33,7 @@ instance Table a => Table (Null a) where
     Null $ to <$> htraverse (\(Compose (Identity (Null y))) -> Identity <$> y) x
 
   encode =
-    Compose $ Tagged $ HCompose $ hmap (\(Op f) -> Compose $ Op \(Null x) -> maybe O.NullLit f x) $ encode @a
+    Compose $ Tagged $ HCompose $ hmap (\(Op f) -> Compose $ Op \(Null x) -> maybe (O.ConstExpr O.NullLit) f x) $ encode @a
 
   decode = Compose $ Tagged $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where

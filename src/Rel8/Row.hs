@@ -79,7 +79,7 @@ maybe_ (Row def) f (Row (Compose (Tagged (HProduct (HIdentity isNull) (HCompose 
 
 
 lit :: forall a. Table a => a -> Row a
-lit = Row . hzipWith (\f x -> Column.lit (coerce f x)) (encode @a) . from
+lit = Row . hzipWith (\f x -> Column.Column (coerce f x)) (encode @a) . from
 
 
 instance (Table a, IsString a) => IsString (Row a) where

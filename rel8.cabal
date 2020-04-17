@@ -23,6 +23,7 @@ library
     , bifunctors              ^>= 5.5.5
     , bytestring              ^>= 0.10.9.0
     , distributive            ^>= 0.6
+    , one-liner               ^>= 1.0
     , opaleye
     , postgresql-simple       ^>= 0.6.2
     , profunctors             ^>= 5.3
