@@ -57,6 +57,7 @@ library
     Rel8.EqTable
     Rel8.IO
     Rel8.Null
+    Rel8.OrdTable
     Rel8.Query
     Rel8.Row
     Rel8.Schema
