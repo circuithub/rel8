@@ -27,6 +27,7 @@ import Data.Indexed.Functor.Traversable ( htraverse, hsequence )
 import Data.String ( IsString(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column ( Column )
 import qualified Rel8.Column as Column
 import Rel8.Table ( Table(..) )
@@ -85,10 +86,6 @@ instance (Table a, IsString a) => IsString (Row a) where
   fromString = lit . fromString
 
 
-class Table a => EqTable a where
-  (==.) :: Row a -> Row a -> Row Bool
-
-
 class Table y => RowProduct x y | x -> y, y -> x where
   toRow :: x -> Row y
   fromRow :: Row y -> x
@@ -126,3 +123,7 @@ _1 f (Row (HProduct x y)) = Row . flip HProduct y . toColumns <$> f (Row x)
 
 _2 :: Applicative f => (Row b -> f (Row b)) -> Row (a, b) -> f (Row (a, b))
 _2 f (Row (HProduct x y)) = Row . HProduct x . toColumns <$> f (Row y)
+
+
+(&&.) :: Row Bool -> Row Bool -> Row Bool
+x &&. y = coerce $ Opaleye.BinExpr (Opaleye.:&&) (coerce x) (coerce y)

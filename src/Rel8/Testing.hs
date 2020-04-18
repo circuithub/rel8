@@ -21,10 +21,11 @@ import Control.Arrow ( arr, returnA )
 import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics ( Generic )
 import Rel8
+import Rel8.EqTable
 import Rel8.Null
 
 data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will fail, as 'Maybe Int' has no schema: , columnC :: Maybe Int }
-  deriving (Generic, Table)
+  deriving (Generic, Table, EqTable)
 
 
 myTable :: TableSchema MyTable

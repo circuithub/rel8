@@ -18,6 +18,7 @@ import Data.Functor.Apply ( Apply, liftF2 )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Profunctor ( Choice, Profunctor, Strong, dimap, lmap, right', second' )
 import Prelude hiding ( filter, lookup, zip, zipWith )
+import Rel8.EqTable
 import Rel8.Query
 import Rel8.Row
 

@@ -54,6 +54,7 @@ library
     Data.Tagged.PolyKinded
     Rel8
     Rel8.Column
+    Rel8.EqTable
     Rel8.IO
     Rel8.Null
     Rel8.Query
