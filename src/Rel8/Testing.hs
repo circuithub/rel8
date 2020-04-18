@@ -108,3 +108,10 @@ leftJoinTest = fmap toRow $ proc _ -> do
     user2 <- each userSchema -< ()
     where_ -< lit False
     returnA -< user2) -< user1
+
+
+prepareTest :: Query (Row Bool) (Row Part)
+prepareTest = proc x -> do
+  user <- each part -< ()
+  where_ -< x
+  returnA -< user
