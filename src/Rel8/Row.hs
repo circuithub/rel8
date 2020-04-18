@@ -116,13 +116,13 @@ underRowProduct f = toRow . f . fromRow
 
 
 just :: (Applicative f, Table a) => (Row a -> f (Row a)) -> Row (Maybe a) -> f (Row (Maybe a))
-just f (Row (Compose (Tagged (HProduct isNull (HCompose x))))) =
-  Row . Compose . Tagged . HProduct isNull . HCompose . hmap coerce . toColumns <$> f (Row (hmap coerce x))
+just f (Row (HProduct isNull (HCompose x))) =
+  Row . HProduct isNull . HCompose . hmap coerce . toColumns <$> f (Row (hmap coerce x))
 
 
 _1 :: Applicative f => (Row a -> f (Row a)) -> Row (a, b) -> f (Row (a, b))
-_1 f (Row (Compose (Tagged (HProduct x y)))) = Row . Compose . Tagged . flip HProduct y . toColumns <$> f (Row x)
+_1 f (Row (HProduct x y)) = Row . flip HProduct y . toColumns <$> f (Row x)
 
 
 _2 :: Applicative f => (Row b -> f (Row b)) -> Row (a, b) -> f (Row (a, b))
-_2 f (Row (Compose (Tagged (HProduct x y)))) = Row . Compose . Tagged . HProduct x . toColumns <$> f (Row y)
+_2 f (Row (HProduct x y)) = Row . HProduct x . toColumns <$> f (Row y)

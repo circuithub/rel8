@@ -174,7 +174,8 @@ instance (FromField a, ToField a) => Table (PostgreSQLSimpleField a) where
   to = coerce
   decode = coerce $ fromField @a
   encode = HIdentity $ Op \a -> case toField a of
-    Plain builder -> O.OtherLit (Data.ByteString.Lazy.Char8.unpack (toLazyByteString builder))
+    Plain builder ->
+      O.ConstExpr $ O.OtherLit $ Data.ByteString.Lazy.Char8.unpack $ toLazyByteString builder
 
 
 deriving via (PostgreSQLSimpleField Bool) instance Table Bool
