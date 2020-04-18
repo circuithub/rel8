@@ -22,7 +22,6 @@ import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
 import Data.Profunctor ( lmap )
 import Data.Profunctor.Traversing ( Traversing )
-import Data.Tagged.PolyKinded ( Tagged(..) )
 import Numeric.Natural ( Natural )
 import qualified Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
@@ -94,7 +93,7 @@ where_ =
 
 catMaybe_ :: Table b => Query a (Row (Maybe b)) -> Query a (Row b)
 catMaybe_ q = proc a -> do
-  Row (Compose (Tagged (HProduct isNull (HCompose row)))) <- q -< a
+  Row (HProduct isNull (HCompose row)) <- q -< a
   where_ -< Row $ isNull
   returnA -< Row $ hmap (coerce Column.fromJust) row
 

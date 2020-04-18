@@ -64,8 +64,8 @@ instance (ColumnName f, ColumnName g) => ColumnName (Sum f g) where
 -- TODO Yuck. We really want to know if Rep f is isomorphic to unit (or f is isomorphic to Identity)
 type family Simple (f :: Type -> Type) :: Constraint where
   Simple ((:~:) x) = ()
-  Simple (Product (Const ()) (I (HIdentity t) Null)) = ()
-  Simple _ = TypeError ('Text "Nested schema detected")
+  Simple (I (HIdentity t) Null) = ()
+  -- Simple _ = TypeError ('Text "Nested schema detected")
 
 
 instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName name ())) f) where

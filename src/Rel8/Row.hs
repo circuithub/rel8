@@ -25,7 +25,6 @@ import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
 import Data.Indexed.Functor.Traversable ( htraverse, hsequence )
 import Data.String ( IsString(..) )
-import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
 import Rel8.Column ( Column )
@@ -72,7 +71,7 @@ isNothing = maybe_ (lit True) (const $ lit False)
 
 
 maybe_ :: (Table a, Table b) => Row b -> (Row a -> Row b) -> Row (Maybe a) -> Row b
-maybe_ (Row def) f (Row (Compose (Tagged (HProduct (HIdentity isNull) (HCompose row))))) = Row $ htabulate \i ->
+maybe_ (Row def) f (Row (HProduct (HIdentity isNull) (HCompose row))) = Row $ htabulate \i ->
   Column.case_
     [(isNull, hindex def i)]
     (hindex (toColumns (f (Row $ hmap (coerce Column.fromJust) row))) i)
@@ -96,8 +95,8 @@ class Table y => RowProduct x y | x -> y, y -> x where
 
 
 instance (Table x', Table y', x ~ Row x', y ~ Row y') => RowProduct (x, y) (x', y') where
-  toRow (Row a, Row b) = Row $ Compose $ Tagged $ HProduct a b
-  fromRow (Row (Compose (Tagged (HProduct l r)))) = (Row l, Row r)
+  toRow (Row a, Row b) = Row $ HProduct a b
+  fromRow (Row (HProduct l r)) = (Row l, Row r)
 
 
 data MaybeRow a = MaybeRow { rowIsNull :: Row Bool, row :: a }
@@ -106,9 +105,9 @@ data MaybeRow a = MaybeRow { rowIsNull :: Row Bool, row :: a }
 
 instance (a ~ Row b, Table b) => RowProduct (MaybeRow a) (Maybe b) where
   toRow MaybeRow{ rowIsNull, row } =
-    Row $ Compose $ Tagged $ HProduct (toColumns rowIsNull) (HCompose $ hmap coerce $ toColumns row)
+    Row $ HProduct (toColumns rowIsNull) (HCompose $ hmap coerce $ toColumns row)
 
-  fromRow (Row (Compose (Tagged (HProduct a (HCompose b))))) =
+  fromRow (Row (HProduct a (HCompose b))) =
     MaybeRow (Row a) (Row $ hmap coerce b)
 
 

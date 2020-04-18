@@ -35,7 +35,6 @@ import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Scientific ( Scientific )
-import Data.Tagged.PolyKinded ( Tagged(..) )
 import qualified Data.Text
 import qualified Data.Text.Lazy
 import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
@@ -61,32 +60,32 @@ class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) 
   -- This is an injective type family rather than a data family to aid
   -- generic deriving.
   type Schema a :: (Type -> Type) -> Type
-  type Schema a = Compose (Tagged a) (GSchema (Rep a))
+  type Schema a = GSchema (Rep a)
 
   from :: a -> Schema a Identity
   default from
-    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    :: (Generic a, GTable (Rep a), GSchema (Rep a) ~ Schema a)
     => a -> Schema a Identity
-  from = Compose . Tagged . gfrom . GHC.Generics.from
+  from = gfrom . GHC.Generics.from
 
   to :: Schema a Identity -> a
   default to
-    :: (Generic a, GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    :: (Generic a, GTable (Rep a), GSchema (Rep a) ~ Schema a)
     => Schema a Identity -> a
-  to = GHC.Generics.to . gto . unTagged . getCompose
+  to = GHC.Generics.to . gto
 
 
   decode :: Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
   default decode
-    :: (GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
     => Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
-  decode = Compose $ Tagged $ gdecode (Proxy @(Rep a ()))
+  decode = gdecode (Proxy @(Rep a ()))
 
   encode :: Schema a (Op O.PrimExpr)
   default encode
-    :: (GTable (Rep a), Compose (Tagged a) (GSchema (Rep a)) ~ Schema a)
+    :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
     => Schema a (Op O.PrimExpr)
-  encode = Compose $ Tagged $ gencode (Proxy @(Rep a ()))
+  encode = gencode (Proxy @(Rep a ()))
 
 
 class GTable (f :: * -> *) where
@@ -264,19 +263,19 @@ rowParser = rowParser'
 
 instance Table a => Table (Maybe a) where
   type Schema (Maybe a) =
-    Compose (Tagged (Maybe a)) (HProduct (HIdentity Bool) (HCompose (Schema a) Maybe))
+    HProduct (HIdentity Bool) (HCompose (Schema a) Maybe)
 
   from =
     maybe
-      (Compose $ Tagged $ HProduct (coerce True) $ htabulate \(I _) -> Identity Nothing)
-      (\x -> Compose $ Tagged $ HProduct (coerce False) $ htabulate \(I i) -> Just <$> hindex (from x) i)
+      (HProduct (coerce True) $ htabulate \(I _) -> Identity Nothing)
+      (\x -> HProduct (coerce False) $ htabulate \(I i) -> Just <$> hindex (from x) i)
 
-  to (Compose (Tagged (HProduct _ (HCompose x)))) = do
+  to (HProduct _ (HCompose x)) = do
     to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
 
   encode =
-    Compose $ Tagged $ HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe (O.ConstExpr O.NullLit) f) $ encode @a
+    HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe (O.ConstExpr O.NullLit) f) $ encode @a
 
-  decode = Compose $ Tagged $ HProduct (decode @Bool) $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
+  decode = HProduct (decode @Bool) $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
     where
       nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))
