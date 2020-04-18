@@ -14,6 +14,7 @@
 
 module Rel8.Row where
 
+import Data.Bifunctor ( bimap )
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
@@ -76,6 +77,18 @@ maybe_ (Row def) f (Row (HProduct (HIdentity isNull) (HCompose row))) = Row $ ht
   Column.case_
     [(isNull, hindex def i)]
     (hindex (toColumns (f (Row $ hmap (coerce Column.fromJust) row))) i)
+
+
+case_ :: Table a => [( Row Bool, Row a )] -> Row a -> Row a
+case_ cases (Row f) = Row $ htabulate \i ->
+  Column.case_
+    (map (bimap coerce (flip hindex i . toColumns)) cases)
+    (hindex f i)
+
+
+if_ :: Table a => Row Bool -> Row a -> Row a -> Row a
+if_ (Row (HIdentity isTrue)) (Row t) (Row f) = Row $ htabulate \i ->
+  Column.case_ [(isTrue, hindex t i)] (hindex f i)
 
 
 lit :: forall a. Table a => a -> Row a
