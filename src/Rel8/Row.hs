@@ -126,4 +126,12 @@ _2 f (Row (HProduct x y)) = Row . HProduct x . toColumns <$> f (Row y)
 
 
 (&&.) :: Row Bool -> Row Bool -> Row Bool
-x &&. y = coerce $ Opaleye.BinExpr (Opaleye.:&&) (coerce x) (coerce y)
+(&&.) = coerce $ Opaleye.BinExpr (Opaleye.:&&)
+
+
+(||.) :: Row Bool -> Row Bool -> Row Bool
+(||.) = coerce $ Opaleye.BinExpr (Opaleye.:||)
+
+
+not_ :: Row Bool -> Row Bool
+not_ = coerce (Opaleye.UnExpr Opaleye.OpNot)
