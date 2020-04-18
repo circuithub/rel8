@@ -19,6 +19,7 @@ library
   build-depends:
       aeson                   ^>= 1.4.4.0
     , base                    ^>= 4.12 || ^>= 4.13
+    , binary                  ^>= 0.8.7.0
     , adjunctions             ^>= 4.4
     , bifunctors              ^>= 5.5.5
     , bytestring              ^>= 0.10.9.0

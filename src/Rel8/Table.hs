@@ -18,8 +18,10 @@ module Rel8.Table where
 import Control.Applicative ( Const(..), getConst )
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.Aeson ( Value )
+import Data.Binary.Builder ( toLazyByteString )
 import Data.ByteString ( ByteString )
 import qualified Data.ByteString.Lazy
+import qualified Data.ByteString.Lazy.Char8
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Contravariant ( Op(..) )
@@ -43,6 +45,7 @@ import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField, from
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import Database.PostgreSQL.Simple.HStore ( HStoreList, HStoreMap )
 import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, ZonedTimestamp )
+import Database.PostgreSQL.Simple.ToField ( Action(..), ToField, toField )
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
@@ -165,16 +168,16 @@ newtype PostgreSQLSimpleField a =
   PostgreSQLSimpleField a
 
 
-instance FromField a => Table (PostgreSQLSimpleField a) where
+instance (FromField a, ToField a) => Table (PostgreSQLSimpleField a) where
   type Schema (PostgreSQLSimpleField a) = HIdentity a
   from = coerce
   to = coerce
   decode = coerce $ fromField @a
-  encode = undefined
+  encode = HIdentity $ Op \a -> case toField a of
+    Plain builder -> O.OtherLit (Data.ByteString.Lazy.Char8.unpack (toLazyByteString builder))
 
 
 deriving via (PostgreSQLSimpleField Bool) instance Table Bool
-deriving via (PostgreSQLSimpleField Char) instance Table Char
 deriving via (PostgreSQLSimpleField Double) instance Table Double
 deriving via (PostgreSQLSimpleField Float) instance Table Float
 deriving via (PostgreSQLSimpleField Int) instance Table Int
@@ -182,7 +185,6 @@ deriving via (PostgreSQLSimpleField Int16) instance Table Int16
 deriving via (PostgreSQLSimpleField Int32) instance Table Int32
 deriving via (PostgreSQLSimpleField Int64) instance Table Int64
 deriving via (PostgreSQLSimpleField Integer) instance Table Integer
-deriving via (PostgreSQLSimpleField ()) instance Table ()
 deriving via (PostgreSQLSimpleField Data.ByteString.ByteString) instance Table Data.ByteString.ByteString
 deriving via (PostgreSQLSimpleField Data.ByteString.Lazy.ByteString) instance Table Data.ByteString.Lazy.ByteString
 deriving via (PostgreSQLSimpleField Scientific) instance Table Scientific
@@ -204,7 +206,6 @@ deriving via (PostgreSQLSimpleField Null) instance Table Null
 deriving via (PostgreSQLSimpleField HStoreMap) instance Table HStoreMap
 deriving via (PostgreSQLSimpleField HStoreList) instance Table HStoreList
 deriving via (PostgreSQLSimpleField String) instance Table String
-deriving via (PostgreSQLSimpleField Rational) instance Table Rational
 
 
 instance (Table a, Table b) => Table (a, b)
