@@ -15,7 +15,7 @@
 
 -- | This module describes the 'EqTable' class.
 
-module Rel8.EqTable ( EqTable(..) ) where
+module Rel8.EqTable ( EqTable(..), (==.) ) where
 
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
@@ -32,44 +32,48 @@ import Rel8.Row
 import Rel8.Table
 
 
+(==.) :: forall a. EqTable a => Row a -> Row a -> Row Bool
+Row x ==. Row y = eq @a x y
+
+
 -- | 'Table's that support a notion of equality.
 class Table a => EqTable a where
-  (==.) :: Row a -> Row a -> Row Bool
+  eq :: Schema a Column -> Schema a Column -> Row Bool
 
-  default (==.)
+  default eq
     :: (EqTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
-    => Row a -> Row a -> Row Bool
-  x ==. y = (==.) @(Rep a ()) (coerceRow x) (coerceRow y)
+    => Schema a Column -> Schema a Column -> Row Bool
+  eq = eq @(Rep a ())
 
 
 instance EqTable (f a) => EqTable (M1 D c f a) where
-  x ==. y =
-    (==.) @(f a) (coerceRow x) (coerceRow y)
+  eq = eq @(f a)
 
 
 instance EqTable (f a) => EqTable (M1 C c f a) where
-  x ==. y =
-    (==.) @(f a) (coerceRow x) (coerceRow y)
+  eq = eq @(f a)
 
 
 instance EqTable (f a) => EqTable (M1 S ('MetaSel ('Just fieldName) x y z) f a) where
-  Row (Compose (FieldName x)) ==. Row (Compose (FieldName y)) =
-    (==.) @(f a) (Row x) (Row y)
+  eq (Compose (FieldName x)) (Compose (FieldName y)) =
+    eq @(f a) x y
 
 
 instance (EqTable (l a), EqTable (r a)) => EqTable ((l :*: r) a) where
-  Row (HProduct a b) ==. Row (HProduct x y) =
-    (Row @(l a) a ==. Row x) &&. (Row @(r a) b ==. Row y)
+  eq (HProduct a b) (HProduct x y) =
+    eq @(l a) a x &&. eq @(r a) b y
 
 
 instance EqTable a => EqTable (K1 i a x) where
-  x ==. y =
-    (==.) @a (coerceRow x) (coerceRow y)
+  eq = eq @a
 
 
 instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
-  (==.) =
-    coerce (Rel8.Column.==.)
+  eq x y =
+    coerce
+      (Rel8.Column.==.)
+      (Row @(ReadShowColumn a) x)
+      (Row @(ReadShowColumn a) y)
 
 
 deriving via PostgreSQLSimpleField Bool instance EqTable Bool
@@ -82,13 +86,16 @@ deriving via PostgreSQLSimpleField Text instance EqTable Text
 
 
 instance (Read a, Show a) => EqTable (ReadShowColumn a) where
-  (==.) =
-    coerce (Rel8.Column.==.)
+  eq x y =
+    coerce
+      (Rel8.Column.==.)
+      (Row @(ReadShowColumn a) x)
+      (Row @(ReadShowColumn a) y)
 
 
 instance EqTable a => EqTable (Maybe a) where
-  x ==. y =
+  eq x y =
     maybe_
-      (isNothing y)
-      (\x' -> maybe_ (lit False) (x' ==.) y)
-      x
+      (isNothing (Row @(Maybe a) y))
+      (\x' -> maybe_ (lit False) (x' ==.) (Row @(Maybe a) y))
+      (Row @(Maybe a) x)

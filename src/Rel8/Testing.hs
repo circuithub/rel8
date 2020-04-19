@@ -2,8 +2,10 @@
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
+{-# language DerivingStrategies #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
+{-# language GeneralizedNewtypeDeriving #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
@@ -12,6 +14,7 @@
 {-# language TypeFamilies #-}
 {-# language TypeInType #-}
 {-# language TypeSynonymInstances #-}
+{-# language UndecidableInstances #-}
 
 {-# options -fplugin=RecordDotPreprocessor #-}
 
@@ -21,7 +24,10 @@ import Control.Arrow ( arr, returnA )
 import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics ( Generic )
 import Rel8
-import Rel8.EqTable
+
+
+newtype PartId = PartId Int
+  deriving newtype (Table, EqTable)
 
 
 data MyTable = MyTable { columnA :: Bool, columnB :: Int, columnC :: Maybe Int }
