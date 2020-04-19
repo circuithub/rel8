@@ -147,3 +147,8 @@ _2 f (Row (HProduct x y)) = Row . HProduct x . toColumns <$> f (Row y)
 
 not_ :: Row Bool -> Row Bool
 not_ = coerce Column.not_
+
+
+coerceRow :: Schema a ~ Schema b => Row a -> Row b
+coerceRow (Row x) =
+  Row x

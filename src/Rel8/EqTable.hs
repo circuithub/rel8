@@ -1,3 +1,4 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language DerivingVia #-}
@@ -10,16 +11,17 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
+{-# language UndecidableInstances #-}
 
-module Rel8.EqTable where
+-- | This module describes the 'EqTable' class.
+
+module Rel8.EqTable ( EqTable(..) ) where
 
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Kind
-import Data.Proxy ( Proxy(..) )
 import Data.Text ( Text )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
@@ -33,31 +35,36 @@ import Rel8.Table
 -- | 'Table's that support a notion of equality.
 class Table a => EqTable a where
   (==.) :: Row a -> Row a -> Row Bool
+
   default (==.)
-    :: GEqTable (Rep a) (Schema a)
+    :: (EqTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
     => Row a -> Row a -> Row Bool
-  Row a ==. Row b = geq (Proxy @(Rep a ())) a b
+  x ==. y = (==.) @(Rep a ()) (coerceRow x) (coerceRow y)
 
 
-class GEqTable (f :: Type -> Type) (g :: (Type -> Type) -> Type) where
-  geq :: Proxy (f x) -> g Column -> g Column -> Row Bool
+instance EqTable (f a) => EqTable (M1 D c f a) where
+  x ==. y =
+    (==.) @(f a) (coerceRow x) (coerceRow y)
 
 
-instance GEqTable f p => GEqTable (M1 i c f) p where
-  geq proxy x y = geq @f (coerce proxy) x y
+instance EqTable (f a) => EqTable (M1 C c f a) where
+  x ==. y =
+    (==.) @(f a) (coerceRow x) (coerceRow y)
 
 
-instance (GEqTable f x, GEqTable g y) => GEqTable (f :*: g) (HProduct x y) where
-  geq proxy (HProduct u v) (HProduct x y) =
-    geq @f (coerce proxy) u x &&. geq @g (coerce proxy) v y
+instance EqTable (f a) => EqTable (M1 S ('MetaSel ('Just fieldName) x y z) f a) where
+  Row (Compose (FieldName x)) ==. Row (Compose (FieldName y)) =
+    (==.) @(f a) (Row x) (Row y)
 
 
-instance GEqTable (K1 i a) p => GEqTable (K1 i a) (Compose (FieldName name) p) where
-  geq = coerce (geq @(K1 i a) @p)
+instance (EqTable (l a), EqTable (r a)) => EqTable ((l :*: r) a) where
+  Row (HProduct a b) ==. Row (HProduct x y) =
+    (Row @(l a) a ==. Row x) &&. (Row @(r a) b ==. Row y)
 
 
-instance (Schema a ~ HIdentity b, EqTable a) => GEqTable (K1 i a) (HIdentity b) where
-  geq _ x y = (==.) @a (Row x) (Row y)
+instance EqTable a => EqTable (K1 i a x) where
+  x ==. y =
+    (==.) @a (coerceRow x) (coerceRow y)
 
 
 instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
