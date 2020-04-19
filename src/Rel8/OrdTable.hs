@@ -93,3 +93,10 @@ instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) wher
 
 deriving via PostgreSQLSimpleField Bool instance OrdTable Bool
 deriving via PostgreSQLSimpleField Int instance OrdTable Int
+
+
+instance (Read a, Show a) => OrdTable (ReadShowColumn a) where
+  (<=.) = coerce (Rel8.Column.<=.)
+  (<.) = coerce (Rel8.Column.<.)
+  (>=.) = coerce (Rel8.Column.>=.)
+  (>.) = coerce (Rel8.Column.>.)
