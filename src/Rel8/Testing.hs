@@ -66,7 +66,7 @@ descs = fmap (.description) (each part)
 -- of, there is nothing special here. The only thing we have to do is derive
 -- a Table instance, which can be done generically.
 
-data User = User { username :: String, email :: String }
+data User = User { username :: String, email :: Maybe String }
   deriving (Generic, Table)
 
 
