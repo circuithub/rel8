@@ -23,8 +23,8 @@ import Data.Proxy ( Proxy(..) )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
-import Rel8.Column
+import Rel8.Column hiding ((==.))
+import qualified Rel8.Column
 import Rel8.Row
 import Rel8.Table
 
@@ -53,8 +53,8 @@ instance (EqTable a, a ~ t, p ~ Schema t) => GEqTable (K1 i a) (Compose (FieldNa
   geq _ (Compose (FieldName x)) (Compose (FieldName y)) = (==.) @a (Row x) (Row y)
 
 
-instance (FromField a, ToField a) => EqTable ( PostgreSQLSimpleField a ) where
-  x ==. y = coerce $ O.BinExpr (O.:==) (coerce x) (coerce y)
+instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
+  (==.) = coerce (Rel8.Column.==.)
 
 
 deriving via PostgreSQLSimpleField Bool instance EqTable Bool

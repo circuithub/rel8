@@ -23,6 +23,11 @@ module Rel8.Column
   , traversePrimExpr
   , write
   , zipColumnsM
+  , (==.)
+  , (<=.)
+  , (<.)
+  , (>=.)
+  , (>.)
   ) where
 
 import Control.Applicative ( Const(..) )
@@ -139,3 +144,23 @@ nullEncoder =
 
 runColumnEncoder :: ColumnEncoder a -> a -> Column a
 runColumnEncoder f = coerce f
+
+
+(==.) :: Column a -> Column a -> Column Bool
+(==.) = coerce (Opaleye.BinExpr (Opaleye.:==))
+
+
+(<=.) :: Column a -> Column a -> Column Bool
+(<=.) = coerce (Opaleye.BinExpr (Opaleye.:<=))
+
+
+(<.) :: Column a -> Column a -> Column Bool
+(<.) = coerce (Opaleye.BinExpr (Opaleye.:<))
+
+
+(>=.) :: Column a -> Column a -> Column Bool
+(>=.) = coerce (Opaleye.BinExpr (Opaleye.:>=))
+
+
+(>.) :: Column a -> Column a -> Column Bool
+(>.) = coerce (Opaleye.BinExpr (Opaleye.:>))

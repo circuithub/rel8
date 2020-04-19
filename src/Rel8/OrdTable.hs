@@ -23,8 +23,8 @@ import Data.Proxy ( Proxy(..) )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
-import Rel8.Column
+import qualified Rel8.Column
+import Rel8.Column hiding ((<.), (<=.), (>.), (>=.))
 import Rel8.EqTable
 import Rel8.Row
 import Rel8.Table
@@ -85,10 +85,10 @@ instance (OrdTable a, a ~ t, p ~ Schema t) => GOrdTable (K1 i a) (Compose (Field
 
 
 instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) where
-  (<=.) = coerce $ O.BinExpr (O.:<=)
-  (<.) = coerce $ O.BinExpr (O.:<)
-  (>.) = coerce $ O.BinExpr (O.:>)
-  (>=.) = coerce $ O.BinExpr (O.:>=)
+  (<=.) = coerce (Rel8.Column.<=.)
+  (<.) = coerce (Rel8.Column.<.)
+  (>.) = coerce (Rel8.Column.>.)
+  (>=.) = coerce (Rel8.Column.>=.)
 
 
 deriving via PostgreSQLSimpleField Bool instance OrdTable Bool
