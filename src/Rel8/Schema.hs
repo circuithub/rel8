@@ -21,17 +21,13 @@ import Control.Monad ( void )
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
-import Data.Functor.Product ( Product(..) )
-import Data.Functor.Sum ( Sum(..) )
 import Data.Indexed.Functor ( hmap )
-import Data.Indexed.Functor.Compose ( HCompose(..), I )
+import Data.Indexed.Functor.Compose ( HCompose(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( hsequence )
-import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy(..) )
-import Data.Type.Equality ((:~:))
 import GHC.Generics
 import GHC.TypeLits
 import qualified Opaleye.Internal.PackMap as Opaleye
