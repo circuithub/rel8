@@ -30,7 +30,6 @@ import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
-import Data.Proxy ( Proxy(..) )
 import Data.Scientific ( Scientific )
 import qualified Data.Text
 import qualified Data.Text.Lazy
@@ -59,101 +58,91 @@ class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) 
   -- This is an injective type family rather than a data family to aid
   -- generic deriving.
   type Schema a :: (Type -> Type) -> Type
-  type Schema a = GSchema (Rep a)
+  type Schema a = Schema (Rep a ())
 
   from :: a -> Schema a Identity
   default from
-    :: (Generic a, GTable (Rep a), GSchema (Rep a) ~ Schema a)
+    :: (Generic a, Table (Rep a ()), Schema (Rep a ()) ~ Schema a)
     => a -> Schema a Identity
-  from = gfrom . GHC.Generics.from
+  from = from @(Rep a ()) . GHC.Generics.from
 
   to :: Schema a Identity -> a
   default to
-    :: (Generic a, GTable (Rep a), GSchema (Rep a) ~ Schema a)
+    :: (Generic a, Table (Rep a ()), Schema (Rep a ()) ~ Schema a)
     => Schema a Identity -> a
-  to = GHC.Generics.to . gto
-
+  to = GHC.Generics.to @_ @() . to
 
   decode :: Schema a ColumnDecoder
   default decode
-    :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
+    :: (Table (Rep a ()), Schema (Rep a ()) ~ Schema a)
     => Schema a ColumnDecoder
-  decode = gdecode (Proxy @(Rep a ()))
+  decode = decode @(Rep a ())
 
   encode :: Schema a ColumnEncoder
   default encode
-    :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
+    :: (Table (Rep a ()), Schema (Rep a ()) ~ Schema a)
     => Schema a ColumnEncoder
-  encode = gencode (Proxy @(Rep a ()))
+  encode = encode @(Rep a ())
 
 
-class GTable (f :: * -> *) where
-  type GSchema f :: (* -> *) -> *
+instance Table (f a) => Table (M1 D c f a) where
+  type Schema (M1 D c f a) = Schema (f a)
 
-  gfrom :: f x -> GSchema f Identity
-  gto :: GSchema f Identity -> f x
+  from = from . unM1
+  to = M1 . to
 
-  gdecode :: Proxy (f x) -> GSchema f ColumnDecoder
-  gencode :: Proxy (f x) -> GSchema f ColumnEncoder
-
-
-instance GTable f => GTable (M1 D c f) where
-  type GSchema (M1 D c f) = GSchema f
-  gfrom = gfrom . unM1
-  gto = M1 . gto
-
-  gencode = coerce (gencode @f)
-  gdecode = coerce (gdecode @f)
+  encode = encode @(f a)
+  decode = decode @(f a)
 
 
-instance GTable f => GTable (M1 C c f) where
-  type GSchema (M1 C c f) = GSchema f
-  gfrom = gfrom . unM1
-  gto = M1 . gto
+instance Table (f a) => Table (M1 C c f a) where
+  type Schema (M1 C c f a) = Schema (f a)
+  from = from . unM1
+  to = M1 . to
 
-  gencode = coerce (gencode @f)
-  gdecode = coerce (gdecode @f)
-
-
-instance (GTable f, GTable g) => GTable (f :*: g) where
-  type GSchema (f :*: g) = HProduct (GSchema f) (GSchema g)
-
-  gfrom (a :*: b) = HProduct (gfrom a) (gfrom b)
-  gto (HProduct a b) = gto a :*: gto b
-
-  gencode = HProduct <$> coerce (gencode @f) <*> coerce (gencode @g)
-  gdecode = HProduct <$> coerce (gdecode @f) <*> coerce (gdecode @g)
+  encode = encode @(f a)
+  decode = decode @(f a)
 
 
-instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
-  type GSchema (M1 S ('MetaSel ('Just name) x y z) f) =
-    Compose (FieldName name) (GSchema f)
+instance (Table (f a), Table (g a)) => Table ((f :*: g) a) where
+  type Schema ((f :*: g) a) = HProduct (Schema (f a)) (Schema (g a))
 
-  gfrom = Compose . FieldName . gfrom . unM1
-  gto = M1 . gto . unFieldName . getCompose
+  from (a :*: b) = HProduct (from a) (from b)
+  to (HProduct a b) = to a :*: to b
 
-  gencode = coerce (gencode @f)
-  gdecode = coerce (gdecode @f)
-
-
-instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
-  type GSchema (M1 S ('MetaSel 'Nothing x y z) f) =
-    GSchema f
-
-  gfrom = gfrom . unM1
-  gto = M1 . gto
-
-  gencode = coerce (gencode @f)
-  gdecode = coerce (gdecode @f)
+  encode = HProduct (encode @(f a)) (encode @(g a))
+  decode = HProduct (decode @(f a)) (decode @(g a))
 
 
-instance Table a => GTable (K1 i a) where
-  type GSchema (K1 i a) = Schema a
-  gfrom = from . unK1
-  gto = K1 . to
+instance Table (f a) => Table (M1 S ('MetaSel ('Just name) x y z) f a) where
+  type Schema (M1 S ('MetaSel ('Just name) x y z) f a) =
+    Compose (FieldName name) (Schema (f a))
 
-  gencode _ = encode @a
-  gdecode _ = decode @a
+  from = Compose . FieldName . from . unM1
+  to = M1 . to . unFieldName . getCompose
+
+  encode = Compose $ FieldName $ encode @(f a)
+  decode = Compose $ FieldName $ decode @(f a)
+
+
+instance Table (f a) => Table (M1 S ('MetaSel 'Nothing x y z) f a) where
+  type Schema (M1 S ('MetaSel 'Nothing x y z) f a) =
+    Schema (f a)
+
+  from = from . unM1
+  to = M1 . to
+
+  encode = coerce (encode @(f a))
+  decode = coerce (decode @(f a))
+
+
+instance Table a => Table (K1 i a x) where
+  type Schema (K1 i a x) = Schema a
+  from = from . unK1
+  to = K1 . to
+
+  encode = encode @a
+  decode = decode @a
 
 
 -- Base types are one column tables.
@@ -302,6 +291,7 @@ instance (FromJSON a, ToJSON a, Typeable a) => Table (JSONColumn a) where
 
   encode = HIdentity $ jsonEncoder @a
   decode = HIdentity $ jsonDecoder @a
+
 
 newtype CompositeColumn a = CompositeColumn a
 
