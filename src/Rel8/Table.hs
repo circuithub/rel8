@@ -100,8 +100,8 @@ instance GTable f => GTable (M1 D c f) where
   gfrom = gfrom . unM1
   gto = M1 . gto
 
-  gencode proxy = gencode (unM1 <$> proxy)
-  gdecode proxy = gdecode (unM1 <$> proxy)
+  gencode = coerce (gencode @f)
+  gdecode = coerce (gdecode @f)
 
 
 instance GTable f => GTable (M1 C c f) where
@@ -109,8 +109,8 @@ instance GTable f => GTable (M1 C c f) where
   gfrom = gfrom . unM1
   gto = M1 . gto
 
-  gencode proxy = gencode (unM1 <$> proxy)
-  gdecode proxy = gdecode (unM1 <$> proxy)
+  gencode = coerce (gencode @f)
+  gdecode = coerce (gdecode @f)
 
 
 instance (GTable f, GTable g) => GTable (f :*: g) where
@@ -119,8 +119,8 @@ instance (GTable f, GTable g) => GTable (f :*: g) where
   gfrom (a :*: b) = HProduct (gfrom a) (gfrom b)
   gto (HProduct a b) = gto a :*: gto b
 
-  gencode proxy = HProduct (gencode (fmap (\(x :*: _) -> x) proxy)) (gencode (fmap (\(_ :*: y) -> y) proxy))
-  gdecode proxy = HProduct (gdecode (fmap (\(x :*: _) -> x) proxy)) (gdecode (fmap (\(_ :*: y) -> y) proxy))
+  gencode = HProduct <$> coerce (gencode @f) <*> coerce (gencode @g)
+  gdecode = HProduct <$> coerce (gdecode @f) <*> coerce (gdecode @g)
 
 
 instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
@@ -130,8 +130,8 @@ instance GTable f => GTable (M1 S ('MetaSel ('Just name) x y z) f) where
   gfrom = Compose . FieldName . gfrom . unM1
   gto = M1 . gto . unFieldName . getCompose
 
-  gencode proxy = Compose $ FieldName $ gencode (unM1 <$> proxy)
-  gdecode proxy = Compose $ FieldName $ gdecode (unM1 <$> proxy)
+  gencode = coerce (gencode @f)
+  gdecode = coerce (gdecode @f)
 
 
 instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
@@ -141,8 +141,8 @@ instance GTable f => GTable (M1 S ('MetaSel 'Nothing x y z) f) where
   gfrom = gfrom . unM1
   gto = M1 . gto
 
-  gencode proxy = gencode (unM1 <$> proxy)
-  gdecode proxy = gdecode (unM1 <$> proxy)
+  gencode = coerce (gencode @f)
+  gdecode = coerce (gdecode @f)
 
 
 instance Table a => GTable (K1 i a) where
