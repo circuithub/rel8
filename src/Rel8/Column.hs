@@ -38,6 +38,7 @@ module Rel8.Column
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.Binary.Builder ( toLazyByteString )
 import Data.ByteString ( ByteString )
+import qualified Data.ByteString.Char8
 import qualified Data.ByteString.Lazy.Char8
 import Data.Coerce ( coerce )
 import Data.Functor.Contravariant ( Op(..) )
@@ -129,6 +130,21 @@ toField =
       Opaleye.OtherLit $
       Data.ByteString.Lazy.Char8.unpack $
       toLazyByteString builder
+
+    Escape bs ->
+      Opaleye.ConstExpr $
+      Opaleye.StringLit $
+      Data.ByteString.Char8.unpack bs
+
+    EscapeByteA bs ->
+      Opaleye.ConstExpr $
+      Opaleye.ByteStringLit
+      bs
+
+    EscapeIdentifier i ->
+      Opaleye.ConstExpr $
+      Opaleye.OtherLit $
+      pure '"' <> Data.ByteString.Char8.unpack i <> pure '"'
 
 
 showEncoder :: forall a. Show a => ColumnEncoder a
