@@ -33,15 +33,19 @@ module Rel8.Column
   , concreteColumn
   , derivedColumn
   , isNull
+  , jsonEncoder
+  , jsonDecoder
   ) where
 
 import Control.Monad.Trans.Reader ( ReaderT(..) )
+import Data.Aeson ( ToJSON, FromJSON, encode )
 import Data.Binary.Builder ( toLazyByteString )
 import Data.ByteString ( ByteString )
 import qualified Data.ByteString.Char8
 import qualified Data.ByteString.Lazy.Char8
 import Data.Coerce ( coerce )
 import Data.Functor.Contravariant ( Op(..) )
+import Data.Typeable ( Typeable )
 import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField )
 import qualified Database.PostgreSQL.Simple.FromField as PG
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
@@ -149,6 +153,14 @@ toField =
 
 showEncoder :: forall a. Show a => ColumnEncoder a
 showEncoder = coerce (O.ConstExpr . O.StringLit . show @a)
+
+
+jsonEncoder :: forall a. ToJSON a => ColumnEncoder a
+jsonEncoder = coerce (O.ConstExpr . O.StringLit . Data.ByteString.Lazy.Char8.unpack . encode @a)
+
+
+jsonDecoder :: forall a. (FromJSON a, Typeable a) => ColumnDecoder a
+jsonDecoder = coerce (PG.fromJSONField @a)
 
 
 nullEncoder :: ColumnEncoder a -> ColumnEncoder (Maybe a)

@@ -15,7 +15,7 @@
 
 module Rel8.Table where
 
-import Data.Aeson ( Value )
+import Data.Aeson ( FromJSON, ToJSON, Value )
 import Data.ByteString ( ByteString )
 import qualified Data.ByteString.Lazy
 import Data.Coerce ( coerce )
@@ -35,6 +35,7 @@ import Data.Scientific ( Scientific )
 import qualified Data.Text
 import qualified Data.Text.Lazy
 import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
+import Data.Typeable ( Typeable )
 import Data.UUID ( UUID )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser )
@@ -287,27 +288,36 @@ instance (Read a, Show a) => Table (ReadShowColumn a) where
   decode = HIdentity $ readDecoder @a
 
 
+-- | This @newtype@ can be used to derive 'Table' instances for types that are
+-- stored in the database as a single JSON column, using Aeson's 'ToJSON' and
+-- 'FromJSON' type classes as a serialization format.
+newtype JSONColumn a = JSONColumn a
+
+
+instance (FromJSON a, ToJSON a, Typeable a) => Table (JSONColumn a) where
+  type Schema (JSONColumn a) = HIdentity a
+  to = coerce
+  from = coerce
+
+  encode = HIdentity $ jsonEncoder @a
+  decode = HIdentity $ jsonDecoder @a
+
 newtype CompositeColumn a = CompositeColumn a
 
 
 -- TODO
--- instance (ADT a, Constraints a Table, FromField a) => Table (CompositeColumn a) where
---   type Schema (CompositeColumn a) = HIdentity a
---   to = coerce
---   from = coerce
+instance (ADT a, Constraints a Table, FromField a) => Table (CompositeColumn a) where
+  type Schema (CompositeColumn a) = HIdentity a
+  to = coerce
+  from = coerce
 
---   encode = HIdentity $ Op $ catPrimExprs . gfoldMap @Table primExprs
---     where
---       catPrimExprs = O.FunExpr ""
+  encode = undefined
 
---       primExprs :: forall s. Table s => s -> [O.PrimExpr]
---       primExprs s =
---         getConst $ hsequence $ hzipWith (\(Op encoder) (Identity x) -> Compose $ Const [ encoder x ]) (encode @s) (from s)
+  -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
+  -- have good support for composite types. For now, force the user to do this.
+  decode = coerce $ fromField @a
 
 
---   -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
---   -- have good support for composite types. For now, force the user to do this.
---   decode = coerce $ fromField @a
 rowParser :: Table a => RowParser a
 rowParser = rowParser'
   where
