@@ -45,6 +45,7 @@ import Database.PostgreSQL.Simple.ToField ( ToField )
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
 import GHC.Generics ( (:*:)(..), C, D, Generic, K1(..), M1(..), Meta(..), Rep, S )
+import Generics.OneLiner ( ADT, Constraints )
 import Rel8.Column
 
 
