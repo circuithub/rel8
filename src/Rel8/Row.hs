@@ -17,7 +17,6 @@ module Rel8.Row where
 import Data.Bifunctor ( bimap )
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor ( hmap )
 import Data.Indexed.Functor.Compose ( HCompose(..) )
@@ -92,7 +91,7 @@ if_ (Row (HIdentity isTrue)) (Row t) (Row f) = Row $ htabulate \i ->
 
 
 lit :: forall a. Table a => a -> Row a
-lit = Row . hzipWith (\f x -> Column.Column (coerce f x)) (encode @a) . from
+lit = Row . hzipWith (\f -> Column.runColumnEncoder f . coerce) (encode @a) . from
 
 
 instance (Table a, IsString a) => IsString (Row a) where

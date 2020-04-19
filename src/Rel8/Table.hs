@@ -15,24 +15,19 @@
 
 module Rel8.Table where
 
-import Control.Applicative ( Const(..), getConst )
-import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.Aeson ( Value )
-import Data.Binary.Builder ( toLazyByteString )
 import Data.ByteString ( ByteString )
 import qualified Data.ByteString.Lazy
-import qualified Data.ByteString.Lazy.Char8
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Contravariant ( Op(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Identity ( Identity(..) )
 import Data.Indexed.Functor ( HFunctor(..) )
 import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
-import Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence )
+import Data.Indexed.Functor.Representable ( HRepresentable(..) )
+import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
 import Data.Proxy ( Proxy(..) )
@@ -41,16 +36,15 @@ import qualified Data.Text
 import qualified Data.Text.Lazy
 import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 import Data.UUID ( UUID )
-import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField, fromField )
-import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
+import Database.PostgreSQL.Simple.FromField ( FromField )
+import Database.PostgreSQL.Simple.FromRow ( RowParser )
 import Database.PostgreSQL.Simple.HStore ( HStoreList, HStoreMap )
 import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, ZonedTimestamp )
-import Database.PostgreSQL.Simple.ToField ( Action(..), ToField, toField )
+import Database.PostgreSQL.Simple.ToField ( ToField )
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
 import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
-import Generics.OneLiner (ADT, Constraints, gfoldMap)
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
+import Rel8.Column
 
 
 -- | The class of "table-like" things.
@@ -78,16 +72,16 @@ class (HTraversable (Schema a), HRepresentable (Schema a)) => Table (a :: Type) 
   to = GHC.Generics.to . gto
 
 
-  decode :: Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+  decode :: Schema a ColumnDecoder
   default decode
     :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
-    => Schema a (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
+    => Schema a ColumnDecoder
   decode = gdecode (Proxy @(Rep a ()))
 
-  encode :: Schema a (Op O.PrimExpr)
+  encode :: Schema a ColumnEncoder
   default encode
     :: (GTable (Rep a), GSchema (Rep a) ~ Schema a)
-    => Schema a (Op O.PrimExpr)
+    => Schema a ColumnEncoder
   encode = gencode (Proxy @(Rep a ()))
 
 
@@ -97,8 +91,8 @@ class GTable (f :: * -> *) where
   gfrom :: f x -> GSchema f Identity
   gto :: GSchema f Identity -> f x
 
-  gdecode :: Proxy (f x) -> GSchema f (ReaderT Field (ReaderT (Maybe ByteString) Conversion))
-  gencode :: Proxy (f x) -> GSchema f (Op O.PrimExpr)
+  gdecode :: Proxy (f x) -> GSchema f ColumnDecoder
+  gencode :: Proxy (f x) -> GSchema f ColumnEncoder
 
 
 instance GTable f => GTable (M1 D c f) where
@@ -173,9 +167,7 @@ instance (FromField a, ToField a) => Table (PostgreSQLSimpleField a) where
   from = coerce
   to = coerce
   decode = coerce $ fromField @a
-  encode = HIdentity $ Op \a -> case toField a of
-    Plain builder ->
-      O.ConstExpr $ O.OtherLit $ Data.ByteString.Lazy.Char8.unpack $ toLazyByteString builder
+  encode = coerce $ toField @a
 
 
 deriving via (PostgreSQLSimpleField Bool) instance Table Bool
@@ -229,30 +221,31 @@ instance (Read a, Show a) => Table (ReadShowColumn a) where
   to = coerce
   from = coerce
 
-  encode = HIdentity $ coerce (O.ConstExpr . O.StringLit . show @a)
-  decode = HIdentity $ coerce $ \x -> fmap (read @a) . fromField @String x
+  encode = HIdentity $ showEncoder @a
+  decode = HIdentity $ readDecoder @a
 
 
 newtype CompositeColumn a = CompositeColumn a
 
 
-instance (ADT a, Constraints a Table, FromField a) => Table (CompositeColumn a) where
-  type Schema (CompositeColumn a) = HIdentity a
-  to = coerce
-  from = coerce
+-- TODO
+-- instance (ADT a, Constraints a Table, FromField a) => Table (CompositeColumn a) where
+--   type Schema (CompositeColumn a) = HIdentity a
+--   to = coerce
+--   from = coerce
 
-  encode = HIdentity $ Op $ catPrimExprs . gfoldMap @Table primExprs
-    where
-      catPrimExprs = O.FunExpr ""
+--   encode = HIdentity $ Op $ catPrimExprs . gfoldMap @Table primExprs
+--     where
+--       catPrimExprs = O.FunExpr ""
 
-      primExprs :: forall s. Table s => s -> [O.PrimExpr]
-      primExprs s =
-        getConst $ hsequence $ hzipWith (\(Op encoder) (Identity x) -> Compose $ Const [ encoder x ]) (encode @s) (from s)
+--       primExprs :: forall s. Table s => s -> [O.PrimExpr]
+--       primExprs s =
+--         getConst $ hsequence $ hzipWith (\(Op encoder) (Identity x) -> Compose $ Const [ encoder x ]) (encode @s) (from s)
 
 
-  -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
-  -- have good support for composite types. For now, force the user to do this.
-  decode = coerce $ fromField @a
+--   -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
+--   -- have good support for composite types. For now, force the user to do this.
+--   decode = coerce $ fromField @a
 
 
 
@@ -260,7 +253,7 @@ rowParser :: Table a => RowParser a
 rowParser = rowParser'
   where
     rowParser' :: forall a. Table a => RowParser a
-    rowParser' = to <$> htraverse (coerce fieldWith) (decode @a)
+    rowParser' = to <$> htraverse (fmap Identity . columnDecoderToRowParser) (decode @a)
 
 
 instance Table a => Table (Maybe a) where
@@ -276,8 +269,7 @@ instance Table a => Table (Maybe a) where
     to <$> htraverse (\(Compose y) -> Identity <$> runIdentity y) x
 
   encode =
-    HProduct (encode @Bool) $ HCompose $ hmap (\(Op f) -> Compose $ Op $ maybe (O.ConstExpr O.NullLit) f) $ encode @a
+    HProduct (encode @Bool) $ HCompose $ hmap (Compose . nullEncoder) $ encode @a
 
-  decode = HProduct (decode @Bool) $ HCompose $ hmap (\f -> Compose (nullIsNothing f)) $ decode @a
-    where
-      nullIsNothing parser = ReaderT \field -> ReaderT (maybe (pure Nothing) (runReaderT (runReaderT (Just <$> parser) field) . Just))
+  decode =
+    HProduct (decode @Bool) $ HCompose $ hmap (Compose . maybeColumnDecoder) $ decode @a
