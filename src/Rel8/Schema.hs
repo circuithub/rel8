@@ -1,35 +1,42 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
+{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema where
 
 import Control.Applicative ( Const(..) )
 import Control.Monad ( void )
+import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Product ( Product(..) )
 import Data.Functor.Sum ( Sum(..) )
 import Data.Indexed.Functor ( hmap )
-import Data.Indexed.Functor.Compose ( I )
+import Data.Indexed.Functor.Compose ( HCompose(..), I )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
+import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Indexed.Functor.Representable ( HRepresentable(..) )
 import Data.Indexed.Functor.Traversable ( hsequence )
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy(..) )
 import Data.Type.Equality ((:~:))
+import GHC.Generics
 import GHC.TypeLits
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import Rel8.Column ( ColumnSchema(..), concreteColumn )
+import Rel8.Column ( ColumnSchema(..), concreteColumn, derivedColumn, isNull )
 import Rel8.Row
 import Rel8.Table ( Table(..) )
 
@@ -45,33 +52,36 @@ newtype Columns a =
   Columns (Schema a ColumnSchema)
 
 
-genericColumns :: (ColumnName (HRep (Schema a)), Table a) => Columns a
-genericColumns =
-  Columns $ htabulate \i -> concreteColumn $ columnName i
+genericColumns :: forall a. GInferColumns (Rep a) (Schema a) => Columns a
+genericColumns = Columns (ginferColumns @(Rep a) @(Schema a) @() Proxy)
 
 
-class ColumnName f where
-  columnName :: f a -> String
+class Table a => InferColumns a where
+  inferColumns :: Columns a
+  default inferColumns :: GInferColumns (Rep a) (Schema a) => Columns a
+  inferColumns = Columns (ginferColumns @(Rep a) @(Schema a) @() Proxy)
 
 
-instance ColumnName f => ColumnName (Product (Const ()) f) where
-  columnName (Pair _ r) = columnName r
+class GInferColumns f g where
+  ginferColumns :: Proxy (f x) -> g ColumnSchema
 
 
-instance (ColumnName f, ColumnName g) => ColumnName (Sum f g) where
-  columnName (InL x) = columnName x
-  columnName (InR x) = columnName x
+instance GInferColumns f g => GInferColumns (M1 i c f) g where
+  ginferColumns = coerce (ginferColumns @f @g)
 
 
--- TODO Yuck. We really want to know if Rep f is isomorphic to unit (or f is isomorphic to Identity)
-type family Simple (f :: Type -> Type) :: Constraint where
-  Simple ((:~:) x) = ()
-  Simple (I (HIdentity t) Maybe) = ()
-  -- Simple _ = TypeError ('Text "Nested schema detected")
+instance (GInferColumns f i, GInferColumns h g) => GInferColumns (f :*: h) (HProduct i g) where
+  ginferColumns = HProduct <$> coerce (ginferColumns @f @i) <*> coerce (ginferColumns @h @g)
 
 
-instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName name ())) f) where
-  columnName _ = symbolVal (Proxy @name)
+instance (KnownSymbol name, s ~ t) => GInferColumns (K1 i s) (Compose (FieldName name) (HIdentity t)) where
+  ginferColumns _ = Compose $ FieldName $ HIdentity $ concreteColumn (symbolVal @name Proxy)
+
+
+instance (KnownSymbol name, x ~ t) => GInferColumns (K1 i (Maybe x)) (Compose (FieldName name) (HProduct (HIdentity Bool) (HCompose (HIdentity x) Maybe))) where
+  ginferColumns _ =
+    Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
+
 
 
 table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)

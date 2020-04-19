@@ -23,7 +23,7 @@ import Data.Proxy ( Proxy(..) )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
-import Rel8.Column hiding ((==.), (&&.))
+import Rel8.Column hiding ((==.), (&&.), lit)
 import qualified Rel8.Column
 import Rel8.Row
 import Rel8.Table
@@ -45,17 +45,29 @@ class GEqTable (f :: Type -> Type) (g :: (Type -> Type) -> Type) where
 instance GEqTable f p => GEqTable (M1 i c f) p where
   geq proxy x y = geq @f (coerce proxy) x y
 
+
 instance (GEqTable f x, GEqTable g y) => GEqTable (f :*: g) (HProduct x y) where
   geq proxy (HProduct u v) (HProduct x y) =
     geq @f (coerce proxy) u x &&. geq @g (coerce proxy) v y
 
+
 instance (EqTable a, a ~ t, p ~ Schema t) => GEqTable (K1 i a) (Compose (FieldName name) p) where
-  geq _ (Compose (FieldName x)) (Compose (FieldName y)) = (==.) @a (Row x) (Row y)
+  geq _ (Compose (FieldName x)) (Compose (FieldName y)) =
+    (==.) @a (Row x) (Row y)
 
 
 instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
-  (==.) = coerce (Rel8.Column.==.)
+  (==.) =
+    coerce (Rel8.Column.==.)
 
 
 deriving via PostgreSQLSimpleField Bool instance EqTable Bool
 deriving via PostgreSQLSimpleField Int instance EqTable Int
+
+
+instance EqTable a => EqTable (Maybe a) where
+  x ==. y =
+    maybe_
+      (isNothing y)
+      (\x' -> maybe_ (lit False) (x' ==.) y)
+      x

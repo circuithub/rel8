@@ -32,6 +32,7 @@ module Rel8.Column
   , ColumnSchema(..)
   , concreteColumn
   , derivedColumn
+  , isNull
   ) where
 
 import Control.Monad.Trans.Reader ( ReaderT(..) )
@@ -201,3 +202,6 @@ derivedColumn f columnName =
     { select = f (Column (Opaleye.BaseTableAttrExpr columnName))
     , write = pure ()
     }
+
+isNull :: Column a -> Column Bool
+isNull = coerce (Opaleye.UnExpr Opaleye.OpIsNull)

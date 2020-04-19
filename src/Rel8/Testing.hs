@@ -22,9 +22,8 @@ import Database.PostgreSQL.Simple (Connection)
 import GHC.Generics ( Generic )
 import Rel8
 import Rel8.EqTable
-import Rel8.Null
 
-data MyTable = MyTable { columnA :: Bool, columnB :: Int } -- Adding this will fail, as 'Maybe Int' has no schema: , columnC :: Maybe Int }
+data MyTable = MyTable { columnA :: Bool, columnB :: Int, columnC :: Maybe Int }
   deriving (Generic, Table, EqTable)
 
 
@@ -40,15 +39,15 @@ dotTestColumnB :: Query x (Row Int)
 dotTestColumnB = fmap (.columnB) (each myTable)
 
 
--- dotTestColumnC :: Row (Maybe Int)
--- dotTestColumnC = fmap (.columnC) (each myTable)
+dotTestColumnC :: Query x (Row (Maybe Int))
+dotTestColumnC = fmap (.columnC) (each myTable)
 
 
 selectTest :: Connection -> IO [MyTable]
 selectTest c = select c ( each myTable )
 
 
-data Part = Part { mfrId :: Int, description :: Null String }
+data Part = Part { mfrId :: Int, description :: Maybe String }
   deriving (Generic, Table)
 
 part :: TableSchema Part
@@ -59,7 +58,7 @@ allMfrIds :: Query x (Row Int)
 allMfrIds = fmap (.mfrId) (each part)
 
 
-descs :: Query x (Row (Null String))
+descs :: Query x (Row (Maybe String))
 descs = fmap (.description) (each part)
 
 
