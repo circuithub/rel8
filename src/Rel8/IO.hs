@@ -23,7 +23,6 @@ import Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence )
 import Data.Int ( Int64 )
 import Data.Kind ( Type )
 import Data.Monoid ( Any(..) )
-import Data.Profunctor ( lmap )
 import Data.String ( fromString )
 import Database.PostgreSQL.Simple ( Connection, execute_, queryWith_ )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -52,7 +51,7 @@ select c = liftIO . Opaleye.runQueryExplicit queryRunner c . toOpaleye
 prepare
   :: forall a b m
    . (MonadIO m, Table a, Table b)
-  => Connection -> String -> Query (Row a) (Row b) -> m (a -> m [b])
+  => Connection -> String -> (Row a -> Query () (Row b)) -> m (a -> m [b])
 prepare c name q = do
   case showSql parameterizedQuery of
     Nothing ->
@@ -66,7 +65,7 @@ prepare c name q = do
 
   where
 
-    parameterizedQuery = lmap (const $ evalState mkRow 1) q
+    parameterizedQuery = q (evalState mkRow 1)
 
     mkRow :: Table x => State Int (Row x)
     mkRow = fmap Row $ hsequence $ htabulate $ const $ Compose column
