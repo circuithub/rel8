@@ -7,7 +7,6 @@
 {-# language KindSignatures #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -18,7 +17,6 @@ module Rel8.Schema where
 
 import Control.Applicative ( Const(..) )
 import Control.Monad ( void )
-import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Indexed.Functor ( hmap )
@@ -48,35 +46,54 @@ newtype Columns a =
   Columns (Schema a ColumnSchema)
 
 
-genericColumns :: forall a. GInferColumns (Rep a) (Schema a) => Columns a
-genericColumns = Columns (ginferColumns @(Rep a) @(Schema a) @() Proxy)
+fromColumns :: Columns a -> Schema a ColumnSchema
+fromColumns (Columns x) = x
+
+
+coerceColumns :: Schema a ~ Schema b => Columns a -> Columns b
+coerceColumns (Columns x) =
+  Columns x
+
+
+genericColumns :: forall a. Schema a ~ Schema (Rep a ()) => InferColumns (Rep a ()) => Columns a
+genericColumns = coerceColumns (inferColumns @(Rep a ()))
 
 
 class Table a => InferColumns a where
   inferColumns :: Columns a
-  default inferColumns :: GInferColumns (Rep a) (Schema a) => Columns a
-  inferColumns = Columns (ginferColumns @(Rep a) @(Schema a) @() Proxy)
+  default inferColumns :: Schema a ~ Schema (Rep a ()) => InferColumns (Rep a ()) => Columns a
+  inferColumns = coerceColumns (inferColumns @(Rep a ()))
 
 
-class GInferColumns f g where
-  ginferColumns :: Proxy (f x) -> g ColumnSchema
+instance InferColumns (f a) => InferColumns (M1 D c f a) where
+  inferColumns =
+    coerceColumns (inferColumns @(f a))
 
 
-instance GInferColumns f g => GInferColumns (M1 i c f) g where
-  ginferColumns = coerce (ginferColumns @f @g)
+instance InferColumns (f a) => InferColumns (M1 C c f a) where
+  inferColumns =
+    coerceColumns (inferColumns @(f a))
 
 
-instance (GInferColumns f i, GInferColumns h g) => GInferColumns (f :*: h) (HProduct i g) where
-  ginferColumns = HProduct <$> coerce (ginferColumns @f @i) <*> coerce (ginferColumns @h @g)
+instance (InferColumns (f a), InferColumns (g a)) => InferColumns ((f :*: g) a) where
+  inferColumns =
+    Columns $ HProduct (fromColumns (inferColumns @(f a))) (fromColumns (inferColumns @(g a)))
 
+-- TODO
+instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Int) a) where
+  inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
-instance (KnownSymbol name, s ~ t) => GInferColumns (K1 i s) (Compose (FieldName name) (HIdentity t)) where
-  ginferColumns _ = Compose $ FieldName $ HIdentity $ concreteColumn (symbolVal @name Proxy)
+instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Bool) a) where
+  inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
+instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i String) a) where
+  inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
-instance (KnownSymbol name, x ~ t) => GInferColumns (K1 i (Maybe x)) (Compose (FieldName name) (HProduct (HIdentity Bool) (HCompose (HIdentity x) Maybe))) where
-  ginferColumns _ =
-    Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
+instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe Int)) a) where
+  inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
+
+instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe String)) a) where
+  inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
 
 
 table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)
