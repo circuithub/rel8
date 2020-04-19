@@ -13,6 +13,7 @@
 -- | The product of two functors on indexed-types.
 module Data.Indexed.Functor.Product ( HProduct(..) ) where
 
+import Control.Applicative ( liftA2 )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Sum ( Sum(..) )
@@ -33,8 +34,8 @@ data HProduct (f :: (Type -> Type) -> Type) (g :: (Type -> Type) -> Type) (h :: 
 
 
 instance (HFunctor f, HFunctor g) => HFunctor (HProduct f g) where
-  hmap f (HProduct x y) =
-    HProduct (hmap f x) (hmap f y)
+  hmap f =
+    HProduct <$> hmap f . hfst <*> hmap f . hsnd
 
 
 instance (HRepresentable f, HRepresentable g) => HRepresentable (HProduct f g) where
@@ -50,8 +51,8 @@ instance (HRepresentable f, HRepresentable g) => HRepresentable (HProduct f g) w
 
 
 instance (HTraversable f, HTraversable g) => HTraversable (HProduct f g) where
-  htraverse f (HProduct x y) =
-    HProduct <$> htraverse f x <*> htraverse f y
+  htraverse f =
+    liftA2 HProduct <$> htraverse f . hfst <*> htraverse f . hsnd
 
 
 type family HasName (name :: Symbol) f :: Bool where

@@ -22,17 +22,17 @@ import Data.Kind ( Type )
 -- This can be used to transform the index. For example,
 -- @HCompose (HIdentity Bool) Maybe@ is the same as @HIdentity (Maybe Bool)@.
 newtype HCompose (h :: (x -> Type) -> Type) (f :: x -> y) (i :: y -> Type) =
-  HCompose (h (Compose i f))
+  HCompose { getHCompose :: h (Compose i f) }
 
 
 instance HFunctor h => HFunctor (HCompose h g) where
-  hmap f (HCompose x) =
-    HCompose $ hmap (Compose . f . getCompose) x
+  hmap f =
+    HCompose . hmap (Compose . f . getCompose) . getHCompose
 
 
 instance HTraversable h => HTraversable (HCompose h g) where
-  htraverse f (HCompose x) =
-    HCompose <$> htraverse (\(Compose y) -> Compose <$> f y) x
+  htraverse f =
+    fmap HCompose . htraverse (fmap Compose . f . getCompose) . getHCompose
 
 
 -- | A witness that the index has been transformed by a functor.

@@ -36,5 +36,5 @@ instance HRepresentable (HIdentity a) where
 
 
 instance HTraversable (HIdentity a) where
-  htraverse f (HIdentity x) =
-    HIdentity <$> f x
+  htraverse f =
+    fmap HIdentity . f . unHIdentity

@@ -10,7 +10,6 @@
 
 module Data.Functor.FieldName ( FieldName(..) ) where
 
-import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Rep ( Representable(..), pureRep, apRep )
@@ -40,8 +39,8 @@ instance Applicative ( FieldName name ) where
 
 
 instance Traversable (FieldName name) where
-  traverse f (FieldName x) =
-    FieldName <$> f x
+  traverse f =
+    fmap FieldName . f . unFieldName
 
 
 instance Representable (FieldName name) where
@@ -56,8 +55,8 @@ instance Representable (FieldName name) where
 
 
 instance Distributive (FieldName name) where
-  distribute y =
-    FieldName $ fmap coerce y
+  distribute =
+    FieldName . fmap unFieldName
 
 
 instance (name ~ name', f ~ g) => HasField name (Compose (FieldName name') f i) (g i) where
