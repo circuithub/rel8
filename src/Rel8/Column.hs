@@ -18,10 +18,8 @@ module Rel8.Column
   , fromJust
   , just
   , lit
-  , selectColumn
   , toOpaleyeColumn
   , traversePrimExpr
-  , write
   , zipColumnsM
   , (==.)
   , (<=.)
@@ -31,9 +29,11 @@ module Rel8.Column
   , (&&.)
   , (||.)
   , not_
+  , ColumnSchema(..)
+  , concreteColumn
+  , derivedColumn
   ) where
 
-import Control.Applicative ( Const(..) )
 import Control.Monad.Trans.Reader ( ReaderT(..) )
 import Data.Binary.Builder ( toLazyByteString )
 import Data.ByteString ( ByteString )
@@ -48,14 +48,12 @@ import qualified Database.PostgreSQL.Simple.ToField as PG
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.Table as Opaleye
 
 
 newtype Column a =
   Column { toPrimExpr :: Opaleye.PrimExpr }
-
-
-selectColumn :: Const String a -> Column a
-selectColumn = Column . Opaleye.BaseTableAttrExpr . getConst
 
 
 traversePrimExpr
@@ -86,10 +84,6 @@ case_ = coerce Opaleye.CaseExpr
 
 lit :: Opaleye.Literal -> Column a
 lit = coerce Opaleye.ConstExpr
-
-
-write :: Functor f => ((f Opaleye.PrimExpr, String) -> m ()) -> f (Column a) -> Const String a -> m ()
-write f values (Const columnName) = f (fmap toPrimExpr values, columnName)
 
 
 just :: Column a -> Column (Maybe a)
@@ -179,3 +173,31 @@ runColumnEncoder f = coerce f
 
 not_ :: Column Bool -> Column Bool
 not_ = coerce (Opaleye.UnExpr Opaleye.OpNot)
+
+
+data ColumnSchema a =
+  ColumnSchema
+    { select :: Column a
+    , write :: Opaleye.Writer (Column a) ()
+    }
+
+
+concreteColumn :: String -> ColumnSchema a
+concreteColumn columnName =
+  ColumnSchema
+    { select = Column (Opaleye.BaseTableAttrExpr columnName)
+    , write = Opaleye.Writer $ Opaleye.PackMap \f values ->
+        f (fmap toPrimExpr values, columnName)
+    }
+
+
+-- | Derived columns are _not_ written to, they are derived from other columns.
+derivedColumn
+  :: (Column a -> Column b)
+  -> String
+  -> ColumnSchema b
+derivedColumn f columnName =
+  ColumnSchema
+    { select = f (Column (Opaleye.BaseTableAttrExpr columnName))
+    , write = pure ()
+    }

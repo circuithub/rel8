@@ -29,7 +29,7 @@ import Data.Type.Equality ((:~:))
 import GHC.TypeLits
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import qualified Rel8.Column as Column
+import Rel8.Column ( ColumnSchema(..), concreteColumn )
 import Rel8.Row
 import Rel8.Table ( Table(..) )
 
@@ -41,15 +41,18 @@ data TableSchema a =
     }
 
 
-newtype Columns a = Columns (Schema a (Const String))
+newtype Columns a =
+  Columns (Schema a ColumnSchema)
 
 
 genericColumns :: (ColumnName (HRep (Schema a)), Table a) => Columns a
-genericColumns = Columns $ htabulate \i -> Const $ columnName i
+genericColumns =
+  Columns $ htabulate \i -> concreteColumn $ columnName i
 
 
 class ColumnName f where
   columnName :: f a -> String
+
 
 instance ColumnName f => ColumnName (Product (Const ()) f) where
   columnName (Pair _ r) = columnName r
@@ -72,14 +75,16 @@ instance (KnownSymbol name, Simple f) => ColumnName (Product (Const (FieldName n
 
 
 table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)
-table TableSchema{ tableName, schema = Columns columnNames } = Opaleye.Table tableName tableProperties
+table TableSchema{ tableName, schema = Columns columnSchemas } = Opaleye.Table tableName tableProperties
   where
     tableProperties = Opaleye.TableProperties writer view
       where
         writer = Opaleye.Writer $ Opaleye.PackMap \f values ->
           void $ hsequence $ htabulate @(Schema a) \i ->
-            let columnName = hindex columnNames i
-                columnValues = fmap (flip hindex i . toColumns) values
-            in Compose $ fmap Const $ Column.write f columnValues columnName
+            let columnValues = fmap (flip hindex i . toColumns) values
+            in
+            case write (hindex columnSchemas i) of
+              Opaleye.Writer (Opaleye.PackMap g) ->
+                Compose $ fmap Const $ g f columnValues
 
-        view = Opaleye.View $ Row $ hmap Column.selectColumn columnNames
+        view = Opaleye.View $ Row $ hmap select columnSchemas
