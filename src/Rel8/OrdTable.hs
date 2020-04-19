@@ -1,3 +1,4 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language DerivingVia #-}
@@ -18,8 +19,6 @@ import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.FieldName ( FieldName(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Kind
-import Data.Proxy ( Proxy(..) )
 import Data.Text ( Text )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
@@ -31,72 +30,71 @@ import Rel8.Row
 import Rel8.Table
 
 
+(<=.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
+Row x <=. Row y = lte @a x y
+
+
 -- | 'Table's that support a notion of equality.
 class EqTable a => OrdTable a where
-  (<=.) :: Row a -> Row a -> Row Bool
-  default (<=.) :: GOrdTable (Rep a) (Schema a) => Row a -> Row a -> Row Bool
-  Row a <=. Row b = gleq (Proxy @(Rep a ())) a b
+  lte :: Schema a Column -> Schema a Column -> Row Bool
+  lt  :: Schema a Column -> Schema a Column -> Row Bool
+  gt  :: Schema a Column -> Schema a Column -> Row Bool
+  gte :: Schema a Column -> Schema a Column -> Row Bool
 
-  (<.) :: Row a -> Row a -> Row Bool
-  default (<.) :: GOrdTable (Rep a) (Schema a) => Row a -> Row a -> Row Bool
-  Row a <. Row b = gltq (Proxy @(Rep a ())) a b
+  default lte
+    :: (OrdTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
+    => Schema a Column -> Schema a Column -> Row Bool
+  lte = lte @(Rep a ())
 
-  (>.) :: Row a -> Row a -> Row Bool
-  default (>.) :: GOrdTable (Rep a) (Schema a) => Row a -> Row a -> Row Bool
-  Row a >. Row b = ggtq (Proxy @(Rep a ())) a b
+  default lt
+    :: (OrdTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
+    => Schema a Column -> Schema a Column -> Row Bool
+  lt = lt @(Rep a ())
 
-  (>=.) :: Row a -> Row a -> Row Bool
-  default (>=.) :: GOrdTable (Rep a) (Schema a) => Row a -> Row a -> Row Bool
-  Row a >=. Row b = ggeq (Proxy @(Rep a ())) a b
+  default gte
+    :: (OrdTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
+    => Schema a Column -> Schema a Column -> Row Bool
+  gte = gte @(Rep a ())
 
-
-class GOrdTable (f :: Type -> Type) (g :: (Type -> Type) -> Type) where
-  gleq :: Proxy (f x) -> g Column -> g Column -> Row Bool
-  gltq :: Proxy (f x) -> g Column -> g Column -> Row Bool
-  ggtq :: Proxy (f x) -> g Column -> g Column -> Row Bool
-  ggeq :: Proxy (f x) -> g Column -> g Column -> Row Bool
-
-
-instance GOrdTable f p => GOrdTable (M1 i c f) p where
-  gleq = coerce (gleq @f @p)
-  gltq = coerce (gltq @f @p)
-  ggtq = coerce (ggtq @f @p)
-  ggeq = coerce (ggeq @f @p)
+  default gt
+    :: (OrdTable (Rep a ()), Schema (Rep a ()) ~ Schema a)
+    => Schema a Column -> Schema a Column -> Row Bool
+  gt = gt @(Rep a ())
 
 
-instance (GOrdTable f x, GOrdTable g y) => GOrdTable (f :*: g) (HProduct x y) where
-  gleq proxy (HProduct u v) (HProduct x y) =
-    gleq @f (coerce proxy) u x &&. gleq @g (coerce proxy) v y
-
-  gltq proxy (HProduct u v) (HProduct x y) =
-    gltq @f (coerce proxy) u x &&. gltq @g (coerce proxy) v y
-
-  ggtq proxy (HProduct u v) (HProduct x y) =
-    ggtq @f (coerce proxy) u x &&. ggtq @g (coerce proxy) v y
-
-  ggeq proxy (HProduct u v) (HProduct x y) =
-    ggeq @f (coerce proxy) u x &&. ggeq @g (coerce proxy) v y
+instance OrdTable (f a) => OrdTable (M1 D c f a) where
+  lte = lte @(f a)
+  lt = lt @(f a)
+  gt = gt @(f a)
+  gte = gte @(f a)
 
 
-instance GOrdTable (K1 i a) p => GOrdTable (K1 i a) (Compose (FieldName name) p) where
-  gleq = coerce (gleq @(K1 i a) @p)
-  gltq = coerce (gltq @(K1 i a) @p)
-  ggtq = coerce (ggtq @(K1 i a) @p)
-  ggeq = coerce (ggeq @(K1 i a) @p)
+instance OrdTable (f a) => OrdTable (M1 C c f a) where
+  lte = lte @(f a)
+  lt = lt @(f a)
+  gt = gt @(f a)
+  gte = gte @(f a)
 
 
-instance (OrdTable a, Schema a ~ HIdentity b) => GOrdTable (K1 i a) (HIdentity b) where
-  gleq _ x y = (<=.) @a (Row x) (Row y)
-  gltq _ x y = (<=.) @a (Row x) (Row y)
-  ggtq _ x y = (<=.) @a (Row x) (Row y)
-  ggeq _ x y = (<=.) @a (Row x) (Row y)
+instance (OrdTable (l a), OrdTable (r a)) => OrdTable ((l :*: r) a) where
+  lte (HProduct a b) (HProduct x y) = lte @(l a) a x &&. lte @(r a) b y
+  lt (HProduct a b) (HProduct x y) = lt @(l a) a x &&. lt @(r a) b y
+  gt (HProduct a b) (HProduct x y) = gt @(l a) a x &&. gt @(r a) b y
+  gte (HProduct a b) (HProduct x y) = gte @(l a) a x &&. gte @(r a) b y
+
+
+instance OrdTable (f a) => OrdTable (M1 S ('MetaSel ('Just fieldName) x y z) f a) where
+  lte (Compose (FieldName x)) (Compose (FieldName y)) = lte @(f a) x y
+  lt (Compose (FieldName x)) (Compose (FieldName y)) = lt @(f a) x y
+  gt (Compose (FieldName x)) (Compose (FieldName y)) = gt @(f a) x y
+  gte (Compose (FieldName x)) (Compose (FieldName y)) = gte @(f a) x y
 
 
 instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) where
-  (<=.) = coerce (Rel8.Column.<=.)
-  (<.) = coerce (Rel8.Column.<.)
-  (>.) = coerce (Rel8.Column.>.)
-  (>=.) = coerce (Rel8.Column.>=.)
+  lte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
+  lt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
+  gt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
+  gte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
 
 
 deriving via PostgreSQLSimpleField Bool instance OrdTable Bool
@@ -109,7 +107,7 @@ deriving via PostgreSQLSimpleField Text instance OrdTable Text
 
 
 instance (Read a, Show a) => OrdTable (ReadShowColumn a) where
-  (<=.) = coerce (Rel8.Column.<=.)
-  (<.) = coerce (Rel8.Column.<.)
-  (>=.) = coerce (Rel8.Column.>=.)
-  (>.) = coerce (Rel8.Column.>.)
+  lte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
+  lt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
+  gt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
+  gte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
