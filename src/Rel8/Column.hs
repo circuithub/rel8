@@ -28,6 +28,9 @@ module Rel8.Column
   , (<.)
   , (>=.)
   , (>.)
+  , (&&.)
+  , (||.)
+  , not_
   ) where
 
 import Control.Applicative ( Const(..) )
@@ -164,3 +167,15 @@ runColumnEncoder f = coerce f
 
 (>.) :: Column a -> Column a -> Column Bool
 (>.) = coerce (Opaleye.BinExpr (Opaleye.:>))
+
+
+(&&.) :: Column a -> Column a -> Column Bool
+(&&.) = coerce (Opaleye.BinExpr (Opaleye.:&&))
+
+
+(||.) :: Column Bool -> Column Bool -> Column Bool
+(||.) = coerce (Opaleye.BinExpr (Opaleye.:||))
+
+
+not_ :: Column Bool -> Column Bool
+not_ = coerce (Opaleye.UnExpr Opaleye.OpNot)

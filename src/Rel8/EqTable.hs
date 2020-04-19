@@ -23,7 +23,7 @@ import Data.Proxy ( Proxy(..) )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
-import Rel8.Column hiding ((==.))
+import Rel8.Column hiding ((==.), (&&.))
 import qualified Rel8.Column
 import Rel8.Row
 import Rel8.Table

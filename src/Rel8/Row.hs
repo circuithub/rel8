@@ -27,7 +27,6 @@ import Data.Indexed.Functor.Traversable ( htraverse, hsequence )
 import Data.String ( IsString(..) )
 import GHC.Records.Compat ( HasField(..) )
 import GHC.TypeLits ( Symbol )
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column ( Column )
 import qualified Rel8.Column as Column
 import Rel8.Table ( Table(..) )
@@ -138,12 +137,12 @@ _2 f (Row (HProduct x y)) = Row . HProduct x . toColumns <$> f (Row y)
 
 
 (&&.) :: Row Bool -> Row Bool -> Row Bool
-(&&.) = coerce $ Opaleye.BinExpr (Opaleye.:&&)
+(&&.) = coerce (Column.&&.)
 
 
 (||.) :: Row Bool -> Row Bool -> Row Bool
-(||.) = coerce $ Opaleye.BinExpr (Opaleye.:||)
+(||.) = coerce (Column.||.)
 
 
 not_ :: Row Bool -> Row Bool
-not_ = coerce (Opaleye.UnExpr Opaleye.OpNot)
+not_ = coerce Column.not_

@@ -24,7 +24,7 @@ import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
 import qualified Rel8.Column
-import Rel8.Column hiding ((<.), (<=.), (>.), (>=.))
+import Rel8.Column hiding ((<.), (<=.), (>.), (>=.), (&&.))
 import Rel8.EqTable
 import Rel8.Row
 import Rel8.Table
