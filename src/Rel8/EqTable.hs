@@ -65,6 +65,11 @@ deriving via PostgreSQLSimpleField Bool instance EqTable Bool
 deriving via PostgreSQLSimpleField Int instance EqTable Int
 
 
+instance (Read a, Show a) => EqTable (ReadShowColumn a) where
+  (==.) =
+    coerce (Rel8.Column.==.)
+
+
 instance EqTable a => EqTable (Maybe a) where
   x ==. y =
     maybe_
