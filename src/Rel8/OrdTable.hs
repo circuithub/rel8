@@ -57,28 +57,24 @@ class GOrdTable (f :: Type -> Type) (g :: (Type -> Type) -> Type) where
 
 
 instance GOrdTable f p => GOrdTable (M1 i c f) p where
-  gleq proxy x y = gleq (fmap unM1 proxy) x y
-  gltq proxy x y = gltq (fmap unM1 proxy) x y
-  ggtq proxy x y = ggtq (fmap unM1 proxy) x y
-  ggeq proxy x y = ggeq (fmap unM1 proxy) x y
+  gleq = coerce (gleq @f @p)
+  gltq = coerce (gltq @f @p)
+  ggtq = coerce (ggtq @f @p)
+  ggeq = coerce (ggeq @f @p)
 
 
 instance (GOrdTable f x, GOrdTable g y) => GOrdTable (f :*: g) (HProduct x y) where
   gleq proxy (HProduct u v) (HProduct x y) =
-        gleq (fmap (\(l :*: _) -> l) proxy) u x
-    &&. gleq (fmap (\(_ :*: r) -> r) proxy) v y
+    gleq @f (coerce proxy) u x &&. gleq @g (coerce proxy) v y
 
   gltq proxy (HProduct u v) (HProduct x y) =
-        gltq (fmap (\(l :*: _) -> l) proxy) u x
-    &&. gltq (fmap (\(_ :*: r) -> r) proxy) v y
+    gltq @f (coerce proxy) u x &&. gltq @g (coerce proxy) v y
 
   ggtq proxy (HProduct u v) (HProduct x y) =
-        ggtq (fmap (\(l :*: _) -> l) proxy) u x
-    &&. ggtq (fmap (\(_ :*: r) -> r) proxy) v y
+    ggtq @f (coerce proxy) u x &&. ggtq @g (coerce proxy) v y
 
   ggeq proxy (HProduct u v) (HProduct x y) =
-        ggeq (fmap (\(l :*: _) -> l) proxy) u x
-    &&. ggeq (fmap (\(_ :*: r) -> r) proxy) v y
+    ggeq @f (coerce proxy) u x &&. ggeq @g (coerce proxy) v y
 
 
 instance (OrdTable a, a ~ t, p ~ Schema t) => GOrdTable (K1 i a) (Compose (FieldName name) p) where

@@ -43,18 +43,17 @@ class GEqTable (f :: Type -> Type) (g :: (Type -> Type) -> Type) where
 
 
 instance GEqTable f p => GEqTable (M1 i c f) p where
-  geq proxy x y = geq (fmap unM1 proxy) x y
+  geq proxy x y = geq @f (coerce proxy) x y
 
 instance (GEqTable f x, GEqTable g y) => GEqTable (f :*: g) (HProduct x y) where
   geq proxy (HProduct u v) (HProduct x y) =
-        geq (fmap (\(l :*: _) -> l) proxy) u x
-    &&. geq (fmap (\(_ :*: r) -> r) proxy) v y
+    geq @f (coerce proxy) u x &&. geq @g (coerce proxy) v y
 
 instance (EqTable a, a ~ t, p ~ Schema t) => GEqTable (K1 i a) (Compose (FieldName name) p) where
   geq _ (Compose (FieldName x)) (Compose (FieldName y)) = (==.) @a (Row x) (Row y)
 
 
-instance ( FromField a, ToField a ) => EqTable ( PostgreSQLSimpleField a ) where
+instance (FromField a, ToField a) => EqTable ( PostgreSQLSimpleField a ) where
   x ==. y = coerce $ O.BinExpr (O.:==) (coerce x) (coerce y)
 
 
