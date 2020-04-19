@@ -219,5 +219,6 @@ derivedColumn f columnName =
     , write = pure ()
     }
 
+
 isNull :: Column a -> Column Bool
 isNull = coerce (Opaleye.UnExpr Opaleye.OpIsNull)

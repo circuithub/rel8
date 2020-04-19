@@ -212,6 +212,7 @@ data Update returning where
        }
     -> Update returning
 
+
 showSql :: Table a => Query () (Row a) -> Maybe String
 showSql =
   Opaleye.formatAndShowSQL

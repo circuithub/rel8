@@ -11,6 +11,7 @@
 {-# language UndecidableInstances #-}
 
 -- | The product of two functors on indexed-types.
+
 module Data.Indexed.Functor.Product ( HProduct(..) ) where
 
 import Control.Applicative ( liftA2 )

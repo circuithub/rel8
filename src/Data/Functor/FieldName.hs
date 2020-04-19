@@ -12,7 +12,7 @@ module Data.Functor.FieldName ( FieldName(..) ) where
 
 import Data.Distributive ( Distributive(..) )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Rep ( Representable(..), pureRep, apRep )
+import Data.Functor.Rep ( Representable(..), apRep, pureRep )
 import Data.Kind ( Type )
 import Data.Tagged.PolyKinded ( Tagged(..) )
 import GHC.Records.Extra ( HasField(..) )

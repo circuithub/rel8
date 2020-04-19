@@ -43,7 +43,7 @@ import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, Zon
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
 import qualified GHC.Generics
-import GHC.Generics ( Generic, Rep, M1(..), D, S, C, (:*:)(..), Meta(..), K1(..) )
+import GHC.Generics ( (:*:)(..), C, D, Generic, K1(..), M1(..), Meta(..), Rep, S )
 import Rel8.Column
 
 
@@ -154,10 +154,7 @@ instance Table a => GTable (K1 i a) where
   gdecode _ = decode @a
 
 
-
 -- Base types are one column tables.
-
-
 newtype PostgreSQLSimpleField a =
   PostgreSQLSimpleField a
 
@@ -171,43 +168,108 @@ instance (FromField a, ToField a) => Table (PostgreSQLSimpleField a) where
 
 
 deriving via (PostgreSQLSimpleField Bool) instance Table Bool
+
+
 deriving via (PostgreSQLSimpleField Double) instance Table Double
+
+
 deriving via (PostgreSQLSimpleField Float) instance Table Float
+
+
 deriving via (PostgreSQLSimpleField Int) instance Table Int
+
+
 deriving via (PostgreSQLSimpleField Int16) instance Table Int16
+
+
 deriving via (PostgreSQLSimpleField Int32) instance Table Int32
+
+
 deriving via (PostgreSQLSimpleField Int64) instance Table Int64
+
+
 deriving via (PostgreSQLSimpleField Integer) instance Table Integer
+
+
 deriving via (PostgreSQLSimpleField Data.ByteString.ByteString) instance Table Data.ByteString.ByteString
+
+
 deriving via (PostgreSQLSimpleField Data.ByteString.Lazy.ByteString) instance Table Data.ByteString.Lazy.ByteString
+
+
 deriving via (PostgreSQLSimpleField Scientific) instance Table Scientific
+
+
 deriving via (PostgreSQLSimpleField Data.Text.Text) instance Table Data.Text.Text
+
+
 deriving via (PostgreSQLSimpleField UTCTime) instance Table UTCTime
+
+
 deriving via (PostgreSQLSimpleField Value) instance Table Value
+
+
 deriving via (PostgreSQLSimpleField Data.Text.Lazy.Text) instance Table Data.Text.Lazy.Text
+
+
 deriving via (PostgreSQLSimpleField Oid) instance Table Oid
+
+
 deriving via (PostgreSQLSimpleField ZonedTime) instance Table ZonedTime
+
+
 deriving via (PostgreSQLSimpleField LocalTime) instance Table LocalTime
+
+
 deriving via (PostgreSQLSimpleField TimeOfDay) instance Table TimeOfDay
+
+
 deriving via (PostgreSQLSimpleField Day) instance Table Day
+
+
 deriving via (PostgreSQLSimpleField UUID) instance Table UUID
+
+
 deriving via (PostgreSQLSimpleField Date) instance Table Date
+
+
 deriving via (PostgreSQLSimpleField ZonedTimestamp) instance Table ZonedTimestamp
+
+
 deriving via (PostgreSQLSimpleField UTCTimestamp) instance Table UTCTimestamp
+
+
 deriving via (PostgreSQLSimpleField LocalTimestamp) instance Table LocalTimestamp
+
+
 deriving via (PostgreSQLSimpleField Null) instance Table Null
+
+
 deriving via (PostgreSQLSimpleField HStoreMap) instance Table HStoreMap
+
+
 deriving via (PostgreSQLSimpleField HStoreList) instance Table HStoreList
+
+
 deriving via (PostgreSQLSimpleField String) instance Table String
 
 
 instance (Table a, Table b) => Table (a, b)
-instance (Table a, Table b, Table c) => Table (a, b, c)
-instance (Table a, Table b, Table c, Table d) => Table (a, b, c, d)
-instance (Table a, Table b, Table c, Table d, Table e) => Table (a, b, c, d, e)
-instance (Table a, Table b, Table c, Table d, Table e, Table f) => Table (a, b, c, d, e, f)
-instance (Table a, Table b, Table c, Table d, Table e, Table f, Table g) => Table (a, b, c, d, e, f, g)
 
+
+instance (Table a, Table b, Table c) => Table (a, b, c)
+
+
+instance (Table a, Table b, Table c, Table d) => Table (a, b, c, d)
+
+
+instance (Table a, Table b, Table c, Table d, Table e) => Table (a, b, c, d, e)
+
+
+instance (Table a, Table b, Table c, Table d, Table e, Table f) => Table (a, b, c, d, e, f)
+
+
+instance (Table a, Table b, Table c, Table d, Table e, Table f, Table g) => Table (a, b, c, d, e, f, g)
 
 
 -- | This @newtype@ can be used to derive 'Table' instances for types that are
@@ -246,9 +308,6 @@ newtype CompositeColumn a = CompositeColumn a
 --   -- TODO We will have to write some kind of parser here. postgresql-simple doesn't
 --   -- have good support for composite types. For now, force the user to do this.
 --   decode = coerce $ fromField @a
-
-
-
 rowParser :: Table a => RowParser a
 rowParser = rowParser'
   where

@@ -19,7 +19,7 @@ import Data.Indexed.Functor ( hmap )
 import Data.Indexed.Functor.Compose ( HCompose(..) )
 import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Profunctor ( Profunctor, Strong, Choice, Star(..) )
+import Data.Profunctor ( Choice, Profunctor, Star(..), Strong )
 import Data.Profunctor ( lmap )
 import Data.Profunctor.Traversing ( Traversing )
 import Numeric.Natural ( Natural )
@@ -29,7 +29,7 @@ import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye ( PrimQuery, PrimQuery'(..), JoinType(..) )
+import qualified Opaleye.Internal.PrimQuery as Opaleye ( JoinType(..), PrimQuery, PrimQuery'(..) )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
@@ -126,6 +126,7 @@ fromOpaleye (Opaleye.QueryArr f) =
 
 liftOpaleye :: (Opaleye.QueryArr s t -> Opaleye.QueryArr a b) -> Query s t -> Query a b
 liftOpaleye f = fromOpaleye . f . toOpaleye
+
 
 liftOpaleye2
   :: ( Opaleye.QueryArr a1 b1 -> Opaleye.QueryArr a2 b2 -> Opaleye.QueryArr a3 b3 )

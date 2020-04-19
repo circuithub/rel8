@@ -10,13 +10,14 @@
 
 -- | Poly-kinded Tagged, until https://github.com/ekmett/adjunctions/pull/68 is
 -- merged.
+
 module Data.Tagged.PolyKinded ( Tagged(..) ) where
 
 import Data.Coerce ( coerce )
 import Data.Distributive ( Distributive(..) )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity(..) )
-import Data.Functor.Rep ( Representable(..), pureRep, apRep )
+import Data.Functor.Rep ( Representable(..), apRep, pureRep )
 import Data.Kind ( Type )
 import GHC.Records.Compat ( HasField(..) )
 

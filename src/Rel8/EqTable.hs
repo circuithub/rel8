@@ -25,7 +25,7 @@ import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
 import qualified Rel8.Column
-import Rel8.Column hiding ((==.), (&&.), lit)
+import Rel8.Column hiding ( (&&.), (==.), lit )
 import Rel8.Row
 import Rel8.Table
 
@@ -66,7 +66,11 @@ instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
 
 
 deriving via PostgreSQLSimpleField Bool instance EqTable Bool
+
+
 deriving via PostgreSQLSimpleField Int instance EqTable Int
+
+
 deriving via PostgreSQLSimpleField Text instance EqTable Text
 
 

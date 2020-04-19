@@ -79,7 +79,6 @@ instance (KnownSymbol name, x ~ t) => GInferColumns (K1 i (Maybe x)) (Compose (F
     Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
 
 
-
 table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)
 table TableSchema{ tableName, schema = Columns columnSchemas } = Opaleye.Table tableName tableProperties
   where
