@@ -2,6 +2,8 @@ module Rel8
   ( -- * Schema Definition
     -- ** Defining Tables
     Table
+  , EqTable
+  , OrdTable
   , ReadShowColumn(..)
   , CompositeColumn(..)
   , TableSchema(..)
@@ -54,8 +56,10 @@ module Rel8
   , Update(..)
   ) where
 
-import Rel8.Row
-import Rel8.Query
+import Rel8.EqTable
 import Rel8.IO
+import Rel8.OrdTable
+import Rel8.Query
+import Rel8.Row
 import Rel8.Schema
 import Rel8.Table

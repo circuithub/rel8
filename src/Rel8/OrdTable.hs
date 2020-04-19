@@ -20,6 +20,7 @@ import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Kind
 import Data.Proxy ( Proxy(..) )
+import Data.Text ( Text )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
@@ -77,11 +78,18 @@ instance (GOrdTable f x, GOrdTable g y) => GOrdTable (f :*: g) (HProduct x y) wh
     ggeq @f (coerce proxy) u x &&. ggeq @g (coerce proxy) v y
 
 
-instance (OrdTable a, a ~ t, p ~ Schema t) => GOrdTable (K1 i a) (Compose (FieldName name) p) where
-  gleq _ (Compose (FieldName x)) (Compose (FieldName y)) = (<=.) @a (Row x) (Row y)
-  gltq _ (Compose (FieldName x)) (Compose (FieldName y)) = (<=.) @a (Row x) (Row y)
-  ggtq _ (Compose (FieldName x)) (Compose (FieldName y)) = (<=.) @a (Row x) (Row y)
-  ggeq _ (Compose (FieldName x)) (Compose (FieldName y)) = (<=.) @a (Row x) (Row y)
+instance GOrdTable (K1 i a) p => GOrdTable (K1 i a) (Compose (FieldName name) p) where
+  gleq = coerce (gleq @(K1 i a) @p)
+  gltq = coerce (gltq @(K1 i a) @p)
+  ggtq = coerce (ggtq @(K1 i a) @p)
+  ggeq = coerce (ggeq @(K1 i a) @p)
+
+
+instance (OrdTable a, Schema a ~ HIdentity b) => GOrdTable (K1 i a) (HIdentity b) where
+  gleq _ x y = (<=.) @a (Row x) (Row y)
+  gltq _ x y = (<=.) @a (Row x) (Row y)
+  ggtq _ x y = (<=.) @a (Row x) (Row y)
+  ggeq _ x y = (<=.) @a (Row x) (Row y)
 
 
 instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) where
@@ -93,6 +101,7 @@ instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) wher
 
 deriving via PostgreSQLSimpleField Bool instance OrdTable Bool
 deriving via PostgreSQLSimpleField Int instance OrdTable Int
+deriving via PostgreSQLSimpleField Text instance OrdTable Text
 
 
 instance (Read a, Show a) => OrdTable (ReadShowColumn a) where

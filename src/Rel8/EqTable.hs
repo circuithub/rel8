@@ -20,11 +20,12 @@ import Data.Indexed.Functor.Identity ( HIdentity(..) )
 import Data.Indexed.Functor.Product ( HProduct(..) )
 import Data.Kind
 import Data.Proxy ( Proxy(..) )
+import Data.Text ( Text )
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import GHC.Generics
-import Rel8.Column hiding ((==.), (&&.), lit)
 import qualified Rel8.Column
+import Rel8.Column hiding ((==.), (&&.), lit)
 import Rel8.Row
 import Rel8.Table
 
@@ -51,9 +52,12 @@ instance (GEqTable f x, GEqTable g y) => GEqTable (f :*: g) (HProduct x y) where
     geq @f (coerce proxy) u x &&. geq @g (coerce proxy) v y
 
 
-instance (EqTable a, a ~ t, p ~ Schema t) => GEqTable (K1 i a) (Compose (FieldName name) p) where
-  geq _ (Compose (FieldName x)) (Compose (FieldName y)) =
-    (==.) @a (Row x) (Row y)
+instance GEqTable (K1 i a) p => GEqTable (K1 i a) (Compose (FieldName name) p) where
+  geq = coerce (geq @(K1 i a) @p)
+
+
+instance (Schema a ~ HIdentity b, EqTable a) => GEqTable (K1 i a) (HIdentity b) where
+  geq _ x y = (==.) @a (Row x) (Row y)
 
 
 instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
@@ -63,6 +67,7 @@ instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
 
 deriving via PostgreSQLSimpleField Bool instance EqTable Bool
 deriving via PostgreSQLSimpleField Int instance EqTable Int
+deriving via PostgreSQLSimpleField Text instance EqTable Text
 
 
 instance (Read a, Show a) => EqTable (ReadShowColumn a) where
