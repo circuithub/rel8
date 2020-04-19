@@ -90,7 +90,8 @@ if_ (Row (HIdentity isTrue)) (Row t) (Row f) = Row $ htabulate \i ->
 
 
 lit :: forall a. Table a => a -> Row a
-lit = Row . hzipWith (\f -> Column.runColumnEncoder f . coerce) (encode @a) . from
+lit =
+  Row . hzipWith (\f -> Column.runColumnEncoder f . coerce) (encode @a) . from
 
 
 instance (Table a, IsString a) => IsString (Row a) where
