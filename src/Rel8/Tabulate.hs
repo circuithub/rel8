@@ -1,26 +1,34 @@
 {-# language Arrows #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingVia #-}
-{-# language FlexibleContexts #-}
-{-# language TupleSections #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Tabulate where
 
+-- base
 import Control.Applicative ( liftA2 )
-import Control.Arrow ( (&&&), first, returnA, second )
-import qualified Control.Arrow as A
+import Control.Arrow ( first, returnA, second )
 import Control.Category ( (<<<) )
-import Data.Bifunctor ( bimap )
-import Data.Bifunctor.Biff ( Biff(..) )
-import Data.Functor.Apply ( Apply, liftF2 )
-import Data.Functor.Identity ( Identity(..) )
-import Data.Profunctor ( Choice, Profunctor, Strong, dimap, lmap, right', second' )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude hiding ( filter, lookup, zip, zipWith )
-import Rel8.EqTable
-import Rel8.Query
-import Rel8.Row
+
+-- bifunctors
+import Data.Bifunctor.Biff ( Biff( Biff ) )
+
+-- profunctors
+import Data.Profunctor
+  ( Profunctor
+  , Strong
+  , lmap
+  , second'
+  )
+
+-- rel8
+import Rel8.EqTable ( EqTable, (==.) )
+import Rel8.Query ( Query, filterA, optional, where_ )
+import Rel8.Row ( MaybeRow, Row )
+
+-- semigroupoids
+import Data.Functor.Apply ( Apply, liftF2 )
 
 
 -- | To understand what a @'Tabulation' k i a@ is, consider first a

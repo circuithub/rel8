@@ -5,7 +5,6 @@
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
@@ -15,37 +14,56 @@
 
 module Rel8.Table where
 
+-- aeson
 import Data.Aeson ( FromJSON, ToJSON, Value )
-import Data.ByteString ( ByteString )
-import qualified Data.ByteString.Lazy
+
+-- base
 import Data.Coerce ( coerce )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.FieldName ( FieldName(..) )
 import Data.Functor.Identity ( Identity(..) )
-import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
-import Data.Scientific ( Scientific )
-import qualified Data.Text
-import qualified Data.Text.Lazy
-import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 import Data.Typeable ( Typeable )
-import Data.UUID ( UUID )
+import qualified GHC.Generics
+import GHC.Generics ( (:*:)(..), C, D, Generic, K1(..), M1(..), Meta(..), Rep, S )
+
+-- bytestring
+import Data.ByteString ( ByteString )
+import qualified Data.ByteString.Lazy
+
+-- one-liner
+import Generics.OneLiner ( ADT, Constraints )
+
+-- postgresql-simple
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.FromRow ( RowParser )
 import Database.PostgreSQL.Simple.HStore ( HStoreList, HStoreMap )
 import Database.PostgreSQL.Simple.Time ( Date, LocalTimestamp, UTCTimestamp, ZonedTimestamp )
 import Database.PostgreSQL.Simple.ToField ( ToField )
 import Database.PostgreSQL.Simple.Types ( Null, Oid )
-import qualified GHC.Generics
-import GHC.Generics ( (:*:)(..), C, D, Generic, K1(..), M1(..), Meta(..), Rep, S )
-import Generics.OneLiner ( ADT, Constraints )
+
+-- rel8
+import Data.Functor.FieldName ( FieldName(..) )
+import Data.Indexed.Functor ( HFunctor(..) )
+import Data.Indexed.Functor.Compose ( HCompose(..), I(..) )
+import Data.Indexed.Functor.Identity ( HIdentity(..) )
+import Data.Indexed.Functor.Product ( HProduct(..) )
+import Data.Indexed.Functor.Representable ( HRepresentable(..) )
+import Data.Indexed.Functor.Traversable ( HTraversable(..) )
 import Rel8.Column
+
+-- scientific
+import Data.Scientific ( Scientific )
+
+-- text
+import qualified Data.Text
+import qualified Data.Text.Lazy
+
+-- time
+import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
+
+-- uuid
+import Data.UUID ( UUID )
 
 
 -- | The class of "table-like" things.

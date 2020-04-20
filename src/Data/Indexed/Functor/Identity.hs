@@ -1,15 +1,17 @@
-{-# language KindSignatures #-}
 {-# language TypeFamilies #-}
 
 -- | The identity functor on indexed-types.
 
-module Data.Indexed.Functor.Identity ( HIdentity(..) ) where
+module Data.Indexed.Functor.Identity ( HIdentity( HIdentity ), unHIdentity ) where
 
-import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+-- base
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)(..) )
+import Data.Type.Equality ( (:~:)( Refl ) )
+
+-- rel8
+import Data.Indexed.Functor ( HFunctor, hmap )
+import Data.Indexed.Functor.Representable ( HRep, HRepresentable, hindex, htabulate )
+import Data.Indexed.Functor.Traversable ( HTraversable, htraverse )
 
 
 -- | The identity indexed-type functor maps the supplied functor to the functor

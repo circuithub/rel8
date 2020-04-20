@@ -57,6 +57,7 @@ module Rel8
   , Update(..)
   ) where
 
+-- rel8
 import Rel8.EqTable
 import Rel8.IO
 import Rel8.OrdTable

@@ -1,38 +1,55 @@
-{-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
-{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
 
-module Rel8.Schema where
+module Rel8.Schema
+  ( TableSchema( TableSchema, tableName, schema )
+  , table
+  , genericColumns
+  ) where
 
-import Control.Applicative ( Const(..) )
+-- base
+import Control.Applicative ( Const( Const ) )
 import Control.Monad ( void )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.FieldName ( FieldName(..) )
+import Data.Functor.Compose ( Compose( Compose ) )
+import Data.Proxy ( Proxy( Proxy ) )
+import GHC.Generics ( (:*:), C, D, K1, M1, Meta( MetaSel ), Rep, S )
+import GHC.TypeLits ( KnownSymbol, symbolVal )
+
+-- opaleye
+import Opaleye.Internal.PackMap ( PackMap( PackMap ) )
+import Opaleye.Internal.Table
+  ( TableProperties( TableProperties )
+  , View( View )
+  , Writer( Writer )
+  )
+import qualified Opaleye.Internal.Table as Opaleye ( Table( Table ) )
+
+-- rel8
+import Data.Functor.FieldName ( FieldName( FieldName ) )
 import Data.Indexed.Functor ( hmap )
-import Data.Indexed.Functor.Compose ( HCompose(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
+import Data.Indexed.Functor.Compose ( HCompose( HCompose ) )
+import Data.Indexed.Functor.Identity ( HIdentity( HIdentity ) )
+import Data.Indexed.Functor.Product ( HProduct( HProduct ) )
+import Data.Indexed.Functor.Representable ( hindex, htabulate )
 import Data.Indexed.Functor.Traversable ( hsequence )
-import Data.Proxy ( Proxy(..) )
-import GHC.Generics
-import GHC.TypeLits
-import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
-import Rel8.Column ( ColumnSchema(..), concreteColumn, derivedColumn, isNull )
-import Rel8.Row
-import Rel8.Table ( Table(..) )
+import Rel8.Column
+  ( ColumnSchema
+  , concreteColumn
+  , derivedColumn
+  , isNull
+  , select
+  , write
+  )
+import Rel8.Row ( Row( Row ), toColumns )
+import Rel8.Table ( Schema, Table )
 
 
 data TableSchema a =
@@ -79,18 +96,23 @@ instance (InferColumns (f a), InferColumns (g a)) => InferColumns ((f :*: g) a) 
   inferColumns =
     Columns $ HProduct (fromColumns (inferColumns @(f a))) (fromColumns (inferColumns @(g a)))
 
+
 -- TODO
 instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Int) a) where
   inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
+
 instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Bool) a) where
   inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
+
 
 instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i String) a) where
   inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
+
 instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe Int)) a) where
   inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
+
 
 instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe String)) a) where
   inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
@@ -99,14 +121,14 @@ instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K
 table :: forall a. Table a => TableSchema a -> Opaleye.Table (Row a) (Row a)
 table TableSchema{ tableName, schema = Columns columnSchemas } = Opaleye.Table tableName tableProperties
   where
-    tableProperties = Opaleye.TableProperties writer view
+    tableProperties = TableProperties writer view
       where
-        writer = Opaleye.Writer $ Opaleye.PackMap \f values ->
+        writer = Writer $ PackMap \f values ->
           void $ hsequence $ htabulate @(Schema a) \i ->
             let columnValues = fmap (flip hindex i . toColumns) values
             in
             case write (hindex columnSchemas i) of
-              Opaleye.Writer (Opaleye.PackMap g) ->
-                Compose $ fmap Const $ g f columnValues
+              Writer (PackMap g) ->
+                Compose $ Const <$> g f columnValues
 
-        view = Opaleye.View $ Row $ hmap select columnSchemas
+        view = View $ Row $ hmap select columnSchemas

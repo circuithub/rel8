@@ -1,8 +1,11 @@
 {-# language RankNTypes #-}
 
-module Data.Indexed.Functor.Traversable ( HTraversable(..), hsequence ) where
+module Data.Indexed.Functor.Traversable ( HTraversable( htraverse ), hsequence ) where
 
-import Data.Functor.Compose ( Compose(..) )
+-- base
+import Data.Functor.Compose ( Compose( Compose ), getCompose )
+
+-- rel8
 import Data.Indexed.Functor ( HFunctor )
 
 

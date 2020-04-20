@@ -4,32 +4,36 @@
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
-{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
 
 -- | This module describes the 'EqTable' class.
 
-module Rel8.EqTable ( EqTable(..), (==.) ) where
+module Rel8.EqTable ( EqTable( eq ), (==.) ) where
 
+-- base
 import Data.Coerce ( coerce )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.FieldName ( FieldName(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Text ( Text )
+import Data.Functor.Compose ( Compose( Compose ) )
+import GHC.Generics ( (:*:), C, D, K1, M1, Meta( MetaSel ), Rep, S )
+
+-- postgresql-simple
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
-import GHC.Generics
+
+-- rel8
+import Data.Functor.FieldName ( FieldName( FieldName ) )
+import Data.Indexed.Functor.Identity ( HIdentity( HIdentity ) )
+import Data.Indexed.Functor.Product ( HProduct( HProduct ) )
 import qualified Rel8.Column
 import Rel8.Column hiding ( (&&.), (==.), lit )
-import Rel8.Row
-import Rel8.Table
+import Rel8.Row ( Row( Row ), (&&.), isNothing, lit, maybe_ )
+import Rel8.Table ( PostgreSQLSimpleField, ReadShowColumn, Schema, Table )
+
+-- text
+import Data.Text ( Text )
 
 
 (==.) :: forall a. EqTable a => Row a -> Row a -> Row Bool

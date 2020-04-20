@@ -1,18 +1,21 @@
-{-# language BlockArguments #-}
-{-# language KindSignatures #-}
 {-# language RankNTypes #-}
 {-# language TypeFamilies #-}
 
 -- | Representable functors from indexed-types to types.
 
-module Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith ) where
+module Data.Indexed.Functor.Representable ( HRepresentable( HRep, hindex, htabulate ), hzipWith ) where
 
-import Control.Applicative ( Const(..), liftA2 )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Product ( Product(..) )
-import Data.Functor.Rep ( Representable(..) )
-import Data.Indexed.Functor ( HFunctor(..) )
+-- adjunctions
+import Data.Functor.Rep ( Rep, Representable, index, tabulate )
+
+-- base
+import Control.Applicative ( Const( Const ), liftA2 )
+import Data.Functor.Compose ( Compose( Compose ) )
+import Data.Functor.Product ( Product( Pair ) )
 import Data.Kind ( Type )
+
+-- rel8
+import Data.Indexed.Functor ( HFunctor )
 
 
 -- | The class of representable functors of type-indexed types.

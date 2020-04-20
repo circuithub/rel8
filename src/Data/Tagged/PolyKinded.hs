@@ -1,25 +1,30 @@
-{-# language DeriveFunctor #-}
 {-# language DerivingVia #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
 -- | Poly-kinded Tagged, until https://github.com/ekmett/adjunctions/pull/68 is
 -- merged.
 
-module Data.Tagged.PolyKinded ( Tagged(..) ) where
+module Data.Tagged.PolyKinded ( Tagged( Tagged ), unTagged ) where
 
+-- adjunctions
+import Data.Functor.Rep ( Representable, apRep, pureRep )
+
+-- base
 import Data.Coerce ( coerce )
-import Data.Distributive ( Distributive(..) )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Identity ( Identity(..) )
-import Data.Functor.Rep ( Representable(..), apRep, pureRep )
+import Data.Functor.Compose ( Compose( Compose ) )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
-import GHC.Records.Compat ( HasField(..) )
+
+-- distributive
+import Data.Distributive ( Distributive, distribute )
+
+-- record-hasfield
+import GHC.Records.Compat ( HasField, hasField )
 
 
 newtype Tagged (a :: k) x =

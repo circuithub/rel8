@@ -1,22 +1,29 @@
 {-# language DataKinds #-}
-{-# language DeriveFunctor #-}
 {-# language DerivingVia #-}
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Data.Functor.FieldName ( FieldName(..) ) where
+module Data.Functor.FieldName ( FieldName( FieldName ), unFieldName ) where
 
-import Data.Distributive ( Distributive(..) )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Rep ( Representable(..), apRep, pureRep )
+-- adjunctions
+import Data.Functor.Rep ( Rep, Representable, apRep, index, pureRep, tabulate )
+
+-- base
+import Data.Functor.Compose ( Compose( Compose ) )
 import Data.Kind ( Type )
-import Data.Tagged.PolyKinded ( Tagged(..) )
-import GHC.Records.Extra ( HasField(..) )
 import GHC.TypeLits ( Symbol )
+
+-- distributive
+import Data.Distributive ( Distributive, distribute )
+
+-- record-hasfield
+import GHC.Records.Extra ( HasField, hasField )
+
+-- rel8
+import Data.Tagged.PolyKinded ( Tagged( Tagged ) )
 
 
 -- | Tag a value with the name of the field it belongs to.

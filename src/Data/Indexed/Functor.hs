@@ -3,9 +3,10 @@
 
 -- | Functors from indexed-types to types.
 
-module Data.Indexed.Functor ( HFunctor(..) ) where
+module Data.Indexed.Functor ( HFunctor( hmap ) ) where
 
-import Data.Functor.Compose ( Compose(..) )
+-- base
+import Data.Functor.Compose ( Compose( Compose ), getCompose )
 import Data.Kind ( Type )
 
 

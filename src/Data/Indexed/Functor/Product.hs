@@ -1,9 +1,7 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
-{-# language KindSignatures #-}
 {-# language LambdaCase #-}
-{-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -12,20 +10,27 @@
 
 -- | The product of two functors on indexed-types.
 
-module Data.Indexed.Functor.Product ( HProduct(..) ) where
+module Data.Indexed.Functor.Product ( HProduct( HProduct, hfst, hsnd ) ) where
 
+-- base
 import Control.Applicative ( liftA2 )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.FieldName ( FieldName(..) )
-import Data.Functor.Sum ( Sum(..) )
-import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+import Data.Functor.Compose ( Compose )
+import Data.Functor.Sum ( Sum( InL, InR ) )
 import Data.Kind ( Type )
-import Data.Proxy ( Proxy(..) )
-import Data.Singletons.Prelude ( If )
-import GHC.Records.Compat ( HasField(..) )
+import Data.Proxy ( Proxy( Proxy ) )
 import GHC.TypeLits ( Symbol )
+
+-- record-hasfield
+import GHC.Records.Compat ( HasField, hasField )
+
+-- rel8
+import Data.Functor.FieldName ( FieldName )
+import Data.Indexed.Functor ( HFunctor, hmap )
+import Data.Indexed.Functor.Representable ( HRep, HRepresentable, hindex, htabulate )
+import Data.Indexed.Functor.Traversable ( HTraversable, htraverse )
+
+-- singletons
+import Data.Singletons.Prelude ( If )
 
 
 -- | The product of two functors on indexed-type is itself an functor on

@@ -1,20 +1,22 @@
-{-# language BlockArguments #-}
-{-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language KindSignatures #-}
-{-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
-module Data.Indexed.Functor.Compose ( HCompose(..), I(..) ) where
+module Data.Indexed.Functor.Compose
+  ( HCompose( HCompose )
+  , getHCompose
+  , I( I )
+  , unI
+  ) where
 
-import Data.Functor.Compose ( Compose(..) )
-import Data.Indexed.Functor ( HFunctor(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..) )
-import Data.Indexed.Functor.Traversable ( HTraversable(..) )
+-- base
+import Data.Functor.Compose ( Compose( Compose ), getCompose )
 import Data.Kind ( Type )
+
+-- rel8
+import Data.Indexed.Functor ( HFunctor, hmap )
+import Data.Indexed.Functor.Representable ( HRep, HRepresentable, hindex, htabulate )
+import Data.Indexed.Functor.Traversable ( HTraversable, htraverse )
 
 
 -- | Pre-apply a functor to an indexed type, thus transforming the index.

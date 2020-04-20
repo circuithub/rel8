@@ -3,33 +3,55 @@
 {-# language DeriveFunctor #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
-{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language PolyKinds #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Row where
+module Rel8.Row
+  ( Row( Row )
+  , traverseColumns
+  , lit
+  , zipColumnsM
+  , sequenceColumns
+  , isNothing
+  , case_
+  , if_
+  , RowProduct( toRow, fromRow )
+  , underRowProduct
+  , just
+  , (&&.)
+  , (||.)
+  , not_
+  , coerceRow
+  , toColumns
+  , MaybeRow( MaybeRow )
+  , maybe_
+  ) where
 
+-- base
 import Data.Bifunctor ( bimap )
 import Data.Coerce ( coerce )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Identity ( Identity(..) )
-import Data.Indexed.Functor ( hmap )
-import Data.Indexed.Functor.Compose ( HCompose(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Indexed.Functor.Representable ( HRepresentable(..), hzipWith )
-import Data.Indexed.Functor.Traversable ( hsequence, htraverse )
-import Data.String ( IsString(..) )
-import GHC.Records.Compat ( HasField(..) )
+import Data.Functor.Compose ( Compose( Compose ) )
+import Data.Functor.Identity ( Identity( Identity ) )
+import Data.String ( IsString, fromString )
 import GHC.TypeLits ( Symbol )
+
+-- record-hasfield
+import GHC.Records.Compat ( HasField, hasField )
+
+-- rel8
+import Data.Indexed.Functor ( hmap )
+import Data.Indexed.Functor.Compose ( HCompose( HCompose ) )
+import Data.Indexed.Functor.Identity ( HIdentity( HIdentity ) )
+import Data.Indexed.Functor.Product ( HProduct( HProduct ) )
+import Data.Indexed.Functor.Representable ( hindex, htabulate, hzipWith )
+import Data.Indexed.Functor.Traversable ( hsequence, htraverse )
 import Rel8.Column ( Column )
 import qualified Rel8.Column as Column
-import Rel8.Table ( Table(..) )
+import Rel8.Table ( Schema, Table, encode, from )
 
 
 -- | Typed expressions.

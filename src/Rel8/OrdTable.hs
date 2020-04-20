@@ -4,30 +4,35 @@
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
-{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 
-module Rel8.OrdTable where
+module Rel8.OrdTable ( OrdTable( lte, lt, gt, gte ), (<=.) ) where
 
+-- base
 import Data.Coerce ( coerce )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.FieldName ( FieldName(..) )
-import Data.Indexed.Functor.Identity ( HIdentity(..) )
-import Data.Indexed.Functor.Product ( HProduct(..) )
-import Data.Text ( Text )
+import Data.Functor.Compose ( Compose( Compose ) )
+import GHC.Generics
+
+-- postgresql-simple
 import Database.PostgreSQL.Simple.FromField ( FromField )
 import Database.PostgreSQL.Simple.ToField ( ToField )
-import GHC.Generics
-import qualified Rel8.Column
+
+-- rel8
+import Data.Functor.FieldName ( FieldName( FieldName ) )
+import Data.Indexed.Functor.Identity ( HIdentity( HIdentity ) )
+import Data.Indexed.Functor.Product ( HProduct( HProduct ) )
+import qualified Rel8.Column ( (<=.) )
 import Rel8.Column hiding ( (&&.), (<.), (<=.), (>.), (>=.) )
-import Rel8.EqTable
-import Rel8.Row
-import Rel8.Table
+import Rel8.EqTable ( EqTable )
+import Rel8.Row ( Row( Row ), (&&.) )
+import Rel8.Table ( PostgreSQLSimpleField, ReadShowColumn, Schema )
+
+-- text
+import Data.Text ( Text )
 
 
 (<=.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool

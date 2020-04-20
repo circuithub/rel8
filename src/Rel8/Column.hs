@@ -7,7 +7,8 @@
 -- rows.
 
 module Rel8.Column
-  ( Column(..)
+  ( Column( Column )
+  , toPrimExpr
   , toOpaleyeColumn
   , traversePrimExpr
   , zipColumnsM
@@ -39,7 +40,9 @@ module Rel8.Column
   , (&&.)
   , (||.)
   , not_
-  , ColumnSchema(..)
+  , ColumnSchema( ColumnSchema )
+  , select
+  , write
   , concreteColumn
   , derivedColumn
   , isNull
@@ -47,19 +50,22 @@ module Rel8.Column
   , jsonDecoder
   ) where
 
+-- aeson
 import Data.Aeson ( FromJSON, ToJSON, encode )
+
+-- base
+import Data.Coerce ( coerce )
+import Data.Typeable ( Typeable )
+
+-- binary
 import Data.Binary.Builder ( toLazyByteString )
+
+-- bytestring
 import Data.ByteString ( ByteString )
 import Data.ByteString.Char8 ( unpack )
 import qualified Data.ByteString.Lazy.Char8 as Lazy
-import Data.Coerce ( coerce )
-import Data.Typeable ( Typeable )
-import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField )
-import qualified Database.PostgreSQL.Simple.FromField as PG
-import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
-import Database.PostgreSQL.Simple.ToField ( Action(..) )
-import Database.PostgreSQL.Simple.ToField ( ToField )
-import qualified Database.PostgreSQL.Simple.ToField as PG ( toField )
+
+-- opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import Opaleye.Internal.HaskellDB.PrimQuery
   ( BinOp( (:==), (:<=), (:<), (:>=), (:>), (:&&), (:||) )
@@ -69,6 +75,16 @@ import Opaleye.Internal.HaskellDB.PrimQuery
   )
 import Opaleye.Internal.PackMap ( PackMap( PackMap ) )
 import Opaleye.Internal.Table ( Writer( Writer ) )
+
+-- postgresql-simple
+import Database.PostgreSQL.Simple.FromField ( Conversion, Field, FromField )
+import qualified Database.PostgreSQL.Simple.FromField as PG
+import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
+import Database.PostgreSQL.Simple.ToField
+  ( Action( Plain, Escape, EscapeByteA, EscapeIdentifier )
+  , ToField
+  )
+import qualified Database.PostgreSQL.Simple.ToField as PG ( toField )
 
 
 -- | A @Column@ is a wrapper around a single column SQL expression.

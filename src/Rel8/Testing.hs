@@ -9,20 +9,23 @@
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
-{-# language TemplateHaskell #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeInType #-}
-{-# language TypeSynonymInstances #-}
 {-# language UndecidableInstances #-}
 
 {-# options -fplugin=RecordDotPreprocessor #-}
 
 module Rel8.Testing where
 
+-- base
 import Control.Arrow ( arr, returnA )
-import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics ( Generic )
+
+-- postgresql-simple
+import Database.PostgreSQL.Simple ( Connection )
+
+-- rel8
 import Rel8
 
 
