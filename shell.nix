@@ -4,7 +4,7 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, adjunctions, base, distributive, opaleye
+  f = { mkDerivation, adjunctions, base, distributive, one-liner, opaleye
       , postgresql-simple, profunctors, record-dot-preprocessor
       , record-hasfield, singletons, stdenv, transformers
       }:
@@ -13,8 +13,9 @@ let
         version = "1.0.0";
         src = pkgs.nix-gitignore.gitignoreSource [] ./.;
         libraryHaskellDepends = [
-          adjunctions base distributive opaleye postgresql-simple profunctors
-          record-dot-preprocessor record-hasfield singletons transformers
+          adjunctions base distributive one-liner opaleye postgresql-simple
+          profunctors record-dot-preprocessor record-hasfield singletons
+          transformers
         ];
         license = "unknown";
         hydraPlatforms = stdenv.lib.platforms.none;
