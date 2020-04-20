@@ -299,11 +299,11 @@ instance (Read a, Show a) => Table (ReadShowTable a) where
 -- | This @newtype@ can be used to derive 'Table' instances for types that are
 -- stored in the database as a single JSON column, using Aeson's 'ToJSON' and
 -- 'FromJSON' type classes as a serialization format.
-newtype JSONColumn a = JSONColumn a
+newtype JSONTable a = JSONTable a
 
 
-instance (FromJSON a, ToJSON a, Typeable a) => Table (JSONColumn a) where
-  type Schema (JSONColumn a) = HIdentity a
+instance (FromJSON a, ToJSON a, Typeable a) => Table (JSONTable a) where
+  type Schema (JSONTable a) = HIdentity a
   to = coerce
   from = coerce
 

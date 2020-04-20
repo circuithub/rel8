@@ -7,6 +7,7 @@ module Rel8
   , OrdTable
   , ReadShowTable(..)
   , CompositeColumn(..)
+  , JSONTable(..)
   , TableSchema(..)
   , genericColumns
 
