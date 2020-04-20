@@ -1,4 +1,4 @@
 * Inbox
-** TODO Add fixities
+** DONE Add fixities
 
 [[file:~/work/rel8/src/Rel8/OrdTable.hs::Row x >. Row y = gt @a x y]]

@@ -35,6 +35,7 @@ import Rel8.Table ( PostgreSQLSimpleTable, ReadShowTable, Schema )
 import Data.Text ( Text )
 
 
+infix 4 <=., <., >., >=.
 (<=.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
 Row x <=. Row y = lte @a x y
 

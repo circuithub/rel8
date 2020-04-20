@@ -36,6 +36,7 @@ import Rel8.Table ( PostgreSQLSimpleTable, ReadShowTable, Schema, Table )
 import Data.Text ( Text )
 
 
+infix 4 ==.
 (==.) :: forall a. EqTable a => Row a -> Row a -> Row Bool
 Row x ==. Row y = eq @a x y
 
