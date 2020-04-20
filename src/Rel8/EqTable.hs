@@ -16,7 +16,7 @@ module Rel8.EqTable ( EqTable( eq ), (==.) ) where
 
 -- base
 import Data.Coerce ( coerce )
-import Data.Int ( Int32 )
+import Data.Int ( Int32, Int64 )
 import Data.Functor.Compose ( Compose( Compose ) )
 import GHC.Generics ( (:*:), C, D, K1, M1, Meta( MetaSel ), Rep, S )
 
@@ -89,6 +89,9 @@ deriving via PostgreSQLSimpleTable Int instance EqTable Int
 
 
 deriving via PostgreSQLSimpleTable Int32 instance EqTable Int32
+
+
+deriving via PostgreSQLSimpleTable Int64 instance EqTable Int64
 
 
 deriving via PostgreSQLSimpleTable Text instance EqTable Text
