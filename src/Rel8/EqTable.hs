@@ -97,6 +97,9 @@ deriving via PostgreSQLSimpleTable Int64 instance EqTable Int64
 deriving via PostgreSQLSimpleTable Text instance EqTable Text
 
 
+deriving via PostgreSQLSimpleTable String instance EqTable String
+
+
 instance (Read a, Show a) => EqTable (ReadShowTable a) where
   eq x y =
     coerce
