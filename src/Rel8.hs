@@ -18,11 +18,9 @@ module Rel8
   , limit
   , offset
   , union
-  , unionAll
   , except
-  , exceptAll
   , intersect
-  , intersectAll
+  , Duplicates( WithDuplicates, WithoutDuplicates )
   , distinct
   , optional
 

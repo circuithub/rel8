@@ -13,12 +13,10 @@ module Rel8.Query
   , catMaybe_
   , limit
   , offset
+  , Duplicates(..)
   , union
-  , unionAll
   , intersect
-  , intersectAll
   , except
-  , exceptAll
   , distinct
   , optional
   , filter
@@ -188,28 +186,31 @@ offset :: Natural -> Query () a -> Query x a
 offset n = liftOpaleye (generalise . Opaleye.offset (fromIntegral n))
 
 
-union :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-union x y = generalise $ liftOpaleye2 (unionExplicit binaryspec) x y
+data Duplicates = WithDuplicates | WithoutDuplicates
 
 
-unionAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-unionAll x y = generalise $ liftOpaleye2 (unionAllExplicit binaryspec) x y
+union :: Table a => Duplicates -> Query () (Row a) -> Query () (Row a) -> Query x (Row a)
+union duplicates x y = generalise $ liftOpaleye2 (q binaryspec) x y
+  where
+    q = case duplicates of
+      WithDuplicates -> unionAllExplicit
+      WithoutDuplicates -> unionExplicit
 
 
-intersect :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-intersect x y = generalise $ liftOpaleye2 (intersectExplicit binaryspec) x y
+intersect :: Table a => Duplicates -> Query () (Row a) -> Query () (Row a) -> Query x (Row a)
+intersect duplicates x y = generalise $ liftOpaleye2 (q binaryspec) x y
+  where
+    q = case duplicates of
+      WithDuplicates -> intersectAllExplicit
+      WithoutDuplicates -> intersectExplicit
 
 
-intersectAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-intersectAll x y = generalise $ liftOpaleye2 (intersectAllExplicit binaryspec) x y
-
-
-except :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-except x y = generalise $ liftOpaleye2 (exceptExplicit binaryspec) x y
-
-
-exceptAll :: Table a => Query () (Row a) -> Query () (Row a) -> Query x (Row a)
-exceptAll x y = generalise $ liftOpaleye2 (exceptAllExplicit binaryspec) x y
+except :: Table a => Duplicates -> Query () (Row a) -> Query () (Row a) -> Query x (Row a)
+except duplicates x y = generalise $ liftOpaleye2 (q binaryspec) x y
+  where
+    q = case duplicates of
+      WithDuplicates -> exceptAllExplicit
+      WithoutDuplicates -> exceptExplicit
 
 
 binaryspec :: Table a => Binaryspec (Row a) (Row a)
