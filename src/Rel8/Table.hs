@@ -164,103 +164,103 @@ instance Table a => Table (K1 i a x) where
 
 
 -- Base types are one column tables.
-newtype PostgreSQLSimpleField a =
-  PostgreSQLSimpleField a
+newtype PostgreSQLSimpleTable a =
+  PostgreSQLSimpleTable a
 
 
-instance (FromField a, ToField a) => Table (PostgreSQLSimpleField a) where
-  type Schema (PostgreSQLSimpleField a) = HIdentity a
+instance (FromField a, ToField a) => Table (PostgreSQLSimpleTable a) where
+  type Schema (PostgreSQLSimpleTable a) = HIdentity a
   from = coerce
   to = coerce
   decode = coerce $ fromField @a
   encode = coerce $ toField @a
 
 
-deriving via (PostgreSQLSimpleField Bool) instance Table Bool
+deriving via (PostgreSQLSimpleTable Bool) instance Table Bool
 
 
-deriving via (PostgreSQLSimpleField Double) instance Table Double
+deriving via (PostgreSQLSimpleTable Double) instance Table Double
 
 
-deriving via (PostgreSQLSimpleField Float) instance Table Float
+deriving via (PostgreSQLSimpleTable Float) instance Table Float
 
 
-deriving via (PostgreSQLSimpleField Int) instance Table Int
+deriving via (PostgreSQLSimpleTable Int) instance Table Int
 
 
-deriving via (PostgreSQLSimpleField Int16) instance Table Int16
+deriving via (PostgreSQLSimpleTable Int16) instance Table Int16
 
 
-deriving via (PostgreSQLSimpleField Int32) instance Table Int32
+deriving via (PostgreSQLSimpleTable Int32) instance Table Int32
 
 
-deriving via (PostgreSQLSimpleField Int64) instance Table Int64
+deriving via (PostgreSQLSimpleTable Int64) instance Table Int64
 
 
-deriving via (PostgreSQLSimpleField Integer) instance Table Integer
+deriving via (PostgreSQLSimpleTable Integer) instance Table Integer
 
 
-deriving via (PostgreSQLSimpleField Data.ByteString.ByteString) instance Table Data.ByteString.ByteString
+deriving via (PostgreSQLSimpleTable Data.ByteString.ByteString) instance Table Data.ByteString.ByteString
 
 
-deriving via (PostgreSQLSimpleField Data.ByteString.Lazy.ByteString) instance Table Data.ByteString.Lazy.ByteString
+deriving via (PostgreSQLSimpleTable Data.ByteString.Lazy.ByteString) instance Table Data.ByteString.Lazy.ByteString
 
 
-deriving via (PostgreSQLSimpleField Scientific) instance Table Scientific
+deriving via (PostgreSQLSimpleTable Scientific) instance Table Scientific
 
 
-deriving via (PostgreSQLSimpleField Data.Text.Text) instance Table Data.Text.Text
+deriving via (PostgreSQLSimpleTable Data.Text.Text) instance Table Data.Text.Text
 
 
-deriving via (PostgreSQLSimpleField UTCTime) instance Table UTCTime
+deriving via (PostgreSQLSimpleTable UTCTime) instance Table UTCTime
 
 
-deriving via (PostgreSQLSimpleField Value) instance Table Value
+deriving via (PostgreSQLSimpleTable Value) instance Table Value
 
 
-deriving via (PostgreSQLSimpleField Data.Text.Lazy.Text) instance Table Data.Text.Lazy.Text
+deriving via (PostgreSQLSimpleTable Data.Text.Lazy.Text) instance Table Data.Text.Lazy.Text
 
 
-deriving via (PostgreSQLSimpleField Oid) instance Table Oid
+deriving via (PostgreSQLSimpleTable Oid) instance Table Oid
 
 
-deriving via (PostgreSQLSimpleField ZonedTime) instance Table ZonedTime
+deriving via (PostgreSQLSimpleTable ZonedTime) instance Table ZonedTime
 
 
-deriving via (PostgreSQLSimpleField LocalTime) instance Table LocalTime
+deriving via (PostgreSQLSimpleTable LocalTime) instance Table LocalTime
 
 
-deriving via (PostgreSQLSimpleField TimeOfDay) instance Table TimeOfDay
+deriving via (PostgreSQLSimpleTable TimeOfDay) instance Table TimeOfDay
 
 
-deriving via (PostgreSQLSimpleField Day) instance Table Day
+deriving via (PostgreSQLSimpleTable Day) instance Table Day
 
 
-deriving via (PostgreSQLSimpleField UUID) instance Table UUID
+deriving via (PostgreSQLSimpleTable UUID) instance Table UUID
 
 
-deriving via (PostgreSQLSimpleField Date) instance Table Date
+deriving via (PostgreSQLSimpleTable Date) instance Table Date
 
 
-deriving via (PostgreSQLSimpleField ZonedTimestamp) instance Table ZonedTimestamp
+deriving via (PostgreSQLSimpleTable ZonedTimestamp) instance Table ZonedTimestamp
 
 
-deriving via (PostgreSQLSimpleField UTCTimestamp) instance Table UTCTimestamp
+deriving via (PostgreSQLSimpleTable UTCTimestamp) instance Table UTCTimestamp
 
 
-deriving via (PostgreSQLSimpleField LocalTimestamp) instance Table LocalTimestamp
+deriving via (PostgreSQLSimpleTable LocalTimestamp) instance Table LocalTimestamp
 
 
-deriving via (PostgreSQLSimpleField Null) instance Table Null
+deriving via (PostgreSQLSimpleTable Null) instance Table Null
 
 
-deriving via (PostgreSQLSimpleField HStoreMap) instance Table HStoreMap
+deriving via (PostgreSQLSimpleTable HStoreMap) instance Table HStoreMap
 
 
-deriving via (PostgreSQLSimpleField HStoreList) instance Table HStoreList
+deriving via (PostgreSQLSimpleTable HStoreList) instance Table HStoreList
 
 
-deriving via (PostgreSQLSimpleField String) instance Table String
+deriving via (PostgreSQLSimpleTable String) instance Table String
 
 
 instance (Table a, Table b) => Table (a, b)
@@ -284,11 +284,11 @@ instance (Table a, Table b, Table c, Table d, Table e, Table f, Table g) => Tabl
 -- | This @newtype@ can be used to derive 'Table' instances for types that are
 -- stored in the database as a single text column, using Haskell's 'Show' and
 -- 'Read' type classes as a serialization format.
-newtype ReadShowColumn a = ReadShowColumn a
+newtype ReadShowTable a = ReadShowTable a
 
 
-instance (Read a, Show a) => Table (ReadShowColumn a) where
-  type Schema (ReadShowColumn a) = HIdentity a
+instance (Read a, Show a) => Table (ReadShowTable a) where
+  type Schema (ReadShowTable a) = HIdentity a
   to = coerce
   from = coerce
 

@@ -29,7 +29,7 @@ import qualified Rel8.Column ( (<=.) )
 import Rel8.Column hiding ( (&&.), (<.), (<=.), (>.), (>=.) )
 import Rel8.EqTable ( EqTable )
 import Rel8.Row ( Row( Row ), (&&.) )
-import Rel8.Table ( PostgreSQLSimpleField, ReadShowColumn, Schema )
+import Rel8.Table ( PostgreSQLSimpleTable, ReadShowTable, Schema )
 
 -- text
 import Data.Text ( Text )
@@ -107,24 +107,24 @@ instance OrdTable (f a) => OrdTable (M1 S ('MetaSel ('Just fieldName) x y z) f a
   gte (Compose (FieldName x)) (Compose (FieldName y)) = gte @(f a) x y
 
 
-instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleField a ) where
-  lte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
-  lt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
-  gt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
-  gte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleField a) x) (Row @(PostgreSQLSimpleField a) y)
+instance ( FromField a, ToField a ) => OrdTable ( PostgreSQLSimpleTable a ) where
+  lte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleTable a) x) (Row @(PostgreSQLSimpleTable a) y)
+  lt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleTable a) x) (Row @(PostgreSQLSimpleTable a) y)
+  gt x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleTable a) x) (Row @(PostgreSQLSimpleTable a) y)
+  gte x y = coerce (Rel8.Column.<=.) (Row @(PostgreSQLSimpleTable a) x) (Row @(PostgreSQLSimpleTable a) y)
 
 
-deriving via PostgreSQLSimpleField Bool instance OrdTable Bool
+deriving via PostgreSQLSimpleTable Bool instance OrdTable Bool
 
 
-deriving via PostgreSQLSimpleField Int instance OrdTable Int
+deriving via PostgreSQLSimpleTable Int instance OrdTable Int
 
 
-deriving via PostgreSQLSimpleField Text instance OrdTable Text
+deriving via PostgreSQLSimpleTable Text instance OrdTable Text
 
 
-instance (Read a, Show a) => OrdTable (ReadShowColumn a) where
-  lte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
-  lt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
-  gt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
-  gte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowColumn a) x) (Row @(ReadShowColumn a) y)
+instance (Read a, Show a) => OrdTable (ReadShowTable a) where
+  lte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowTable a) x) (Row @(ReadShowTable a) y)
+  lt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowTable a) x) (Row @(ReadShowTable a) y)
+  gt x y = coerce (Rel8.Column.<=.) (Row @(ReadShowTable a) x) (Row @(ReadShowTable a) y)
+  gte x y = coerce (Rel8.Column.<=.) (Row @(ReadShowTable a) x) (Row @(ReadShowTable a) y)

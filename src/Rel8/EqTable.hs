@@ -30,7 +30,7 @@ import Data.Indexed.Functor.Product ( HProduct( HProduct ) )
 import qualified Rel8.Column
 import Rel8.Column hiding ( (&&.), (==.), lit )
 import Rel8.Row ( Row( Row ), (&&.), isNothing, lit, maybe_ )
-import Rel8.Table ( PostgreSQLSimpleField, ReadShowColumn, Schema, Table )
+import Rel8.Table ( PostgreSQLSimpleTable, ReadShowTable, Schema, Table )
 
 -- text
 import Data.Text ( Text )
@@ -72,29 +72,29 @@ instance EqTable a => EqTable (K1 i a x) where
   eq = eq @a
 
 
-instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleField a) where
+instance (FromField a, ToField a) => EqTable (PostgreSQLSimpleTable a) where
   eq x y =
     coerce
       (Rel8.Column.==.)
-      (Row @(ReadShowColumn a) x)
-      (Row @(ReadShowColumn a) y)
+      (Row @(PostgreSQLSimpleTable a) x)
+      (Row @(PostgreSQLSimpleTable a) y)
 
 
-deriving via PostgreSQLSimpleField Bool instance EqTable Bool
+deriving via PostgreSQLSimpleTable Bool instance EqTable Bool
 
 
-deriving via PostgreSQLSimpleField Int instance EqTable Int
+deriving via PostgreSQLSimpleTable Int instance EqTable Int
 
 
-deriving via PostgreSQLSimpleField Text instance EqTable Text
+deriving via PostgreSQLSimpleTable Text instance EqTable Text
 
 
-instance (Read a, Show a) => EqTable (ReadShowColumn a) where
+instance (Read a, Show a) => EqTable (ReadShowTable a) where
   eq x y =
     coerce
       (Rel8.Column.==.)
-      (Row @(ReadShowColumn a) x)
-      (Row @(ReadShowColumn a) y)
+      (Row @(ReadShowTable a) x)
+      (Row @(ReadShowTable a) y)
 
 
 instance EqTable a => EqTable (Maybe a) where

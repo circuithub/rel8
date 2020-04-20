@@ -5,7 +5,7 @@ module Rel8
     Table
   , EqTable
   , OrdTable
-  , ReadShowColumn(..)
+  , ReadShowTable(..)
   , CompositeColumn(..)
   , TableSchema(..)
   , genericColumns
