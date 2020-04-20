@@ -55,6 +55,7 @@ import Data.Aeson ( FromJSON, ToJSON, encode )
 
 -- base
 import Data.Coerce ( coerce )
+import Data.Functor.Contravariant ( Contravariant, contramap )
 import Data.Typeable ( Typeable )
 
 -- binary
@@ -180,6 +181,11 @@ maybeColumnDecoder (ColumnDecoder parser) =
 -- | A @ColumnEncoder@ encodes Haskell values into SQL literals.
 newtype ColumnEncoder a =
   ColumnEncoder { runColumnEncoder :: a -> Column a }
+
+
+instance Contravariant ColumnEncoder where
+  contramap f (ColumnEncoder g) =
+    ColumnEncoder (Column . toPrimExpr . g . f)
 
 
 -- | Create a 'ColumnEncoder' using @postgresql-simple@'s 'ToField' type class.
