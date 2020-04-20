@@ -10,7 +10,7 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 
-module Rel8.OrdTable ( OrdTable( lte, lt, gt, gte ), (<=.) ) where
+module Rel8.OrdTable ( OrdTable( lte, lt, gt, gte ), (<=.), (<.), (>.), (>=.) ) where
 
 -- base
 import Data.Coerce ( coerce )
@@ -37,6 +37,18 @@ import Data.Text ( Text )
 
 (<=.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
 Row x <=. Row y = lte @a x y
+
+
+(<.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
+Row x <. Row y = lt @a x y
+
+
+(>.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
+Row x >. Row y = gt @a x y
+
+
+(>=.) :: forall a. OrdTable a => Row a -> Row a -> Row Bool
+Row x >=. Row y = gte @a x y
 
 
 -- | 'Table's that support a notion of equality.
