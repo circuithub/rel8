@@ -14,6 +14,7 @@ module Rel8.OrdTable ( OrdTable( lte, lt, gt, gte ), (<=.), (<.), (>.), (>=.) ) 
 
 -- base
 import Data.Coerce ( coerce )
+import Data.Int ( Int32 )
 import Data.Functor.Compose ( Compose( Compose ) )
 import GHC.Generics
 
@@ -119,6 +120,9 @@ deriving via PostgreSQLSimpleTable Bool instance OrdTable Bool
 
 
 deriving via PostgreSQLSimpleTable Int instance OrdTable Int
+
+
+deriving via PostgreSQLSimpleTable Int32 instance OrdTable Int32
 
 
 deriving via PostgreSQLSimpleTable Text instance OrdTable Text
