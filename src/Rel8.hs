@@ -2,7 +2,7 @@ module Rel8
   ( -- * Schema Definition
     -- ** Defining Tables
 
-    Table
+    Table(..)
   , EqTable
   , OrdTable
   , ReadShowTable(..)
