@@ -17,6 +17,7 @@ module Rel8
   , where_
   , filterQuery
   , catMaybe_
+  , just
   , limit
   , offset
   , union

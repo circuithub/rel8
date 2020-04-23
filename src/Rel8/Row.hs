@@ -161,9 +161,9 @@ underRowProduct :: (RowProduct t b, RowProduct s a) => (s -> t) -> Row a -> Row 
 underRowProduct f = toRow . f . fromRow
 
 
-just :: (Applicative f, Table a) => (Row a -> f (Row a)) -> Row (Maybe a) -> f (Row (Maybe a))
-just f (Row (HProduct isNull (HCompose x))) =
-  Row . HProduct isNull . HCompose . hmap coerce . toColumns <$> f (Row (hmap coerce x))
+just :: Table a => Row a -> Row (Maybe a)
+just x =
+  toRow (MaybeRow (lit True) x)
 
 
 _1 :: Applicative f => (Row a -> f (Row a)) -> Row (a, b) -> f (Row (a, b))
