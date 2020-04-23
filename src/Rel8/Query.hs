@@ -21,15 +21,16 @@ module Rel8.Query
   , optional
   , filter
   , filterA
+  , filterQuery
   , values
   ) where
 
 -- base
 import Control.Arrow ( Arrow, ArrowChoice, Kleisli( Kleisli ), returnA )
-import Control.Category ( Category )
+import Control.Category ( Category, (.) )
 import Data.Coerce
 import Data.Functor.Compose ( Compose( Compose ) )
-import Prelude hiding ( filter )
+import Prelude hiding ( (.), filter )
 import Numeric.Natural ( Natural )
 
 -- opaleye
@@ -246,3 +247,8 @@ filterA query = proc (f, i) -> do
   a <- query -< i
   where_ -< f a
   returnA -< a
+
+
+filterQuery :: ( b -> Row Bool ) -> Query a b -> Query a b
+filterQuery f q = proc i -> do
+  filter f . q -< i

@@ -15,6 +15,7 @@ module Rel8
   , Query
   , each
   , where_
+  , filterQuery
   , catMaybe_
   , limit
   , offset
