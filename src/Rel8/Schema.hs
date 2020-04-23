@@ -98,23 +98,11 @@ instance (InferColumns (f a), InferColumns (g a)) => InferColumns ((f :*: g) a) 
 
 
 -- TODO
-instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Int) a) where
+instance {-# overlappable #-} (KnownSymbol name, Table a, Schema a ~ HIdentity something) => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i a) b) where
   inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
 
-instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i Bool) a) where
-  inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
-
-
-instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i String) a) where
-  inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
-
-
-instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe Int)) a) where
-  inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
-
-
-instance KnownSymbol name => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe String)) a) where
+instance {-# overlapping #-} (KnownSymbol name, Table a, Schema a ~ HIdentity a) => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe a)) b) where
   inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
 
 
