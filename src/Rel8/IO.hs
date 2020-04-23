@@ -13,10 +13,10 @@ module Rel8.IO
   , Insert( Insert )
   , OnConflict( DoNothing )
   , delete
-  , Delete( Delete )
+  , Delete( Delete, from, deleteWhere, returning )
   , update
-  , Update( Update )
-  , Returning( NumberOfRowsInserted, Projection )
+  , Update( Update, target, set, updateWhere, returning )
+  , Returning( NumberOfRowsAffected, Projection )
   ) where
 
 -- base
@@ -133,7 +133,7 @@ insert connection Insert{ into, values, onConflict, returning } =
 
 opaleyeReturning :: Returning schema result -> Opaleye.Returning (Row schema) result
 opaleyeReturning = \case
-  NumberOfRowsInserted -> Opaleye.Count
+  NumberOfRowsAffected -> Opaleye.Count
   Projection f         -> Opaleye.ReturningExplicit queryRunner f
 
 
@@ -158,7 +158,7 @@ data Insert :: Type -> Type where
 -- statement completes.
 data Returning table a where
   -- | Just return the number of rows inserted.
-  NumberOfRowsInserted :: Returning table Int64
+  NumberOfRowsAffected :: Returning table Int64
 
   -- | Return a projection of the rows inserted. This can be useful if your
   -- insert statement increments sequences by using default values.
