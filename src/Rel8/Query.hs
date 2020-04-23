@@ -23,6 +23,8 @@ module Rel8.Query
   , filterA
   , filterQuery
   , values
+  , whereExists
+  , whereNotExists
   ) where
 
 -- base
@@ -44,6 +46,8 @@ import Opaleye
   , unionAllExplicit
   , unionExplicit
   , valuesExplicit
+  , restrictExists
+  , restrictNotExists
   )
 import qualified Opaleye
   ( limit
@@ -252,3 +256,11 @@ filterA query = proc (f, i) -> do
 filterQuery :: ( b -> Row Bool ) -> Query a b -> Query a b
 filterQuery f q = proc i -> do
   filter f . q -< i
+
+
+whereExists :: Query a b -> Query a ()
+whereExists = liftOpaleye Opaleye.restrictExists
+
+
+whereNotExists :: Query a b -> Query a ()
+whereNotExists = liftOpaleye Opaleye.restrictNotExists
