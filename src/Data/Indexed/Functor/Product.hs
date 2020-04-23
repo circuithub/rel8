@@ -6,6 +6,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 -- | The product of two functors on indexed-types.
@@ -30,7 +31,7 @@ import Data.Indexed.Functor.Representable ( HRep, HRepresentable, hindex, htabul
 import Data.Indexed.Functor.Traversable ( HTraversable, htraverse )
 
 -- singletons
-import Data.Singletons.Prelude ( If )
+import Data.Singletons.Prelude ( If, type (||) )
 
 
 -- | The product of two functors on indexed-type is itself an functor on
@@ -63,7 +64,8 @@ instance (HTraversable f, HTraversable g) => HTraversable (HProduct f g) where
 
 type family HasName (name :: Symbol) f :: Bool where
   HasName name (Compose (FieldName name) y) = 'True
-  HasName name _ = 'False
+  HasName name (Compose (FieldName other) y) = 'False
+  HasName name (HProduct l r) = HasName name l || HasName name r
 
 
 type family WhichSide (name :: Symbol) f g r :: Side where
