@@ -10,8 +10,8 @@ module Rel8.IO
   ( select
   , prepare
   , insert
-  , Insert( Insert )
-  , OnConflict( DoNothing )
+  , Insert( Insert, into, values, onConflict, returning )
+  , OnConflict( DoNothing, Abort )
   , delete
   , Delete( Delete, from, deleteWhere, returning )
   , update
