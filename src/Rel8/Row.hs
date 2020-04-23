@@ -130,6 +130,21 @@ instance (Table x', Table y', x ~ Row x', y ~ Row y') => RowProduct (x, y) (x', 
   fromRow (Row (HProduct l r)) = (Row l, Row r)
 
 
+instance (Table y1, Table y2, Table y3, x1 ~ Row y1, x2 ~ Row y2, x3 ~ Row y3) => RowProduct (x1, x2, x3) (y1, y2, y3) where
+  toRow (Row a, Row b, Row c) = Row $ HProduct a $ HProduct b c
+  fromRow (Row (HProduct a (HProduct b c))) = (Row a, Row b, Row c)
+
+
+instance (Table y1, Table y2, Table y3, Table y4, x1 ~ Row y1, x2 ~ Row y2, x3 ~ Row y3, x4 ~ Row y4) => RowProduct (x1, x2, x3, x4) (y1, y2, y3, y4) where
+  toRow (Row a, Row b, Row c, Row d) = Row $ HProduct (HProduct a b) (HProduct c d)
+  fromRow (Row (HProduct (HProduct a b) (HProduct c d))) = (Row a, Row b, Row c, Row d)
+
+
+instance (Table y1, Table y2, Table y3, Table y4, Table y5, x1 ~ Row y1, x2 ~ Row y2, x3 ~ Row y3, x4 ~ Row y4, x5 ~ Row y5) => RowProduct (x1, x2, x3, x4, x5) (y1, y2, y3, y4, y5) where
+  toRow (Row a, Row b, Row c, Row d, Row e) = Row $ HProduct (HProduct a b) $ HProduct c $ HProduct d e
+  fromRow (Row (HProduct (HProduct a b) (HProduct c (HProduct d e)))) = (Row a, Row b, Row c, Row d, Row e)
+
+
 data MaybeRow a = MaybeRow { rowIsNull :: Row Bool, row :: a }
   deriving (Functor)
 

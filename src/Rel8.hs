@@ -30,6 +30,7 @@ module Rel8
   , Row
   , MaybeRow
   , RowProduct(..)
+  , underRowProduct
 
     -- *** Literals
   , lit
