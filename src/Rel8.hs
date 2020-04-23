@@ -3,7 +3,7 @@ module Rel8
     -- ** Defining Tables
 
     Table(..)
-  , EqTable
+  , EqTable, (==.)
   , OrdTable
   , ReadShowTable(..)
   , CompositeColumn(..)
