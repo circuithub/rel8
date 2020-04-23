@@ -102,7 +102,7 @@ instance {-# overlappable #-} (KnownSymbol name, Table a, Schema a ~ HIdentity s
   inferColumns = Columns $ Compose $ FieldName $ HIdentity $ concreteColumn $ symbolVal $ Proxy @name
 
 
-instance {-# overlapping #-} (KnownSymbol name, Table a, Schema a ~ HIdentity a) => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe a)) b) where
+instance {-# overlapping #-} (KnownSymbol name, Table a, Schema a ~ HIdentity something) => InferColumns (M1 S ('MetaSel ('Just name) x y z) (K1 i (Maybe a)) b) where
   inferColumns = Columns $ Compose $ FieldName $ HProduct (HIdentity $ derivedColumn @() isNull (symbolVal @name Proxy)) $ HCompose $ HIdentity $ Compose $ concreteColumn (symbolVal @name Proxy)
 
 
