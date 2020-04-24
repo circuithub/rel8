@@ -17,6 +17,7 @@ module Rel8
   , where_
   , whereExists
   , whereNotExists
+  , not_
   , filterQuery
   , catMaybe_
   , just
