@@ -18,6 +18,7 @@ module Rel8
   , whereExists
   , whereNotExists
   , not_
+  , filter
   , filterQuery
   , catMaybe_
   , just
@@ -61,6 +62,9 @@ module Rel8
   , update
   , Update(..)
   ) where
+
+-- base
+import Prelude hiding ( filter )
 
 -- rel8
 import Rel8.EqTable
