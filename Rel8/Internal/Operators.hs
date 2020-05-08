@@ -8,6 +8,7 @@ module Rel8.Internal.Operators where
 
 import Data.CaseInsensitive (CI)
 import Data.Int (Int16, Int32, Int64)
+import Data.Scientific (Scientific)
 import Data.Text (Text)
 import Data.Time (UTCTime, Day)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -68,6 +69,7 @@ instance DBEq Float where
 instance DBEq Int16 where
 instance DBEq Int32 where
 instance DBEq Int64 where
+instance DBEq Scientific where
 instance DBEq Text where
 instance DBEq (CI Text) where
 instance DBEq UTCTime where
@@ -99,6 +101,7 @@ instance DBOrd Float where
 instance DBOrd Int16 where
 instance DBOrd Int32 where
 instance DBOrd Int64 where
+instance DBOrd Scientific where
 instance DBOrd Text where
 instance DBOrd (CI Text) where
 instance DBOrd UTCTime where
