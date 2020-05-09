@@ -141,6 +141,17 @@ instance DBType a =>
       (\(K1 (Expr prim)) -> Identity prim)
       (\(Identity prim) -> K1 (Expr prim))
 
+
+bool :: (Predicate bool, Table a haskell) => a -> a -> Expr bool -> a
+bool as bs predicate = view (from expressions) $ mzipWithRep go
+  (view expressions as)
+  (view expressions bs)
+  where
+    go false true = a
+      where
+        Expr a = case_ [(predicate, Expr true)] (Expr false)
+
+
 --------------------------------------------------------------------------------
 -- | Indicates that a given 'Table' might be @null@. This is the result of a
 -- @LEFT JOIN@ between tables.
