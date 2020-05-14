@@ -19,7 +19,6 @@ import Data.Proxy
 import GHC.TypeLits
 import Control.Applicative
 import Control.Lens (Iso', from, iso, view)
-import Control.Monad (replicateM_)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Foldable (traverse_)
@@ -30,7 +29,7 @@ import qualified Data.Functor.Rep as Representable
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
 import Data.Tagged (Tagged(..), untag)
-import Database.PostgreSQL.Simple.FromRow (RowParser, field)
+import Database.PostgreSQL.Simple.FromRow (RowParser, field, fieldWith)
 import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, to)
 import GHC.Generics.Lens (generic, _M1, _K1)
@@ -185,9 +184,7 @@ instance (Table expr haskell) => Table (MaybeTable expr) (Maybe haskell) where
     isNull' <- field
     if fromMaybe True isNull'
       then Nothing <$
-           replicateM_
-             (length (pureRep () :: RowF expr ()))
-             (field :: RowParser (Maybe ()))
+           sequence_ (pureRep @(RowF expr) (fieldWith (\_ _ -> pure ())))
       else fmap Just rowParser
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
