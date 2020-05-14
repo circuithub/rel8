@@ -193,8 +193,14 @@ instance (Table expr haskell) => Table (MaybeTable expr) (Maybe haskell) where
 -- It may be helpful to remember this operator by the mneumonic - '$' on the left
 -- means function on the left, '?' on the right means 'MaybeTable' on the right.
 infixl 4 $?
-($?) :: ToNullable b maybeB => (a -> Expr b) -> MaybeTable a -> Expr maybeB
-f $? MaybeTable _ x = toNullable (f x)
+($?) :: forall a b maybeB. (DBType maybeB, ToNullable b maybeB)
+  => (a -> Expr b) -> MaybeTable a -> Expr maybeB
+f $? ma = maybeTable null_ (toNullable . f) ma
+  where
+    null_ =
+      unsafeCastExpr
+        (dbTypeName (dbTypeInfo @maybeB))
+        (Expr (O.ConstExpr O.NullLit))
 
 -- | Check if a 'MaybeTable' is a @NULL@ row. Usually this means a @LEFT JOIN@
 -- that did match any rows.
