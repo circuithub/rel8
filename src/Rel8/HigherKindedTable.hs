@@ -25,7 +25,6 @@ import Data.Kind
 import GHC.Generics hiding ( C )
 import Rel8.Column
 import Rel8.Expr
-import Rel8.Nest
 import Rel8.Table
 
 
@@ -139,13 +138,12 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
 
 type family Reduce ( f :: * -> * ) :: ( * -> * ) where
   Reduce ( Id x ) = x
-  Reduce ( Select ( Expr m ) ) = Identity
-  Reduce ( Null ( Expr m ) ) = Null ( Expr m )
-  Reduce ( NotNull ( Null m ) ) = Reduce m
-  Reduce ( Expr m ) = Expr m
+  Reduce ( Select Expr ) = Identity
+  Reduce ( Null Expr ) = Null Expr
+  Reduce Expr = Expr
+  Reduce ( NotNull ( Null Expr ) ) = Expr
   Reduce ( Structure f ) = Spine
-  Reduce ( From m f ) = Expr m
-  Reduce ( Demote ( Expr ( Nest m ) ) ) = Expr m
+  Reduce ( From f ) = Expr
 
 
 instance ( HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where

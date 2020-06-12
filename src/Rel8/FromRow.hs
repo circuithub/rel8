@@ -24,34 +24,39 @@ import Rel8.Table hiding ( field )
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class ( Context sql ~ Expr Query, Table sql ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
+class ( Context sql ~ Expr, Table sql ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance ( HConstrainTable t Identity FromField, HConstrainTable t Identity Unconstrained, HigherKindedTable t, Table ( t expr ), expr ~ Expr Query, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance ( HConstrainTable t Identity FromField, HConstrainTable t Identity Unconstrained, HigherKindedTable t, Table ( t expr ), expr ~ Expr, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
     traverseTableC @Select @FromField ( traverseCC @FromField \_ -> field )
 
 
-instance m ~ Query => FromRow ( Expr m Int32 ) Int32 where
+instance m ~ Query => FromRow ( Expr Int32 ) Int32 where
   rowParser _ =
     field
 
 
-instance m ~ Query => FromRow ( Expr m Bool ) Bool where
+instance m ~ Query => FromRow ( Expr Int64 ) Int64 where
+  rowParser _ =
+    field
+
+
+instance m ~ Query => FromRow ( Expr Bool ) Bool where
   rowParser _ =
     field
 
 
 instance
   ( t ~ t'
-  , f ~ Expr Query
+  , f ~ Expr
   , g ~ Identity
-  , HConstrainTable t ( Expr Query ) Unconstrained
-  , HConstrainTable t ( Null ( Expr Query ) ) FromField
-  , HConstrainTable t ( Null ( Expr Query ) ) Unconstrained
+  , HConstrainTable t Expr Unconstrained
+  , HConstrainTable t ( Null Expr ) FromField
+  , HConstrainTable t ( Null Expr ) Unconstrained
   , HConstrainTable t Identity FromField
   , HigherKindedTable t
   , Table ( MaybeTable ( t f ) )

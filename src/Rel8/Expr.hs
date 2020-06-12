@@ -23,11 +23,9 @@ module Rel8.Expr
   , coerceExpr
   , column
   , dbFunction
-  , demote
   , fromPrimExpr
   , not_
   , nullaryFunction
-  , promote
   , retype
   , toPrimExpr
   , unsafeCoerceExpr
@@ -47,28 +45,19 @@ import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
-import Rel8.Nest
 import Rel8.Stuff
 import Rel8.Table
 
 
-instance Recontextualise ( Expr ( Nest m ) a ) Demote where
-  type MapTable Demote ( Expr ( Nest m ) a ) =
-    Expr m a
-
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
-
-
 -- | Typed SQL expressions
-newtype Expr ( m :: Type -> Type ) ( a :: Type ) =
+newtype Expr ( a :: Type ) =
   Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
-type role Expr representational representational
+type role Expr representational
 
 
-instance ( IsString a, DBType a ) => IsString ( Expr m a ) where
+instance ( IsString a, DBType a ) => IsString ( Expr a ) where
   fromString =
     lit . fromString
 
@@ -109,16 +98,16 @@ data Color = Red | Green | Blue | Purple | Gold
 
 class DBType ( a :: Type ) where
   -- | Lift a Haskell value into a literal SQL expression.
-  lit :: a -> Expr m a
+  lit :: a -> Expr a
 
-  default lit :: Show a => a -> Expr m a
+  default lit :: Show a => a -> Expr a
   lit = unsafeCoerceExpr . lit . show
 
 
 litTable
   :: ( ConstrainTable ( MapTable Lit a ) DBType
      , Recontextualise a Lit
-     , Context ( MapTable Lit a ) ~ Expr m
+     , Context ( MapTable Lit a ) ~ Expr
      , Context a ~ Identity
      )
   => a -> MapTable Lit a
@@ -166,33 +155,33 @@ instance ( NotMaybe a, DBType a ) => DBType ( Maybe a ) where
 
 
 -- | The SQL @AND@ operator.
-(&&.) :: Expr m Bool -> Expr m Bool -> Expr m Bool
+(&&.) :: Expr Bool -> Expr Bool -> Expr Bool
 (&&.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr (Opaleye.:&&) a b )
 
 
 -- | The SQL @OR@ operator.
-(||.) :: Expr m Bool -> Expr m Bool -> Expr m Bool
+(||.) :: Expr Bool -> Expr Bool -> Expr Bool
 (||.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
 
 
 -- | The SQL @NOT@ operator.
-not_ :: Expr m Bool -> Expr m Bool
+not_ :: Expr Bool -> Expr Bool
 not_ ( Expr a ) =
   Expr ( Opaleye.UnExpr Opaleye.OpNot a )
 
 
 -- | Use Haskell's 'Coercible' type class to witness that two types
 -- are actually compatible in the SQL expressions they produce.
-coerceExpr :: forall b a m. Coercible a b => Expr m a -> Expr m b
+coerceExpr :: forall b a. Coercible a b => Expr a -> Expr b
 coerceExpr e =
   const
     ( unsafeCoerceExpr e )
     ( coerce @a @b undefined )
 
 
-unsafeCoerceExpr :: Expr m a -> Expr m b
+unsafeCoerceExpr :: Expr a -> Expr b
 unsafeCoerceExpr ( Expr x ) = Expr x
 
 
@@ -203,12 +192,12 @@ class Function arg res where
   applyArgument :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
 
 
-instance arg ~ Expr m a => Function arg ( Expr m res ) where
+instance arg ~ Expr a => Function arg ( Expr res ) where
   applyArgument mkExpr ( Expr a ) =
     Expr ( mkExpr [ a ] )
 
 
-instance ( arg ~ Expr m a, Function args res ) => Function arg ( args -> res ) where
+instance ( arg ~ Expr a, Function args res ) => Function arg ( args -> res ) where
   applyArgument f ( Expr a ) =
     applyArgument ( f . ( a : ) )
 
@@ -241,39 +230,29 @@ now = nullaryFunction "now"
 @
 
 -}
-nullaryFunction :: DBType a => String -> Expr m a
+nullaryFunction :: DBType a => String -> Expr a
 nullaryFunction = nullaryFunction_forAll
 
 
-nullaryFunction_forAll :: forall a m. DBType a => String -> Expr m a
+nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
 nullaryFunction_forAll name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
 
 
-promote :: Expr m a -> Expr ( Nest m ) a
-promote ( Expr x ) =
-  Expr x
-
-
-demote :: Expr ( Nest m ) a -> Expr m a
-demote ( Expr x ) =
-  Expr x
-
-
-data ExprField ( m :: * -> * ) a x where
-  ExprField :: ExprField m a a
+data ExprField a x where
+  ExprField :: ExprField a a
 
 
 -- | Any 'Expr' can be seen as a 'Table' with only one column.
-instance Table ( Expr m a ) where
-  type Context ( Expr m a ) =
-    Expr m
+instance Table ( Expr a ) where
+  type Context ( Expr a ) =
+    Expr
 
-  type ConstrainTable ( Expr m a ) c =
+  type ConstrainTable ( Expr a ) c =
     c a
 
-  type Field ( Expr m a ) =
-    ExprField m a
+  type Field ( Expr a ) =
+    ExprField a
 
   field expr ExprField =
     MkC expr
@@ -282,51 +261,51 @@ instance Table ( Expr m a ) where
     toColumn <$> f ExprField
 
 
-instance Recontextualise ( Expr m a ) Id where
-  type MapTable Id ( Expr m a ) = Expr m a
+instance Recontextualise ( Expr a ) Id where
+  type MapTable Id ( Expr a ) = Expr a
   fieldMapping ExprField = ExprField
   reverseFieldMapping ExprField = ExprField
 
 
-instance Recontextualise ( Expr m a ) Null where
-  type MapTable Null ( Expr m a ) = Expr m a
+instance Recontextualise ( Expr a ) Null where
+  type MapTable Null ( Expr a ) = Expr a
   fieldMapping ExprField = ExprField
   reverseFieldMapping ExprField = ExprField
 
-binExpr :: Opaleye.BinOp -> Expr m a -> Expr m a -> Expr m b
+binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
 binExpr op ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr op a b )
 
 
-column :: String -> Expr m a
+column :: String -> Expr a
 column columnName =
   Expr ( Opaleye.BaseTableAttrExpr columnName )
 
 
-fromPrimExpr :: Opaleye.PrimExpr -> Expr m a
+fromPrimExpr :: Opaleye.PrimExpr -> Expr a
 fromPrimExpr =
   Expr
 
 
-retype :: Expr m a -> Expr m b
+retype :: Expr a -> Expr b
 retype =
   fromPrimExpr . toPrimExpr
 
 
-null_ :: Expr m b -> ( Expr m a -> Expr m b ) -> Expr m ( Maybe a ) -> Expr m b
+null_ :: Expr b -> ( Expr a -> Expr b ) -> Expr ( Maybe a ) -> Expr b
 null_ whenNull f a =
  ifThenElse_ ( isNull a ) whenNull ( f ( retype a ) )
 
 
-ifThenElse_ :: Expr m Bool -> Expr m a -> Expr m a -> Expr m a
+ifThenElse_ :: Expr Bool -> Expr a -> Expr a -> Expr a
 ifThenElse_ bool whenTrue whenFalse =
   case_ [ ( bool, whenTrue ) ] whenFalse
 
 
 case_
-  :: [ ( Expr m Bool, Expr m a ) ]
-  -> Expr m a
-  -> Expr m a
+  :: [ ( Expr Bool, Expr a ) ]
+  -> Expr a
+  -> Expr a
 case_ alts def =
   fromPrimExpr
     ( Opaleye.CaseExpr
@@ -335,28 +314,28 @@ case_ alts def =
     )
 
 
-isNull :: Expr m ( Maybe a ) -> Expr m Bool
+isNull :: Expr ( Maybe a ) -> Expr Bool
 isNull =
   fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
 
 
 traversePrimExpr
   :: Applicative f
-  => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr m a -> f ( Expr m a )
+  => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr a -> f ( Expr a )
 traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
 
 
-liftNull :: Expr m a -> Expr m ( Maybe a )
+liftNull :: Expr a -> Expr ( Maybe a )
 liftNull =
   retype
 
 
-and_ :: Foldable f => f ( Expr m Bool ) -> Expr m Bool
+and_ :: Foldable f => f ( Expr Bool ) -> Expr Bool
 and_ =
   foldl' (&&.) ( lit True )
 
 
-or_ :: Foldable f => f ( Expr m Bool ) -> Expr m Bool
+or_ :: Foldable f => f ( Expr Bool ) -> Expr Bool
 or_ =
   foldl' (||.) ( lit False )

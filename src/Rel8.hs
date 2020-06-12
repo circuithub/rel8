@@ -15,7 +15,6 @@ module Rel8
 
     -- * Writing Queries
   , MonadQuery
-  , Nest
   , Table
   , each
   , where_
@@ -27,7 +26,7 @@ module Rel8
   , exists
 
     -- ** Outer Joins
-  , leftJoin
+  -- , leftJoin
   , MaybeTable
   , nullTag
   , maybeTable
@@ -93,7 +92,6 @@ module Rel8
   -- , Compatible
   -- , ConstrainedTable
   , IsTableIn
-  , Promote
   , Selects
 
     -- * Next Steps
@@ -112,7 +110,6 @@ import Rel8.FromRow
 import Rel8.HigherKindedTable
 import Rel8.MaybeTable
 import Rel8.MonadQuery
-import Rel8.Nest
 import Rel8.Query
 import Rel8.Table
 import Rel8.TableSchema

@@ -13,12 +13,11 @@ import Data.Monoid
 import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics
 import Rel8
-import Rel8.Column
 
 
 data Part f =
   Part
-    { partId :: Column f Int32
+    { partId :: Column f Int64
     , partName :: Column f String
     }
   deriving
@@ -32,22 +31,22 @@ parts =
   TableSchema
     { tableName = "part"
     , tableSchema = Nothing
-    , tableColumns = Part { partId = "part_id"
-                          , partName = "part_name"
+    , tableColumns = Part { partId = "id"
+                          , partName = "urn"
                           }
     }
 
 
-allParts :: MonadQuery m => m ( Part ( Expr m ) )
+allParts :: MonadQuery m => m ( Part Expr )
 allParts =
   each parts
 
 
-proj1 :: MonadQuery m => m ( Expr m Int32 )
+proj1 :: MonadQuery m => m ( Expr Int64 )
 proj1 = partId <$> allParts
 
 
-partsEq :: MonadQuery m => m ( Expr m Bool )
+partsEq :: MonadQuery m => m ( Expr Bool )
 partsEq = do
   parts1 <- allParts
   parts2 <- allParts
@@ -60,7 +59,7 @@ select_allParts c =
   select c allParts
 
 
-proj2 :: Connection -> IO [ Int32 ]
+proj2 :: Connection -> IO [ Int64 ]
 proj2 c = map partId <$> select_allParts c
 
 
@@ -69,19 +68,19 @@ proj2 c = map partId <$> select_allParts c
 --   each parts
 
 
-allPartIds :: MonadQuery m => m ( Expr m Int32 )
+allPartIds :: MonadQuery m => m ( Expr Int64 )
 allPartIds =
   partId <$> allParts
 
 
-selectAllPartIds :: Connection -> IO [ Int32 ]
+selectAllPartIds :: Connection -> IO [ Int64 ]
 selectAllPartIds c =
   select c allPartIds
 
 
 data Project f =
   Project
-    { projectId :: Column f Int32
+    { projectId :: Column f Int64
     }
   deriving
     ( Generic, HigherKindedTable )
@@ -98,8 +97,8 @@ projects =
 
 data ProjectPart f =
   ProjectPart
-    { projectPartProjectId :: Column f Int32
-    , projectPartPartId :: Column f Int32
+    { projectPartProjectId :: Column f Int64
+    , projectPartPartId :: Column f Int64
     }
   deriving
     ( Generic, HigherKindedTable )
@@ -116,18 +115,18 @@ projectParts =
     }
 
 
-leftJoinTest
-  :: MonadQuery m
-  => m ( Expr m ( Maybe Int32) )
-leftJoinTest = do
-  Part{ partId } <-
-    each parts
+-- leftJoinTest
+--   :: MonadQuery m
+--   => m ( Expr ( Maybe Int64) )
+-- leftJoinTest = do
+--   Part{ partId } <-
+--     each parts
 
-  projectPart <-
-    leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
-      projectPartPartId ==. partId
+--   projectPart <-
+--     leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
+--       projectPartPartId ==. partId
 
-  return ( projectPartPartId ( maybeTable projectPart ) )
+--   return ( projectPartPartId ( maybeTable projectPart ) )
 
 
 data PartWithProject f =
@@ -139,7 +138,7 @@ data PartWithProject f =
     ( Generic, HigherKindedTable )
 
 
-partsWithProjects :: MonadQuery m => m ( PartWithProject ( Expr m ) )
+partsWithProjects :: MonadQuery m => m ( PartWithProject Expr )
 partsWithProjects = do
   part <-
     each parts
@@ -157,7 +156,7 @@ partsWithProjects = do
   return PartWithProject{..}
 
 
-nestedTableEq :: MonadQuery m => m ( Expr m Bool )
+nestedTableEq :: MonadQuery m => m ( Expr Bool )
 nestedTableEq = do
   l <- partsWithProjects
   r <- partsWithProjects
@@ -170,14 +169,14 @@ nestedTableEq = do
 
 partsAggregation
   :: MonadQuery m
-  => m ( Expr m String, Sum ( Expr m Int32 ) )
+  => m ( Expr String, Sum ( Expr Int64 ) )
 partsAggregation = do
   groupAndAggregate
     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
     allParts
 
 
--- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int64 ) ) )
 -- illegalPartsAggregation1 = do
 --   unreachable <- allParts
 
@@ -186,7 +185,7 @@ partsAggregation = do
 --     allParts
 
 
--- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int32 ) ) )
+-- illegalPartsAggregation2 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int64 ) ) )
 -- illegalPartsAggregation2 = do
 --   unreachable <- allParts
 
@@ -196,8 +195,8 @@ partsAggregation = do
 
 
 data HasNull f =
-  HasNull { nullId :: Column f ( Maybe Int32 )
-          , notNullId :: Column f Int32
+  HasNull { nullId :: Column f ( Maybe Int64 )
+          , notNullId :: Column f Int64
           }
   deriving
     ( Generic, HigherKindedTable )
@@ -212,7 +211,7 @@ hasNull =
     }
 
 
-nullTest :: MonadQuery m => m ( HasNull ( Expr m ) )
+nullTest :: MonadQuery m => m ( HasNull Expr )
 nullTest = do
   HasNull{ nullId, notNullId } <-
     each hasNull
@@ -222,53 +221,53 @@ nullTest = do
   return HasNull{ nullId, notNullId }
 
 
-nullTestLeftJoin
-  :: MonadQuery m
-  => m ( Expr m ( Maybe Int32 ), Expr m ( Maybe Int32 ) )
-nullTestLeftJoin = do
-  t1 <-
-    each hasNull
+-- nullTestLeftJoin
+--   :: MonadQuery m
+--   => m ( Expr ( Maybe Int64 ), Expr ( Maybe Int64 ) )
+-- nullTestLeftJoin = do
+--   t1 <-
+--     each hasNull
 
-  t2 <-
-    leftJoin ( each hasNull ) \HasNull{ nullId } ->
-      null_ ( lit False ) ( notNullId t1 ==. ) nullId
+--   t2 <-
+--     leftJoin ( each hasNull ) \HasNull{ nullId } ->
+--       null_ ( lit False ) ( notNullId t1 ==. ) nullId
 
-  return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
-
-
-nullTestLeftJoinEasyEq
-  :: MonadQuery m
-  => m ( Expr m ( Maybe Int32 ), Expr m ( Maybe Int32 ) )
-nullTestLeftJoinEasyEq = do
-  t1 <-
-    each hasNull
-
-  t2 <-
-    leftJoin ( each hasNull ) \HasNull{ nullId } ->
-      nullId ==. liftNull ( notNullId t1 )
-
-  return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
+--   return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
 
 
-maybeTableQ :: MonadQuery m => m ( MaybeTable ( HasNull ( Expr m ) ) )
-maybeTableQ = do
-  t1 <-
-    each hasNull
+-- nullTestLeftJoinEasyEq
+--   :: MonadQuery m
+--   => m ( Expr ( Maybe Int64 ), Expr ( Maybe Int64 ) )
+-- nullTestLeftJoinEasyEq = do
+--   t1 <-
+--     each hasNull
 
-  leftJoin ( each hasNull ) \HasNull{ nullId } ->
-    nullId ==. liftNull ( notNullId t1 )
+--   t2 <-
+--     leftJoin ( each hasNull ) \HasNull{ nullId } ->
+--       nullId ==. liftNull ( notNullId t1 )
 
-
-select_maybeTable :: Connection -> IO [ Maybe ( HasNull Identity ) ]
-select_maybeTable c =
-  select c maybeTableQ
-
-
-catNullsTest :: MonadQuery m => m ( NotNull ( Expr m ) Int32 )
-catNullsTest =
-  catNulls ( nullId <$> each hasNull )
+--   return ( nullId ( maybeTable t2 ), notNullId ( maybeTable t2 ) )
 
 
-unionTest :: MonadQuery m => m ( Part ( Expr m ) )
+-- maybeTableQ :: MonadQuery m => m ( MaybeTable ( HasNull Expr ) )
+-- maybeTableQ = do
+--   t1 <-
+--     each hasNull
+
+--   leftJoin ( each hasNull ) \HasNull{ nullId } ->
+--     nullId ==. liftNull ( notNullId t1 )
+
+
+-- select_maybeTable :: Connection -> IO [ Maybe ( HasNull Identity ) ]
+-- select_maybeTable c =
+--   select c maybeTableQ
+
+
+-- catNullsTest :: MonadQuery m => m ( NotNull Expr Int64 )
+-- catNullsTest =
+--   catNulls ( nullId <$> each hasNull )
+
+
+unionTest :: MonadQuery m => m ( Part Expr )
 unionTest =
   union ( each parts ) ( each parts )

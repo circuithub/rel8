@@ -48,7 +48,7 @@ This means @Color@s will be treated as the literal strings @"Red"@, @"Green"@,
 etc in the database, and they can be compared for equality by just using @=@.
 -}
 class DBEq ( a :: Type ) where
-  eqExprs :: Expr m a -> Expr m a -> Expr m Bool
+  eqExprs :: Expr a -> Expr a -> Expr Bool
   eqExprs =
     binExpr (Opaleye.:==)
 

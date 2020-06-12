@@ -34,8 +34,6 @@ import Rel8.EqTable
 import Rel8.Expr
 import Rel8.HigherKindedTable
 import Rel8.MonadQuery
-import Rel8.Nest
-import Rel8.SimpleConstraints
 import Rel8.Table
 
 
@@ -86,28 +84,24 @@ groupAndAggregate
   :: ( MonadQuery m
      , MonoidTable v
      , EqTable k
-     , Promote m k' k
-     , Promote m v' v
+     , Context k ~ Expr
+     , Context v ~ Expr
+     , Table k
      )
-  => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
+  => ( a -> GroupBy k v ) -> m a -> m ( k, v )
 groupAndAggregate = groupAndAggregate_forAll
 
 
 groupAndAggregate_forAll
-  :: forall a k k' v v' m
+  :: forall a k v m
    . ( MonadQuery m
      , MonoidTable v
-     , Recontextualise k Demote
-     , Recontextualise v Demote
      , EqTable k
-     , Context k ~ Expr ( Nest m )
-     , MapTable Demote k ~ k'
-     , MapTable Demote v ~ v'
-     , Context k' ~ Context v'
-     , Context v ~ Expr ( Nest m )
-     , Context v' ~ Expr m
+     , Context k ~ Expr
+     , Context v ~ Expr
+     , Table k
      )
-  => ( a -> GroupBy k v ) -> Nest m a -> m ( k', v' )
+  => ( a -> GroupBy k v ) -> m a -> m ( k, v )
 groupAndAggregate_forAll f query =
   aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
     ( key, value )
@@ -126,23 +120,17 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m, MonoidTable b, Promote m b' b )
-  => ( a -> b ) -> Nest m a -> m b'
+  :: ( MonadQuery m, MonoidTable b )
+  => ( a -> b ) -> m a -> m b
 aggregate = aggregate_forAll
 
 
 aggregate_forAll
-  :: forall a b b' m
-   . ( MonadQuery m , Promote m b' b , MonoidTable b )
-  => ( a -> b ) -> Nest m a -> m b'
+  :: forall a b m
+   . ( MonadQuery m , MonoidTable b )
+  => ( a -> b ) -> m a -> m b
 aggregate_forAll f =
-  liftOpaleye . Opaleye.aggregate ( dimap f to aggregator ) . toOpaleye
-
-  where
-
-    to :: b -> b'
-    to =
-      mapTable @Demote ( mapC demote )
+  liftOpaleye . Opaleye.aggregate ( lmap f aggregator ) . toOpaleye
 
 
 -- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
@@ -154,7 +142,7 @@ class Table a => MonoidTable a where
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ( HConstrainTable t ( Expr m ) Unconstrained, HigherKindedTable t, ConstrainTable ( t ( Expr m ) ) DBMonoid ) => MonoidTable ( t ( Expr m ) ) where
+instance ( HConstrainTable t Expr Unconstrained, HigherKindedTable t, ConstrainTable ( t Expr ) DBMonoid ) => MonoidTable ( t Expr ) where
   aggregator =
     Opaleye.Aggregator $ Opaleye.PackMap \f ->
       traverseTableC
@@ -167,7 +155,7 @@ instance ( HConstrainTable t ( Expr m ) Unconstrained, HigherKindedTable t, Cons
 class DBMonoid a where
   -- | How to aggregate a single expression under a particular monoidal
   -- structure.
-  aggregateExpr :: Opaleye.Aggregator ( Expr m a ) ( Expr m a )
+  aggregateExpr :: Opaleye.Aggregator ( Expr a ) ( Expr a )
 
 
 instance DBMonoid ( Sum a ) where
@@ -179,18 +167,18 @@ instance DBMonoid ( Sum a ) where
               )
 
 
-instance MonoidTable ( Sum ( Expr m a ) ) where
+instance MonoidTable ( Sum ( Expr a ) ) where
   aggregator =
     dimap from to aggregateExpr
 
     where
 
-      from :: Sum ( Expr m a ) -> Expr m ( Sum a )
+      from :: Sum ( Expr a ) -> Expr ( Sum a )
       from ( Sum expr ) =
         retype expr
 
 
-      to :: Expr m ( Sum a ) -> Sum ( Expr m a )
+      to :: Expr ( Sum a ) -> Sum ( Expr a )
       to expr =
         Sum ( retype expr )
 
@@ -238,7 +226,7 @@ instance ( Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable 
     ValueFields i -> ValueFields ( reverseFieldMapping @_ @f i )
 
 
-instance ( Context v ~ Expr m, Table k, Context k ~ Expr m, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
+instance ( Context v ~ Expr, Table k, Context k ~ Expr, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
   aggregator =
     GroupBy
       <$> lmap key group

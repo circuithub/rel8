@@ -16,14 +16,12 @@
 
 module Rel8.MonadQuery where
 
-import Control.Applicative ( Const(..), liftA2 )
+import Control.Applicative ( Const(..) )
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
-import Rel8.MaybeTable
-import Rel8.Nest
 import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
@@ -33,12 +31,10 @@ import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
@@ -53,18 +49,10 @@ class Monad m => MonadQuery m where
   toOpaleye :: m a -> Opaleye.Query a
 
 
-instance MonadQuery m => MonadQuery ( Nest m ) where
-  liftOpaleye =
-    Nest . liftOpaleye
-
-  toOpaleye ( Nest m ) =
-    toOpaleye m
-
-
 -- | Exists checks if a query returns at least one row.
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
-exists :: MonadQuery m => m a -> m ( Expr m Bool )
+exists :: MonadQuery m => m a -> m ( Expr Bool )
 exists query =
   liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
 
@@ -72,14 +60,14 @@ exists query =
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: ( MonadQuery m, Selects m schema row ) => TableSchema schema -> m row
+each :: ( MonadQuery m, Selects schema row ) => TableSchema schema -> m row
 each = each_forAll
 
 
 each_forAll
   :: forall m schema row
    . ( MonadQuery m
-     , Selects m schema row
+     , Selects schema row
      )
   => TableSchema schema -> m row
 each_forAll schema =
@@ -107,121 +95,108 @@ each_forAll schema =
     view =
       Opaleye.View
         ( mapTable
-            @( From m )
+            @From
             ( mapC ( column . columnName ) )
             ( tableColumns schema )
         )
 
 
 
--- | Select all rows from another table that match a given predicate. If the
--- predicate is not satisfied, a null 'MaybeTable' is returned.
---
--- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
-leftJoin
-  :: ( MonadQuery m
-     , Promote m outer outer'
-     , Recontextualise outer Null
-     , Context ( MapTable Null outer ) ~ Null ( Expr m )
-     , MapTable Demote outer' ~ outer
-     )
-  => Nest m outer'
-  -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable outer )
-leftJoin = leftJoin_forAll
+-- -- | Select all rows from another table that match a given predicate. If the
+-- -- predicate is not satisfied, a null 'MaybeTable' is returned.
+-- --
+-- -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
+-- leftJoin
+--   :: ( MonadQuery m
+--      , Recontextualise outer Null
+--      , Context ( MapTable Null outer ) ~ Null Expr
+--      , Context outer ~ Expr
+--      )
+--   => m outer
+--   -> ( outer -> Expr Bool )
+--   -> m ( MaybeTable outer )
+-- leftJoin = leftJoin_forAll
 
-leftJoin_forAll
-  :: forall outer outer' nullOuter m
-   . ( MonadQuery m
-     , Promote m outer outer'
-     , Recontextualise outer Null
-     , MapTable Null outer ~ nullOuter
-     , Context nullOuter ~ Null ( Context outer )
-     , MapTable Demote outer' ~ outer
-     )
-  => Nest m outer'
-  -> ( outer -> Expr m Bool )
-  -> m ( MaybeTable outer )
-leftJoin_forAll joinTable condition =
-  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
-    let
-      Opaleye.QueryArr rightQueryF =
-        liftA2
-          (,)
-          ( pure ( lit False ) )
-          ( toOpaleye joinTable )
+-- leftJoin_forAll
+--   :: forall outer nullOuter m
+--    . ( MonadQuery m
+--      , Recontextualise outer Null
+--      , MapTable Null outer ~ nullOuter
+--      , Context nullOuter ~ Null ( Context outer )
+--      )
+--   => m outer
+--   -> ( outer -> Expr Bool )
+--   -> m ( MaybeTable outer )
+-- leftJoin_forAll joinTable condition =
+--   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
+--     let
+--       Opaleye.QueryArr rightQueryF =
+--         liftA2
+--           (,)
+--           ( pure ( lit False ) )
+--           ( toOpaleye joinTable )
 
-      ( right, pqR, t' ) =
-        rightQueryF ( (), Opaleye.Unit, t )
+--       ( right, pqR, t' ) =
+--         rightQueryF ( (), Opaleye.Unit, t )
 
-      ( ( tag, renamed ), ljPEsB ) =
-        Opaleye.run
-          ( Opaleye.runUnpackspec
-              unpackColumns
-              ( Opaleye.extractLeftJoinFields 2 t' )
-              right
-          )
+--       ( ( tag, renamed ), ljPEsB ) =
+--         Opaleye.run
+--           ( Opaleye.runUnpackspec
+--               unpackColumns
+--               ( Opaleye.extractLeftJoinFields 2 t' )
+--               right
+--           )
 
-    in ( MaybeTable
-           { nullTag =
-               liftNull tag
-           , maybeTable =
-               mapTable @Null ( mapC retype ) renamed
-           }
-       , Opaleye.Join
-           Opaleye.LeftJoin
-           ( toPrimExpr ( condition renamed ) )
-           []
-           ljPEsB
-           left
-           pqR
-       , Opaleye.next t'
-       )
+--     in ( MaybeTable
+--            { nullTag =
+--                liftNull tag
+--            , maybeTable =
+--                mapTable @Null ( mapC retype ) renamed
+--            }
+--        , Opaleye.Join
+--            Opaleye.LeftJoin
+--            ( toPrimExpr ( condition renamed ) )
+--            []
+--            ljPEsB
+--            left
+--            pqR
+--        , Opaleye.next t'
+--        )
 
-  where
+--   where
 
-    unpackColumns :: Opaleye.Unpackspec ( Expr m Bool, outer' ) ( Expr m Bool, outer )
-    unpackColumns =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer' ) -> do
-        tag' <-
-          f ( toPrimExpr tag )
+--     unpackColumns :: Opaleye.Unpackspec ( Expr Bool, outer ) ( Expr Bool, outer )
+--     unpackColumns =
+--       Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer' ) -> do
+--         tag' <-
+--           f ( toPrimExpr tag )
 
-        outer <-
-          traverseTable @Demote
-            ( traverseC ( fmap demote . traversePrimExpr f ) )
-            outer'
+--         outer <-
+--           traverseC ( fmap demote . traversePrimExpr f )
 
-        return ( fromPrimExpr tag', outer )
+--         return ( fromPrimExpr tag', outer )
 
 
 -- | Combine the results of two queries of the same type.
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
-union
-  :: ( MonadQuery m
-     , Promote m a a'
-     )
-  => Nest m a' -> Nest m a' -> m a
+union :: (MonadQuery m, Table a, Context a ~ Expr) => m a -> m a -> m a
 union = union_forAll
 
 
 union_forAll
-  :: forall a' a m
+  :: forall a m
    . ( MonadQuery m
-     , MapTable Demote a' ~ a
-     , Recontextualise a' Demote
-     , Context a' ~ Expr ( Nest m )
-     , Context a ~ Expr m
+     , Context a ~ Expr
+     , Table a
      )
-  => Nest m a'
-  -> Nest m a'
-  -> m a
+  => m a -> m a -> m a
 union_forAll l r =
   liftOpaleye
     ( Opaleye.unionExplicit
         binaryspec
-        ( toOpaleye ( mapTable @Demote ( mapC demote ) <$> l ) )
-        ( toOpaleye ( mapTable @Demote ( mapC demote ) <$> r ) )
+        ( toOpaleye l )
+        ( toOpaleye r )
     )
 
   where
@@ -287,7 +262,7 @@ offset n query =
 -- | Drop any rows that don't match a predicate.
 --
 -- @where_ expr@ is equivalent to the SQL @WHERE expr@.
-where_ :: MonadQuery m => Expr m Bool -> m ()
+where_ :: MonadQuery m => Expr Bool -> m ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
@@ -296,8 +271,8 @@ where_ x =
 catNulls
   :: forall a b m
    . ( MonadQuery m
-     , Context a ~ Expr m
-     , Context b ~ Expr m
+     , Context a ~ Expr
+     , Context b ~ Expr
      , MapTable NotNull a ~ b
      , Recontextualise a NotNull
      )
@@ -307,7 +282,7 @@ catNulls q = do
     q
 
   let
-    allNotNull :: [ Expr m Bool ]
+    allNotNull :: [ Expr Bool ]
     allNotNull =
       getConst
         ( runIdentity

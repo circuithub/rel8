@@ -108,7 +108,7 @@ queryRunner =
 
 
 unpackspec
-  :: ( Table row, Context row ~ Expr Query )
+  :: ( Table row, Context row ~ Expr )
   => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
@@ -128,10 +128,10 @@ insert connection Insert{ into, values, onConflict, returning } =
 
     toOpaleyeInsert
       :: forall schema result value
-       . ( Context value ~ Expr Query
+       . ( Context value ~ Expr
          , Context schema ~ ColumnSchema
-         , MapTable ( From Query ) schema ~ value
-         , Recontextualise schema ( From Query )
+         , MapTable From schema ~ value
+         , Recontextualise schema From
          )
       => TableSchema schema
       -> [ value ]
@@ -159,10 +159,10 @@ insert connection Insert{ into, values, onConflict, returning } =
 
 writer
   :: forall value schema
-   . ( Context value ~ Expr Query
+   . ( Context value ~ Expr
      , Context schema ~ ColumnSchema
-     , Selects Query schema value
-     , MapTable ( From Query ) schema ~ value
+     , Selects schema value
+     , MapTable From schema ~ value
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -177,10 +177,10 @@ writer into_ =
       void
         ( traverseTableWithIndexC
             @Unconstrained
-            @( From Query )
+            @From
             ( \i ->
                 traverseC \ColumnSchema{ columnName } -> do
-                  f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @( From Query ) i ) <$> xs
+                  f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @From i ) <$> xs
                     , columnName
                     )
 
@@ -202,7 +202,7 @@ opaleyeReturning returning =
     Projection f ->
       Opaleye.ReturningExplicit
         queryRunner
-        ( f . mapTable @( From Query ) ( mapC ( column . columnName ) ) )
+        ( f . mapTable @From ( mapC ( column . columnName ) ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -213,7 +213,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: * -> * where
   Insert
-    :: Selects Query schema value
+    :: Selects schema value
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , values :: [ value ]
@@ -239,7 +239,7 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( Selects Query schema row
+    :: ( Selects schema row
        , Table projection
        , Context row ~ Context projection
        , FromRow projection a
@@ -255,7 +255,7 @@ data OnConflict
 
 selectQuery
   :: forall a
-   . ( Table a, Context a ~ Expr Query )
+   . ( Table a, Context a ~ Expr )
   => Query a -> Maybe String
 selectQuery ( Query opaleye ) =
   showSqlForPostgresExplicit
@@ -281,12 +281,12 @@ delete c Delete{ from, deleteWhere, returning } =
     go
       :: forall schema r row
        . ( Context schema ~ ColumnSchema
-         , Context row ~ Expr Query
-         , MapTable ( From Query ) schema ~ row
-         , Recontextualise schema ( From Query )
+         , Context row ~ Expr
+         , MapTable From schema ~ row
+         , Recontextualise schema From
          )
       => TableSchema schema
-      -> ( row -> Expr Query Bool )
+      -> ( row -> Expr Bool )
       -> Returning schema r
       -> Opaleye.Delete r
     go schema deleteWhere_ returning_ =
@@ -296,16 +296,16 @@ delete c Delete{ from, deleteWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . deleteWhere_
-              . mapTable @( From Query ) ( mapC ( column . columnName ) )
+              . mapTable @From ( mapC ( column . columnName ) )
         , dReturning = opaleyeReturning returning_
         }
 
 
 data Delete from return where
   Delete
-    :: Selects Query from row
+    :: Selects from row
     => { from :: TableSchema from
-       , deleteWhere :: row -> Expr Query Bool
+       , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
        }
     -> Delete from return
@@ -320,13 +320,13 @@ update connection Update{ target, set, updateWhere, returning } =
     go
       :: forall returning target row
        . ( Context target ~ ColumnSchema
-         , Context row ~ Expr Query
-         , MapTable ( From Query ) target ~ row
-         , Recontextualise target ( From Query )
+         , Context row ~ Expr
+         , MapTable From target ~ row
+         , Recontextualise target From
          )
       => TableSchema target
       -> ( row -> row )
-      -> ( row -> Expr Query Bool )
+      -> ( row -> Expr Bool )
       -> Returning target returning
       -> Opaleye.Update returning
     go target_ set_ updateWhere_ returning_ =
@@ -341,19 +341,19 @@ update connection Update{ target, set, updateWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . updateWhere_
-              . mapTable @( From Query ) ( mapC ( column . columnName ) )
+              . mapTable @From ( mapC ( column . columnName ) )
 
         , uUpdateWith =
-            set_ . mapTable @( From Query ) ( mapC ( column . columnName ) )
+            set_ . mapTable @From ( mapC ( column . columnName ) )
         }
 
 
 data Update target returning where
   Update
-    :: Selects Query target row
+    :: Selects target row
     => { target :: TableSchema target
        , set :: row -> row
-       , updateWhere :: row -> Expr Query Bool
+       , updateWhere :: row -> Expr Bool
        , returning :: Returning target returning
        }
     -> Update target returning

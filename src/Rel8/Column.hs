@@ -19,7 +19,6 @@ module Rel8.Column
   , Id
   , Select
   , From
-  , Demote
   , Structure
   , Lit
   , DropMaybe
@@ -39,13 +38,10 @@ data NotNull ( f :: * -> * ) a
 data Id ( f :: * -> * ) a
 
 
-data From ( m :: * -> * ) ( f :: * -> * ) a
+data From ( f :: * -> * ) a
 
 
 data Select ( f :: * -> * ) a
-
-
-data Demote ( f :: * -> * ) a
 
 
 data Structure ( f :: * -> * ) a

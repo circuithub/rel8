@@ -38,20 +38,20 @@ class EqTable a where
 
 -- | Any @Expr@s can be compared for equality as long as the underlying
 -- database type supports equality comparisons.
-instance DBEq a => EqTable ( Expr m a ) where
+instance DBEq a => EqTable ( Expr a ) where
   (==.) =
     eqExprs
 
 
 -- | Higher-kinded records can be compared for equality. Two records are equal
 -- if all of their fields are equal.
-instance ( HigherKindedTable t, HConstrainTable t ( Expr m ) Unconstrained, ConstrainTable ( t ( Expr m ) ) DBEq ) => EqTable ( t ( Expr m ) ) where
+instance ( HigherKindedTable t, HConstrainTable t Expr Unconstrained, ConstrainTable ( t Expr ) DBEq ) => EqTable ( t Expr ) where
   l ==. r =
     and_
       ( getConst
           ( zipTablesWithMC
               @DBEq
-              @( t ( Expr m ) )
+              @( t Expr )
               ( zipCWithMC @DBEq \a b -> Const [ eqExprs a b ] )
               l
               r

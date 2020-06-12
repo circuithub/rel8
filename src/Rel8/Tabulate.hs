@@ -50,7 +50,7 @@ singleton k a =
 -- | Note that 'Tabulated' is a @MultiMap@, so the 'MonadQuery' returned by
 --   'lookup' can and often does contain multiple results.
 lookup
-  :: ( Context k ~ Expr m, EqTable k, MonadQuery m )
+  :: ( Context k ~ Expr, EqTable k, MonadQuery m )
   => k -> Tabulated m k a -> m a
 lookup =
   lookupBy . (==.)
@@ -63,7 +63,7 @@ lookup =
 -- See also 'lookup'.
 lookupBy
   :: MonadQuery m
-  => ( k -> Expr m Bool ) -> Tabulated m k a -> m a
+  => ( k -> Expr Bool ) -> Tabulated m k a -> m a
 lookupBy f ( Tabulated query ) = do
   ( k, a ) <-
     query
@@ -73,7 +73,7 @@ lookupBy f ( Tabulated query ) = do
 
 -- | Can also be thought of as @intersection@.
 zip
-  :: ( EqTable k, Context k ~ Expr m, MonadQuery m )
+  :: ( EqTable k, Context k ~ Expr, MonadQuery m )
   => Tabulated m k a -> Tabulated m k b -> Tabulated m k ( a, b )
 zip =
   zipWith (,)
@@ -81,7 +81,7 @@ zip =
 
 -- | Can also be thought of @intersectionWith@.
 zipWith
-  :: ( EqTable k, Context k ~ Expr m, MonadQuery m )
+  :: ( EqTable k, Context k ~ Expr, MonadQuery m )
   => ( a -> b -> c )
   -> Tabulated m k a
   -> Tabulated m k b
@@ -93,7 +93,7 @@ zipWith = izipWith . const
 -- values with access to the matching key.
 izipWith
   :: MonadQuery m
-  => ( EqTable k, Context k ~ Expr m )
+  => ( EqTable k, Context k ~ Expr )
   => ( k -> a -> b -> c )
   -> Tabulated m k a
   -> Tabulated m k b
@@ -104,7 +104,7 @@ izipWith =
 
 izipWithBy
   :: MonadQuery m
-  => ( x -> y -> Expr m Bool )
+  => ( x -> y -> Expr Bool )
   -> ( x -> y -> z )
   -> ( x -> y -> a -> b -> c )
   -> Tabulated m x a
@@ -216,7 +216,7 @@ tabulate key =
 --    revisionsByProjectId = 'tabulate' revisionProjectId
 -- @
 cotabulate
-  :: ( Context k ~ Expr m, EqTable k, MonadQuery m )
+  :: ( Context k ~ Expr, EqTable k, MonadQuery m )
   => ( a -> l )
   -> Tabulated m k a
   -> Tabulation m k j b
