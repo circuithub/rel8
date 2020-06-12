@@ -1,5 +1,6 @@
 {-# language ApplicativeDo #-}
 {-# language ConstraintKinds #-}
+{-# language DeriveFunctor #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
@@ -35,14 +36,33 @@ data MaybeTable t where
   MaybeTable
     :: { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
-         nullTag :: Expr Bool
+         nullTag :: Expr ( Maybe Bool )
        , table :: t
        }
     -> MaybeTable t
+  deriving
+    ( Functor )
+
+
+instance Applicative MaybeTable where
+  pure = MaybeTable (lit (Just False))
+  MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftNull (or_ t t')) (f a)
+    where
+      or_ x y =
+        null_ (lit False) (\x' -> null_ (lit False) (\y' -> x' ||. y') y) x
+
+
+instance Monad MaybeTable where
+  MaybeTable t a >>= f = case f a of
+    MaybeTable t' b -> MaybeTable (liftNull (or_ t t')) b
+    where
+      or_ x y =
+        null_ (lit False) (\x' -> null_ (lit False) (\y' -> x' ||. y') y) x
+
 
 
 data MaybeTableField t a where
-  MaybeTableIsNull :: MaybeTableField t Bool
+  MaybeTableIsNull :: MaybeTableField t ( Maybe Bool )
   MaybeTableField :: Field t a -> MaybeTableField t a
 
 
@@ -51,7 +71,7 @@ instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
 
   type Context (MaybeTable t) = Context t
 
-  type ConstrainTable (MaybeTable t) c = ( c Bool, ConstrainTable t c )
+  type ConstrainTable (MaybeTable t) c = ( c ( Maybe Bool ), ConstrainTable t c )
 
   field MaybeTable{ nullTag, table } = \case
     MaybeTableIsNull ->

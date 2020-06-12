@@ -28,6 +28,7 @@ import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.SimpleConstraints
+import Rel8.MaybeTable
 import Rel8.Table
 import Rel8.TableSchema
 
@@ -41,6 +42,7 @@ import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simpl
 import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..) )
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
@@ -59,7 +61,6 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
-import Rel8.MaybeTable
 import qualified Rel8.Optimize
 import {-# source #-} Rel8.FromRow
 
@@ -430,66 +431,26 @@ each_forAll schema =
 -- predicate is not satisfied, a null 'MaybeTable' is returned.
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
-leftJoin
-  :: ( Table a, Context a ~ Expr )
-  => Query a
-  -> ( a -> Expr Bool )
-  -> Query ( MaybeTable a )
-leftJoin = leftJoin_forAll
-
-
-leftJoin_forAll
-  :: forall a
-   . ( Table a, Context a ~ Expr )
-  => Query a
-  -> ( a -> Expr Bool )
-  -> Query ( MaybeTable a )
-leftJoin_forAll joinTable condition =
-  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
-    let
-      Opaleye.QueryArr rightQueryF =
-        liftA2
-          (,)
-          ( pure ( lit False ) )
-          ( toOpaleye joinTable )
-
-      ( right, pqR, t' ) =
-        rightQueryF ( (), Opaleye.Unit, t )
-
-      ( ( tag, renamed ), ljPEsB ) =
-        Opaleye.run
-          ( Opaleye.runUnpackspec
-              unpackColumns
-              ( Opaleye.extractLeftJoinFields 2 t' )
-              right
-          )
-
-    in ( MaybeTable
-           { nullTag = tag
-           , table = renamed
-           }
-       , Opaleye.Join
-           Opaleye.LeftJoin
-           ( toPrimExpr ( condition renamed ) )
-           []
-           ljPEsB
-           left
-           pqR
-       , Opaleye.next t'
-       )
+optional :: Query a -> Query (MaybeTable a)
+optional =
+  liftOpaleye . Opaleye.laterally (Opaleye.QueryArr . go) . toOpaleye
 
   where
 
-    unpackColumns :: Opaleye.Unpackspec ( Expr Bool, a ) ( Expr Bool, a )
-    unpackColumns =
-      Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer ) -> do
-        tag' <-
-          f ( toPrimExpr tag )
+    go query (i, left, tag) =
+      ( MaybeTable t' a, join, Opaleye.next tag' )
 
-        outer' <-
-          runIdentity <$> traverseTable @Id ( traverseC ( traversePrimExpr f ) ) ( Identity outer )
+      where
 
-        return ( fromPrimExpr tag', outer' )
+        ( MaybeTable t a, right, tag' ) =
+          Opaleye.runSimpleQueryArr (pure <$> query) (i, tag)
+
+        ( t', bindings ) =
+          Opaleye.run $
+          Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
+
+        join =
+          Opaleye.Join Opaleye.LeftJoin (toPrimExpr $ lit True) [] bindings left right
 
 
 -- | Combine the results of two queries of the same type.
@@ -580,3 +541,10 @@ where_ :: Expr Bool -> Query ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
+
+
+catMaybeTables :: Query ( MaybeTable a ) -> Query a
+catMaybeTables q = do
+  MaybeTable{ nullTag, table } <- q
+  where_ $ not_ $ isNull nullTag
+  return table

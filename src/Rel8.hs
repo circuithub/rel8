@@ -17,18 +17,18 @@ module Rel8
   , Table
   , each
   , where_
-  -- , catNulls
   , limit
   , offset
   , union
   , distinct
   , exists
 
-    -- ** Outer Joins
-  , leftJoin
+    -- ** Optional Subqueries
+  , optional
   , MaybeTable
   , nullTag
   , maybeTable
+  , catMaybeTables
 
     -- ** Aggregation
   , groupAndAggregate

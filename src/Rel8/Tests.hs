@@ -120,9 +120,10 @@ leftJoinTest = do
   Part{ partId = partId1 } <-
     each parts
 
-  projectPart <-
-    leftJoin ( each parts ) \Part{ partId = partId2 } ->
-      partId1 ==. partId2
+  projectPart <- optional do
+    part2 <- each parts
+    where_ $ partId part2 ==. partId1
+    return part2
 
   return $ maybeTable ( lit Nothing ) ( liftNull . partId ) projectPart
 
@@ -260,7 +261,7 @@ nullTest = do
 --   select c maybeTableQ
 
 
--- catNullsTest :: MonadQuery m => m ( NotNull Expr Int64 )
+-- catNullsTest :: Query ( Expr Int64 )
 -- catNullsTest =
 --   catNulls ( nullId <$> each hasNull )
 
