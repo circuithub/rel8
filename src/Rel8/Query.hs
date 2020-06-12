@@ -21,7 +21,7 @@
 
 module Rel8.Query where
 
-import Control.Applicative ( Const(..) )
+import Control.Applicative ( liftA2 )
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
@@ -31,19 +31,6 @@ import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
 
-import qualified Opaleye.Binary as Opaleye
-import qualified Opaleye.Distinct as Opaleye
-import qualified Opaleye.Internal.Aggregate as Opaleye
-import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
-import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
-import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Operators as Opaleye hiding ( restrict )
-import qualified Opaleye.Order as Opaleye
-import qualified Opaleye.Table as Opaleye
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Int
@@ -52,11 +39,27 @@ import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..) )
+import qualified Opaleye.Binary as Opaleye
+import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Internal.Aggregate as Opaleye
+import qualified Opaleye.Internal.Binary as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
+import qualified Opaleye.Internal.Join as Opaleye
+import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
+import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
+import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Operators as Opaleye hiding ( restrict )
+import qualified Opaleye.Order as Opaleye
+import qualified Opaleye.Table as Opaleye
+import Rel8.MaybeTable
 import qualified Rel8.Optimize
 import {-# source #-} Rel8.FromRow
 
@@ -69,9 +72,12 @@ newtype Query a = Query ( Opaleye.Query a )
   deriving ( Functor, Applicative )
 
 
+liftOpaleye :: Opaleye.Query a -> Query a
 liftOpaleye =
   Query
 
+
+toOpaleye :: Query a -> Opaleye.Query a
 toOpaleye ( Query q ) =
   q
 
@@ -393,27 +399,20 @@ each = each_forAll
 
 
 each_forAll
-  :: forall m schema row
+  :: forall schema row
    . Selects schema row
   => TableSchema schema -> Query row
 each_forAll schema =
   liftOpaleye
     ( Opaleye.selectTableExplicit
         unpackspec
-        ( toOpaleyeTable schema writer view )
+        ( toOpaleyeTable schema noWriter view )
     )
 
   where
 
-    unpackspec :: Opaleye.Unpackspec row row
-    unpackspec =
-      Opaleye.Unpackspec
-        $ Opaleye.PackMap \f ->
-            fmap runIdentity . traverseTable @Id ( traverseC ( traversePrimExpr f ) ) . Identity
-
-
-    writer :: Opaleye.Writer () row
-    writer =
+    noWriter :: Opaleye.Writer () row
+    noWriter =
       Opaleye.Writer ( Opaleye.PackMap \_ _ -> pure () )
 
 
@@ -427,79 +426,70 @@ each_forAll schema =
         )
 
 
--- -- | Select all rows from another table that match a given predicate. If the
--- -- predicate is not satisfied, a null 'MaybeTable' is returned.
--- --
--- -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
--- leftJoin
---   :: ( MonadQuery m
---      , Recontextualise outer Null
---      , Context ( MapTable Null outer ) ~ Null Expr
---      , Context outer ~ Expr
---      )
---   => m outer
---   -> ( outer -> Expr Bool )
---   -> m ( MaybeTable outer )
--- leftJoin = leftJoin_forAll
+-- | Select all rows from another table that match a given predicate. If the
+-- predicate is not satisfied, a null 'MaybeTable' is returned.
+--
+-- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
+leftJoin
+  :: ( Table a, Context a ~ Expr )
+  => Query a
+  -> ( a -> Expr Bool )
+  -> Query ( MaybeTable a )
+leftJoin = leftJoin_forAll
 
--- leftJoin_forAll
---   :: forall outer nullOuter m
---    . ( MonadQuery m
---      , Recontextualise outer Null
---      , MapTable Null outer ~ nullOuter
---      , Context nullOuter ~ Null ( Context outer )
---      )
---   => m outer
---   -> ( outer -> Expr Bool )
---   -> m ( MaybeTable outer )
--- leftJoin_forAll joinTable condition =
---   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
---     let
---       Opaleye.QueryArr rightQueryF =
---         liftA2
---           (,)
---           ( pure ( lit False ) )
---           ( toOpaleye joinTable )
 
---       ( right, pqR, t' ) =
---         rightQueryF ( (), Opaleye.Unit, t )
+leftJoin_forAll
+  :: forall a
+   . ( Table a, Context a ~ Expr )
+  => Query a
+  -> ( a -> Expr Bool )
+  -> Query ( MaybeTable a )
+leftJoin_forAll joinTable condition =
+  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
+    let
+      Opaleye.QueryArr rightQueryF =
+        liftA2
+          (,)
+          ( pure ( lit False ) )
+          ( toOpaleye joinTable )
 
---       ( ( tag, renamed ), ljPEsB ) =
---         Opaleye.run
---           ( Opaleye.runUnpackspec
---               unpackColumns
---               ( Opaleye.extractLeftJoinFields 2 t' )
---               right
---           )
+      ( right, pqR, t' ) =
+        rightQueryF ( (), Opaleye.Unit, t )
 
---     in ( MaybeTable
---            { nullTag =
---                liftNull tag
---            , maybeTable =
---                mapTable @Null ( mapC retype ) renamed
---            }
---        , Opaleye.Join
---            Opaleye.LeftJoin
---            ( toPrimExpr ( condition renamed ) )
---            []
---            ljPEsB
---            left
---            pqR
---        , Opaleye.next t'
---        )
+      ( ( tag, renamed ), ljPEsB ) =
+        Opaleye.run
+          ( Opaleye.runUnpackspec
+              unpackColumns
+              ( Opaleye.extractLeftJoinFields 2 t' )
+              right
+          )
 
---   where
+    in ( MaybeTable
+           { nullTag = tag
+           , table = renamed
+           }
+       , Opaleye.Join
+           Opaleye.LeftJoin
+           ( toPrimExpr ( condition renamed ) )
+           []
+           ljPEsB
+           left
+           pqR
+       , Opaleye.next t'
+       )
 
---     unpackColumns :: Opaleye.Unpackspec ( Expr Bool, outer ) ( Expr Bool, outer )
---     unpackColumns =
---       Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer' ) -> do
---         tag' <-
---           f ( toPrimExpr tag )
+  where
 
---         outer <-
---           traverseC ( fmap demote . traversePrimExpr f )
+    unpackColumns :: Opaleye.Unpackspec ( Expr Bool, a ) ( Expr Bool, a )
+    unpackColumns =
+      Opaleye.Unpackspec $ Opaleye.PackMap \f ( tag, outer ) -> do
+        tag' <-
+          f ( toPrimExpr tag )
 
---         return ( fromPrimExpr tag', outer )
+        outer' <-
+          runIdentity <$> traverseTable @Id ( traverseC ( traversePrimExpr f ) ) ( Identity outer )
+
+        return ( fromPrimExpr tag', outer' )
 
 
 -- | Combine the results of two queries of the same type.

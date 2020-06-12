@@ -50,6 +50,11 @@ instance m ~ Query => FromRow ( Expr Bool ) Bool where
     field
 
 
+instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where
+  rowParser _ =
+    field
+
+
 instance
   ( f ~ Expr
   , g ~ Identity

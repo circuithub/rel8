@@ -25,7 +25,7 @@ module Rel8
   , exists
 
     -- ** Outer Joins
-  -- , leftJoin
+  , leftJoin
   , MaybeTable
   , nullTag
   , maybeTable

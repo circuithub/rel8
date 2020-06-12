@@ -115,18 +115,16 @@ projectParts =
     }
 
 
--- leftJoinTest
---   :: MonadQuery m
---   => m ( Expr ( Maybe Int64) )
--- leftJoinTest = do
---   Part{ partId } <-
---     each parts
+leftJoinTest :: Query ( Expr ( Maybe Int64 ) )
+leftJoinTest = do
+  Part{ partId = partId1 } <-
+    each parts
 
---   projectPart <-
---     leftJoin ( each projectParts ) \ProjectPart{ projectPartPartId } ->
---       projectPartPartId ==. partId
+  projectPart <-
+    leftJoin ( each parts ) \Part{ partId = partId2 } ->
+      partId1 ==. partId2
 
---   return ( projectPartPartId ( maybeTable projectPart ) )
+  return $ maybeTable ( lit Nothing ) ( liftNull . partId ) projectPart
 
 
 data PartWithProject f =

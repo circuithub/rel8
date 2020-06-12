@@ -16,6 +16,7 @@
 
 module Rel8.MaybeTable where
 
+import Rel8.Column
 import Rel8.Expr
 import Rel8.Table
 
@@ -35,59 +36,35 @@ data MaybeTable t where
     :: { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
          nullTag :: Expr Bool
-       , maybeTable :: t
+       , table :: t
        }
     -> MaybeTable t
 
 
--- data MaybeTableField t a where
---   MaybeTableIsNull :: MaybeTableField t ( Maybe Bool )
---   MaybeTableField :: Field ( MapTable Null t ) a -> MaybeTableField t ( Maybe ( DropMaybe a ) )
+data MaybeTableField t a where
+  MaybeTableIsNull :: MaybeTableField t Bool
+  MaybeTableField :: Field t a -> MaybeTableField t a
 
 
--- class c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
+instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
+  type Field (MaybeTable t) = MaybeTableField t
 
-
--- instance c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
-
-
-instance Table t => Table (MaybeTable t) where
   type Context (MaybeTable t) = Context t
 
-  type ConstrainTable (MaybeTable t) c = ConstrainTable t c
--- instance
---   ( Table ( MapTable Null t )
---   , ConstrainTable ( MapTable Null t ) Unconstrained
---   , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
---   , Context ( MapTable Null t ) ~ Null ( Context t )
---   ) => Table ( MaybeTable t ) where
---   type Field ( MaybeTable t ) =
---     MaybeTableField t
+  type ConstrainTable (MaybeTable t) c = ( c Bool, ConstrainTable t c )
 
---   type ConstrainTable ( MaybeTable t ) c =
---     ( c ( Maybe Bool )
---     , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe c )
---     )
+  field MaybeTable{ nullTag, table } = \case
+    MaybeTableIsNull ->
+      MkC nullTag
 
---   type Context ( MaybeTable t ) =
---     Context t
+    MaybeTableField i ->
+      field table i
 
---   field MaybeTable{ nullTag, maybeTable } = \case
---     MaybeTableIsNull ->
---       MkC nullTag
+  tabulateMCP proxy f =
+    MaybeTable
+      <$> do toColumn <$> f MaybeTableIsNull
+      <*> tabulateMCP proxy ( f . MaybeTableField )
 
---     MaybeTableField i ->
---       case field maybeTable i of
---         MkC x -> MkC x
 
---   tabulateMCP proxy f =
---     MaybeTable
---       <$> do toColumn <$> f MaybeTableIsNull
---       <*> tabulateMCP
---             ( holdsUnderMaybe proxy )
---             ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
-
---     where
-
---       holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
---       holdsUnderMaybe _ = Proxy
+maybeTable :: b -> (a -> b) -> MaybeTable a -> b
+maybeTable def f MaybeTable{ nullTag, table } = f table
