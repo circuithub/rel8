@@ -45,7 +45,6 @@ import Data.String
 import Data.Text ( Text, unpack )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
-import Rel8.Stuff
 import Rel8.Table
 
 
@@ -147,7 +146,7 @@ instance DBType String where
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
-instance ( NotMaybe a, DBType a ) => DBType ( Maybe a ) where
+instance DBType a => DBType ( Maybe a ) where
   lit =
     maybe
       ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) )

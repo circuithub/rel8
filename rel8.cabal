@@ -38,7 +38,6 @@ library
     Rel8.Optimize
     Rel8.Query
     Rel8.SimpleConstraints
-    Rel8.Stuff
     Rel8.TableSchema
     Rel8.Tests
     Rel8.Unconstrained
