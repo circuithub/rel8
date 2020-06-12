@@ -1,8 +1,8 @@
-cabal-version:       >=1.10
+cabal-version:       3.0
 name:                rel8
 version:             0.1.0.0
 synopsis:            Hey! Hey! Can u rel8?
-license:             BSD2
+license:             BSD-2-Clause
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
@@ -41,3 +41,23 @@ library
     Rel8.TableSchema
     Rel8.Tests
     Rel8.Unconstrained
+
+
+test-suite tests
+  type:
+    exitcode-stdio-1.0
+  build-depends:
+    , base
+    , hedgehog          ^>= 1.0.2
+    , monad-control     ^>= 1.0.2.3
+    , postgresql-simple ^>= 0.6.2
+    , rel8
+    , tasty             ^>= 1.2.3
+    , tasty-hedgehog    ^>= 1.0.0.2
+    , tmp-postgres      ^>= 1.34.1.0
+  main-is:
+    Main.hs
+  hs-source-dirs:
+    tests
+  default-language:
+    Haskell2010

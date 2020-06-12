@@ -166,12 +166,12 @@ nestedTableEq = do
 --   select partsWithProjects
 
 
-partsAggregation
-  :: Query ( Expr String, Sum ( Expr Int64 ) )
-partsAggregation = do
-  groupAndAggregate
-    ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
-    allParts
+-- partsAggregation
+--   :: Query ( Expr String, Sum ( Expr Int64 ) )
+-- partsAggregation = do
+--   groupAndAggregate
+--     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
+--     allParts
 
 
 -- illegalPartsAggregation1 :: MonadQuery m => m ( GroupBy ( Expr m String ) ( Sum ( Expr m Int64 ) ) )

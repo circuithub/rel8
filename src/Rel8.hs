@@ -26,16 +26,8 @@ module Rel8
     -- ** Optional Subqueries
   , optional
   , MaybeTable
-  , nullTag
   , maybeTable
   , catMaybeTables
-
-    -- ** Aggregation
-  , groupAndAggregate
-  , aggregate
-  , GroupBy(..)
-  , MonoidTable
-  , DBMonoid
 
     -- ** Expressions
   , Expr
@@ -96,7 +88,6 @@ module Rel8
   where
 
 import Data.Functor.Identity
-import Rel8.Aggregate
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.DBEq
