@@ -37,16 +37,16 @@ parts =
     }
 
 
-allParts :: MonadQuery m => m ( Part Expr )
+allParts :: Query ( Part Expr )
 allParts =
   each parts
 
 
-proj1 :: MonadQuery m => m ( Expr Int64 )
+proj1 :: Query ( Expr Int64 )
 proj1 = partId <$> allParts
 
 
-partsEq :: MonadQuery m => m ( Expr Bool )
+partsEq :: Query ( Expr Bool )
 partsEq = do
   parts1 <- allParts
   parts2 <- allParts
@@ -68,7 +68,7 @@ proj2 c = map partId <$> select_allParts c
 --   each parts
 
 
-allPartIds :: MonadQuery m => m ( Expr Int64 )
+allPartIds :: Query ( Expr Int64 )
 allPartIds =
   partId <$> allParts
 
@@ -138,7 +138,7 @@ data PartWithProject f =
     ( Generic, HigherKindedTable )
 
 
-partsWithProjects :: MonadQuery m => m ( PartWithProject Expr )
+partsWithProjects :: Query ( PartWithProject Expr )
 partsWithProjects = do
   part <-
     each parts
@@ -156,7 +156,7 @@ partsWithProjects = do
   return PartWithProject{..}
 
 
-nestedTableEq :: MonadQuery m => m ( Expr Bool )
+nestedTableEq :: Query ( Expr Bool )
 nestedTableEq = do
   l <- partsWithProjects
   r <- partsWithProjects
@@ -168,8 +168,7 @@ nestedTableEq = do
 
 
 partsAggregation
-  :: MonadQuery m
-  => m ( Expr String, Sum ( Expr Int64 ) )
+  :: Query ( Expr String, Sum ( Expr Int64 ) )
 partsAggregation = do
   groupAndAggregate
     ( \part -> GroupBy ( partName part ) ( Sum ( partId part ) ) )
@@ -211,7 +210,7 @@ hasNull =
     }
 
 
-nullTest :: MonadQuery m => m ( HasNull Expr )
+nullTest :: Query ( HasNull Expr )
 nullTest = do
   HasNull{ nullId, notNullId } <-
     each hasNull
@@ -268,6 +267,6 @@ nullTest = do
 --   catNulls ( nullId <$> each hasNull )
 
 
-unionTest :: MonadQuery m => m ( Part Expr )
+unionTest :: Query ( Part Expr )
 unionTest =
   union ( each parts ) ( each parts )

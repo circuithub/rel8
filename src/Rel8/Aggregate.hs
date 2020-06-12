@@ -33,8 +33,8 @@ import Rel8.Column
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.HigherKindedTable
-import Rel8.MonadQuery
 import Rel8.Table
+import Rel8.Query
 
 
 {-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
@@ -81,27 +81,25 @@ transforming a @Map k v@ into a list of pairs:
 
 -}
 groupAndAggregate
-  :: ( MonadQuery m
-     , MonoidTable v
+  :: ( MonoidTable v
      , EqTable k
      , Context k ~ Expr
      , Context v ~ Expr
      , Table k
      )
-  => ( a -> GroupBy k v ) -> m a -> m ( k, v )
+  => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
 groupAndAggregate = groupAndAggregate_forAll
 
 
 groupAndAggregate_forAll
-  :: forall a k v m
-   . ( MonadQuery m
-     , MonoidTable v
+  :: forall a k v
+   . ( MonoidTable v
      , EqTable k
      , Context k ~ Expr
      , Context v ~ Expr
      , Table k
      )
-  => ( a -> GroupBy k v ) -> m a -> m ( k, v )
+  => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
 groupAndAggregate_forAll f query =
   aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
     ( key, value )
@@ -120,15 +118,15 @@ groupAndAggregate_forAll f query =
 -- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
 -- where there is only one group.
 aggregate
-  :: ( MonadQuery m, MonoidTable b )
-  => ( a -> b ) -> m a -> m b
+  :: MonoidTable b
+  => ( a -> b ) -> Query a -> Query b
 aggregate = aggregate_forAll
 
 
 aggregate_forAll
-  :: forall a b m
-   . ( MonadQuery m , MonoidTable b )
-  => ( a -> b ) -> m a -> m b
+  :: forall a b
+   . MonoidTable b
+  => ( a -> b ) -> Query a -> Query b
 aggregate_forAll f =
   liftOpaleye . Opaleye.aggregate ( lmap f aggregator ) . toOpaleye
 

@@ -14,7 +14,6 @@ module Rel8
   , DBEq( eqExprs )
 
     -- * Writing Queries
-  , MonadQuery
   , Table
   , each
   , where_
@@ -109,7 +108,6 @@ import Rel8.Expr
 import Rel8.FromRow
 import Rel8.HigherKindedTable
 import Rel8.MaybeTable
-import Rel8.MonadQuery
 import Rel8.Query
 import Rel8.Table
 import Rel8.TableSchema
