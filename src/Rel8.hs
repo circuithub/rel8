@@ -87,9 +87,6 @@ module Rel8
   , Update(..)
 
     -- * Common Table Subtypes
-  -- , CompatibleTables
-  -- , Compatible
-  -- , ConstrainedTable
   , IsTableIn
   , Selects
 
