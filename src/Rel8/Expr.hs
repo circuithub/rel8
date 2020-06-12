@@ -266,11 +266,6 @@ instance Recontextualise ( Expr a ) Id where
   reverseFieldMapping ExprField = ExprField
 
 
-instance Recontextualise ( Expr a ) Null where
-  type MapTable Null ( Expr a ) = Expr a
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
-
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
 binExpr op ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr op a b )

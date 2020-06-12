@@ -16,8 +16,7 @@
 
 module Rel8.MaybeTable where
 
-import Data.Proxy
-import Rel8.Column
+import Rel8.Expr
 import Rel8.Table
 
 
@@ -35,57 +34,60 @@ data MaybeTable t where
   MaybeTable
     :: { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
-         nullTag :: Column ( Context ( MapTable Null t ) ) Bool
-       , maybeTable :: MapTable Null t
+         nullTag :: Expr Bool
+       , maybeTable :: t
        }
     -> MaybeTable t
 
 
-data MaybeTableField t a where
-  MaybeTableIsNull :: MaybeTableField t ( Maybe Bool )
-  MaybeTableField :: Field ( MapTable Null t ) a -> MaybeTableField t ( Maybe ( DropMaybe a ) )
+-- data MaybeTableField t a where
+--   MaybeTableIsNull :: MaybeTableField t ( Maybe Bool )
+--   MaybeTableField :: Field ( MapTable Null t ) a -> MaybeTableField t ( Maybe ( DropMaybe a ) )
 
 
-class c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
+-- class c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 
 
-instance c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
+-- instance c ( Maybe ( DropMaybe x ) ) => HoldsUnderMaybe c x
 
 
+instance Table t => Table (MaybeTable t) where
+  type Context (MaybeTable t) = Context t
 
-instance
-  ( Table ( MapTable Null t )
-  , ConstrainTable ( MapTable Null t ) Unconstrained
-  , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
-  , Context ( MapTable Null t ) ~ Null ( Context t )
-  ) => Table ( MaybeTable t ) where
-  type Field ( MaybeTable t ) =
-    MaybeTableField t
+  type ConstrainTable (MaybeTable t) c = ConstrainTable t c
+-- instance
+--   ( Table ( MapTable Null t )
+--   , ConstrainTable ( MapTable Null t ) Unconstrained
+--   , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe Unconstrained )
+--   , Context ( MapTable Null t ) ~ Null ( Context t )
+--   ) => Table ( MaybeTable t ) where
+--   type Field ( MaybeTable t ) =
+--     MaybeTableField t
 
-  type ConstrainTable ( MaybeTable t ) c =
-    ( c ( Maybe Bool )
-    , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe c )
-    )
+--   type ConstrainTable ( MaybeTable t ) c =
+--     ( c ( Maybe Bool )
+--     , ConstrainTable ( MapTable Null t ) ( HoldsUnderMaybe c )
+--     )
 
-  type Context ( MaybeTable t ) =
-    Context t
+--   type Context ( MaybeTable t ) =
+--     Context t
 
-  field MaybeTable{ nullTag, maybeTable } = \case
-    MaybeTableIsNull ->
-      MkC nullTag
+--   field MaybeTable{ nullTag, maybeTable } = \case
+--     MaybeTableIsNull ->
+--       MkC nullTag
 
-    MaybeTableField i ->
-      case field maybeTable i of
-        MkC x -> MkC x
+--     MaybeTableField i ->
+--       case field maybeTable i of
+--         MkC x -> MkC x
 
-  tabulateMCP proxy f =
-    MaybeTable
-      <$> do toColumn <$> f MaybeTableIsNull
-      <*> tabulateMCP
-            ( holdsUnderMaybe proxy )
-            ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
+--   tabulateMCP proxy f =
+--     MaybeTable
+--       <$> do toColumn <$> f MaybeTableIsNull
+--       <*> tabulateMCP
+--             ( holdsUnderMaybe proxy )
+--             ( fmap ( \( MkC x ) -> MkC x ) . f . MaybeTableField )
 
-    where
+--     where
 
-      holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
-      holdsUnderMaybe _ = Proxy
+--       holdsUnderMaybe :: proxy c -> Proxy ( HoldsUnderMaybe c )
+--       holdsUnderMaybe _ = Proxy

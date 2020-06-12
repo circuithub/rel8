@@ -51,24 +51,22 @@ instance m ~ Query => FromRow ( Expr Bool ) Bool where
 
 
 instance
-  ( t ~ t'
-  , f ~ Expr
+  ( f ~ Expr
   , g ~ Identity
   , HConstrainTable t Expr Unconstrained
-  , HConstrainTable t ( Null Expr ) FromField
-  , HConstrainTable t ( Null Expr ) Unconstrained
+  , HConstrainTable t Expr FromField
   , HConstrainTable t Identity FromField
   , HigherKindedTable t
   , Table ( MaybeTable ( t f ) )
-  , Table ( t' g )
-  ) => FromRow ( MaybeTable ( t f ) ) ( Maybe ( t' g ) ) where
+  , Table ( t g )
+  ) => FromRow ( MaybeTable ( t f ) ) ( Maybe ( t g ) ) where
 
   rowParser ( MaybeTable _ t ) = do
     rowExists <- field
 
     case rowExists of
       Just True ->
-        Just <$> rowParser ( mapTable @NotNull ( \( MkC x ) -> MkC ( retype x ) ) t )
+        Just <$> rowParser t
 
       _ ->
         Nothing <$ traverseTableC @Id @FromField nullField t

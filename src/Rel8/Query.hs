@@ -590,31 +590,3 @@ where_ :: Expr Bool -> Query ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
-
-
-catNulls
-  :: forall a b
-   . ( Context a ~ Expr
-     , Context b ~ Expr
-     , MapTable NotNull a ~ b
-     , Recontextualise a NotNull
-     )
-  => Query a -> Query b
-catNulls q = do
-  x <-
-    q
-
-  let
-    allNotNull :: [ Expr Bool ]
-    allNotNull =
-      getConst
-        ( runIdentity
-            <$> traverseTable
-                  @Id
-                  ( traverseC ( \expr -> Const [ isNull ( retype expr ) ] ) )
-                  ( Identity x )
-        )
-
-  where_ ( and_ allNotNull )
-
-  return ( mapTable @NotNull ( mapC retype ) x )

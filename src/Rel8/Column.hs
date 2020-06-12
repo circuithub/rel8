@@ -15,24 +15,16 @@ module Rel8.Column
   , traverseCC
   , zipCWithM
   , zipCWithMC
-  , Null
   , Id
   , Select
   , From
   , Structure
   , Lit
   , DropMaybe
-  , NotNull
   ) where
 
 import Data.Functor.Identity
 import Data.Kind
-
-
-data Null ( f :: * -> * ) a
-
-
-data NotNull ( f :: * -> * ) a
 
 
 data Id ( f :: * -> * ) a
@@ -83,7 +75,6 @@ holes should mention precise types, rather than the @Column@ type family. You
 should only need to be aware of the type family when defining your table types.
 -}
 type family Column ( context :: Type -> Type ) ( a :: Type ) :: Type where
-  Column ( Null f ) a = Column f ( Maybe ( DropMaybe a ) )
   Column Identity a = a
   Column f a = f a
 

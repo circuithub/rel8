@@ -139,9 +139,7 @@ instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table 
 type family Reduce ( f :: * -> * ) :: ( * -> * ) where
   Reduce ( Id x ) = x
   Reduce ( Select Expr ) = Identity
-  Reduce ( Null Expr ) = Null Expr
   Reduce Expr = Expr
-  Reduce ( NotNull ( Null Expr ) ) = Expr
   Reduce ( Structure f ) = Spine
   Reduce ( From f ) = Expr
 
