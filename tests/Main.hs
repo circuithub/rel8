@@ -20,7 +20,7 @@ import Control.Exception ( bracket, throwIO )
 import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
-import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM )
+import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -56,10 +56,12 @@ tests =
 
     stopTestDatabase = TmpPostgres.stop
 
-databasePropertyTest :: TestName -> (IO Connection -> Property) -> IO TmpPostgres.DB -> TestTree
+databasePropertyTest :: TestName -> (Connection -> PropertyT IO ()) -> IO TmpPostgres.DB -> TestTree
 databasePropertyTest testName f getTestDatabase =
-  withResource connect close $
-  testProperty testName . f
+  withResource connect close $ \c ->
+  testProperty testName $ property do
+    connection <- liftIO c
+    rollingBack connection (f connection)
 
   where
 
@@ -92,9 +94,7 @@ testTableSchema =
 
 
 testSelectTestTable :: IO TmpPostgres.DB -> TestTree
-testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connect -> property do
-  connection <- liftIO connect
-
+testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   selected <- rollingBack connection do
@@ -114,9 +114,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connect -> pr
 
 
 testWhere_ :: IO TmpPostgres.DB -> TestTree
-testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connect -> property do
-  connection <- liftIO connect
-
+testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 1 10) genTestTable
 
   magicBool <- forAll Gen.bool
@@ -137,9 +135,7 @@ testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connect -> property do
 
 
 testLimit :: IO TmpPostgres.DB -> TestTree
-testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connect -> property do
-  connection <- liftIO connect
-
+testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 1 10) genTestTable
 
   n <- forAll $ Gen.integral (Range.linear 0 10)
@@ -160,9 +156,7 @@ testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connect -> property do
 
 
 testUnion :: IO TmpPostgres.DB -> TestTree
-testUnion = databasePropertyTest "UNION (Rel8.union)" \connect -> property do
-  connection <- liftIO connect
-
+testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> do
   left <- forAll $ Gen.list (Range.linear 0 10) genTestTable
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
