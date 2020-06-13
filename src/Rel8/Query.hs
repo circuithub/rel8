@@ -21,7 +21,7 @@
 
 module Rel8.Query where
 
-import Control.Applicative ( liftA2 )
+import Debug.Trace
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
@@ -39,15 +39,16 @@ import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..) )
+import Data.Proxy
+import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
+import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
-import qualified Opaleye.Internal.Join as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
@@ -107,7 +108,7 @@ select_forAll
 select_forAll conn query =
   maybe
     ( return [] )
-    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
+    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString . traceId )
     ( selectQuery query )
 
 
@@ -142,11 +143,11 @@ unpackspec =
 
 -- | Run an @INSERT@ statement
 insert :: MonadIO m => Connection -> Insert result -> m result
-insert connection Insert{ into, values, onConflict, returning } =
+insert connection Insert{ into, rows, onConflict, returning } =
   liftIO
     ( Opaleye.runInsert_
         connection
-        ( toOpaleyeInsert into values returning )
+        ( toOpaleyeInsert into rows returning )
     )
 
   where
@@ -241,7 +242,7 @@ data Insert :: * -> * where
     :: Selects schema value
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
-       , values :: [ value ]
+       , rows :: [ value ]
          -- ^ The rows to insert.
        , onConflict :: OnConflict
          -- ^ What to do if the inserted rows conflict with data already in the
@@ -548,3 +549,11 @@ catMaybeTables q = do
   MaybeTable{ nullTag, table } <- q
   where_ $ not_ $ isNull nullTag
   return table
+
+
+values :: (Context expr ~ Expr, Table expr) => [ expr ] -> Query expr
+values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec
+  where
+    valuesspec =
+      Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
+        tabulateMCP (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()

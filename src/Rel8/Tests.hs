@@ -9,7 +9,6 @@ module Rel8.Tests where
 
 import Data.Functor.Identity ( Identity )
 import Data.Int
-import Data.Monoid
 import Database.PostgreSQL.Simple ( Connection )
 import GHC.Generics
 import Rel8

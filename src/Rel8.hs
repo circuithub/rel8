@@ -16,6 +16,7 @@ module Rel8
     -- * Writing Queries
   , Table
   , each
+  , values
   , where_
   , limit
   , offset
@@ -36,7 +37,7 @@ module Rel8
   , unsafeCoerceExpr
 
     -- *** Literals
-  ,  lit
+  , lit
 
     -- *** Null
   , null_

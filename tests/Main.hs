@@ -11,6 +11,7 @@
 
 module Main where
 
+import Data.Foldable ( for_ )
 import Data.List ( sort )
 import GHC.Generics ( Generic )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
@@ -19,7 +20,7 @@ import Control.Exception ( bracket, throwIO )
 import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
-import Hedgehog ( Property, property, (===), forAll, cover )
+import Hedgehog ( Property, property, (===), forAll, cover, diff )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -34,7 +35,12 @@ main = defaultMain tests
 tests :: TestTree
 tests =
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
-  testGroup "rel8" [ testSelectTestTable getTestDatabase ]
+  testGroup "rel8"
+    [ testSelectTestTable getTestDatabase
+    , testWhere_ getTestDatabase
+    , testLimit getTestDatabase
+    , testUnion getTestDatabase
+    ]
 
   where
 
@@ -89,15 +95,7 @@ testSelectTestTable :: IO TmpPostgres.DB -> TestTree
 testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connect -> property do
   connection <- liftIO connect
 
-  rows <- forAll do
-    Gen.list (Range.linear 0 10) do
-      testTableColumn1 <- Gen.list (Range.linear 0 20) Gen.alphaNum
-      testTableColumn2 <- Gen.bool
-      return TestTable{..}
-
-  cover 1 "Empty" $ null rows
-  cover 1 "Singleton" $ null $ drop 1 rows
-  cover 1 ">1 row" $ not $ null $ drop 1 rows
+  rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   selected <- rollingBack connection do
     liftIO do
@@ -110,9 +108,79 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connect -> pr
 
   sort selected === sort rows
 
+  cover 1 "Empty" $ null rows
+  cover 1 "Singleton" $ null $ drop 1 rows
+  cover 1 ">1 row" $ not $ null $ drop 1 rows
+
+
+testWhere_ :: IO TmpPostgres.DB -> TestTree
+testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connect -> property do
+  connection <- liftIO connect
+
+  rows <- forAll $ Gen.list (Range.linear 1 10) genTestTable
+
+  magicBool <- forAll Gen.bool
+
+  let expected = filter (\t -> testTableColumn2 t == magicBool) rows
+
+  selected <- rollingBack connection do
+    Rel8.select connection do
+      t <- Rel8.values $ Rel8.litTable <$> rows
+      Rel8.where_ $ testTableColumn2 t Rel8.==. Rel8.lit magicBool
+      return t
+
+  sort selected === sort expected
+
+  cover 1 "No results" $ null expected
+  cover 1 "Some results" $ not $ null expected
+  cover 1 "All results" $ expected == rows
+
+
+testLimit :: IO TmpPostgres.DB -> TestTree
+testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connect -> property do
+  connection <- liftIO connect
+
+  rows <- forAll $ Gen.list (Range.linear 1 10) genTestTable
+
+  n <- forAll $ Gen.integral (Range.linear 0 10)
+
+  selected <- rollingBack connection do
+    Rel8.select connection do
+      Rel8.limit n $ Rel8.values (Rel8.litTable <$> rows)
+
+  diff (length selected) (<=) (fromIntegral n)
+
+  for_ selected \row ->
+    diff row elem rows
+
+  cover 1 "n == 0" $ n == 0
+  cover 1 "n < length rows" $ fromIntegral n < length rows
+  cover 1 "n == length rows" $ fromIntegral n == length rows
+  cover 1 "n >= length rows" $ fromIntegral n >= length rows
+
+
+testUnion :: IO TmpPostgres.DB -> TestTree
+testUnion = databasePropertyTest "UNION (Rel8.union)" \connect -> property do
+  connection <- liftIO connect
+
+  left <- forAll $ Gen.list (Range.linear 0 10) genTestTable
+  right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
+
+  selected <- rollingBack connection do
+    Rel8.select connection do
+      Rel8.values (Rel8.litTable <$> left) `Rel8.union` Rel8.values (Rel8.litTable <$> right)
+
+  sort selected === sort (left ++ right)
+
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
 rollingBack connection m =
   liftBaseOp_ (withTransaction connection) $ m <* liftIO (rollback connection)
+
+
+genTestTable = do
+  testTableColumn1 <- Gen.list (Range.linear 0 20) Gen.alphaNum
+  testTableColumn2 <- Gen.bool
+  return TestTable{..}

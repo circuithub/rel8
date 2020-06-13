@@ -142,6 +142,7 @@ type family Reduce ( f :: * -> * ) :: ( * -> * ) where
   Reduce Expr = Expr
   Reduce ( Structure f ) = Spine
   Reduce ( From f ) = Expr
+  Reduce ( Lit Identity ) = Expr
 
 
 instance ( HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
