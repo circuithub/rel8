@@ -11,15 +11,15 @@
 
 module Main where
 
+import Control.Exception ( bracket, throwIO )
+import Control.Monad.IO.Class ( MonadIO, liftIO )
+import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
 import Data.Foldable ( for_ )
 import Data.List ( nub, sort )
-import GHC.Generics ( Generic )
-import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
-import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Control.Exception ( bracket, throwIO )
 import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
+import GHC.Generics ( Generic )
 import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -41,6 +41,7 @@ tests =
     , testLimit getTestDatabase
     , testUnion getTestDatabase
     , testDistinct getTestDatabase
+    , testExists getTestDatabase
     ]
 
   where
@@ -183,6 +184,25 @@ testDistinct = databasePropertyTest "DISTINCT (Rel8.distinct)" \connection -> do
   cover 1 "Duplicates" $ not (null rows) && rows /= nub rows
   cover 1 "No duplicates" $ not (null rows) && rows == nub rows
 
+
+testExists :: IO TmpPostgres.DB -> TestTree
+testExists = databasePropertyTest "EXISTS (Rel8.exists)" \connection -> do
+  rows1 <- forAll $ Gen.list (Range.linear 1 10) genTestTable
+  rows2 <- forAll $ Gen.maybe genTestTable
+
+  selected <- evalM $ rollingBack connection do
+    Rel8.select connection do
+      row <- Rel8.values $ Rel8.litTable <$> rows1
+      Rel8.exists do
+        Rel8.values $ Rel8.litTable <$> rows2
+      return row
+
+  case rows2 of
+    Nothing -> sort selected === []
+    Just{}  -> sort selected === sort rows1
+
+  cover 1 "EXISTS = False" $ null rows2
+  cover 1 "EXISTS = True" $ not $ null rows2
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)

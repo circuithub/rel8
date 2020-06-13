@@ -21,6 +21,7 @@
 
 module Rel8.Query where
 
+import Data.Foldable ( toList )
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
@@ -550,8 +551,8 @@ catMaybeTables q = do
   return table
 
 
-values :: (Context expr ~ Expr, Table expr) => [ expr ] -> Query expr
-values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec
+values :: (Context expr ~ Expr, Table expr, Foldable f) => f expr -> Query expr
+values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
   where
     valuesspec =
       Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
