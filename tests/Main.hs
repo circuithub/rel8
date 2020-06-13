@@ -20,7 +20,7 @@ import Control.Exception ( bracket, throwIO )
 import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
-import Hedgehog ( Property, property, (===), forAll, cover, diff )
+import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -166,7 +166,7 @@ testUnion = databasePropertyTest "UNION (Rel8.union)" \connect -> property do
   left <- forAll $ Gen.list (Range.linear 0 10) genTestTable
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  selected <- rollingBack connection do
+  selected <- evalM $ rollingBack connection do
     Rel8.select connection do
       Rel8.values (Rel8.litTable <$> left) `Rel8.union` Rel8.values (Rel8.litTable <$> right)
 
