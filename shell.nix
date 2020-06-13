@@ -11,7 +11,7 @@ let
       mkDerivation {
         pname = "rel8";
         version = "0.1.0.0";
-        src = ./.;
+        src = pkgs.nix-gitignore.gitignoreSource [] ./.;
         libraryHaskellDepends = [
           base opaleye postgresql-simple profunctors text
         ];
@@ -53,4 +53,4 @@ let
 
 in
 
-  if pkgs.lib.inNixShell then drv.env else drv
+  if pkgs.lib.inNixShell then drv.env else drv.env
