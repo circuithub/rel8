@@ -12,7 +12,7 @@
 module Main where
 
 import Data.Foldable ( for_ )
-import Data.List ( sort )
+import Data.List ( nub, sort )
 import GHC.Generics ( Generic )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
@@ -40,6 +40,7 @@ tests =
     , testWhere_ getTestDatabase
     , testLimit getTestDatabase
     , testUnion getTestDatabase
+    , testDistinct getTestDatabase
     ]
 
   where
@@ -167,6 +168,22 @@ testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> do
   sort selected === sort (left ++ right)
 
 
+testDistinct :: IO TmpPostgres.DB -> TestTree
+testDistinct = databasePropertyTest "DISTINCT (Rel8.distinct)" \connection -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
+
+  selected <- evalM $ rollingBack connection do
+    Rel8.select connection
+      $ Rel8.distinct
+      $ Rel8.values (Rel8.litTable <$> rows)
+
+  sort selected === nub (sort rows)
+
+  cover 1 "Empty" $ null rows
+  cover 1 "Duplicates" $ not (null rows) && rows /= nub rows
+  cover 1 "No duplicates" $ not (null rows) && rows == nub rows
+
+
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
@@ -175,6 +192,6 @@ rollingBack connection m =
 
 
 genTestTable = do
-  testTableColumn1 <- Gen.list (Range.linear 0 20) Gen.alphaNum
+  testTableColumn1 <- Gen.list (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
   return TestTable{..}

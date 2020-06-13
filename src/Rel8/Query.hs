@@ -21,7 +21,6 @@
 
 module Rel8.Query where
 
-import Debug.Trace
 import Data.Functor.Identity
 import Numeric.Natural
 import Rel8.Column
@@ -108,7 +107,7 @@ select_forAll
 select_forAll conn query =
   maybe
     ( return [] )
-    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString . traceId )
+    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
     ( selectQuery query )
 
 
