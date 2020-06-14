@@ -46,6 +46,7 @@ tests =
     , testOptional getTestDatabase
     , testAnd getTestDatabase
     , testOr getTestDatabase
+    , testNot getTestDatabase
     ]
 
   where
@@ -237,6 +238,16 @@ testOr = databasePropertyTest "OR (||.)" \connection -> do
     Rel8.lit x Rel8.||. Rel8.lit y
 
   result === (x || y)
+
+
+testNot :: IO TmpPostgres.DB -> TestTree
+testNot = databasePropertyTest "NOT (not_)" \connection -> do
+  x <- forAll Gen.bool
+
+  [result] <- Rel8.select connection $ pure $
+    Rel8.not_ $ Rel8.lit x
+
+  result === not x
 
 
 rollingBack
