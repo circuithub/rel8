@@ -48,6 +48,7 @@ tests =
     , testOr getTestDatabase
     , testNot getTestDatabase
     , testIfThenElse getTestDatabase
+    , testAp getTestDatabase
     ]
 
   where
@@ -250,6 +251,7 @@ testNot = databasePropertyTest "NOT (not_)" \connection -> do
 
   result === not x
 
+
 testIfThenElse :: IO TmpPostgres.DB -> TestTree
 testIfThenElse = databasePropertyTest "ifThenElse_" \connection -> do
   (x, y, z) <- forAll $ liftA3 (,,) Gen.bool Gen.bool Gen.bool
@@ -258,6 +260,19 @@ testIfThenElse = databasePropertyTest "ifThenElse_" \connection -> do
     Rel8.ifThenElse_ (Rel8.lit x) (Rel8.lit y) (Rel8.lit z)
 
   result === if x then y else z
+
+
+testAp :: IO TmpPostgres.DB -> TestTree
+testAp = databasePropertyTest "Cartesian product (<*>)" \connection -> do
+  (rows1, rows2) <- forAll $
+    liftA2 (,)
+      (Gen.list (Range.linear 1 10) genTestTable)
+      (Gen.list (Range.linear 1 10) genTestTable)
+
+  result <- Rel8.select connection $ do
+    liftA2 (,) (Rel8.values (Rel8.litTable <$> rows1)) (Rel8.values (Rel8.litTable <$> rows2))
+
+  sort result === sort (liftA2 (,) rows1 rows2)
 
 
 rollingBack

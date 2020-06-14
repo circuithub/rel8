@@ -9,6 +9,7 @@
 
 module Rel8.FromRow where
 
+import Control.Applicative ( liftA2 )
 import Rel8.MaybeTable
 import Data.Functor.Identity
 import Data.Int
@@ -53,6 +54,11 @@ instance m ~ Query => FromRow ( Expr Bool ) Bool where
 instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where
   rowParser _ =
     field
+
+
+instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where
+  rowParser (a, b) =
+    liftA2 (,) (rowParser a) (rowParser b)
 
 
 instance
