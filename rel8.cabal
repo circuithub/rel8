@@ -49,6 +49,7 @@ test-suite tests
   build-depends:
     , base
     , hedgehog          ^>= 1.0.2
+    , lifted-base       ^>= 0.2.3.12
     , monad-control     ^>= 1.0.2.3
     , postgresql-simple ^>= 0.6.2
     , rel8

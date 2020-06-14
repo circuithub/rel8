@@ -11,7 +11,7 @@
 
 module Main where
 
-import Control.Exception ( bracket, throwIO )
+import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
 import Data.Foldable ( for_ )
@@ -220,7 +220,8 @@ rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
 rollingBack connection m =
-  liftBaseOp_ (withTransaction connection) $ m <* liftIO (rollback connection)
+  liftBaseOp_ (withTransaction connection) do
+    m `finally` liftIO (rollback connection)
 
 
 genTestTable = do
