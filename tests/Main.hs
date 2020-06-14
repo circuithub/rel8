@@ -203,9 +203,13 @@ testOptional :: IO TmpPostgres.DB -> TestTree
 testOptional = databasePropertyTest "Rel8.optional" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  selected <- evalM $ rollingBack connection do
-    Rel8.select connection $
-      Rel8.optional $ Rel8.values $ Rel8.litTable <$> rows
+  liftIO do
+    executeMany connection
+      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
+      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
+
+  selected <- Rel8.select connection do
+    Rel8.optional $ Rel8.each testTableSchema
 
   case rows of
     [] -> selected === [Nothing]

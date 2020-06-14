@@ -45,7 +45,7 @@ data MaybeTable t where
 
 
 instance Applicative MaybeTable where
-  pure = MaybeTable (lit (Just False))
+  pure = MaybeTable (lit (Just True))
   MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftNull (or_ t t')) (f a)
     where
       or_ x y =
