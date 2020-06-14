@@ -89,8 +89,11 @@ instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
       <*> tabulateMCP proxy ( f . MaybeTableField )
 
 
-maybeTable :: b -> (a -> b) -> MaybeTable a -> b
-maybeTable def f MaybeTable{ nullTag, table } = f table
+maybeTable
+  :: (Context b ~ Context a, Context a ~ Expr, Table a, Table b)
+  => b -> (a -> b) -> MaybeTable a -> b
+maybeTable def f MaybeTable{ nullTag, table } =
+  ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
 noTable :: (Table a, Context a ~ Expr) => MaybeTable a

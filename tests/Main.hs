@@ -58,6 +58,7 @@ tests =
     , testTableEquality getTestDatabase
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
+    , testMaybeTable getTestDatabase
     ]
 
   where
@@ -359,6 +360,22 @@ testCatMaybeTable = databasePropertyTest "catMaybeTable" \connection -> do
     Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.noTable
 
   sort selected === sort (filter testTableColumn2 rows)
+
+
+testMaybeTable :: IO TmpPostgres.DB -> TestTree
+testMaybeTable = databasePropertyTest "maybeTable" \connection -> evalM do
+  (rows, def) <- forAll $ liftA2 (,) (Gen.list (Range.linear 0 10) genTestTable) genTestTable
+
+  liftIO $ executeMany connection
+    [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
+    [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
+
+  selected <- Rel8.select connection $
+    Rel8.maybeTable (Rel8.litTable def) id <$> Rel8.optional (Rel8.each testTableSchema)
+
+  case rows of
+    [] -> selected === [def]
+    _ -> sort selected === sort rows
 
 
 rollingBack
