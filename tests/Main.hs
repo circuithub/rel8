@@ -52,6 +52,7 @@ tests =
     , testIfThenElse getTestDatabase
     , testAp getTestDatabase
     , testDBType getTestDatabase
+    , testDBEq getTestDatabase
     ]
 
   where
@@ -288,12 +289,37 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest name generator = databasePropertyTest name t getTestDatabase
-      where
-        t connection = do
-          x <- forAll generator
-          [res] <- Rel8.select connection $ pure $ Rel8.lit x
-          res === x
+    dbTypeTest name generator = testGroup name
+      [ databasePropertyTest name (t generator) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+      ]
+    t generator connection = do
+      x <- forAll generator
+      [res] <- Rel8.select connection $ pure $ Rel8.lit x
+      res === x
+
+
+testDBEq :: IO TmpPostgres.DB -> TestTree
+testDBEq getTestDatabase = testGroup "DBEq instances"
+  [ dbEqTest "Bool" Gen.bool
+  , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
+  , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
+  , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbEqTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
+  ]
+
+  where
+    dbEqTest name generator = testGroup name
+      [ databasePropertyTest name (t generator) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+      ]
+    t generator connection = do
+      (x, y) <- forAll (liftA2 (,) generator generator)
+      [res] <- Rel8.select connection $ pure $ Rel8.lit x Rel8.==. Rel8.lit y
+      res === (x == y)
+
+      cover 1 "Equal" $ x == y
+      cover 1 "Not Equal" $ x /= y
 
 
 
