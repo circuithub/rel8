@@ -1,4 +1,5 @@
 {-# language ApplicativeDo #-}
+{-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
 {-# language DeriveFunctor #-}
 {-# language FlexibleContexts #-}
@@ -17,6 +18,8 @@
 
 module Rel8.MaybeTable where
 
+import Data.Functor.Identity
+import Data.Proxy
 import Rel8.Column
 import Rel8.Expr
 import Rel8.Table
@@ -88,3 +91,12 @@ instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
 
 maybeTable :: b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } = f table
+
+
+noTable :: (Table a, Context a ~ Expr) => MaybeTable a
+noTable = MaybeTable tag t
+  where
+    tag = lit Nothing
+    t = runIdentity $ tabulateMCP (Proxy @Unconstrained) f
+      where
+        f _ = pure $ MkC $ unsafeCoerceExpr $ lit (Nothing @Bool)

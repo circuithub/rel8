@@ -28,7 +28,8 @@ module Rel8
   , optional
   , MaybeTable
   , maybeTable
-  , catMaybeTables
+  , catMaybeTable
+  , noTable
 
     -- ** Expressions
   , Expr

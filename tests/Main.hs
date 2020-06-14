@@ -57,6 +57,7 @@ tests =
     , testDBEq getTestDatabase
     , testTableEquality getTestDatabase
     , testFromString getTestDatabase
+    , testCatMaybeTable getTestDatabase
     ]
 
   where
@@ -347,6 +348,17 @@ testFromString = databasePropertyTest "FromString" \connection -> do
   str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
   [result] <- Rel8.select connection $ pure $ fromString str
   result === str
+
+
+testCatMaybeTable :: IO TmpPostgres.DB -> TestTree
+testCatMaybeTable = databasePropertyTest "catMaybeTable" \connection -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
+
+  selected <- Rel8.select connection do
+    testTable <- Rel8.values $ Rel8.litTable <$> rows
+    Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.noTable
+
+  sort selected === sort (filter testTableColumn2 rows)
 
 
 rollingBack

@@ -544,9 +544,8 @@ where_ x =
     ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
 
 
-catMaybeTables :: Query ( MaybeTable a ) -> Query a
-catMaybeTables q = do
-  MaybeTable{ nullTag, table } <- q
+catMaybeTable :: MaybeTable a -> Query a
+catMaybeTable MaybeTable{ nullTag, table } = do
   where_ $ not_ $ isNull nullTag
   return table
 

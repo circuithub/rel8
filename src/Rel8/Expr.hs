@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
@@ -38,6 +39,7 @@ module Rel8.Expr
   ) where
 
 import Data.Coerce
+import Data.Proxy
 import Data.Foldable ( foldl' )
 import Data.Functor.Identity
 import Data.Int
@@ -292,21 +294,18 @@ null_ whenNull f a =
  ifThenElse_ ( isNull a ) whenNull ( f ( retype a ) )
 
 
-ifThenElse_ :: Expr Bool -> Expr a -> Expr a -> Expr a
+ifThenElse_ :: (Table a, Context a ~ Expr) => Expr Bool -> a -> a -> a
 ifThenElse_ bool whenTrue whenFalse =
   case_ [ ( bool, whenTrue ) ] whenFalse
 
 
-case_
-  :: [ ( Expr Bool, Expr a ) ]
-  -> Expr a
-  -> Expr a
+case_ :: (Table a, Context a ~ Expr) => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
-  fromPrimExpr
-    ( Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr alt ) | ( bool, alt ) <- alts ]
-        ( toPrimExpr def )
-    )
+  runIdentity $ tabulateMCP (Proxy @Unconstrained) \x ->
+    pure $ MkC $ fromPrimExpr $
+    Opaleye.CaseExpr
+        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ field alt x ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr $ toColumn $ field def x )
 
 
 isNull :: Expr ( Maybe a ) -> Expr Bool
