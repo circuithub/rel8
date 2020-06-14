@@ -14,6 +14,7 @@
 module Main where
 
 import Data.Int ( Int32, Int64 )
+import Data.String ( fromString )
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
@@ -55,6 +56,7 @@ tests =
     , testDBType getTestDatabase
     , testDBEq getTestDatabase
     , testTableEquality getTestDatabase
+    , testFromString getTestDatabase
     ]
 
   where
@@ -339,6 +341,12 @@ testTableEquality = databasePropertyTest "TestTable equality" \connection -> do
   cover 1 "Equal" $ x == y
   cover 1 "Not Equal" $ x /= y
 
+
+testFromString :: IO TmpPostgres.DB -> TestTree
+testFromString = databasePropertyTest "FromString" \connection -> do
+  str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
+  [result] <- Rel8.select connection $ pure $ fromString str
+  result === str
 
 
 rollingBack
