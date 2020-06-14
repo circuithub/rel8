@@ -34,6 +34,7 @@ module Rel8.Expr
   , liftNull
   , traversePrimExpr
   , litTable
+  , ifThenElse_
   ) where
 
 import Data.Coerce

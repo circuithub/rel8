@@ -51,6 +51,7 @@ module Rel8
   , (&&.)
   , (||.)
   , not_
+  , ifThenElse_
 
     -- *** Functions
   , dbFunction

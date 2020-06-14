@@ -11,7 +11,7 @@
 
 module Main where
 
-import Control.Applicative ( liftA2 )
+import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
@@ -47,6 +47,7 @@ tests =
     , testAnd getTestDatabase
     , testOr getTestDatabase
     , testNot getTestDatabase
+    , testIfThenElse getTestDatabase
     ]
 
   where
@@ -248,6 +249,15 @@ testNot = databasePropertyTest "NOT (not_)" \connection -> do
     Rel8.not_ $ Rel8.lit x
 
   result === not x
+
+testIfThenElse :: IO TmpPostgres.DB -> TestTree
+testIfThenElse = databasePropertyTest "ifThenElse_" \connection -> do
+  (x, y, z) <- forAll $ liftA3 (,,) Gen.bool Gen.bool Gen.bool
+
+  [result] <- Rel8.select connection $ pure $
+    Rel8.ifThenElse_ (Rel8.lit x) (Rel8.lit y) (Rel8.lit z)
+
+  result === if x then y else z
 
 
 rollingBack
