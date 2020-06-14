@@ -20,6 +20,7 @@ import Rel8.Expr
 import Rel8.HigherKindedTable
 import Rel8.Query
 import Rel8.Table hiding ( field )
+import Data.Text ( Text )
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -36,24 +37,12 @@ instance ( HConstrainTable t Identity FromField, HConstrainTable t Identity Unco
     traverseTableC @Select @FromField ( traverseCC @FromField \_ -> field )
 
 
-instance m ~ Query => FromRow ( Expr Int32 ) Int32 where
-  rowParser _ =
-    field
-
-
-instance m ~ Query => FromRow ( Expr Int64 ) Int64 where
-  rowParser _ =
-    field
-
-
-instance m ~ Query => FromRow ( Expr Bool ) Bool where
-  rowParser _ =
-    field
-
-
-instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where
-  rowParser _ =
-    field
+instance m ~ Query => FromRow ( Expr Int32 ) Int32 where rowParser _ = field
+instance m ~ Query => FromRow ( Expr Int64 ) Int64 where rowParser _ = field
+instance m ~ Query => FromRow ( Expr Bool ) Bool where rowParser _ = field
+instance m ~ Query => FromRow ( Expr Text ) Text where rowParser _ = field
+instance m ~ Query => FromRow ( Expr String ) String where rowParser _ = field
+instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where rowParser _ = field
 
 
 instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where

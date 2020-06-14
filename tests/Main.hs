@@ -8,9 +8,11 @@
 {-# language DeriveAnyClass #-}
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
+{-# language TypeApplications #-}
 
 module Main where
 
+import Data.Int ( Int32, Int64 )
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
@@ -49,6 +51,7 @@ tests =
     , testNot getTestDatabase
     , testIfThenElse getTestDatabase
     , testAp getTestDatabase
+    , testDBType getTestDatabase
     ]
 
   where
@@ -273,6 +276,25 @@ testAp = databasePropertyTest "Cartesian product (<*>)" \connection -> do
     liftA2 (,) (Rel8.values (Rel8.litTable <$> rows1)) (Rel8.values (Rel8.litTable <$> rows2))
 
   sort result === sort (liftA2 (,) rows1 rows2)
+
+
+testDBType :: IO TmpPostgres.DB -> TestTree
+testDBType getTestDatabase = testGroup "DBType instances"
+  [ dbTypeTest "Bool" Gen.bool
+  , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
+  , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
+  , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
+  ]
+
+  where
+    dbTypeTest name generator = databasePropertyTest name t getTestDatabase
+      where
+        t connection = do
+          x <- forAll generator
+          [res] <- Rel8.select connection $ pure $ Rel8.lit x
+          res === x
+
 
 
 rollingBack
