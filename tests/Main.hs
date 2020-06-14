@@ -1,3 +1,4 @@
+{-# language NamedFieldPuns #-}
 {-# language BlockArguments #-}
 {-# language QuasiQuotes #-}
 {-# language DisambiguateRecordFields #-}
@@ -110,10 +111,13 @@ testSelectTestTable :: IO TmpPostgres.DB -> TestTree
 testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  liftIO do
-    executeMany connection
-      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
+  Rel8.insert connection
+    Rel8.Insert
+      { into = testTableSchema
+      , rows = map Rel8.litTable rows
+      , onConflict = Rel8.DoNothing
+      , returning = Rel8.NumberOfRowsInserted
+      }
 
   selected <- Rel8.select connection do
     Rel8.each testTableSchema
