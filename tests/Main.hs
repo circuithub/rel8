@@ -100,14 +100,13 @@ testSelectTestTable :: IO TmpPostgres.DB -> TestTree
 testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  selected <- rollingBack connection do
-    liftIO do
-      executeMany connection
-        [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-        [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
+  liftIO do
+    executeMany connection
+      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
+      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
 
-    Rel8.select connection do
-      Rel8.each testTableSchema
+  selected <- Rel8.select connection do
+    Rel8.each testTableSchema
 
   sort selected === sort rows
 
@@ -124,11 +123,10 @@ testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connection -> do
 
   let expected = filter (\t -> testTableColumn2 t == magicBool) rows
 
-  selected <- rollingBack connection do
-    Rel8.select connection do
-      t <- Rel8.values $ Rel8.litTable <$> rows
-      Rel8.where_ $ testTableColumn2 t Rel8.==. Rel8.lit magicBool
-      return t
+  selected <- Rel8.select connection do
+    t <- Rel8.values $ Rel8.litTable <$> rows
+    Rel8.where_ $ testTableColumn2 t Rel8.==. Rel8.lit magicBool
+    return t
 
   sort selected === sort expected
 
@@ -143,9 +141,8 @@ testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connection -> do
 
   n <- forAll $ Gen.integral (Range.linear 0 10)
 
-  selected <- rollingBack connection do
-    Rel8.select connection do
-      Rel8.limit n $ Rel8.values (Rel8.litTable <$> rows)
+  selected <- Rel8.select connection do
+    Rel8.limit n $ Rel8.values (Rel8.litTable <$> rows)
 
   diff (length selected) (<=) (fromIntegral n)
 
@@ -163,9 +160,8 @@ testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> do
   left <- forAll $ Gen.list (Range.linear 0 10) genTestTable
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  selected <- evalM $ rollingBack connection do
-    Rel8.select connection do
-      Rel8.values (Rel8.litTable <$> left) `Rel8.union` Rel8.values (Rel8.litTable <$> right)
+  selected <- Rel8.select connection do
+    Rel8.values (Rel8.litTable <$> left) `Rel8.union` Rel8.values (Rel8.litTable <$> right)
 
   sort selected === sort (left ++ right)
 
@@ -174,10 +170,8 @@ testDistinct :: IO TmpPostgres.DB -> TestTree
 testDistinct = databasePropertyTest "DISTINCT (Rel8.distinct)" \connection -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
-  selected <- evalM $ rollingBack connection do
-    Rel8.select connection
-      $ Rel8.distinct
-      $ Rel8.values (Rel8.litTable <$> rows)
+  selected <- Rel8.select connection $ Rel8.distinct do
+    Rel8.values (Rel8.litTable <$> rows)
 
   sort selected === nub (sort rows)
 
@@ -191,12 +185,11 @@ testExists = databasePropertyTest "EXISTS (Rel8.exists)" \connection -> do
   rows1 <- forAll $ Gen.list (Range.linear 1 10) genTestTable
   rows2 <- forAll $ Gen.maybe genTestTable
 
-  selected <- evalM $ rollingBack connection do
-    Rel8.select connection do
-      row <- Rel8.values $ Rel8.litTable <$> rows1
-      Rel8.exists do
-        Rel8.values $ Rel8.litTable <$> rows2
-      return row
+  selected <- Rel8.select connection do
+    row <- Rel8.values $ Rel8.litTable <$> rows1
+    Rel8.exists do
+      Rel8.values $ Rel8.litTable <$> rows2
+    return row
 
   case rows2 of
     Nothing -> sort selected === []
