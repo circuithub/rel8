@@ -173,7 +173,7 @@ testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \connection -> do
 
 
 testUnion :: IO TmpPostgres.DB -> TestTree
-testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> do
+testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> evalM do
   left <- forAll $ Gen.list (Range.linear 0 10) genTestTable
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
