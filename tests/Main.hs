@@ -11,6 +11,7 @@
 
 module Main where
 
+import Control.Applicative ( liftA2 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
@@ -43,6 +44,8 @@ tests =
     , testDistinct getTestDatabase
     , testExists getTestDatabase
     , testOptional getTestDatabase
+    , testAnd getTestDatabase
+    , testOr getTestDatabase
     ]
 
   where
@@ -214,6 +217,26 @@ testOptional = databasePropertyTest "Rel8.optional" \connection -> do
   case rows of
     [] -> selected === [Nothing]
     _  -> sort selected === fmap Just (sort rows)
+
+
+testAnd :: IO TmpPostgres.DB -> TestTree
+testAnd = databasePropertyTest "AND (&&.)" \connection -> do
+  (x, y) <- forAll $ liftA2 (,) Gen.bool Gen.bool
+
+  [result] <- Rel8.select connection $ pure $
+    Rel8.lit x Rel8.&&. Rel8.lit y
+
+  result === (x && y)
+
+
+testOr :: IO TmpPostgres.DB -> TestTree
+testOr = databasePropertyTest "OR (||.)" \connection -> do
+  (x, y) <- forAll $ liftA2 (,) Gen.bool Gen.bool
+
+  [result] <- Rel8.select connection $ pure $
+    Rel8.lit x Rel8.||. Rel8.lit y
+
+  result === (x || y)
 
 
 rollingBack

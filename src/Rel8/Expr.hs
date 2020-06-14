@@ -156,13 +156,13 @@ instance DBType a => DBType ( Maybe a ) where
 -- | The SQL @AND@ operator.
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
 (&&.) ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr (Opaleye.:&&) a b )
+    Expr ( Opaleye.BinExpr Opaleye.OpAnd a b )
 
 
 -- | The SQL @OR@ operator.
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
 (||.) ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr (Opaleye.:||) a b )
+    Expr ( Opaleye.BinExpr Opaleye.OpOr a b )
 
 
 -- | The SQL @NOT@ operator.
