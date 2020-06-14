@@ -59,6 +59,7 @@ tests =
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testMaybeTable getTestDatabase
+    , testNestedTables getTestDatabase
     ]
 
   where
@@ -376,6 +377,32 @@ testMaybeTable = databasePropertyTest "maybeTable" \connection -> evalM do
   case rows of
     [] -> selected === [def]
     _ -> sort selected === sort rows
+
+
+data TwoTestTables f =
+  TwoTestTables
+    { testTable1 :: TestTable f
+    , testTable2 :: TestTable f
+    }
+  deriving
+    ( Generic, Rel8.HigherKindedTable )
+
+
+deriving instance Eq (TwoTestTables Rel8.Identity)
+deriving instance Ord (TwoTestTables Rel8.Identity)
+deriving instance Show (TwoTestTables Rel8.Identity)
+
+
+testNestedTables :: IO TmpPostgres.DB -> TestTree
+testNestedTables = databasePropertyTest "Nested TestTables" \connection -> evalM do
+  rows <- forAll do
+    Gen.list (Range.linear 0 10) $
+      liftA2 TwoTestTables genTestTable genTestTable
+
+  selected <- Rel8.select connection do
+    Rel8.values (Rel8.litTable <$> rows)
+
+  sort selected === sort rows
 
 
 rollingBack
