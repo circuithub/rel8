@@ -42,6 +42,7 @@ tests =
     , testUnion getTestDatabase
     , testDistinct getTestDatabase
     , testExists getTestDatabase
+    , testOptional getTestDatabase
     ]
 
   where
@@ -203,6 +204,20 @@ testExists = databasePropertyTest "EXISTS (Rel8.exists)" \connection -> do
 
   cover 1 "EXISTS = False" $ null rows2
   cover 1 "EXISTS = True" $ not $ null rows2
+
+
+testOptional :: IO TmpPostgres.DB -> TestTree
+testOptional = databasePropertyTest "Rel8.optional" \connection -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
+
+  selected <- evalM $ rollingBack connection do
+    Rel8.select connection $
+      Rel8.optional $ Rel8.values $ Rel8.litTable <$> rows
+
+  case rows of
+    [] -> selected === [Nothing]
+    _  -> sort selected === fmap Just (sort rows)
+
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
