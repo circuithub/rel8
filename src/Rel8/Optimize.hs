@@ -20,11 +20,6 @@ primQuery
   :: Applicative f
   => ( PrimQuery' a -> f ( PrimQuery' a ) ) -> PrimQuery' a -> f ( PrimQuery' a )
 primQuery f = \case
-  Product primQueries bindings -> do
-    primQueries <- traverse f primQueries
-
-    return ( Product primQueries bindings )
-
   Aggregate bindingsAndPrimExpr primQuery -> do
     primQuery <- f primQuery
 
@@ -52,10 +47,10 @@ primQuery f = \case
 
     return ( Exists bool primQueryA primQueryB )
 
-  Binary binOp bindings primQueries -> do
+  Binary binOp primQueries -> do
     primQueries <- both f primQueries
 
-    return ( Binary binOp bindings primQueries  )
+    return ( Binary binOp primQueries  )
 
   Label label primQuery -> do
     primQuery <- f primQuery
@@ -68,9 +63,6 @@ primQuery f = \case
 
 optimisePredicates :: PrimQuery' a -> PrimQuery' a
 optimisePredicates = \case
-  Product primQueries predicates ->
-    Product primQueries ( map nullIsFalse predicates )
-
   Join joinType predicate bindingsA bindingsB primQueryA primQueryB ->
     Join joinType ( nullIsFalse predicate ) bindingsA bindingsB primQueryA primQueryB
 
