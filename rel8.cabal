@@ -11,7 +11,7 @@ extra-source-files:  CHANGELOG.md
 
 library
   build-depends:
-      base >=4.12 && <4.13
+      base ^>=4.12 || ^>= 4.13
     , opaleye
     , profunctors
     , postgresql-simple
