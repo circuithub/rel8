@@ -18,6 +18,7 @@
 module Rel8.Expr
   ( DBType(..)
   , DatabaseType(..)
+  , parseDatabaseType
   , lit
   , (&&.)
   , (||.)
@@ -36,22 +37,30 @@ module Rel8.Expr
   , nullaryFunction
   , retype
   , toPrimExpr
+  , dbShow
+  , unsafeCastExpr
   , dbBinOp
   , unsafeCoerceExpr
+  , ilike
   , null_
   , isNull
   , liftNull
   , traversePrimExpr
   , ifThenElse_
+  , DBMin
+  , DBMax
+  , dbNow
+  , default_
   ) where
 
+import Data.Time ( UTCTime )
+import Data.Text ( Text )
 import Data.Coerce
 import Data.Foldable ( foldl' )
 import Data.Functor.Identity
 import Data.Kind
 import Data.Proxy
 import Data.String
-import GHC.Generics
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.DBType
@@ -248,3 +257,34 @@ lit = Expr . Opaleye.CastExpr typeName . encode
 dbBinOp :: String -> Expr a -> Expr b -> Expr c
 dbBinOp op (Expr a) (Expr b) =
   Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
+
+
+class DBMin a
+class DBMax a
+
+
+ilike :: Expr Text -> Expr Text -> Expr Bool
+Expr a `ilike` Expr b =
+  Expr $ Opaleye.BinExpr (Opaleye.OpOther "ILIKE") a b
+
+
+dbShow :: DBType a => Expr a -> Expr Text
+dbShow = unsafeCastExpr "text"
+
+
+-- | Use a cast operation in the database layer to convert between Expr types.
+-- This is unsafe as it is possible to introduce casts that cannot be performed
+-- by PostgreSQL. For example,
+-- @unsafeCastExpr "timestamptz" :: Expr Bool -> Expr UTCTime@ makes no sense.
+unsafeCastExpr :: forall b a. String -> Expr a -> Expr b
+unsafeCastExpr t (Expr x) =
+  Expr $ Opaleye.CastExpr t x
+
+
+-- | Corresponds to the @now()@ function.
+dbNow :: Expr UTCTime
+dbNow = nullaryFunction "now"
+
+
+default_ :: Expr a
+default_ = Expr $ Opaleye.ConstExpr Opaleye.DefaultLit

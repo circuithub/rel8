@@ -33,12 +33,14 @@ library
   exposed-modules:
     Rel8
     Rel8.Table
+    Rel8.Tabulate
     Rel8.Text
   other-modules:
     Rel8.Column
     Rel8.ColumnSchema
     Rel8.DBEq
     Rel8.DBType
+    Rel8.DBOrd
     Rel8.EqTable
     Rel8.Expr
     Rel8.FromRow

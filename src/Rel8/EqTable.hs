@@ -13,6 +13,9 @@ import Rel8.Expr
 import Rel8.Table
 
 
+infix 4 ==.
+
+
 -- | The class of database tables (containing one or more columns) that can be
 -- compared for equality as a whole.
 class ExprTable a => EqTable a where

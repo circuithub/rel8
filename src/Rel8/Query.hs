@@ -21,6 +21,7 @@
 
 module Rel8.Query where
 
+import Debug.Trace
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Foldable
@@ -555,3 +556,10 @@ filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = do
   where_ $ f a
   return a
+
+
+traceQuery :: ExprTable a => Query a -> Query a
+traceQuery x =
+  case selectQuery x of
+    Nothing -> x
+    Just y -> trace y x

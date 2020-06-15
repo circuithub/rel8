@@ -14,6 +14,9 @@ module Rel8
   , DatabaseType(..)
   , parseDatabaseType
   , DBEq( eqExprs )
+  , DBOrd
+  , DBMin
+  , DBMax
 
     -- * Writing Queries
   , Table
@@ -39,10 +42,14 @@ module Rel8
   , Expr
   , Context
   , coerceExpr
+  , unsafeCastExpr
   , unsafeCoerceExpr
+  , dbShow
+  , dbNow
 
     -- *** Literals
   , lit
+  , default_
 
     -- *** Null
   , null_
@@ -52,11 +59,12 @@ module Rel8
     -- *** Equality
   , EqTable( (==.) )
 
-    -- *** Booleans
+    -- *** Booleans and predicates
   , (&&.)
   , (||.)
   , not_
   , ifThenElse_
+  , ilike
 
     -- *** Functions
   , dbFunction
@@ -66,6 +74,7 @@ module Rel8
     -- * Running Queries
     -- ** @SELECT@
   , select
+  , traceQuery
   , FromRow(..)
   , Query
   , Identity
@@ -100,6 +109,7 @@ import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.DBEq
 import Rel8.DBType
+import Rel8.DBOrd
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.FromRow

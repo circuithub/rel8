@@ -4,6 +4,7 @@
 
 module Rel8.DBEq where
 
+import Data.CaseInsensitive (CI)
 import Data.Int
 import Data.Kind
 import Data.Text
@@ -63,6 +64,9 @@ instance DBEq Int64
 
 
 instance DBEq Text
+
+
+instance DBEq (CI Text)
 
 
 instance DBEq Bool
