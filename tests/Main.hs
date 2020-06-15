@@ -60,6 +60,7 @@ tests =
     , testCatMaybeTable getTestDatabase
     , testMaybeTable getTestDatabase
     , testNestedTables getTestDatabase
+    , testMaybeTableApplicative getTestDatabase
     ]
 
   where
@@ -403,6 +404,25 @@ testNestedTables = databasePropertyTest "Nested TestTables" \connection -> evalM
     Rel8.values (Rel8.litTable <$> rows)
 
   sort selected === sort rows
+
+
+testMaybeTableApplicative :: IO TmpPostgres.DB -> TestTree
+testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \connection -> evalM do
+  rows <- forAll do
+    Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
+
+  liftIO $ executeMany connection
+    [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
+    [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
+
+  selected <- Rel8.select connection do
+    fmap (pure id <*>) (Rel8.optional (Rel8.each testTableSchema))
+
+  let rowsExpected = case rows of
+        [] -> [Nothing]
+        xs -> map Just xs
+
+  sort selected === sort rowsExpected
 
 
 rollingBack

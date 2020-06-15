@@ -14,7 +14,7 @@ import Rel8.MaybeTable
 import Data.Functor.Identity
 import Data.Int
 import Database.PostgreSQL.Simple.FromField ( FromField )
-import Database.PostgreSQL.Simple.FromRow ( RowParser, field )
+import Database.PostgreSQL.Simple.FromRow ( RowParser, field, fieldWith )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKindedTable
@@ -77,5 +77,19 @@ instance
         Nothing <$ traverseTableC @Id @FromField nullField t
 
 
-nullField :: forall x f. FromField x => C f x -> RowParser ( C f x )
-nullField x = x <$ field @( Maybe x )
+instance (FromRow a1 b1, FromRow a2 b2, Table a2, Table a2, Table b1, Table b2, Recontextualise a1 Id, Context (MapTable Id a1) ~ Expr, Recontextualise a2 Id, Context (MapTable Id a2) ~ Expr) => FromRow (MaybeTable (a1, a2)) (Maybe (b1, b2)) where
+  rowParser ( MaybeTable _ ( x, y ) ) = do
+    rowExists <- field
+
+    case rowExists of
+      Just True ->
+        Just <$> liftA2 (,) (rowParser x) (rowParser y)
+
+      _ ->
+        Nothing
+          <$ traverseTable @Id nullField x
+          <* traverseTable @Id nullField y
+
+
+nullField :: forall x f. C f x -> RowParser ( C f x )
+nullField x = x <$ fieldWith (\_ _ -> pure ())
