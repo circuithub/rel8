@@ -182,9 +182,9 @@ testUnion = databasePropertyTest "UNION (Rel8.union)" \connection -> evalM do
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   selected <- Rel8.select connection do
-    Rel8.values (Rel8.litTable <$> left) `Rel8.union` Rel8.values (Rel8.litTable <$> right)
+    Rel8.values (Rel8.litTable <$> nub left) `Rel8.union` Rel8.values (Rel8.litTable <$> nub right)
 
-  sort selected === sort (left ++ right)
+  sort selected === sort (nub (left ++ right))
 
 
 testDistinct :: IO TmpPostgres.DB -> TestTree
