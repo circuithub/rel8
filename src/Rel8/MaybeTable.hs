@@ -90,7 +90,7 @@ instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
 
 
 maybeTable
-  :: (Context b ~ Context a, Context a ~ Expr, Table a, Table b)
+  :: (Context b ~ Context a, Context a ~ Expr, Table b)
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
