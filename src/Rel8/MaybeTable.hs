@@ -96,10 +96,11 @@ maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
-noTable :: (Table a, Context a ~ Expr) => MaybeTable a
+noTable :: (Table a, Context a ~ Expr, ConstrainTable a DBType) => MaybeTable a
 noTable = MaybeTable tag t
   where
     tag = lit Nothing
-    t = runIdentity $ tabulateMCP (Proxy @Unconstrained) f
+    t = runIdentity $ tabulateMCP (Proxy @DBType) f
       where
-        f _ = pure $ MkC $ unsafeCoerceExpr $ lit (Nothing @Bool)
+        f :: forall a i. DBType a => i a -> Identity (C Expr a)
+        f _ = pure $ MkC $ unsafeCoerceExpr $ lit (Nothing @a)

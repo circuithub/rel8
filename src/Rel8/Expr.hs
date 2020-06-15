@@ -5,6 +5,7 @@
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -13,6 +14,8 @@
 
 module Rel8.Expr
   ( DBType(..)
+  , DatabaseType(..)
+  , lit
   , (&&.)
   , (||.)
   , Expr
@@ -38,6 +41,8 @@ module Rel8.Expr
   , ifThenElse_
   ) where
 
+import Data.Profunctor ( Profunctor(..), dimap )
+import Database.PostgreSQL.Simple.FromField ( FieldParser, fromField, optionalField )
 import Data.Coerce
 import Data.Proxy
 import Data.Foldable ( foldl' )
@@ -99,11 +104,30 @@ data Color = Red | Green | Blue | Purple | Gold
 -}
 
 class DBType ( a :: Type ) where
-  -- | Lift a Haskell value into a literal SQL expression.
-  lit :: a -> Expr a
+  typeInformation :: DatabaseType a a
 
-  default lit :: Show a => a -> Expr a
-  lit = unsafeCoerceExpr . lit . show
+
+-- | Lift a Haskell value into a literal SQL expression.
+lit :: DBType a => a -> Expr a
+lit = Expr . Opaleye.CastExpr typeName . encode
+  where
+    DatabaseType{ encode, typeName } = typeInformation
+
+
+data DatabaseType a b =
+  DatabaseType
+    { encode :: a -> Opaleye.PrimExpr
+    , decode :: FieldParser b
+    , typeName :: String
+    }
+
+
+instance Profunctor DatabaseType where
+  dimap f g DatabaseType{ encode, decode, typeName } = DatabaseType
+    { encode = encode . f
+    , decode = \x y -> fmap g $ decode x y
+    , typeName
+    }
 
 
 litTable
@@ -119,41 +143,55 @@ litTable =
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
-  lit =
-    Expr . Opaleye.ConstExpr . Opaleye.BoolLit
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.BoolLit
+    , decode = fromField
+    , typeName = "bool"
+    }
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  lit =
-    Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+    , decode = fromField
+    , typeName = "int4"
+    }
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
-  lit =
-    Expr . Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+    , decode = fromField
+    , typeName = "int8"
+    }
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
-  lit =
-    unsafeCoerceExpr . lit . unpack
+  typeInformation = dimap unpack fromString typeInformation
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType String where
-  lit =
-    Expr . Opaleye.ConstExpr . Opaleye.StringLit
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit
+    , decode = fromField
+    , typeName = "text"
+    }
 
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
 instance DBType a => DBType ( Maybe a ) where
-  lit =
-    maybe
-      ( Expr ( Opaleye.ConstExpr Opaleye.NullLit ) )
-      ( retype . lit )
+  typeInformation = DatabaseType
+    { encode = maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
+    , decode = optionalField decode
+    , typeName
+    }
+    where
+      DatabaseType{ encode, decode, typeName } = typeInformation
 
 
 -- | The SQL @AND@ operator.

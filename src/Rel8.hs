@@ -10,7 +10,8 @@ module Rel8
   , ColumnSchema
 
     -- ** Defining Database Types
-  , DBType( lit )
+  , DBType( typeInformation )
+  , DatabaseType(..)
   , DBEq( eqExprs )
 
     -- * Writing Queries

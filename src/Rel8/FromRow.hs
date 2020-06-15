@@ -13,8 +13,7 @@ import Control.Applicative ( liftA2 )
 import Rel8.MaybeTable
 import Data.Functor.Identity
 import Data.Int
-import Database.PostgreSQL.Simple.FromField ( FromField )
-import Database.PostgreSQL.Simple.FromRow ( RowParser, field, fieldWith )
+import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.HigherKindedTable
@@ -32,22 +31,22 @@ class ( Context sql ~ Expr, Table sql ) => FromRow sql haskell | sql -> haskell,
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance ( HConstrainTable t Identity FromField, HConstrainTable t Identity Unconstrained, HigherKindedTable t, Table ( t expr ), expr ~ Expr, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance ( HConstrainTable t Identity DBType, HConstrainTable t Identity Unconstrained, HigherKindedTable t, Table ( t expr ), expr ~ Expr, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
   rowParser =
-    traverseTableC @Select @FromField ( traverseCC @FromField \_ -> field )
+    traverseTableC @Select @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
 
 
-instance m ~ Query => FromRow ( Expr Bool ) Bool where rowParser _ = field
-instance m ~ Query => FromRow ( Expr Int32 ) Int32 where rowParser _ = field
-instance m ~ Query => FromRow ( Expr Int64 ) Int64 where rowParser _ = field
-instance m ~ Query => FromRow ( Expr String ) String where rowParser _ = field
-instance m ~ Query => FromRow ( Expr Text ) Text where rowParser _ = field
+instance m ~ Query => FromRow ( Expr Bool ) Bool where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr Int32 ) Int32 where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr Int64 ) Int64 where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr String ) String where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr Text ) Text where rowParser _ = fieldWith ( decode typeInformation )
 
-instance m ~ Query => FromRow ( Expr ( Maybe Bool ) ) ( Maybe Bool ) where rowParser _ = field
-instance m ~ Query => FromRow ( Expr ( Maybe Int32 ) ) ( Maybe Int32 ) where rowParser _ = field
-instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where rowParser _ = field
-instance m ~ Query => FromRow ( Expr ( Maybe String ) ) ( Maybe String ) where rowParser _ = field
-instance m ~ Query => FromRow ( Expr ( Maybe Text ) ) ( Maybe Text ) where rowParser _ = field
+instance m ~ Query => FromRow ( Expr ( Maybe Bool ) ) ( Maybe Bool ) where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr ( Maybe Int32 ) ) ( Maybe Int32 ) where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr ( Maybe String ) ) ( Maybe String ) where rowParser _ = fieldWith ( decode typeInformation )
+instance m ~ Query => FromRow ( Expr ( Maybe Text ) ) ( Maybe Text ) where rowParser _ = fieldWith ( decode typeInformation )
 
 
 instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where
@@ -59,27 +58,27 @@ instance
   ( f ~ Expr
   , g ~ Identity
   , HConstrainTable t Expr Unconstrained
-  , HConstrainTable t Expr FromField
-  , HConstrainTable t Identity FromField
+  , HConstrainTable t Expr DBType
+  , HConstrainTable t Identity DBType
   , HigherKindedTable t
   , Table ( MaybeTable ( t f ) )
   , Table ( t g )
   ) => FromRow ( MaybeTable ( t f ) ) ( Maybe ( t g ) ) where
 
   rowParser ( MaybeTable _ t ) = do
-    rowExists <- field
+    rowExists <- fieldWith ( decode typeInformation )
 
     case rowExists of
       Just True ->
         Just <$> rowParser t
 
       _ ->
-        Nothing <$ traverseTableC @Id @FromField nullField t
+        Nothing <$ traverseTableC @Id @DBType nullField t
 
 
 instance (FromRow a1 b1, FromRow a2 b2, Table a2, Table a2, Table b1, Table b2, Recontextualise a1 Id, Context (MapTable Id a1) ~ Expr, Recontextualise a2 Id, Context (MapTable Id a2) ~ Expr) => FromRow (MaybeTable (a1, a2)) (Maybe (b1, b2)) where
   rowParser ( MaybeTable _ ( x, y ) ) = do
-    rowExists <- field
+    rowExists <- fieldWith ( decode typeInformation )
 
     case rowExists of
       Just True ->
