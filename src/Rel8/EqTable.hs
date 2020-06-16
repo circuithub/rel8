@@ -2,22 +2,20 @@
 {-# language FlexibleInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
+{-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
 module Rel8.EqTable ( EqTable, (==.) ) where
 
-import Control.Applicative
-import Rel8.Column
 import Rel8.DBEq
 import Rel8.Expr
-import Rel8.HigherKindedTable
 import Rel8.Table
 
 
 -- | The class of database tables (containing one or more columns) that can be
 -- compared for equality as a whole.
-class EqTable a where
+class (Table a, Context a ~ Expr) => EqTable a where
   -- | Compare two tables or expressions for equality.
   --
   -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
@@ -41,19 +39,3 @@ class EqTable a where
 instance DBEq a => EqTable ( Expr a ) where
   (==.) =
     eqExprs
-
-
--- | Higher-kinded records can be compared for equality. Two records are equal
--- if all of their fields are equal.
-instance ( HigherKindedTable t, HConstrainTable t Expr Unconstrained, ConstrainTable ( t Expr ) DBEq ) => EqTable ( t Expr ) where
-  l ==. r =
-    and_
-      ( getConst
-          ( zipTablesWithMC
-              @DBEq
-              @( t Expr )
-              ( zipCWithMC @DBEq \a b -> Const [ eqExprs a b ] )
-              l
-              r
-          )
-      )

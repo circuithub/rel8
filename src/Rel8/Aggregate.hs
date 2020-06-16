@@ -83,9 +83,7 @@ transforming a @Map k v@ into a list of pairs:
 groupAndAggregate
   :: ( MonoidTable v
      , EqTable k
-     , Context k ~ Expr
      , Context v ~ Expr
-     , Table k
      )
   => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
 groupAndAggregate = groupAndAggregate_forAll
@@ -95,9 +93,7 @@ groupAndAggregate_forAll
   :: forall a k v
    . ( MonoidTable v
      , EqTable k
-     , Context k ~ Expr
      , Context v ~ Expr
-     , Table k
      )
   => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
 groupAndAggregate_forAll f query =
