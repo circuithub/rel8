@@ -55,7 +55,7 @@ tests =
     , testAp getTestDatabase
     , testDBType getTestDatabase
     , testDBEq getTestDatabase
-    , testTableEquality getTestDatabase
+    -- , TODO testTableEquality getTestDatabase
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testMaybeTable getTestDatabase
@@ -333,17 +333,17 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
       cover 1 "Not Equal" $ x /= y
 
 
-testTableEquality :: IO TmpPostgres.DB -> TestTree
-testTableEquality = databasePropertyTest "TestTable equality" \connection -> do
-  (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
+-- testTableEquality :: IO TmpPostgres.DB -> TestTree
+-- testTableEquality = databasePropertyTest "TestTable equality" \connection -> do
+--   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
 
-  [eq] <- Rel8.select connection do
-    pure $ Rel8.litTable x Rel8.==. Rel8.litTable y
+--   [eq] <- Rel8.select connection do
+--     pure $ Rel8.litTable x Rel8.==. Rel8.litTable y
 
-  eq === (x == y)
+--   eq === (x == y)
 
-  cover 1 "Equal" $ x == y
-  cover 1 "Not Equal" $ x /= y
+--   cover 1 "Equal" $ x == y
+--   cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
