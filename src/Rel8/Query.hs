@@ -21,33 +21,21 @@
 
 module Rel8.Query where
 
-import Data.Foldable ( toList )
-import Data.Functor.Identity
-import Numeric.Natural
-import Rel8.Column
-import Rel8.ColumnSchema
-import Rel8.Expr
-import Rel8.SimpleConstraints
-import Rel8.MaybeTable
-import Rel8.Table
-import Rel8.TableSchema
-
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Foldable
 import Data.Int
+import Data.Proxy
 import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import Data.Proxy
+import Numeric.Natural
 import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
-import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
-import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -58,11 +46,22 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Internal.Values as Opaleye
+import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
+import Rel8.Column
+import Rel8.ColumnSchema
+import Rel8.Expr
+import Rel8.MaybeTable
 import qualified Rel8.Optimize
+import Rel8.SimpleConstraints
+import Rel8.Table
+import Rel8.TableSchema
+import Rel8.Unconstrained
 import {-# source #-} Rel8.FromRow
 
 
@@ -134,11 +133,11 @@ queryRunner =
 
 
 unpackspec
-  :: ( Table row, Context row ~ Expr )
+  :: (ExprTable row)
   => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    fmap runIdentity . traverseTable @Id ( traverseC ( traversePrimExpr f ) ) . Identity
+    traverseTable (traverseC (traversePrimExpr f))
 
 
 -- | Run an @INSERT@ statement
@@ -154,10 +153,10 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
     toOpaleyeInsert
       :: forall schema result value
-       . ( Context value ~ Expr
+       . ( ExprTable value
          , Context schema ~ ColumnSchema
-         , MapTable From schema ~ value
-         , Recontextualise schema From
+         , Structure value ~ Structure schema
+         , Table schema
          )
       => TableSchema schema
       -> [ value ]
@@ -188,7 +187,6 @@ writer
    . ( Context value ~ Expr
      , Context schema ~ ColumnSchema
      , Selects schema value
-     , MapTable From schema ~ value
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -203,10 +201,11 @@ writer into_ =
       void
         ( traverseTableWithIndexC
             @Unconstrained
-            @From
+            @schema
+            @value
             ( \i ->
                 traverseC \ColumnSchema{ columnName } -> do
-                  f ( toPrimExpr . toColumn . flip field ( reverseFieldMapping @_ @From i ) <$> xs
+                  f ( toPrimExpr . toColumn . flip hfield i . toStructure <$> xs
                     , columnName
                     )
 
@@ -228,7 +227,7 @@ opaleyeReturning returning =
     Projection f ->
       Opaleye.ReturningExplicit
         queryRunner
-        ( f . mapTable @From ( mapC ( column . columnName ) ) )
+        ( f . mapTable ( mapC ( column . columnName ) ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -279,10 +278,7 @@ data OnConflict
   | DoNothing
 
 
-selectQuery
-  :: forall a
-   . ( Table a, Context a ~ Expr )
-  => Query a -> Maybe String
+selectQuery :: forall a . ExprTable a => Query a -> Maybe String
 selectQuery ( Query opaleye ) =
   showSqlForPostgresExplicit
 
@@ -307,9 +303,9 @@ delete c Delete{ from, deleteWhere, returning } =
     go
       :: forall schema r row
        . ( Context schema ~ ColumnSchema
-         , Context row ~ Expr
-         , MapTable From schema ~ row
-         , Recontextualise schema From
+         , ExprTable row
+         , Structure schema ~ Structure row
+         , Table schema
          )
       => TableSchema schema
       -> ( row -> Expr Bool )
@@ -322,7 +318,7 @@ delete c Delete{ from, deleteWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . deleteWhere_
-              . mapTable @From ( mapC ( column . columnName ) )
+              . mapTable (mapC (column . columnName))
         , dReturning = opaleyeReturning returning_
         }
 
@@ -346,9 +342,9 @@ update connection Update{ target, set, updateWhere, returning } =
     go
       :: forall returning target row
        . ( Context target ~ ColumnSchema
-         , Context row ~ Expr
-         , MapTable From target ~ row
-         , Recontextualise target From
+         , ExprTable row
+         , Structure target ~ Structure row
+         , Table target
          )
       => TableSchema target
       -> ( row -> row )
@@ -358,7 +354,7 @@ update connection Update{ target, set, updateWhere, returning } =
     go target_ set_ updateWhere_ returning_ =
       Opaleye.Update
         { uTable =
-            ddlTable target_ ( writer target_ )
+            ddlTable target_ (writer target_)
 
         , uReturning =
             opaleyeReturning returning_
@@ -367,10 +363,10 @@ update connection Update{ target, set, updateWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . updateWhere_
-              . mapTable @From ( mapC ( column . columnName ) )
+              . mapTable (mapC (column . columnName))
 
         , uUpdateWith =
-            set_ . mapTable @From ( mapC ( column . columnName ) )
+            set_ . mapTable (mapC (column . columnName))
         }
 
 
@@ -422,7 +418,6 @@ each_forAll schema =
     view =
       Opaleye.View
         ( mapTable
-            @From
             ( mapC ( column . columnName ) )
             ( tableColumns schema )
         )
@@ -463,9 +458,7 @@ union = union_forAll
 
 union_forAll
   :: forall a
-   . ( Context a ~ Expr
-     , Table a
-     )
+   . ExprTable a
   => Query a -> Query a -> Query a
 union_forAll l r =
   liftOpaleye
@@ -493,10 +486,7 @@ distinct :: ExprTable a => Query a -> Query a
 distinct = distinct_forAll
 
 
-distinct_forAll
-  :: forall a
-   . ( Table a, Context a ~ Expr )
-  => Query a -> Query a
+distinct_forAll :: forall a. ExprTable a => Query a -> Query a
 distinct_forAll query =
   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
 
@@ -505,10 +495,7 @@ distinct_forAll query =
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
-        fmap runIdentity
-          . traverseTable @Id
-              ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
-          . Identity
+        traverseTable (traverseC \x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
 
 
 -- | @limit n@ select at most @n@ rows from a query.
@@ -555,4 +542,5 @@ values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
   where
     valuesspec =
       Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
-        tabulateMCP (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()
+        fmap fromStructure $
+        htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()

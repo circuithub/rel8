@@ -18,7 +18,7 @@ module Rel8.Column
   , Id
   , Select
   , From
-  , Structure
+  , Spine
   , Lit
   , DropMaybe
   ) where
@@ -36,7 +36,7 @@ data From ( f :: * -> * ) a
 data Select ( f :: * -> * ) a
 
 
-data Structure ( f :: * -> * ) a
+data Spine ( f :: * -> * ) a
 
 
 data Lit ( f :: * -> * ) a

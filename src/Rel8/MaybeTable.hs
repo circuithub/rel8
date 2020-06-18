@@ -1,7 +1,9 @@
 {-# language ApplicativeDo #-}
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
+{-# language DeriveAnyClass #-}
 {-# language DeriveFunctor #-}
+{-# language DeriveGeneric #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
@@ -9,8 +11,10 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -18,8 +22,9 @@
 
 module Rel8.MaybeTable where
 
-import Data.Functor.Identity
-import Data.Proxy
+import Data.Functor.Identity ( Identity(..) )
+import Data.Proxy ( Proxy(..) )
+import GHC.Generics ( Generic )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.Table
@@ -63,30 +68,24 @@ instance Monad MaybeTable where
         null_ (lit False) (\x' -> null_ (lit False) (\y' -> x' ||. y') y) x
 
 
+data HMaybeTable g f =
+  HMaybeTable
+    { hnullTag :: Column f (Maybe Bool)
+    , hcontents :: g f
+    }
+  deriving
+    (Generic)
 
-data MaybeTableField t a where
-  MaybeTableIsNull :: MaybeTableField t ( Maybe Bool )
-  MaybeTableField :: Field t a -> MaybeTableField t a
+
+deriving instance (forall f. Table (g f)) => HigherKindedTable (HMaybeTable g)
 
 
-instance ExprTable t => Table (MaybeTable t) where
-  type Field (MaybeTable t) = MaybeTableField t
+instance (ExprTable a, HigherKindedTable (Structure a)) => Table (MaybeTable a) where
+  type Structure (MaybeTable a) = HMaybeTable (Structure a)
+  type Context (MaybeTable a) = Expr
 
-  type Context (MaybeTable t) = Context t
-
-  type ConstrainTable (MaybeTable t) c = ( c ( Maybe Bool ), ConstrainTable t c )
-
-  field MaybeTable{ nullTag, table } = \case
-    MaybeTableIsNull ->
-      MkC nullTag
-
-    MaybeTableField i ->
-      field table i
-
-  tabulateMCP proxy f =
-    MaybeTable
-      <$> do toColumn <$> f MaybeTableIsNull
-      <*> tabulateMCP proxy ( f . MaybeTableField )
+  toStructure (MaybeTable x y) = HMaybeTable x (toStructure y)
+  fromStructure (HMaybeTable x y) = MaybeTable x (fromStructure y)
 
 
 maybeTable
@@ -100,7 +99,7 @@ noTable :: ExprTable a => MaybeTable a
 noTable = MaybeTable tag t
   where
     tag = lit Nothing
-    t = runIdentity $ tabulateMCP (Proxy @DBType) f
+    t = fromStructure $ runIdentity $ htabulate (Proxy @DBType) f
       where
         f :: forall a i. DBType a => i a -> Identity (C Expr a)
         f _ = pure $ MkC $ unsafeCoerceExpr $ lit (Nothing @a)

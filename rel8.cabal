@@ -24,10 +24,8 @@ library
     src
   exposed-modules:
     Rel8
-    Rel8.HigherKindedTable
     Rel8.Table
   other-modules:
-    Rel8.Aggregate
     Rel8.Column
     Rel8.ColumnSchema
     Rel8.DBEq

@@ -12,7 +12,6 @@
 
 module Rel8.SimpleConstraints ( Selects, IsTableIn ) where
 
-import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
 import Rel8.Table
@@ -21,23 +20,19 @@ import Rel8.Table
 -- | @Selects m schema row@ says that in the monad @m@, the schema definition
 -- @schema@ can be @SELECT@ed into the Haskell type @row@.
 class
-  ( Context row ~ Expr
+  ( ExprTable row
   , Context schema ~ ColumnSchema
-  , MapTable From schema ~ row
-  , Recontextualise schema From
   , Table schema
-  , Table row
+  , Structure row ~ Structure schema
   ) => Selects schema row
 
 
 instance
   {-# overlapping #-}
-  ( Context row ~ Expr
+  ( ExprTable row
   , Context schema ~ ColumnSchema
-  , MapTable From schema ~ row
-  , Recontextualise schema From
-  , Table row
   , Table schema
+  , Structure row ~ Structure schema
   ) => Selects schema row
 
 

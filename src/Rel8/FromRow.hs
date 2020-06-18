@@ -10,16 +10,16 @@
 module Rel8.FromRow where
 
 import Control.Applicative ( liftA2 )
-import Rel8.MaybeTable
 import Data.Functor.Identity
 import Data.Int
+import Data.Text ( Text )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import Rel8.Column
 import Rel8.Expr
-import Rel8.HigherKindedTable
+import Rel8.MaybeTable
 import Rel8.Query
-import Rel8.Table hiding ( field )
-import Data.Text ( Text )
+import Rel8.Table
+import Rel8.Unconstrained
 
 
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
@@ -31,9 +31,9 @@ class ExprTable sql => FromRow sql haskell | sql -> haskell, haskell -> sql wher
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance ( HConstrainTable t Identity DBType, HConstrainTable t Identity Unconstrained, HigherKindedTable t, Table ( t expr ), expr ~ Expr, identity ~ Identity ) => FromRow ( t expr ) ( t identity ) where
+instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => FromRow ( t expr ) ( t identity ) where
   rowParser =
-    traverseTableC @Select @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
+    traverseTableC @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
 
 
 instance m ~ Query => FromRow ( Expr Bool ) Bool where rowParser _ = fieldWith ( decode typeInformation )
@@ -73,10 +73,10 @@ instance
         Just <$> rowParser t
 
       _ ->
-        Nothing <$ traverseTableC @Id @DBType nullField t
+        Nothing <$ traverseTableC @DBType @RowParser @_ @(t Expr) nullField t
 
 
-instance (FromRow a1 b1, FromRow a2 b2, Table a2, Table a2, Table b1, Table b2, Recontextualise a1 Id, Context (MapTable Id a1) ~ Expr, Recontextualise a2 Id, Context (MapTable Id a2) ~ Expr) => FromRow (MaybeTable (a1, a2)) (Maybe (b1, b2)) where
+instance (HConstrainTable (Structure b1) (Context b1) Unconstrained, ExprTable b1, HConstrainTable (Structure b2) (Context b2) Unconstrained, ExprTable b2, FromRow a1 b1, FromRow a2 b2, Table a2, Table b1, Structure a1 ~ Structure b1, Structure a2 ~ Structure b2) => FromRow (MaybeTable (a1, a2)) (Maybe (b1, b2)) where
   rowParser ( MaybeTable _ ( x, y ) ) = do
     rowExists <- fieldWith ( decode typeInformation )
 
@@ -86,8 +86,8 @@ instance (FromRow a1 b1, FromRow a2 b2, Table a2, Table a2, Table b1, Table b2, 
 
       _ ->
         Nothing
-          <$ traverseTable @Id nullField x
-          <* traverseTable @Id nullField y
+          <$ traverseTable @b1 nullField x
+          <* traverseTable @b2 nullField y
 
 
 nullField :: forall x f. C f x -> RowParser ( C f x )

@@ -1,6 +1,8 @@
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
+{-# language DeriveAnyClass #-}
+{-# language DeriveGeneric #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
@@ -49,10 +51,12 @@ import Data.Functor.Identity
 import Data.Kind
 import Data.Proxy
 import Data.String
+import GHC.Generics
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.DBType
 import Rel8.Table
+import Rel8.Unconstrained
 
 
 -- | Typed SQL expressions
@@ -68,15 +72,12 @@ instance ( IsString a, DBType a ) => IsString ( Expr a ) where
     lit . fromString
 
 
+-- TODO I should be more general
 litTable
-  :: ( ConstrainTable ( MapTable Lit a ) DBType
-     , Recontextualise a Lit
-     , Context ( MapTable Lit a ) ~ Expr
-     , Context a ~ Identity
-     )
-  => a -> MapTable Lit a
+  :: (HigherKindedTable t, HConstrainTable t Expr DBType)
+  => t Identity -> t Expr
 litTable =
-  mapTableC @DBType @Lit ( mapCC @DBType lit )
+  mapTableC @DBType (mapCC @DBType lit)
 
 
 -- | The SQL @AND@ operator.
@@ -164,32 +165,16 @@ nullaryFunction_forAll name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
 
 
-data ExprField a x where
-  ExprField :: ExprField a a
+newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
+  deriving ( Generic, HigherKindedTable )
 
 
 -- | Any 'Expr' can be seen as a 'Table' with only one column.
-instance DBType a => Table ( Expr a ) where
-  type Context ( Expr a ) =
-    Expr
-
-  type ConstrainTable ( Expr a ) c =
-    c a
-
-  type Field ( Expr a ) =
-    ExprField a
-
-  field expr ExprField =
-    MkC expr
-
-  tabulateMCP _ f =
-    toColumn <$> f ExprField
-
-
-instance DBType a => Recontextualise ( Expr a ) Id where
-  type MapTable Id ( Expr a ) = Expr a
-  fieldMapping ExprField = ExprField
-  reverseFieldMapping ExprField = ExprField
+instance Table (Expr a) where
+  type Context (Expr a) = Expr
+  type Structure (Expr a) = HIdentity a
+  toStructure = HIdentity
+  fromStructure = unHIdentity
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
@@ -222,13 +207,13 @@ ifThenElse_ bool whenTrue whenFalse =
   case_ [ ( bool, whenTrue ) ] whenFalse
 
 
-case_ :: (Table a, Context a ~ Expr) => [ ( Expr Bool, a ) ] -> a -> a
+case_ :: forall a. ExprTable a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
-  runIdentity $ tabulateMCP (Proxy @Unconstrained) \x ->
+  fromStructure $ runIdentity $ htabulate @(Structure a) (Proxy @Unconstrained) \x ->
     pure $ MkC $ fromPrimExpr $
     Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ field alt x ) | ( bool, alt ) <- alts ]
-        ( toPrimExpr $ toColumn $ field def x )
+        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ hfield (toStructure alt) x ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr $ toColumn $ hfield (toStructure def) x )
 
 
 isNull :: Expr ( Maybe a ) -> Expr Bool
@@ -258,8 +243,8 @@ or_ =
   foldl' (||.) ( lit False )
 
 
-class (Table a, Context a ~ Expr) => ExprTable a
-instance (Table a, Context a ~ Expr) => ExprTable a
+class (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => ExprTable a
+instance (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => ExprTable a
 
 
 -- | Lift a Haskell value into a literal SQL expression.
