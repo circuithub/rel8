@@ -356,7 +356,7 @@ newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
   deriving ( Generic, HigherKindedTable )
 
 
--- | Any 'Expr' can be seen as a 'Table' with only one column.
+-- | Any 'Identity' can be seen as a 'Table' with only one column.
 instance Table (Identity a) where
   type Context (Identity a) = Identity
   type Structure (Identity a) = HIdentity a

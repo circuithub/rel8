@@ -1,7 +1,6 @@
 {-# language FlexibleContexts #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Lit
   ( litTable
