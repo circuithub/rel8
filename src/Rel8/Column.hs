@@ -15,31 +15,14 @@ module Rel8.Column
   , traverseCC
   , zipCWithM
   , zipCWithMC
-  , Id
-  , Select
-  , From
   , Spine
-  , Lit
-  , DropMaybe
   ) where
 
 import Data.Functor.Identity
 import Data.Kind
 
 
-data Id ( f :: * -> * ) a
-
-
-data From ( f :: * -> * ) a
-
-
-data Select ( f :: * -> * ) a
-
-
 data Spine ( f :: * -> * ) a
-
-
-data Lit ( f :: * -> * ) a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
@@ -77,11 +60,6 @@ should only need to be aware of the type family when defining your table types.
 type family Column ( context :: Type -> Type ) ( a :: Type ) :: Type where
   Column Identity a = a
   Column f a = f a
-
-
-type family DropMaybe ( a :: Type ) :: Type where
-  DropMaybe ( Maybe a ) = DropMaybe a
-  DropMaybe a = a
 
 
 -- | The @C@ newtype simply wraps 'Column', but this allows us to work
