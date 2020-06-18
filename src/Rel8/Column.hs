@@ -15,14 +15,10 @@ module Rel8.Column
   , traverseCC
   , zipCWithM
   , zipCWithMC
-  , Spine
   ) where
 
 import Data.Functor.Identity
 import Data.Kind
-
-
-data Spine ( f :: * -> * ) a
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
