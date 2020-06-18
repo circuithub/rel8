@@ -457,7 +457,7 @@ optional =
 -- | Combine the results of two queries of the same type.
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
-union :: (Table a, Context a ~ Expr) => Query a -> Query a -> Query a
+union :: ExprTable a => Query a -> Query a -> Query a
 union = union_forAll
 
 
@@ -489,7 +489,7 @@ union_forAll l r =
 -- | Select all distinct rows from a query, removing duplicates.
 --
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
-distinct :: (Table a, Context a ~ Expr) => Query a -> Query a
+distinct :: ExprTable a => Query a -> Query a
 distinct = distinct_forAll
 
 
@@ -550,7 +550,7 @@ catMaybeTable MaybeTable{ nullTag, table } = do
   return table
 
 
-values :: (Context expr ~ Expr, Table expr, Foldable f) => f expr -> Query expr
+values :: (ExprTable expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
   where
     valuesspec =

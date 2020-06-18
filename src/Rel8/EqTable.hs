@@ -15,7 +15,7 @@ import Rel8.Table
 
 -- | The class of database tables (containing one or more columns) that can be
 -- compared for equality as a whole.
-class (Table a, Context a ~ Expr) => EqTable a where
+class ExprTable a => EqTable a where
   -- | Compare two tables or expressions for equality.
   --
   -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow

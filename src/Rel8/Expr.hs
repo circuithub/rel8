@@ -11,6 +11,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Expr
   ( DBType(..)
@@ -19,6 +20,7 @@ module Rel8.Expr
   , (&&.)
   , (||.)
   , Expr
+  , ExprTable
   , Function
   , and_
   , or_
@@ -332,7 +334,7 @@ null_ whenNull f a =
  ifThenElse_ ( isNull a ) whenNull ( f ( retype a ) )
 
 
-ifThenElse_ :: (Table a, Context a ~ Expr) => Expr Bool -> a -> a -> a
+ifThenElse_ :: ExprTable a => Expr Bool -> a -> a -> a
 ifThenElse_ bool whenTrue whenFalse =
   case_ [ ( bool, whenTrue ) ] whenFalse
 
@@ -371,3 +373,7 @@ and_ =
 or_ :: Foldable f => f ( Expr Bool ) -> Expr Bool
 or_ =
   foldl' (||.) ( lit False )
+
+
+class (Table a, Context a ~ Expr) => ExprTable a
+instance (Table a, Context a ~ Expr) => ExprTable a

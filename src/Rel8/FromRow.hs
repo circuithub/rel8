@@ -25,7 +25,7 @@ import Data.Text ( Text )
 -- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class ( Context sql ~ Expr, Table sql ) => FromRow sql haskell | sql -> haskell, haskell -> sql where
+class ExprTable sql => FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
 

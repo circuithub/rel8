@@ -69,7 +69,7 @@ data MaybeTableField t a where
   MaybeTableField :: Field t a -> MaybeTableField t a
 
 
-instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
+instance ExprTable t => Table (MaybeTable t) where
   type Field (MaybeTable t) = MaybeTableField t
 
   type Context (MaybeTable t) = Context t
@@ -90,13 +90,13 @@ instance (Table t, Context t ~ Expr) => Table (MaybeTable t) where
 
 
 maybeTable
-  :: (Context b ~ Context a, Context a ~ Expr, Table b)
+  :: (ExprTable a, ExprTable b)
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
-noTable :: (Table a, Context a ~ Expr, ConstrainTable a DBType) => MaybeTable a
+noTable :: (ExprTable a, ConstrainTable a DBType) => MaybeTable a
 noTable = MaybeTable tag t
   where
     tag = lit Nothing
