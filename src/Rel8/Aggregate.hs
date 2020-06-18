@@ -136,7 +136,7 @@ class Table a => MonoidTable a where
 
 -- | Higher-kinded records can be used a monoidal aggregations if all fields
 -- are instances of 'DBMonoid'.
-instance ( HConstrainTable t Expr Unconstrained, HigherKindedTable t, ConstrainTable ( t Expr ) DBMonoid ) => MonoidTable ( t Expr ) where
+instance ( HConstrainTable t Expr DBType, HConstrainTable t Expr Unconstrained, HigherKindedTable t, ConstrainTable ( t Expr ) DBMonoid ) => MonoidTable ( t Expr ) where
   aggregator =
     Opaleye.Aggregator $ Opaleye.PackMap \f ->
       traverseTableC
@@ -161,7 +161,7 @@ instance DBMonoid ( Sum a ) where
               )
 
 
-instance MonoidTable ( Sum ( Expr a ) ) where
+instance DBType a => MonoidTable ( Sum ( Expr a ) ) where
   aggregator =
     dimap from to aggregateExpr
 

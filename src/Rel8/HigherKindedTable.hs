@@ -119,7 +119,7 @@ data TableHField t ( f :: Type -> Type ) x where
 
 
 -- | Any 'HigherKindedTable' is also a 'Table'.
-instance ( ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table ( t f ) where
+instance ( ConstrainTable (t f) DBType, ConstrainTable ( t f ) Unconstrained, HigherKindedTable t ) => Table ( t f ) where
   type Field ( t f ) =
     TableHField t f
 
@@ -145,7 +145,7 @@ type family Reduce ( f :: * -> * ) :: ( * -> * ) where
   Reduce ( Lit Identity ) = Expr
 
 
-instance ( HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
+instance ( HConstrainTable t (Reduce (g f)) DBType, HConstrainTable t f DBType, HigherKindedTable t, HConstrainTable t ( Reduce ( g f ) ) Unconstrained, HConstrainTable t f Unconstrained ) => Recontextualise ( t f ) g where
   type MapTable g ( t f ) = t ( Reduce ( g f ) )
   fieldMapping ( F i ) = F i
   reverseFieldMapping ( F i ) = F i

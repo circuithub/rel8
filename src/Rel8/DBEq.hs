@@ -8,6 +8,7 @@ import Data.Int
 import Data.Kind
 import Data.Text
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.DBType
 import Rel8.Expr
 
 
@@ -46,7 +47,7 @@ data Color = Red | Green | Blue | Purple | Gold
 This means @Color@s will be treated as the literal strings @"Red"@, @"Green"@,
 etc in the database, and they can be compared for equality by just using @=@.
 -}
-class DBEq ( a :: Type ) where
+class DBType a => DBEq (a :: Type) where
   eqExprs :: Expr a -> Expr a -> Expr Bool
   eqExprs =
     binExpr (Opaleye.:==)

@@ -58,6 +58,7 @@ import Data.Monoid
 import Data.Proxy
 import GHC.Exts ( Constraint )
 import Rel8.Column
+import Rel8.DBType
 import Rel8.Unconstrained
 
 
@@ -131,7 +132,7 @@ instance Table HaskellPackage where
 @
 
 -}
-class ConstrainTable t Unconstrained => Table ( t :: Type ) where
+class (ConstrainTable t DBType, ConstrainTable t Unconstrained) => Table ( t :: Type ) where
   -- | The @Field@ type is a type where each value corresponds to a distinct
   -- field in the table. It describes not just the field itself, but also the
   -- type of values stored there.

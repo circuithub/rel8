@@ -31,6 +31,7 @@ library
     Rel8.Column
     Rel8.ColumnSchema
     Rel8.DBEq
+    Rel8.DBType
     Rel8.EqTable
     Rel8.Expr
     Rel8.FromRow

@@ -90,13 +90,13 @@ instance ExprTable t => Table (MaybeTable t) where
 
 
 maybeTable
-  :: (ExprTable a, ExprTable b)
+  :: ExprTable b
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
-noTable :: (ExprTable a, ConstrainTable a DBType) => MaybeTable a
+noTable :: ExprTable a => MaybeTable a
 noTable = MaybeTable tag t
   where
     tag = lit Nothing
