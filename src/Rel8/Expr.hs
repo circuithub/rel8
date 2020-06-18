@@ -41,7 +41,6 @@ module Rel8.Expr
   , isNull
   , liftNull
   , traversePrimExpr
-  , litTable
   , ifThenElse_
   ) where
 
@@ -70,14 +69,6 @@ type role Expr representational
 instance ( IsString a, DBType a ) => IsString ( Expr a ) where
   fromString =
     lit . fromString
-
-
--- TODO I should be more general
-litTable
-  :: (HigherKindedTable t, HConstrainTable t Expr DBType)
-  => t Identity -> t Expr
-litTable =
-  mapTableC @DBType (mapCC @DBType lit)
 
 
 -- | The SQL @AND@ operator.
@@ -163,10 +154,6 @@ nullaryFunction = nullaryFunction_forAll
 nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
 nullaryFunction_forAll name =
   const ( Expr ( Opaleye.FunExpr name [] ) ) ( lit @a undefined )
-
-
-newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
-  deriving ( Generic, HigherKindedTable )
 
 
 -- | Any 'Expr' can be seen as a 'Table' with only one column.

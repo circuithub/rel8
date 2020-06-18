@@ -10,7 +10,6 @@
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
-{-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
@@ -33,7 +32,6 @@ module Rel8.Table where
 import Data.Functor.Identity
 import Data.Kind
 import Data.Proxy
-import GHC.Exts ( Constraint )
 import GHC.Generics hiding ( C )
 import Rel8.Column
 import Rel8.Unconstrained
@@ -352,3 +350,15 @@ instance (Context a ~ f, Table a, Structure a ~ Structure a') => DispatchK1 'Fal
 
   k1tabulate proxy f =
     fromStructure <$> htabulate proxy (f . K1False)
+
+
+newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
+  deriving ( Generic, HigherKindedTable )
+
+
+-- | Any 'Expr' can be seen as a 'Table' with only one column.
+instance Table (Identity a) where
+  type Context (Identity a) = Identity
+  type Structure (Identity a) = HIdentity a
+  toStructure = HIdentity . runIdentity
+  fromStructure = Identity . unHIdentity
