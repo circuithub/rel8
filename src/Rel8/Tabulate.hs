@@ -40,6 +40,7 @@ where
 -- base
 import Control.Applicative ( liftA2 )
 import Control.Monad ( (>=>), join )
+import Data.Bitraversable ( bitraverse )
 import Prelude hiding ( filter, lookup, zip, zipWith )
 
 -- rel8
@@ -208,7 +209,7 @@ infixr 8 `prebind`
 
 -- | Map a 'QueryArr' over the output side of a 'Tabulation'.
 postbind :: (a -> Query b) -> Tabulation k a -> Tabulation k b
-postbind f g = let Tabulation query = g in Tabulation $ query >=> \(k, a) -> fmap (k ,) (f a)
+postbind f g = let Tabulation query = g in Tabulation $ query >=> bitraverse pure f
 
 
 infixr 8 `postbind`
