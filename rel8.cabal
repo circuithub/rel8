@@ -59,6 +59,7 @@ test-suite tests
     , base
     , bytestring
     , case-insensitive
+    , containers
     , hedgehog          ^>= 1.0.2
     , lifted-base       ^>= 0.2.3.12
     , monad-control     ^>= 1.0.2.3

@@ -22,7 +22,9 @@ import Data.CaseInsensitive (mk)
 import Data.Foldable ( for_ )
 import Data.Function ( on )
 import Data.Int ( Int32, Int64 )
+import Data.Bifunctor ( bimap )
 import Data.List ( nub, sort )
+import qualified Data.Map.Strict as Map
 import Data.Maybe ( catMaybes )
 import Data.Scientific ( Scientific )
 import Data.String ( fromString )
@@ -72,6 +74,7 @@ tests =
     , testNestedTables getTestDatabase
     , testMaybeTableApplicative getTestDatabase
     , testLogicalFixities getTestDatabase
+    , testUpdate getTestDatabase
     ]
 
   where
@@ -558,3 +561,47 @@ genTestTable = do
   testTableColumn1 <- Gen.list (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
   return TestTable{..}
+
+
+testUpdate :: IO TmpPostgres.DB -> TestTree
+testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
+  rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
+
+  transaction \connection -> do
+    Rel8.insert connection
+      Rel8.Insert
+        { into = testTableSchema
+        , rows = map Rel8.litTable $ Map.keys rows
+        , onConflict = Rel8.DoNothing
+        , returning = Rel8.NumberOfRowsInserted
+        }
+
+    Rel8.update connection
+      Rel8.Update
+        { target = testTableSchema
+        , set = \r ->
+            let updates = map (bimap Rel8.litTable Rel8.litTable) $ Map.toList rows
+            in
+            foldl
+              ( \e (x, y) ->
+                  Rel8.ifThenElse_
+                    ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
+                      testTableColumn2 r Rel8.==. testTableColumn2 x
+                    )
+                    y
+                    e
+              )
+              r
+              updates
+        , updateWhere = \_ -> Rel8.lit True
+        , returning = Rel8.NumberOfRowsInserted
+        }
+
+    selected <- Rel8.select connection do
+      Rel8.each testTableSchema
+
+    sort selected === sort (Map.elems rows)
+
+    cover 1 "Empty" $ null rows
+    cover 1 "Singleton" $ null $ drop 1 $ Map.keys rows
+    cover 1 ">1 row" $ not $ null $ drop 1 $ Map.keys rows
