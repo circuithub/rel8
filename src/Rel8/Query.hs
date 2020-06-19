@@ -39,6 +39,7 @@ import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.Lateral as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -49,20 +50,19 @@ import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
-import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
+import Rel8.FromRow
 import Rel8.MaybeTable
 import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
 import Rel8.Table
 import Rel8.TableSchema
 import Rel8.Unconstrained
-import Rel8.FromRow
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use

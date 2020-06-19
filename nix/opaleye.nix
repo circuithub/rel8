@@ -9,9 +9,9 @@ mkDerivation {
   pname = "opaleye";
   version = "0.6.7004.2";
   src = fetchgit {
-    url = "git://github.com/circuithub/haskell-opaleye";
-    sha256 = "04464lm4yzkc81jvcfxdxkdl9bb5wkkkkq0i5ny7s7l9vfwan4dp";
-    rev = "3683bbabf98e6a65824dce02445e482c91fdbae2";
+    url = "https://github.com/tomjaguarpaw/haskell-opaleye";
+    sha256 = "1xwyp2gk31zj3i6zr3nf0ljzds0rz4zvv5qgqrz2d6pilk5ydz7m";
+    rev = "6caea6edecc3fad2ce30d9b37897d1a6caea1106";
     fetchSubmodules = true;
   };
   libraryHaskellDepends = [
