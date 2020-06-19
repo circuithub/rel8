@@ -73,12 +73,14 @@ instance ( IsString a, DBType a ) => IsString ( Expr a ) where
 
 
 -- | The SQL @AND@ operator.
+infixr 3 &&.
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
 (&&.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr Opaleye.OpAnd a b )
 
 
 -- | The SQL @OR@ operator.
+infixr 2 ||.
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
 (||.) ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr Opaleye.OpOr a b )

@@ -70,6 +70,7 @@ tests =
     , testMaybeTable getTestDatabase
     , testNestedTables getTestDatabase
     , testMaybeTableApplicative getTestDatabase
+    , testLogicalFixities getTestDatabase
     ]
 
   where
@@ -265,6 +266,16 @@ testOr = databasePropertyTest "OR (||.)" \connection -> do
     Rel8.lit x Rel8.||. Rel8.lit y
 
   result === (x || y)
+
+
+testLogicalFixities :: IO TmpPostgres.DB -> TestTree
+testLogicalFixities = databasePropertyTest "Logical operator fixities" \connection -> do
+  (u, v, w, x) <- forAll $ (,,,) <$> Gen.bool <*> Gen.bool <*> Gen.bool <*> Gen.bool
+
+  [result] <- Rel8.select connection $ pure $
+    Rel8.lit u Rel8.||. Rel8.lit v Rel8.&&. Rel8.lit w Rel8.==. Rel8.lit x
+
+  result === (u || v && w == x)
 
 
 testNot :: IO TmpPostgres.DB -> TestTree
