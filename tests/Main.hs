@@ -17,12 +17,13 @@ import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
+import Data.Bifunctor ( bimap )
 import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive (mk)
 import Data.Foldable ( for_ )
 import Data.Function ( on )
+import Data.Functor ( void )
 import Data.Int ( Int32, Int64 )
-import Data.Bifunctor ( bimap )
 import Data.List ( nub, sort )
 import qualified Data.Map.Strict as Map
 import Data.Maybe ( catMaybes )
@@ -35,7 +36,7 @@ import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTr
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
-import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test )
+import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -84,12 +85,12 @@ tests =
       db <- TmpPostgres.start >>= either throwIO return
 
       bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> do
-        execute_ conn [sql|
+        void $ execute_ conn [sql|
           CREATE EXTENSION citext;
           CREATE TABLE test_table ( column1 text not null, column2 bool not null );
         |]
 
-      return (db)
+      return db
 
     stopTestDatabase = TmpPostgres.stop
 
@@ -138,7 +139,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
+    _ <- Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
         , rows = map Rel8.litTable rows
@@ -250,7 +251,7 @@ testExists = databasePropertyTest "EXISTS (Rel8.exists)" \transaction -> do
   transaction \connection -> do
     selected <- Rel8.select connection do
       row <- Rel8.values $ Rel8.litTable <$> rows1
-      Rel8.exists do
+      _ <- Rel8.exists do
         Rel8.values $ Rel8.litTable <$> rows2
       return row
 
@@ -267,7 +268,7 @@ testOptional = databasePropertyTest "Rel8.optional" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    liftIO do
+    _ <- liftIO do
       executeMany connection
         [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
         [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
@@ -356,14 +357,14 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Day" genDay
-  , dbTypeTest "Double" $ (/10) . fromIntegral @_ @Double <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Float" $ (/10) . fromIntegral @_ @Float <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Double" $ (/10) . fromInteger @Double <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Float" $ (/10) . fromInteger @Float <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
   , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "LocalTime" genLocalTime
-  , dbTypeTest "Scientific" $ (/10) . fromIntegral @_ @Scientific <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Scientific" $ (/10) . fromInteger @Scientific <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "TimeOfDay" genTimeOfDay
@@ -383,9 +384,9 @@ testDBType getTestDatabase = testGroup "DBType instances"
       , databasePropertyTest ("Maybe " <> name) (t (maybeEq f) (Gen.maybe generator)) getTestDatabase
       ]
 
-    maybeEq f Nothing Nothing = True
-    maybeEq f Just{} Nothing = False
-    maybeEq f Nothing Just{} = False
+    maybeEq _ Nothing Nothing = True
+    maybeEq _ Just{} Nothing = False
+    maybeEq _ Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
     t eq generator transaction = do
@@ -405,9 +406,9 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genTimeOfDay = do
       hour <- Gen.integral (Range.linear 0 23)
-      min <- Gen.integral (Range.linear 0 59)
-      sec <- fromIntegral <$> Gen.integral (Range.linear 0 59)
-      Gen.just $ pure $ makeTimeOfDayValid hour min sec
+      minutes <- Gen.integral (Range.linear 0 59)
+      sec <- fromInteger <$> Gen.integral (Range.linear 0 59)
+      Gen.just $ pure $ makeTimeOfDayValid hour minutes sec
 
     genLocalTime = LocalTime <$> genDay <*> genTimeOfDay
 
@@ -491,7 +492,7 @@ testMaybeTable = databasePropertyTest "maybeTable" \transaction -> evalM do
   (rows, def) <- forAll $ liftA2 (,) (Gen.list (Range.linear 0 10) genTestTable) genTestTable
 
   transaction \connection -> do
-    liftIO $ executeMany connection
+    _ <- liftIO $ executeMany connection
       [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
       [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
 
@@ -536,7 +537,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
     Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
 
   transaction \connection -> do
-    liftIO $ executeMany connection
+    _ <- liftIO $ executeMany connection
       [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
       [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
 
@@ -558,6 +559,7 @@ rollingBack connection m =
     m `finally` liftIO (rollback connection)
 
 
+genTestTable :: Gen ( TestTable Rel8.Identity )
 genTestTable = do
   testTableColumn1 <- Gen.list (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
@@ -569,7 +571,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
   rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
+    _ <- Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
         , rows = map Rel8.litTable $ Map.keys rows
@@ -577,7 +579,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
         , returning = Rel8.NumberOfRowsInserted
         }
 
-    Rel8.update connection
+    n <- Rel8.update connection
       Rel8.Update
         { target = testTableSchema
         , set = \r ->
@@ -598,6 +600,8 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
         , returning = Rel8.NumberOfRowsInserted
         }
 
+    n === fromIntegral (length rows)
+
     selected <- Rel8.select connection do
       Rel8.each testTableSchema
 
@@ -613,7 +617,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
+    _ <- Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
         , rows = map Rel8.litTable rows

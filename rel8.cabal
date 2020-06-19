@@ -78,3 +78,5 @@ test-suite tests
     tests
   default-language:
     Haskell2010
+  ghc-options:
+    -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
