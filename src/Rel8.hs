@@ -20,6 +20,7 @@ module Rel8
   , each
   , values
   , where_
+  , filter
   , limit
   , offset
   , union
@@ -94,6 +95,7 @@ module Rel8
   where
 
 import Data.Functor.Identity
+import Prelude hiding ( filter )
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.DBEq

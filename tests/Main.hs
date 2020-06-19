@@ -51,6 +51,7 @@ tests =
   testGroup "rel8"
     [ testSelectTestTable getTestDatabase
     , testWhere_ getTestDatabase
+    , testFilter getTestDatabase
     , testLimit getTestDatabase
     , testUnion getTestDatabase
     , testDistinct getTestDatabase
@@ -159,6 +160,22 @@ testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \connection -> do
     t <- Rel8.values $ Rel8.litTable <$> rows
     Rel8.where_ $ testTableColumn2 t Rel8.==. Rel8.lit magicBool
     return t
+
+  sort selected === sort expected
+
+  cover 1 "No results" $ null expected
+  cover 1 "Some results" $ not $ null expected
+  cover 1 "All results" $ expected == rows
+
+
+testFilter :: IO TmpPostgres.DB -> TestTree
+testFilter = databasePropertyTest "filter" \connection -> do
+  rows <- forAll $ Gen.list (Range.linear 1 10) genTestTable
+
+  let expected = filter testTableColumn2 rows
+
+  selected <- Rel8.select connection
+    $ Rel8.filter testTableColumn2 =<< Rel8.values (Rel8.litTable <$> rows)
 
   sort selected === sort expected
 

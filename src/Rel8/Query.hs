@@ -549,3 +549,9 @@ values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
       Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
         fmap fromStructure $
         htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()
+
+
+filter :: (a -> Expr Bool) -> a -> Query a
+filter f a = do
+  where_ $ f a
+  return a
