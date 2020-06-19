@@ -2,11 +2,13 @@
 , lifted-base, monad-control, opaleye, postgresql-simple
 , product-profunctors, profunctors, scientific, semigroupoids
 , stdenv, tasty, tasty-hedgehog, text, time, tmp-postgres, uuid
+, postgresql_11
 }:
 mkDerivation {
   pname = "rel8";
   version = "0.1.0.0";
   src = ./.;
+  buildTools = [ postgresql_11 ];
   libraryHaskellDepends = [
     aeson base bytestring case-insensitive opaleye postgresql-simple
     product-profunctors profunctors scientific semigroupoids text time
