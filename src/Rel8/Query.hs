@@ -537,6 +537,11 @@ catMaybeTable MaybeTable{ nullTag, table } = do
   return table
 
 
+catMaybe :: Expr (Maybe a) -> Query (Expr a)
+catMaybe e =
+  catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
+
+
 values :: (ExprTable expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
   where

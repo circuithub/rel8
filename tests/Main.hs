@@ -23,6 +23,7 @@ import Data.Foldable ( for_ )
 import Data.Function ( on )
 import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
+import Data.Maybe ( catMaybes )
 import Data.Scientific ( Scientific )
 import Data.String ( fromString )
 import qualified Data.Text.Lazy
@@ -65,6 +66,7 @@ tests =
     -- , TODO testTableEquality getTestDatabase
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
+    , testCatMaybe getTestDatabase
     , testMaybeTable getTestDatabase
     , testNestedTables getTestDatabase
     , testMaybeTableApplicative getTestDatabase
@@ -415,6 +417,16 @@ testCatMaybeTable = databasePropertyTest "catMaybeTable" \connection -> do
     Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.noTable
 
   sort selected === sort (filter testTableColumn2 rows)
+
+
+testCatMaybe :: IO TmpPostgres.DB -> TestTree
+testCatMaybe = databasePropertyTest "catMaybe" \connection -> evalM do
+  rows <- forAll $ Gen.list (Range.linear 0 10) $ Gen.maybe Gen.bool
+
+  selected <- evalM $ Rel8.select connection do
+    Rel8.catMaybe =<< Rel8.values (map Rel8.lit rows)
+
+  sort selected === sort (catMaybes rows)
 
 
 testMaybeTable :: IO TmpPostgres.DB -> TestTree
