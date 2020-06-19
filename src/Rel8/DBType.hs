@@ -15,13 +15,24 @@
 
 module Rel8.DBType where
 
-import Data.Profunctor ( Profunctor(..), dimap )
-import Database.PostgreSQL.Simple.FromField ( FieldParser, fromField, optionalField )
+import Data.UUID ( UUID )
+import Data.Aeson ( Value )
+import qualified Data.ByteString
+import qualified Data.ByteString.Lazy
 import Data.Int
 import Data.Kind
-import Data.String
-import Data.Text ( Text, unpack )
+import Data.Profunctor ( Profunctor(..), dimap )
+import Data.Proxy ( Proxy( Proxy ) )
+import Data.Scientific ( Scientific )
+import Data.Text ( Text )
+import qualified Data.Text.Lazy
+import Data.Time ( Day, LocalTime, UTCTime, ZonedTime, TimeOfDay )
+import Data.Typeable ( Typeable )
+import Database.PostgreSQL.Simple.FromField ( FromField, FieldParser, fromField, optionalField, returnError, ResultError( Incompatible ) )
+import Data.CaseInsensitive ( CI )
+import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Opaleye.PGTypes
 
 
 {-| Haskell types that can be represented as expressiosn in a database. There
@@ -70,6 +81,24 @@ data DatabaseType a b =
     }
 
 
+fromOpaleye :: forall a b. (FromField a, IsSqlType b) => (a -> Opaleye.Column b) -> DatabaseType a a
+fromOpaleye f =
+  DatabaseType
+    { encode = \x -> case f x of Opaleye.Column e -> e
+    , decode = fromField
+    , typeName = showPGType (Proxy @b)
+    }
+
+
+parseDatabaseType :: Typeable b => (a -> Either String b) -> DatabaseType i a -> DatabaseType i b
+parseDatabaseType f DatabaseType{ encode, decode, typeName } =
+  DatabaseType
+    { encode = encode
+    , decode = \x y -> decode x y >>= either (returnError Incompatible x) return . f
+    , typeName
+    }
+
+
 instance Profunctor DatabaseType where
   dimap f g DatabaseType{ encode, decode, typeName } = DatabaseType
     { encode = encode . f
@@ -80,43 +109,44 @@ instance Profunctor DatabaseType where
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
-  typeInformation = DatabaseType
-    { encode = Opaleye.ConstExpr . Opaleye.BoolLit
-    , decode = fromField
-    , typeName = "bool"
-    }
+  typeInformation = fromOpaleye pgBool
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  typeInformation = DatabaseType
-    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
-    , decode = fromField
-    , typeName = "int4"
-    }
+  typeInformation = dimap fromIntegral fromIntegral $ fromOpaleye pgInt4
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
+  typeInformation = fromOpaleye pgInt8
+
+
+instance DBType Float where
   typeInformation = DatabaseType
-    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
-    , decode = fromField
-    , typeName = "int8"
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    , decode = \x y -> fromRational <$> fromField x y
+    , typeName = "float4"
     }
+
+
+instance DBType UTCTime where
+  typeInformation = fromOpaleye pgUTCTime
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
-  typeInformation = dimap unpack fromString typeInformation
+  typeInformation = fromOpaleye pgStrictText
+
+
+-- | Corresponds to the @text@ PostgreSQL type.
+instance DBType Data.Text.Lazy.Text where
+  typeInformation = fromOpaleye pgLazyText
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType String where
-  typeInformation = DatabaseType
-    { encode = Opaleye.ConstExpr . Opaleye.StringLit
-    , decode = fromField
-    , typeName = "text"
-    }
+  typeInformation = fromOpaleye pgString
 
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
@@ -129,3 +159,52 @@ instance DBType a => DBType ( Maybe a ) where
     }
     where
       DatabaseType{ encode, decode, typeName } = typeInformation
+
+
+-- | Corresponds to the @json@ PostgreSQL type.
+instance DBType Value where
+  typeInformation = fromOpaleye pgValueJSON
+
+
+instance DBType Data.ByteString.Lazy.ByteString where
+  typeInformation = fromOpaleye pgLazyByteString
+
+
+instance DBType Data.ByteString.ByteString where
+  typeInformation = fromOpaleye pgStrictByteString
+
+
+instance DBType Scientific where
+  typeInformation = fromOpaleye pgNumeric
+
+
+instance DBType Double where
+  typeInformation = fromOpaleye pgDouble
+
+
+instance DBType UUID where
+  typeInformation = fromOpaleye pgUUID
+
+
+instance DBType Day where
+  typeInformation = fromOpaleye pgDay
+
+
+instance DBType LocalTime where
+  typeInformation = fromOpaleye pgLocalTime
+
+
+instance DBType ZonedTime where
+  typeInformation = fromOpaleye pgZonedTime
+
+
+instance DBType TimeOfDay where
+  typeInformation = fromOpaleye pgTimeOfDay
+
+
+instance DBType (CI Text) where
+  typeInformation = fromOpaleye pgCiStrictText
+
+
+instance DBType (CI Data.Text.Lazy.Text) where
+  typeInformation = fromOpaleye pgCiLazyText

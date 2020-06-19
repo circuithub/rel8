@@ -12,6 +12,7 @@ module Rel8
     -- ** Defining Database Types
   , DBType( typeInformation )
   , DatabaseType(..)
+  , parseDatabaseType
   , DBEq( eqExprs )
 
     -- * Writing Queries
@@ -95,6 +96,7 @@ import Data.Functor.Identity
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.DBEq
+import Rel8.DBType
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.FromRow

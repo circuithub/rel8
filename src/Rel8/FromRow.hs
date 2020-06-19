@@ -10,14 +10,21 @@
 module Rel8.FromRow where
 
 import Control.Applicative ( liftA2 )
+import Data.Aeson ( Value )
+import qualified Data.ByteString as Strict
+import qualified Data.ByteString.Lazy as Lazy
+import Data.CaseInsensitive (CI)
 import Data.Functor.Identity
 import Data.Int
-import Data.Text ( Text )
+import Data.Scientific ( Scientific )
+import qualified Data.Text as Strict
+import qualified Data.Text.Lazy as Lazy
+import Data.Time
+import Data.UUID
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import Rel8.Column
 import Rel8.Expr
 import Rel8.MaybeTable
-import Rel8.Query
 import Rel8.Table
 import Rel8.Unconstrained
 
@@ -36,17 +43,46 @@ instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identit
     traverseTableC @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
 
 
-instance m ~ Query => FromRow ( Expr Bool ) Bool where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr Int32 ) Int32 where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr Int64 ) Int64 where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr String ) String where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr Text ) Text where rowParser _ = fieldWith ( decode typeInformation )
-
-instance m ~ Query => FromRow ( Expr ( Maybe Bool ) ) ( Maybe Bool ) where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr ( Maybe Int32 ) ) ( Maybe Int32 ) where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr ( Maybe Int64 ) ) ( Maybe Int64 ) where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr ( Maybe String ) ) ( Maybe String ) where rowParser _ = fieldWith ( decode typeInformation )
-instance m ~ Query => FromRow ( Expr ( Maybe Text ) ) ( Maybe Text ) where rowParser _ = fieldWith ( decode typeInformation )
+instance FromRow (Expr (CI Lazy.Text)) (CI Lazy.Text) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (CI Strict.Text)) (CI Strict.Text) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe (CI Lazy.Text))) (Maybe (CI Lazy.Text)) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe (CI Strict.Text))) (Maybe (CI Strict.Text)) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Bool)) (Maybe Bool) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Day)) (Maybe Day) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Double)) (Maybe Double) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Float)) (Maybe Float) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Int32)) (Maybe Int32) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Int64)) (Maybe Int64) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Lazy.ByteString)) (Maybe Lazy.ByteString) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Lazy.Text)) (Maybe Lazy.Text) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe LocalTime)) (Maybe LocalTime) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Scientific)) (Maybe Scientific) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Strict.ByteString)) (Maybe Strict.ByteString) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Strict.Text)) (Maybe Strict.Text) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe String)) (Maybe String) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe TimeOfDay)) (Maybe TimeOfDay) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe UTCTime)) (Maybe UTCTime) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe UUID)) (Maybe UUID) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe Value)) (Maybe Value) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr (Maybe ZonedTime)) (Maybe ZonedTime) where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Bool) Bool where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Day) Day where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Double) Double where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Float) Float where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Int32) Int32 where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Int64) Int64 where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Lazy.ByteString) Lazy.ByteString where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Lazy.Text) Lazy.Text where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr LocalTime) LocalTime where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Scientific) Scientific where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Strict.ByteString) Strict.ByteString where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Strict.Text) Strict.Text where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr String) String where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr TimeOfDay) TimeOfDay where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr UTCTime) UTCTime where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr UUID) UUID where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr Value) Value where rowParser _ = fieldWith (decode typeInformation)
+instance FromRow (Expr ZonedTime) ZonedTime where rowParser _ = fieldWith (decode typeInformation)
 
 
 instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where

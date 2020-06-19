@@ -4,25 +4,7 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, base, hedgehog, monad-control, opaleye
-      , postgresql-simple, profunctors, stdenv, tasty, tasty-hedgehog
-      , text, tmp-postgres
-      }:
-      mkDerivation {
-        pname = "rel8";
-        version = "0.1.0.0";
-        src = pkgs.nix-gitignore.gitignoreSource [] ./.;
-        libraryHaskellDepends = [
-          base opaleye postgresql-simple profunctors text
-        ];
-        testHaskellDepends = [
-          base hedgehog monad-control postgresql-simple tasty tasty-hedgehog
-          tmp-postgres
-        ];
-        buildTools = [ pkgs.postgresql_11 ];
-        description = "Hey! Hey! Can u rel8?";
-        license = stdenv.lib.licenses.bsd2;
-      };
+  f = import ./default.nix;
 
   overrides = self: super: {
     base-compat = self.callPackage ./nix/base-compat.nix {};

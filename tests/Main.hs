@@ -13,14 +13,21 @@
 
 module Main where
 
-import Data.Int ( Int32, Int64 )
-import Data.String ( fromString )
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
+import qualified Data.ByteString.Lazy
+import Data.CaseInsensitive (mk)
 import Data.Foldable ( for_ )
+import Data.Function ( on )
+import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
+import Data.Scientific ( Scientific )
+import Data.String ( fromString )
+import qualified Data.Text.Lazy
+import Data.Time
+import qualified Data.UUID
 import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
@@ -70,6 +77,7 @@ tests =
 
       bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> do
         execute_ conn [sql|
+          CREATE EXTENSION citext;
           CREATE TABLE test_table ( column1 text not null, column2 bool not null );
         |]
 
@@ -293,21 +301,66 @@ testAp = databasePropertyTest "Cartesian product (<*>)" \connection -> do
 testDBType :: IO TmpPostgres.DB -> TestTree
 testDBType getTestDatabase = testGroup "DBType instances"
   [ dbTypeTest "Bool" Gen.bool
+  , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
+  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Day" genDay
+  , dbTypeTest "Double" $ (/10) . fromIntegral @_ @Double <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Float" $ (/10) . fromIntegral @_ @Float <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
-  , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
+  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "LocalTime" genLocalTime
+  , dbTypeTest "Scientific" $ (/10) . fromIntegral @_ @Scientific <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "TimeOfDay" genTimeOfDay
+  , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
+  , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
+  , dbTypeTestEq ((==) `on` zonedTimeToUTC) "ZonedTime" $ ZonedTime <$> genLocalTime <*> genTimeZone
   ]
 
   where
     dbTypeTest name generator = testGroup name
-      [ databasePropertyTest name (t generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+      [ databasePropertyTest name (t (==) generator) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
-    t generator connection = do
+
+    dbTypeTestEq f name generator = testGroup name
+      [ databasePropertyTest name (t f generator) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (maybeEq f) (Gen.maybe generator)) getTestDatabase
+      ]
+
+    maybeEq f Nothing Nothing = True
+    maybeEq f Just{} Nothing = False
+    maybeEq f Nothing Just{} = False
+    maybeEq f (Just x) (Just y) = f x y
+
+    t eq generator connection = do
       x <- forAll generator
       [res] <- Rel8.select connection $ pure $ Rel8.lit x
-      res === x
+      diff res eq x
+
+    genDay = do
+      year <- Gen.integral (Range.linear 1970 3000)
+      month <- Gen.integral (Range.linear 1 12)
+      day <- Gen.integral (Range.linear 1 31)
+      Gen.just $ pure $ fromGregorianValid year month day
+
+    genDiffTime = secondsToDiffTime <$> Gen.integral (Range.linear 0 86401)
+
+    genTimeOfDay = do
+      hour <- Gen.integral (Range.linear 0 23)
+      min <- Gen.integral (Range.linear 0 59)
+      sec <- fromIntegral <$> Gen.integral (Range.linear 0 59)
+      Gen.just $ pure $ makeTimeOfDayValid hour min sec
+
+    genLocalTime = LocalTime <$> genDay <*> genTimeOfDay
+
+    genTimeZone = hoursToTimeZone <$> Gen.integral (Range.linear (-6) 6)
+
+    genWord32 = Gen.integral Range.linearBounded
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
