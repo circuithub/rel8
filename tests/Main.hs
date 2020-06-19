@@ -13,6 +13,7 @@
 
 module Main where
 
+import Data.Functor ( (<&>) )
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
@@ -432,7 +433,11 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
     t generator transaction = do
-      (x, y) <- forAll (liftA2 (,) generator generator)
+      (x, y) <- forAll do
+        Gen.frequency
+          [ (9, liftA2 (,) generator generator)
+          , (1, generator <&> \x -> (x, x))
+          ]
 
       transaction \connection -> do
         [res] <- Rel8.select connection $ pure $ Rel8.lit x Rel8.==. Rel8.lit y
