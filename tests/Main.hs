@@ -75,6 +75,7 @@ tests =
     , testMaybeTableApplicative getTestDatabase
     , testLogicalFixities getTestDatabase
     , testUpdate getTestDatabase
+    , testDelete getTestDatabase
     ]
 
   where
@@ -605,3 +606,30 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
     cover 1 "Empty" $ null rows
     cover 1 "Singleton" $ null $ drop 1 $ Map.keys rows
     cover 1 ">1 row" $ not $ null $ drop 1 $ Map.keys rows
+
+
+testDelete :: IO TmpPostgres.DB -> TestTree
+testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
+
+  transaction \connection -> do
+    Rel8.insert connection
+      Rel8.Insert
+        { into = testTableSchema
+        , rows = map Rel8.litTable rows
+        , onConflict = Rel8.DoNothing
+        , returning = Rel8.NumberOfRowsInserted
+        }
+
+    deleted <-
+      Rel8.delete connection
+        Rel8.Delete
+          { from = testTableSchema
+          , deleteWhere = testTableColumn2
+          , returning = Rel8.Projection id
+          }
+
+    selected <- Rel8.select connection do
+      Rel8.each testTableSchema
+
+    sort (deleted <> selected) === sort rows
