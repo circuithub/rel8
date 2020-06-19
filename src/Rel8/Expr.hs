@@ -36,6 +36,7 @@ module Rel8.Expr
   , nullaryFunction
   , retype
   , toPrimExpr
+  , dbBinOp
   , unsafeCoerceExpr
   , null_
   , isNull
@@ -239,3 +240,9 @@ lit :: DBType a => a -> Expr a
 lit = Expr . Opaleye.CastExpr typeName . encode
   where
     DatabaseType{ encode, typeName } = typeInformation
+
+
+-- | Corresponds to the @ILIKE@ operator.
+dbBinOp :: String -> Expr a -> Expr b -> Expr c
+dbBinOp op (Expr a) (Expr b) =
+  Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
