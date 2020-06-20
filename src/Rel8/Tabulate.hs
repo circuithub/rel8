@@ -123,12 +123,8 @@ instance EqTable k => Monad (Tabulation k) where
 --   revisionsByProjectId :: 'Tabulation' ('Expr' ProjectId) (Revision 'Expr') (Revision 'Expr')
 --   revisionsByProjectId = 'tabulate' revisionProjectId
 --   @
-tabulate :: (a -> k) -> a -> Tabulation k a
-tabulate key = tabulateA (pure . key)
-
-
-tabulateA :: (a -> Query k) -> a -> Tabulation k a
-tabulateA key a = fromQuery $ (,a) <$> key a
+tabulate :: (a -> Query k) -> a -> Tabulation k a
+tabulate key a = fromQuery $ (,a) <$> key a
 
 
 -- | Analgous to 'Data.Map.Strict.fromList'.
