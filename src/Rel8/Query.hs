@@ -382,12 +382,16 @@ data Update target returning where
     -> Update target returning
 
 
--- | Exists checks if a query returns at least one row.
---
--- @exists q@ is the same as the SQL expression @EXISTS ( q )@
-exists :: Query a -> Query ( Expr Bool )
-exists query =
-  liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
+-- | @whereExists q@ is the same as the SQL expression @WHERE EXISTS ( q )@
+whereExists :: Query a -> Query ()
+whereExists query =
+  liftOpaleye ( Opaleye.restrictExists ( toOpaleye query ) )
+
+
+-- | @whereNotExists q@ is the same as the SQL expression @WHERE NOT EXISTS ( q )@
+whereNotExists :: Query a -> Query ()
+whereNotExists query =
+  liftOpaleye ( Opaleye.restrictNotExists ( toOpaleye query ) )
 
 
 -- | Select each row from a table definition.

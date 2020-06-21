@@ -28,7 +28,8 @@ module Rel8
   , offset
   , union
   , distinct
-  , exists
+  , whereExists
+  , whereNotExists
 
     -- ** Optional Subqueries
   , optional
