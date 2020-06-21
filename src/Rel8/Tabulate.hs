@@ -51,8 +51,10 @@ import Rel8
   , Query
   , (==.)
   , filter
+  , lit
   , optional
   , where_
+  , whereNotExists
   )
 
 -- semigroupoids
@@ -140,7 +142,6 @@ ifilter :: (k -> a -> Expr Bool) -> Tabulation k a -> Tabulation k a
 ifilter f tabulation = snd <$> filter (uncurry f) `postbind` indexed tabulation
 
 
-{-
 -- | 'with' is like 'similarity', but for 'QueryArr's rather than
 -- 'Tabulation's. @'with' barsFromFoo . allFoos@ will get you all @Foo@s that
 -- have @Bar@s associated with them.
@@ -164,28 +165,26 @@ ifilter f tabulation = snd <$> filter (uncurry f) `postbind` indexed tabulation
 --   returnA -< a
 
 
--- -- | 'without' is like 'difference', but for 'QueryArr's rather than
--- -- 'Tabulation's. @'without' barsFromFoo . allFoos@ will get you all @Foo@s
--- -- that don't have any @Bar@s associated with them.
--- without :: QueryArr a b -> QueryArr a a
--- without = withoutBy (\_ _ -> lit True) returnA
+-- | 'without' is like 'difference', but for 'QueryArr's rather than
+-- 'Tabulation's. @'without' barsFromFoo . allFoos@ will get you all @Foo@s
+-- that don't have any @Bar@s associated with them.
+without :: Query b -> a -> Query a
+without q a = withoutBy (\_ _ -> lit True) (return a) q
 
 
--- -- | @'withoutBy' f as bs@ means: give me all the @as@ for which there are no
--- -- @bs@ that would satisfy the predicate @f a b@.
--- withoutBy :: Predicate bool
---   => (a -> b -> Expr bool) -> QueryArr i a -> QueryArr i b -> QueryArr i a
--- withoutBy predicate as bs = proc i -> do
---   a <- as -< i
---   restrictNotExists (filterA bs) -< (predicate a, i)
---   returnA -< a
+-- | @'withoutBy' f as bs@ means: give me all the @as@ for which there are no
+-- @bs@ that would satisfy the predicate @f a b@.
+withoutBy :: (a -> b -> Expr Bool) -> Query a -> Query b -> Query a
+withoutBy predicate as bs = do
+  a <- as
+  whereNotExists $ filter (predicate a) =<< bs
+  return a
 
 
 -- | 'exists', given a 'QueryArr', lets you test, for any given input to that
 -- 'QueryArr', if would it have returned any rows.
 -- exists :: (a -> Query b) -> a -> Query (Expr Bool)
 -- exists = fmap (not_ . isTableNull) . optional . with
--}
 
 
 -- | Map a 'QueryArr' over the input side of a 'Tabulation'. In particular,
