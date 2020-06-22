@@ -25,6 +25,7 @@ module Rel8.MaybeTable where
 import Data.Functor.Identity ( Identity(..) )
 import Data.Proxy ( Proxy(..) )
 import GHC.Generics ( Generic )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.Expr
 import Rel8.Table
@@ -103,3 +104,19 @@ noTable = MaybeTable tag t
       where
         f :: forall a i. DBType a => i a -> Identity (C Expr a)
         f _ = pure $ MkC $ unsafeCoerceExpr $ lit (Nothing @a)
+
+
+-- | Project an expression out of a 'MaybeTable', preserving the fact that this
+-- column might be @null@. Like field selection.
+--
+-- It may be helpful to remember this operator by the mneumonic - '$' on the left
+-- means function on the left, '?' on the right means 'MaybeTable' on the right.
+infixl 4 $?
+($?) :: forall a b. DBType b
+  => (a -> Expr b) -> MaybeTable a -> Expr (Maybe b)
+f $? ma = maybeTable null_ (unsafeCoerceExpr . f) ma
+  where
+    null_ =
+      unsafeCastExpr
+        (typeName (typeInformation @b))
+        (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))

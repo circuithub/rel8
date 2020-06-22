@@ -35,6 +35,7 @@ module Rel8
   , optional
   , MaybeTable
   , maybeTable
+  , ($?)
   , catMaybe
   , catMaybeTable
   , noTable
