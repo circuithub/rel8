@@ -15,6 +15,7 @@ import Control.Category
 import Prelude hiding ((.), id)
 
 -- opaleye
+import Opaleye.Internal.Lateral ( lateral )
 import Opaleye.QueryArr
 
 -- profunctors
@@ -33,6 +34,15 @@ instance Strong QueryArr where
 
 instance Traversing QueryArr where
   wander = wanderA
+
+
+instance ArrowApply QueryArr where
+  app = lateral (\(f, i) -> f <<< pure i)
+
+
+instance Monad (QueryArr a) where
+  return = pure
+  as >>= f = lateral (\(i, a) -> f a <<< pure i) <<< (id &&& as)
 
 
 ------------------------------------------------------------------------------
