@@ -90,6 +90,21 @@ instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where
     liftA2 (,) (rowParser a) (rowParser b)
 
 
+instance (FromRow a1 b1, FromRow a2 b2, FromRow a3 b3) => FromRow (a1, a2, a3) (b1, b2, b3) where
+  rowParser (a, b, c) =
+    (,,) <$> rowParser a <*> rowParser b <*> rowParser c
+
+
+instance (FromRow a1 b1, FromRow a2 b2, FromRow a3 b3, FromRow a4 b4) => FromRow (a1, a2, a3, a4) (b1, b2, b3, b4) where
+  rowParser (a, b, c, d) =
+    (,,,) <$> rowParser a <*> rowParser b <*> rowParser c <*> rowParser d
+
+
+instance (FromRow a1 b1, FromRow a2 b2, FromRow a3 b3, FromRow a4 b4, FromRow a5 b5) => FromRow (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5) where
+  rowParser (a, b, c, d, e) =
+    (,,,,) <$> rowParser a <*> rowParser b <*> rowParser c <*> rowParser d <*> rowParser e
+
+
 instance
   ( f ~ Expr
   , g ~ Identity

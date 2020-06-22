@@ -275,6 +275,27 @@ instance (Table a, Table b, Context a ~ Context b) => Table (a, b) where
   fromStructure (HPair x y) = (fromStructure x, fromStructure y)
 
 
+instance (Table a, Table b, Table c, Context a ~ Context b, Context b ~ Context c) => Table (a, b, c) where
+  type Structure (a, b, c) = HPair (Structure (a, b)) (Structure c)
+  type Context (a, b, c) = Context a
+  toStructure (a, b, c) = HPair (toStructure (a, b)) (toStructure c)
+  fromStructure (HPair (HPair a b) c) = (fromStructure a, fromStructure b, fromStructure c)
+
+
+instance (Table a, Table b, Table c, Table d, Context a ~ Context b, Context b ~ Context c, Context c ~ Context d) => Table (a, b, c, d) where
+  type Structure (a, b, c, d) = HPair (Structure (a, b, c)) (Structure d)
+  type Context (a, b, c, d) = Context a
+  toStructure (a, b, c, d) = HPair (toStructure (a, b, c)) (toStructure d)
+  fromStructure (HPair (HPair (HPair a b) c) d) = (fromStructure a, fromStructure b, fromStructure c, fromStructure d)
+
+
+instance (Table a, Table b, Table c, Table d, Table e, Context a ~ Context b, Context b ~ Context c, Context c ~ Context d, Context d ~ Context e) => Table (a, b, c, d, e) where
+  type Structure (a, b, c, d, e) = HPair (Structure (a, b, c, d)) (Structure e)
+  type Context (a, b, c, d, e) = Context a
+  toStructure (a, b, c, d, e) = HPair (toStructure (a, b, c, d)) (toStructure e)
+  fromStructure (HPair (HPair (HPair (HPair a b) c) d) e) = (fromStructure a, fromStructure b, fromStructure c, fromStructure d, fromStructure e)
+
+
 -- | Map a 'Table' from one type to another. The table types must be compatible,
 -- see 'Compatible' for what that means.
 mapTable
