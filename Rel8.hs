@@ -298,7 +298,7 @@ isNull = columnToExpr . O.isNull . exprToColumn
 -- | Test if an 'Expr' is in a list of 'Expr's. This is performed by folding
 -- '==.' over all values and combining them with '||.'.
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
-in_ x = foldl' (\b y -> x ==. y ||. b) (lit False)
+in_ x = foldl' (\b y -> b ||. x ==. y) (lit False)
 
 -- | Corresponds to the @ILIKE@ operator.
 ilike :: Expr Text -> Expr Text -> Expr Bool
