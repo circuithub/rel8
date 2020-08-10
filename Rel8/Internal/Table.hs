@@ -382,8 +382,6 @@ class Table (table Expr) (table QueryResult) => BaseTable table where
 
   ------------------------------------------------------------------------------
 
-  default
-    tableSchema :: Maybe ( Tagged table String )
   tableSchema = Nothing
 
   default
