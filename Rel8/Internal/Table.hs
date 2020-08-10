@@ -366,6 +366,10 @@ class Table (table Expr) (table QueryResult) => BaseTable table where
   -- @tableName = "employees"@, for example.
   tableName :: Tagged table String
 
+  -- | The name of the schema in the database. If the schema is defined,
+  -- the queries will schema-qualify tables as defined in Opaleye.
+  tableSchema :: Maybe ( Tagged table String )
+
   -- | Witness the schema of a table at the value level.
   columns :: table SchemaInfo
 
@@ -377,6 +381,10 @@ class Table (table Expr) (table QueryResult) => BaseTable table where
     -> Iso' (table f) (RowF (table Expr) (Colimit f))
 
   ------------------------------------------------------------------------------
+
+  default
+    tableSchema :: Maybe ( Tagged table String )
+  tableSchema = Nothing
 
   default
     columns
@@ -481,11 +489,23 @@ tableDefinition_
      (BaseTable table)
   => (table f -> RowF (table Expr) O.PrimExpr) -> O.Table (table f) (table Expr)
 tableDefinition_ toExprs =
-  O.Table
+  defineTable
     (untag @table tableName)
     (O.TableProperties (O.Writer (O.PackMap go)) (O.View viewTable))
 
   where
+
+    defineTable
+      :: String
+      -> O.TableFields writeFields viewFields
+      -> O.Table writeFields viewFields
+    defineTable =
+      case tableSchema of
+        Nothing ->
+          O.Table
+
+        Just schemaName ->
+          O.TableWithSchema (untag @table schemaName)
 
     go
       :: forall exprs g. (Functor exprs, Applicative g)

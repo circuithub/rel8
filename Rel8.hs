@@ -24,7 +24,7 @@ module Rel8
     C
   , Anon
   , HasDefault(..)
-  , BaseTable(tableName)
+  , BaseTable(tableName, tableSchema)
   , Table
 
     -- * Querying Tables
