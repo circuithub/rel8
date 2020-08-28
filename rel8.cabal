@@ -55,7 +55,7 @@ library
                      , free
                      , mtl
                      , one-liner >=1.0 && < 1.1
-                     , opaleye >= 0.6.0.0 && < 0.7
+                     , opaleye >= 0.6.0.0 && < 0.8
                      , postgresql-simple
                      , profunctors >=5.2 && <5.4
                      , resourcet >= 1.2

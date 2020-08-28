@@ -341,7 +341,7 @@ unpackColumns = O.Unpackspec (O.PackMap traversePrimExprs)
 
 
 --------------------------------------------------------------------------------
-valuesColumns :: Table expr haskell => O.Valuesspec expr expr
+valuesColumns :: Table expr haskell => O.ValuesspecUnsafe expr expr
 valuesColumns = O.Valuesspec $ O.PackMap $ dimap id $
   fmap (view (from expressions)) . sequenceA . pureRep
 
@@ -489,7 +489,7 @@ tableDefinition_
 tableDefinition_ toExprs =
   defineTable
     (untag @table tableName)
-    (O.TableProperties (O.Writer (O.PackMap go)) (O.View viewTable))
+    (O.TableFields (O.Writer (O.PackMap go)) (O.View viewTable))
 
   where
 

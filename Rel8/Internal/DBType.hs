@@ -200,7 +200,7 @@ typeInfoFromOpaleye
      O.IsSqlType b
   => (a -> O.Column b) -> TypeInfo a
 typeInfoFromOpaleye f =
-  TypeInfo {formatLit = O.unColumn . f, dbTypeName = O.showPGType (Proxy @b)}
+  TypeInfo {formatLit = O.unColumn . f, dbTypeName = O.showSqlType (Proxy @b)}
 
 
 --------------------------------------------------------------------------------

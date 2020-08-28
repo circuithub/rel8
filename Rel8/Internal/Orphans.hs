@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -34,15 +35,6 @@ instance Strong QueryArr where
 
 instance Traversing QueryArr where
   wander = wanderA
-
-
-instance ArrowApply QueryArr where
-  app = lateral (\(f, i) -> f <<< pure i)
-
-
-instance Monad (QueryArr a) where
-  return = pure
-  as >>= f = lateral (\(i, a) -> f a <<< pure i) <<< (id &&& as)
 
 
 ------------------------------------------------------------------------------

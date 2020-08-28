@@ -27,7 +27,7 @@ module Rel8.IO
   , streamCursor
   ) where
 
-import Control.Lens (nullOf)
+import Control.Lens (lengthOf)
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -42,10 +42,10 @@ import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.FromRow as Pg
 import Database.PostgreSQL.Simple.Streaming
        (queryWith_, streamWithOptionsAndParser_)
-import qualified Opaleye as O hiding (arrangeInsertManyReturningSql)
+import qualified Opaleye as O
 import qualified Opaleye.Internal.RunQuery as O
 import qualified Opaleye.Internal.Table as O
-import qualified Opaleye.Internal.Manipulation as O (arrangeInsertManyReturningSql)
+import qualified Opaleye.Internal.Manipulation as O
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
 import Rel8.Internal.Table hiding (columns)
@@ -197,7 +197,7 @@ queryRunner :: Table a b => O.QueryRunner a b
 queryRunner =
   O.QueryRunner (void unpackColumns)
                 (const rowParser)
-                (Prelude.not . nullOf (expressions . traverse))
+                (lengthOf (expressions . traverse))
 
 --------------------------------------------------------------------------------
 
@@ -229,8 +229,8 @@ runInsertManyReturningExplicit io qr t columns r o =
     parser = O.prepareRowParser qr (r v)
     v =
       case t of
-        O.Table _ (O.TableProperties _ (O.View a)) -> a
-        O.TableWithSchema _ _ (O.TableProperties _ (O.View a)) -> a
+        O.Table _ (O.TableFields _ (O.View a)) -> a
+        O.TableWithSchema _ _ (O.TableFields _ (O.View a)) -> a
 
 runUpdateReturningExplicit
   :: QueryRunner m
@@ -247,5 +247,5 @@ runUpdateReturningExplicit io qr t up cond r =
     parser = O.prepareRowParser qr (r v)
     v =
       case t of
-        O.Table _ (O.TableProperties _ (O.View a)) -> a
-        O.TableWithSchema _ _ (O.TableProperties _ (O.View a)) -> a
+        O.Table _ (O.TableFields _ (O.View a)) -> a
+        O.TableWithSchema _ _ (O.TableFields _ (O.View a)) -> a

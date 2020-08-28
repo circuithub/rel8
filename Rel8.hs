@@ -328,7 +328,7 @@ exceptAll = O.exceptAllExplicit binaryColumns
 
 
 values :: Table table haskell => [table] -> O.Query table
-values = O.valuesExplicit unpackColumns valuesColumns
+values = O.valuesUnsafeExplicit unpackColumns valuesColumns
 
 {- $welcome
 
