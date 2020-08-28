@@ -58,20 +58,6 @@ allPartCities = partCity <$> allParts
 londonParts :: Query (Part Expr)
 londonParts = filterQuery (\p -> partCity p ==. "London") allParts
 
-heavyParts :: Query (Part Expr)
-heavyParts = proc _ -> do
-  part <- queryTable -< ()
-  where_ -< partWeight part >. 5
-  returnA -< part
-
-existsExample :: Query (Part Expr)
-existsExample = proc _ -> do
-  part <- queryTable -< ()
-  (| restrictExists
-       (do otherPart <- queryTable -< ()
-           where_ -< partWeight otherPart >. partWeight part) |)
-  returnA -< part
-
 data Supplier f = Supplier
   { supplierId :: C f "SID" 'HasDefault Int32
   , supplierName :: C f "SName" 'NoDefault String
@@ -97,19 +83,6 @@ partsAndSuppliers =
   filterQuery
     (\(part, supplier) -> partCity part ==. supplierCity supplier)
     allPartsAndSuppliers
-
-partsAndSuppliersLJ :: Query (Part Expr, MaybeTable (Supplier Expr))
-partsAndSuppliersLJ = proc _ -> do
-  part <- queryTable -< ()
-  maybeSupplier <- leftJoinA queryTable -<
-    \supplier -> partCity part ==. supplierCity supplier
-  returnA -< (part, maybeSupplier)
-
-partsWithoutSuppliersInCity :: Query (Part Expr)
-partsWithoutSuppliersInCity = proc _ -> do
-  (part, maybeSupplier) <- partsAndSuppliersLJ -< ()
-  where_ -< isNull (supplierId $? maybeSupplier)
-  returnA -< part
 
 --------------------------------------------------------------------------------
 main :: IO ()

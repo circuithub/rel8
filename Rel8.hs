@@ -28,10 +28,9 @@ module Rel8
   , Table
 
     -- * Querying Tables
-  , O.Query, O.QueryArr
+  , O.Query
   , queryTable
   , leftJoin
-  , leftJoinA
   , fullJoin
   , unionAll
   , exceptAll
@@ -126,6 +125,7 @@ module Rel8
   ) where
 
 import Control.Applicative (liftA2)
+import Control.Arrow (app)
 import Control.Category ((.), id)
 import Control.Monad.Rel8
 import Data.List (foldl')
@@ -142,10 +142,7 @@ import qualified Opaleye.Internal.Distinct as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.Join as O
 import qualified Opaleye.Internal.PackMap as O
-import qualified Opaleye.Internal.PrimQuery as PrimQuery
 import qualified Opaleye.Internal.QueryArr as O
-import qualified Opaleye.Internal.Tag as O
-import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Join as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
@@ -216,43 +213,6 @@ leftJoin condition l r =
 
 
 --------------------------------------------------------------------------------
--- | A more convenient form of 'leftJoin' when using arrow notation.
--- @inlineLeftJoinA@ takes the left join of all proceeding queries against a
--- given query. The input to the 'QueryArr' is a predicate function against
--- rows in the to-be-joined query.
---
--- === Example
--- @
--- -- Return all users and comments, including users who haven't made a comment.
--- usersAndComments :: Query (User Expr, MaybeTable (Comment Expr))
--- proc _ -> do
---   u <- queryTable -< ()
---   comment <- inlineLeftJoinA -< \c -> commentUser c ==. userId u
---   returnA (u, c)
--- @
-leftJoinA
-  :: (Table a haskell, Predicate bool)
-  => O.Query a -> O.QueryArr (a -> Expr bool) (MaybeTable a)
-leftJoinA q =
-  O.QueryArr $ \(p, left, t) ->
-    let O.QueryArr rightQueryF = liftA2 (,) (pure (lit (Just False))) q
-        (right, pqR, t') = rightQueryF ((), PrimQuery.Unit, t)
-        ((tag, renamed), ljPEsB) =
-          O.run
-            (O.runUnpackspec unpackColumns (O.extractLeftJoinFields 2 t') right)
-    in ( MaybeTable tag renamed
-       , PrimQuery.Join
-           PrimQuery.LeftJoin
-           (case toNullable (p renamed) of
-              Expr a -> a)
-           [] -- TODO ?
-           ljPEsB
-           left
-           pqR
-       , O.next t')
-
-
---------------------------------------------------------------------------------
 -- | Take the @FULL OUTER JOIN@ of two queries.
 fullJoin
   :: (Table left a, Table right b, Predicate bool)
@@ -280,15 +240,15 @@ distinct =
        (O.Aggregator (O.PackMap (\f -> traversePrimExprs (\e -> f (Nothing,e))))))
 
 -- | Restrict a 'O.QueryArr' to only contain rows that satisfy a given predicate.
-where_ :: Predicate bool => O.QueryArr (Expr bool) ()
-where_ = lmap (exprToColumn . toNullable) O.restrict
+where_ :: Predicate bool => Expr bool -> O.Query ()
+where_ x = lmap (const (exprToColumn (toNullable x))) O.restrict
 
 -- | Filter a 'O.Query' into a new query where all rows satisfy a given
 -- predicate.
 filterQuery :: Predicate bool => (a -> Expr bool) -> O.Query a -> O.Query a
 filterQuery f q = proc _ -> do
   row <- q -< ()
-  where_ -< f row
+  app -< (where_ (f row), ())
   id -< row
 
 -- | Corresponds to the @IS NULL@ operator.
