@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -14,10 +15,15 @@ where
 import Control.Arrow
 import Control.Category
 import Prelude hiding ((.), id)
+import Numeric.Natural
+import Data.Int ( Int32 )
 
 -- opaleye
 import Opaleye.Internal.Lateral ( lateral )
 import Opaleye.QueryArr
+
+-- postgresql-simple
+import Database.PostgreSQL.Simple.FromField
 
 -- profunctors
 import Data.Profunctor.Choice
@@ -35,6 +41,10 @@ instance Strong QueryArr where
 
 instance Traversing QueryArr where
   wander = wanderA
+
+
+instance FromField Natural where
+  fromField f mdata = fromIntegral @Int32 <$> fromField f mdata
 
 
 ------------------------------------------------------------------------------

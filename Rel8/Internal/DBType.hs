@@ -18,6 +18,8 @@ module Rel8.Internal.DBType
   , compositeDBType
   ) where
 
+import Rel8.Internal.Orphans ()
+
 import Control.Category ((.))
 import Data.Aeson (Value)
 import Data.ByteString (ByteString)
@@ -38,6 +40,8 @@ import Data.UUID (UUID)
 import Data.Vector (Vector)
 import Database.PostgreSQL.Simple.FromField (FromField)
 import Generics.OneLiner (ADT, Constraints, gfoldMap)
+import Numeric.Natural
+
 import qualified Opaleye.Column as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
@@ -87,6 +91,9 @@ instance DBType Integer where
     { formatLit = formatLit dbTypeInfo . toLazyText . scientificBuilder . fromInteger
     , dbTypeName = "numeric"
     }
+
+instance DBType Natural where
+  dbTypeInfo = typeInfoFromOpaleye (O.pgInt4 . fromIntegral)
 
 -- | double
 instance DBType Double where
