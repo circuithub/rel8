@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -19,7 +20,6 @@ import Data.Proxy
 import GHC.TypeLits
 import Control.Applicative
 import Control.Lens (Iso', from, iso, view)
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
@@ -72,7 +72,7 @@ type family MkRowF a :: * -> * where
 -- You should not need to define your own instances of 'Table' in idiomatic
 -- @rel8@ usage - beyond simplying deriving an instance and using generics.
 class (Representable (RowF expr), Traversable (RowF expr)) =>
-      Table expr haskell | expr -> haskell, haskell -> expr where
+      Table expr haskell | expr -> haskell where
 
   -- | Every 'Table' is isomorphic to a 'Functor' with finite cardinality
   -- (a 'Representable' functor). This type witnesses what that functor
@@ -97,7 +97,7 @@ class (Representable (RowF expr), Traversable (RowF expr)) =>
     rowParser
       :: (Generic haskell, GTable (Rep expr) (Rep haskell))
       => RowParser haskell
-  rowParser = fmap to growParser
+  rowParser = fmap to (growParser @(Rep expr))
 
   default
     expressions
@@ -110,17 +110,17 @@ class (Representable (RowF expr), Traversable (RowF expr)) =>
 
 
 --------------------------------------------------------------------------------
-class GTable expr haskell | expr -> haskell, haskell -> expr where
+class GTable expr haskell | expr -> haskell where
   growParser :: RowParser (haskell a)
   gexpressions :: Iso' (expr a) (MkRowF expr O.PrimExpr)
 
 instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
-  growParser = M1 <$> growParser
+  growParser = M1 <$> growParser @expr
   gexpressions = _M1 . gexpressions
 
 instance (GTable le lh, GTable re rh) =>
          GTable (le :*: re) (lh :*: rh) where
-  growParser = liftA2 (:*:) growParser growParser
+  growParser = liftA2 (:*:) (growParser @le) (growParser @re)
   gexpressions =
     iso
       (\(l :*: r) -> Pair (view gexpressions l) (view gexpressions r))
@@ -129,7 +129,7 @@ instance (GTable le lh, GTable re rh) =>
 
 instance {-# OVERLAPPABLE #-}
          Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
-  growParser = K1 <$> rowParser
+  growParser = K1 <$> rowParser @expr
   gexpressions = _K1 . expressions
 
 instance DBType a =>
@@ -185,7 +185,7 @@ instance (Table expr haskell) => Table (MaybeTable expr) (Maybe haskell) where
     if fromMaybe True isNull'
       then Nothing <$
            sequence_ (pureRep @(RowF expr) (fieldWith (\_ _ -> pure ())))
-      else fmap Just rowParser
+      else fmap Just (rowParser @expr)
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@. Like field selection.
@@ -249,8 +249,8 @@ instance (Table exprA a, Table exprB b) => Table (TheseTable exprA exprB) (These
         TheseTable (view (from expressions) a) (view (from expressions) b)
 
   rowParser = do
-    ma <- rowParser
-    mb <- rowParser
+    ma <- rowParser @(MaybeTable exprA)
+    mb <- rowParser @(MaybeTable exprB)
     case (ma, mb) of
       (Just a, Just b) -> pure $ These a b
       (Just a, _) -> pure $ This a
@@ -291,41 +291,11 @@ nullable a f b =
 
 
 --------------------------------------------------------------------------------
-{- | A one column 'Table' of type @a@. This type is required for queries that
-   return only one column (for reasons of preserving type inference). It can
-   also be used to build "anonymous" tables, by joining multiple tables with
-   tupling.
-
-   === Example: Querying a single column
-
-   @
-   data TestTable f = TestTable { col :: Col f "col" 'NoDefault Int}
-
-   oneCol :: Stream (Of (Col Int))
-   oneCol = select connection $ testColumn <$> queryTable
-   @
-
-   === Example: Building tables out of single columns
-
-   @
-   data T1 f = TestTable { col1 :: Col f "col" 'NoDefault Int}
-   data T2 f = TestTable { col2 :: Col f "col" 'NoDefault Bool}
-
-   q :: Stream (Of (Col Int, Col Bool))
-   q = select connection $ proc () -> do
-     t1 <- queryTable -< ()
-     t2 <- queryTable -< ()
-     returnA -< (col1 t1, col2 t2)
-   @
--}
-newtype Col a = Col { unCol :: a }
-  deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
-
--- | Single 'Expr'essions are tables, but the result will be wrapped in 'Col'.
-instance DBType a => Table (Expr a) (Col a) where
+-- | Single 'Expr'essions are tables.
+instance DBType a => Table (Expr a) a where
   type RowF (Expr a) = Identity
   expressions = dimap (\(Expr a) -> return a) (fmap (Expr . runIdentity))
-  rowParser = fmap Col field
+  rowParser = field
 
 --------------------------------------------------------------------------------
 traversePrimExprs

@@ -60,7 +60,6 @@ module Rel8
   , bool
   , MaybeTable, isTableNull, maybeTable
   , TheseTable, theseTable
-  , Col(..)
 
     -- * Expressions
   , Expr, coerceExpr, dbShow, case_

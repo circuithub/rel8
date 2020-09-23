@@ -193,10 +193,10 @@ delete
 delete conn f =
   O.runDelete conn tableDefinition (exprToColumn . toNullable . f)
 
-queryRunner :: Table a b => O.QueryRunner a b
+queryRunner :: forall a b. Table a b => O.QueryRunner a b
 queryRunner =
   O.QueryRunner (void unpackColumns)
-                (const rowParser)
+                (const (rowParser @a))
                 (lengthOf (expressions . traverse))
 
 --------------------------------------------------------------------------------
