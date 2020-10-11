@@ -25,9 +25,9 @@ module Rel8.MaybeTable where
 import Data.Functor.Identity ( Identity(..) )
 import Data.Proxy ( Proxy(..) )
 import GHC.Generics ( Generic )
-import Rel8.Column
-import Rel8.Expr
-import Rel8.Table
+import Rel8.Column ( Column, C(..) )
+import Rel8.Expr ( Expr, ExprTable, DBType, lit, liftNull, null_, (||.), ifThenElse_, unsafeCoerceExpr )
+import Rel8.Table ( HigherKindedTable, Table(..), Structure, htabulate )
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the

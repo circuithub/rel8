@@ -51,7 +51,6 @@ import Data.Functor.Identity
 import Data.Kind
 import Data.Proxy
 import Data.String
-import GHC.Generics
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Column
 import Rel8.DBType

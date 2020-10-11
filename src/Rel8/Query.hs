@@ -19,9 +19,11 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
+{-# options -fno-warn-deprecations #-}
+
 module Rel8.Query where
 
-import Control.Monad
+import Control.Monad ( void )
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Int

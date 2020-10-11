@@ -13,6 +13,8 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
+{-# options -fno-warn-deprecations #-}
+
 module Rel8.DBType where
 
 import Data.UUID ( UUID )
