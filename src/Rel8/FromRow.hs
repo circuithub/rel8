@@ -1,4 +1,5 @@
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language ScopedTypeVariables #-}
@@ -10,17 +11,9 @@
 module Rel8.FromRow where
 
 import Control.Applicative ( liftA2 )
-import Data.Aeson ( Value )
-import qualified Data.ByteString as Strict
-import qualified Data.ByteString.Lazy as Lazy
-import Data.CaseInsensitive (CI)
 import Data.Functor.Identity
-import Data.Int
-import Data.Scientific ( Scientific )
-import qualified Data.Text as Strict
-import qualified Data.Text.Lazy as Lazy
-import Data.Time
-import Data.UUID
+import Data.Kind ( Type )
+import Data.Proxy
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import Rel8.Column
 import Rel8.Expr
@@ -35,73 +28,57 @@ import Rel8.Unconstrained
 class ExprTable sql => FromRow sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
 
+type family Choose (a :: Type) (b :: Type) :: Choice where
+  Choose (a, b) (x, y) = 'TABLE
+  Choose (Expr a) a = 'EXPR
+  Choose (t Expr) (t Identity) = 'TABLE
+  Choose (MaybeTable a) (Maybe b) = 'TABLE
+
+data Choice = EXPR | TABLE
+
+type family ExprType (a :: Type) :: Type where
+  ExprType (a, b) = (ExprType a, ExprType b)
+  ExprType (t Identity) = t Expr
+  ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
+  ExprType (Maybe a) = Expr (Maybe a)
+  ExprType a = Expr a
+
+type family ResultType (a :: Type) :: Type where
+  ResultType (a, b) = (ResultType a, ResultType b)
+  ResultType (t Expr) = t Identity
+  ResultType (Expr a) = a
+  ResultType (MaybeTable a) = Maybe (ResultType a)
+
+instance (ExprTable a, FromRowChoice (Choose a b) a b, a ~ ExprType b, b ~ ResultType a) => FromRow a b where
+  rowParser = rowParser_ (Proxy @(Choose a b))
+
+class ExprTable a => FromRowChoice (choice :: Choice) (a :: Type) (b :: Type) where
+  rowParser_ :: proxy choice -> a -> RowParser b
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => FromRow ( t expr ) ( t identity ) where
-  rowParser =
+instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => FromRowChoice 'TABLE ( t expr ) ( t identity ) where
+  rowParser_ _ =
     traverseTableC @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
 
 
-instance FromRow (Expr (CI Lazy.Text)) (CI Lazy.Text) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (CI Strict.Text)) (CI Strict.Text) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe (CI Lazy.Text))) (Maybe (CI Lazy.Text)) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe (CI Strict.Text))) (Maybe (CI Strict.Text)) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Bool)) (Maybe Bool) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Day)) (Maybe Day) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Double)) (Maybe Double) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Float)) (Maybe Float) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Int32)) (Maybe Int32) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Int64)) (Maybe Int64) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Lazy.ByteString)) (Maybe Lazy.ByteString) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Lazy.Text)) (Maybe Lazy.Text) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe LocalTime)) (Maybe LocalTime) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Scientific)) (Maybe Scientific) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Strict.ByteString)) (Maybe Strict.ByteString) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Strict.Text)) (Maybe Strict.Text) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe String)) (Maybe String) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe TimeOfDay)) (Maybe TimeOfDay) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe UTCTime)) (Maybe UTCTime) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe UUID)) (Maybe UUID) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe Value)) (Maybe Value) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr (Maybe ZonedTime)) (Maybe ZonedTime) where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Bool) Bool where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Day) Day where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Double) Double where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Float) Float where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Int32) Int32 where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Int64) Int64 where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Lazy.ByteString) Lazy.ByteString where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Lazy.Text) Lazy.Text where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr LocalTime) LocalTime where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Scientific) Scientific where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Strict.ByteString) Strict.ByteString where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Strict.Text) Strict.Text where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr String) String where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr TimeOfDay) TimeOfDay where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr UTCTime) UTCTime where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr UUID) UUID where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr Value) Value where rowParser _ = fieldWith (decode typeInformation)
-instance FromRow (Expr ZonedTime) ZonedTime where rowParser _ = fieldWith (decode typeInformation)
+instance DBType a => FromRowChoice 'EXPR (Expr a) a where rowParser_ _ _ = fieldWith (decode typeInformation)
 
 
-instance (FromRow a1 b1, FromRow a2 b2) => FromRow (a1, a2) (b1, b2) where
-  rowParser (a, b) =
+instance (FromRow a1 b1, FromRow a2 b2) => FromRowChoice 'TABLE (a1, a2) (b1, b2) where
+  rowParser_ _ (a, b) =
     liftA2 (,) (rowParser a) (rowParser b)
 
 
 instance
-  ( f ~ Expr
-  , g ~ Identity
-  , HConstrainTable t Expr Unconstrained
-  , HConstrainTable t Expr DBType
-  , HConstrainTable t Identity DBType
-  , HigherKindedTable t
-  , Table ( MaybeTable ( t f ) )
-  , Table ( t g )
-  ) => FromRow ( MaybeTable ( t f ) ) ( Maybe ( t g ) ) where
+  ( Context a ~ Expr
+  , Table a
+  , HConstrainTable (Structure a) Expr Unconstrained
+  , HConstrainTable (Structure a) Expr DBType
+  , FromRow a b
+  ) => FromRowChoice 'TABLE (MaybeTable a) (Maybe b) where
 
-  rowParser ( MaybeTable _ t ) = do
+  rowParser_ _ ( MaybeTable _ t ) = do
     rowExists <- fieldWith ( decode typeInformation )
 
     case rowExists of
@@ -109,21 +86,7 @@ instance
         Just <$> rowParser t
 
       _ ->
-        Nothing <$ traverseTableC @DBType @RowParser @_ @(t Expr) nullField t
-
-
-instance (HConstrainTable (Structure b1) (Context b1) Unconstrained, ExprTable b1, HConstrainTable (Structure b2) (Context b2) Unconstrained, ExprTable b2, FromRow a1 b1, FromRow a2 b2, Table a2, Table b1, Structure a1 ~ Structure b1, Structure a2 ~ Structure b2) => FromRow (MaybeTable (a1, a2)) (Maybe (b1, b2)) where
-  rowParser ( MaybeTable _ ( x, y ) ) = do
-    rowExists <- fieldWith ( decode typeInformation )
-
-    case rowExists of
-      Just True ->
-        Just <$> liftA2 (,) (rowParser x) (rowParser y)
-
-      _ ->
-        Nothing
-          <$ traverseTable @b1 nullField x
-          <* traverseTable @b2 nullField y
+        Nothing <$ traverseTableC @DBType @RowParser @_ @a nullField t
 
 
 nullField :: forall x f. C f x -> RowParser ( C f x )

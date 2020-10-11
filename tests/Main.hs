@@ -1,14 +1,16 @@
-{-# language NamedFieldPuns #-}
 {-# language BlockArguments #-}
-{-# language QuasiQuotes #-}
-{-# language DisambiguateRecordFields #-}
-{-# language OverloadedStrings #-}
-{-# language RecordWildCards #-}
-{-# language DeriveGeneric #-}
-{-# language StandaloneDeriving #-}
 {-# language DeriveAnyClass #-}
-{-# language FlexibleInstances #-}
+{-# language DeriveGeneric #-}
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language GADTs #-}
+{-# language NamedFieldPuns #-}
+{-# language OverloadedStrings #-}
+{-# language QuasiQuotes #-}
+{-# language RecordWildCards #-}
+{-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
 module Main where
@@ -35,7 +37,7 @@ import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTr
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
-import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test )
+import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -373,6 +375,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
+    dbTypeTest :: (Eq a, Rel8.ExprType (Maybe a) ~ Rel8.Expr (Maybe a), Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
@@ -388,6 +391,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     maybeEq f Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
+    t :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -426,10 +430,13 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
+    dbEqTest :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Eq a, Show a, Rel8.DBEq a, Rel8.ExprType (Maybe a) ~ Rel8.Expr (Maybe a)) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
+
+    t :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Eq a, Show a, Rel8.DBEq a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
@@ -533,7 +540,9 @@ testNestedTables = databasePropertyTest "Nested TestTables" \transaction -> eval
 testMaybeTableApplicative :: IO TmpPostgres.DB -> TestTree
 testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction -> evalM do
   rows <- forAll do
-    Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
+    -- TODO: We shouldn't need the @Rel8.Identity type application, but without
+    -- it this fails to type check.
+    Gen.list (Range.linear 0 10) $ liftA2 (TestTable @Rel8.Identity) (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
 
   transaction \connection -> do
     liftIO $ executeMany connection

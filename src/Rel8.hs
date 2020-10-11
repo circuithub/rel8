@@ -89,6 +89,9 @@ module Rel8
   , IsTableIn
   , Selects
 
+    -- TODO
+  , ExprType
+
     -- * Next Steps
     -- $nextSteps
   )
