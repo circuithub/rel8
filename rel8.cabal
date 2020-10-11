@@ -2,7 +2,7 @@ cabal-version:       2.0
 name:                rel8
 version:             0.1.0.0
 synopsis:            Hey! Hey! Can u rel8?
-license:             BSD-2-Clause
+license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
