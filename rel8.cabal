@@ -1,4 +1,4 @@
-cabal-version:       3.0
+cabal-version:       2.0
 name:                rel8
 version:             0.1.0.0
 synopsis:            Hey! Hey! Can u rel8?
@@ -11,7 +11,7 @@ extra-source-files:  CHANGELOG.md
 
 library
   build-depends:
-    , aeson
+      aeson
     , base ^>=4.12 || ^>= 4.13
     , bytestring
     , case-insensitive
@@ -56,7 +56,7 @@ test-suite tests
   type:
     exitcode-stdio-1.0
   build-depends:
-    , base
+      base
     , bytestring
     , case-insensitive
     , containers
