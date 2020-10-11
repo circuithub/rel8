@@ -449,16 +449,17 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
 
 
 -- testTableEquality :: IO TmpPostgres.DB -> TestTree
--- testTableEquality = databasePropertyTest "TestTable equality" \connection -> do
+-- testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
 --   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
 
---   [eq] <- Rel8.select connection do
---     pure $ Rel8.litTable x Rel8.==. Rel8.litTable y
+--   transaction \connection -> do
+--     [eq] <- Rel8.select connection do
+--       pure $ Rel8.litTable x Rel8.==. Rel8.litTable y
 
---   eq === (x == y)
+--     eq === (x == y)
 
---   cover 1 "Equal" $ x == y
---   cover 1 "Not Equal" $ x /= y
+--     cover 1 "Equal" $ x == y
+--     cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
