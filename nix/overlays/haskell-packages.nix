@@ -12,9 +12,12 @@ let
 
   pkgs = self;
 
+  WError =
+    drv: appendConfigureFlag drv "--ghc-option=-Werror";
+
   configurations =
     self: super: {
-      rel8 = addBuildTool (callCabal2nix "rel8" (builtins.path { path = ../../.; name = "rel8"; }) {}) pkgs.postgresql;
+      rel8 = addBuildTool (WError (callCabal2nix "rel8" (builtins.path { path = ../../.; name = "rel8"; }) {})) pkgs.postgresql;
     };
 
 in
