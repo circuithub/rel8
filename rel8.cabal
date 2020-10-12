@@ -32,11 +32,11 @@ library
     src
   exposed-modules:
     Rel8
-    Rel8.Core
     Rel8.Text
   other-modules:
     Rel8.Column
     Rel8.ColumnSchema
+    Rel8.Core
     Rel8.DBEq
     Rel8.EqTable
     Rel8.Expr
