@@ -12,6 +12,7 @@ module Rel8
     -- ** Defining Database Types
   , DBType( typeInformation )
   , JSONEncoded( JSONEncoded )
+  , ReadShow( ReadShow )
   , DatabaseType(..)
   , parseDatabaseType
   , DBEq( eqExprs )

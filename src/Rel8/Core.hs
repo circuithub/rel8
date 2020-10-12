@@ -27,10 +27,10 @@
 
 module Rel8.Core where
 
-import Data.Aeson ( ToJSON, FromJSON, parseJSON, toJSON )
-import Data.Aeson.Types ( parseEither )
 import Control.Applicative ( liftA2 )
+import Data.Aeson ( ToJSON, FromJSON, parseJSON, toJSON )
 import Data.Aeson ( Value )
+import Data.Aeson.Types ( parseEither )
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive ( CI )
@@ -55,6 +55,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Opaleye.PGTypes
 import Rel8.Column
 import Rel8.Unconstrained
+import Text.Read
 
 {-| Higher-kinded data types.
 
@@ -838,3 +839,14 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
   typeInformation =
     parseDatabaseType (fmap JSONEncoded . parseEither parseJSON) $
     lmap (toJSON . fromJSONEncoded) typeInformation
+
+
+-- | A deriving-via helper type for column types that store a Haskell value
+-- using a Haskell's 'Read' and 'Show' type classes.
+newtype ReadShow a = ReadShow { fromReadShow :: a }
+
+
+instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
+  typeInformation =
+    parseDatabaseType (fmap ReadShow . readEither) $
+    lmap (show . fromReadShow) typeInformation
