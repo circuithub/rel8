@@ -379,10 +379,10 @@ instance Table (Identity a) where
   fromStructure = Identity . unHIdentity
 
 
--- | @FromRow@ witnesses the one-to-one correspondence between the type @sql@,
+-- | @Serializable@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class ExprTable sql => FromRow sql haskell | sql -> haskell, haskell -> sql where
+class ExprTable sql => Serializable sql haskell | sql -> haskell, haskell -> sql where
   rowParser :: sql -> RowParser haskell
   lit :: haskell -> sql
 
@@ -412,19 +412,19 @@ type family ResultType (a :: Type) :: Type where
   ResultType (MaybeTable a) = Maybe (ResultType a)
 
 
-instance (ExprTable a, FromRowChoice (Choose a b) a b, a ~ ExprType b, b ~ ResultType a) => FromRow a b where
+instance (ExprTable a, SerializableChoice (Choose a b) a b, a ~ ExprType b, b ~ ResultType a) => Serializable a b where
   rowParser = rowParser_ (Proxy @(Choose a b))
   lit = lit_ (Proxy @(Choose a b))
 
 
-class ExprTable a => FromRowChoice (choice :: Choice) (a :: Type) (b :: Type) where
+class ExprTable a => SerializableChoice (choice :: Choice) (a :: Type) (b :: Type) where
   rowParser_ :: proxy choice -> a -> RowParser b
   lit_ :: proxy choice -> b -> a
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => FromRowChoice 'TABLE ( t expr ) ( t identity ) where
+instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => SerializableChoice 'TABLE ( t expr ) ( t identity ) where
   rowParser_ _ =
     traverseTableC @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
 
@@ -432,7 +432,7 @@ instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identit
     runIdentity . mapContext (Proxy @Lit) (Proxy @DBType) (Identity . mapCC @DBType lit)
 
 
-instance DBType a => FromRowChoice 'EXPR (Expr a) a where
+instance DBType a => SerializableChoice 'EXPR (Expr a) a where
   rowParser_ _ _ = fieldWith (decode typeInformation)
 
   lit_ _ = Expr . Opaleye.CastExpr typeName . encode
@@ -440,7 +440,7 @@ instance DBType a => FromRowChoice 'EXPR (Expr a) a where
       DatabaseType{ encode, typeName } = typeInformation
 
 
-instance (FromRow a1 b1, FromRow a2 b2) => FromRowChoice 'TABLE (a1, a2) (b1, b2) where
+instance (Serializable a1 b1, Serializable a2 b2) => SerializableChoice 'TABLE (a1, a2) (b1, b2) where
   rowParser_ _ (a, b) =
     liftA2 (,) (rowParser a) (rowParser b)
 
@@ -452,8 +452,8 @@ instance
   , Table a
   , HConstrainTable (Structure a) Expr Unconstrained
   , HConstrainTable (Structure a) Expr DBType
-  , FromRow a b
-  ) => FromRowChoice 'TABLE (MaybeTable a) (Maybe b) where
+  , Serializable a b
+  ) => SerializableChoice 'TABLE (MaybeTable a) (Maybe b) where
 
   rowParser_ _ ( MaybeTable _ t ) = do
     rowExists <- fieldWith ( decode typeInformation )

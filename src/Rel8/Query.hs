@@ -95,14 +95,14 @@ instance Monad Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: ( FromRow row haskell, MonadIO m )
+  :: ( Serializable row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select = select_forAll
 
 
 select_forAll
   :: forall row haskell m
-   . ( FromRow row haskell, MonadIO m )
+   . ( Serializable row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select_forAll conn query =
   maybe
@@ -112,7 +112,7 @@ select_forAll conn query =
 
 
 queryParser
-  :: FromRow sql haskell
+  :: Serializable sql haskell
   => Query sql
   -> Database.PostgreSQL.Simple.RowParser haskell
 queryParser ( Query q ) =
@@ -126,7 +126,7 @@ queryParser ( Query q ) =
 
 queryRunner
   :: forall row haskell
-   . FromRow row haskell
+   . Serializable row haskell
   => Opaleye.FromFields row haskell
 queryRunner =
   Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
@@ -267,7 +267,7 @@ data Returning schema a where
     :: ( Selects schema row
        , Table projection
        , Context row ~ Context projection
-       , FromRow projection a
+       , Serializable projection a
        )
     => ( row -> projection )
     -> Returning schema [ a ]

@@ -66,7 +66,7 @@ module Rel8
     -- * Running Queries
     -- ** @SELECT@
   , select
-  , FromRow(..)
+  , Serializable(..)
   , Query
   , Identity
 
