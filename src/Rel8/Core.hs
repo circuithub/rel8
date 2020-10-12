@@ -27,6 +27,8 @@
 
 module Rel8.Core where
 
+import Data.Aeson ( ToJSON, FromJSON, parseJSON, toJSON )
+import Data.Aeson.Types ( parseEither )
 import Control.Applicative ( liftA2 )
 import Data.Aeson ( Value )
 import qualified Data.ByteString
@@ -850,3 +852,14 @@ instance Recontextualise Lit (Identity a) (Expr a) where
   mapContext _ _ f (Identity a) = unC <$> f (MkC a)
     where
       unC (MkC x) = x
+
+-- | A deriving-via helper type for column types that store a Haskell value
+-- using a JSON encoding described by @aeson@'s 'ToJSON' and 'FromJSON' type
+-- classes.
+newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
+
+
+instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
+  typeInformation =
+    parseDatabaseType (fmap JSONEncoded . parseEither parseJSON) $
+    lmap (toJSON . fromJSONEncoded) typeInformation
