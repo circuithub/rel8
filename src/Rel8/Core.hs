@@ -839,20 +839,6 @@ instance (HigherKindedTable t, f' ~ Apply g f) => Recontextualise g (t f) (t f')
   mapContext _ c f as = htabulate c (\field -> f (hfield as field))
 
 
-instance (Recontextualise g a a', Recontextualise g b b', Context a ~ Context b) => Recontextualise g (a, b) (a', b') where
-  type MapContext g (a, b) = (MapContext g a, MapContext g b)
-
-  mapContext g c f (a, b) = (,) <$> mapContext g c f a <*> mapContext g c f b
-
-
--- | FIXME: This isn't quite right
-instance Recontextualise Lit (Identity a) (Expr a) where
-  type MapContext Lit (Identity a) = Expr a
-
-  mapContext _ _ f (Identity a) = unC <$> f (MkC a)
-    where
-      unC (MkC x) = x
-
 -- | A deriving-via helper type for column types that store a Haskell value
 -- using a JSON encoding described by @aeson@'s 'ToJSON' and 'FromJSON' type
 -- classes.
