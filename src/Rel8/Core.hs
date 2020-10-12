@@ -23,6 +23,8 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
+{-# options -fno-warn-deprecations #-}
+
 module Rel8.Core where
 
 import Control.Applicative ( liftA2 )

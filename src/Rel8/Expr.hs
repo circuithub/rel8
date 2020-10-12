@@ -47,15 +47,8 @@ module Rel8.Expr
 
 import Data.Coerce
 import Data.Foldable ( foldl' )
-import Data.Functor.Identity
-import Data.Kind
-import Data.Proxy
-import Data.String
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Column
 import Rel8.Core
-import Rel8.Core ( HigherKindedTable(..) )
-import Rel8.Unconstrained
 
 
 -- | The SQL @AND@ operator.
@@ -131,7 +124,7 @@ nullaryFunction = nullaryFunction_forAll
 
 nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
 nullaryFunction_forAll name =
-  Expr ( Opaleye.FunExpr name [] )
+  const (Expr ( Opaleye.FunExpr name [] )) (lit (undefined :: a))
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
