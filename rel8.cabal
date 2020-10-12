@@ -32,21 +32,16 @@ library
     src
   exposed-modules:
     Rel8
-    Rel8.Table
+    Rel8.Core
     Rel8.Text
   other-modules:
     Rel8.Column
     Rel8.ColumnSchema
     Rel8.DBEq
-    Rel8.DBType
     Rel8.EqTable
     Rel8.Expr
-    Rel8.FromRow
-    Rel8.Lit
-    Rel8.MaybeTable
     Rel8.Optimize
     Rel8.Query
-    Rel8.Recontextualise
     Rel8.SimpleConstraints
     Rel8.TableSchema
     Rel8.Unconstrained

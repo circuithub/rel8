@@ -58,13 +58,11 @@ import qualified Opaleye.Table as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
 import Rel8.Expr
-import Rel8.MaybeTable
 import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
-import Rel8.Table
 import Rel8.TableSchema
 import Rel8.Unconstrained
-import Rel8.FromRow
+import Rel8.Core
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use

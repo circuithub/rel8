@@ -75,7 +75,6 @@ module Rel8
   , Insert(..)
   , Returning(..)
   , OnConflict(..)
-  , litTable
 
     -- ** @DELETE@
   , delete
@@ -101,17 +100,13 @@ import Data.Functor.Identity
 import Prelude hiding ( filter )
 import Rel8.Column
 import Rel8.ColumnSchema
+import Rel8.Core
 import Rel8.DBEq
-import Rel8.DBType
 import Rel8.EqTable
 import Rel8.Expr
-import Rel8.FromRow
-import Rel8.Lit
-import Rel8.MaybeTable
 import Rel8.Query
-import Rel8.Table
-import Rel8.TableSchema
 import Rel8.SimpleConstraints
+import Rel8.TableSchema
 
 {- $nextSteps
 
