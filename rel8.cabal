@@ -12,7 +12,7 @@ extra-source-files:  CHANGELOG.md
 library
   build-depends:
       aeson
-    , base ^>=4.12 || ^>= 4.13
+    , base ^>=4.12 || ^>= 4.13 || ^>= 4.14
     , bytestring
     , case-insensitive
     , opaleye ^>= 0.7.1.0
