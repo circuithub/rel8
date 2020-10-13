@@ -19,10 +19,11 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
+{-# options -fno-warn-deprecations #-}
+
 module Rel8.Query where
 
-import Debug.Trace
-import Control.Monad
+import Control.Monad ( void )
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Int
@@ -31,8 +32,9 @@ import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
+import Debug.Trace
 import Numeric.Natural
-import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
+import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
@@ -45,6 +47,7 @@ import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
+import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
@@ -56,12 +59,10 @@ import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
+import Rel8.Core
 import Rel8.Expr
-import Rel8.FromRow
-import Rel8.MaybeTable
 import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
-import Rel8.Table
 import Rel8.TableSchema
 import Rel8.Unconstrained
 
@@ -96,14 +97,14 @@ instance Monad Query where
 
 -- | Run a @SELECT@ query, returning all rows.
 select
-  :: ( FromRow row haskell, MonadIO m )
+  :: ( Serializable row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select = select_forAll
 
 
 select_forAll
   :: forall row haskell m
-   . ( FromRow row haskell, MonadIO m )
+   . ( Serializable row haskell, MonadIO m )
   => Connection -> Query row -> m [ haskell ]
 select_forAll conn query =
   maybe
@@ -113,7 +114,7 @@ select_forAll conn query =
 
 
 queryParser
-  :: FromRow sql haskell
+  :: Serializable sql haskell
   => Query sql
   -> Database.PostgreSQL.Simple.RowParser haskell
 queryParser ( Query q ) =
@@ -127,10 +128,10 @@ queryParser ( Query q ) =
 
 queryRunner
   :: forall row haskell
-   . FromRow row haskell
+   . Serializable row haskell
   => Opaleye.FromFields row haskell
 queryRunner =
-  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
+  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const 1 )
 
 
 unpackspec
@@ -268,7 +269,7 @@ data Returning schema a where
     :: ( Selects schema row
        , Table projection
        , Context row ~ Context projection
-       , FromRow projection a
+       , Serializable projection a
        )
     => ( row -> projection )
     -> Returning schema [ a ]
@@ -547,13 +548,20 @@ catMaybe e =
   catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
 
 
-values :: (ExprTable expr, Foldable f) => f expr -> Query expr
-values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
+values :: forall expr f. (ExprTable expr, Foldable f) => f expr -> Query expr
+values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
-    valuesspec =
-      Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
-        fmap fromStructure $
-        htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()
+    valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
+      where
+        packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
+        packmap = Opaleye.PackMap \f () ->
+          fmap fromStructure $
+          htabulate (Proxy @DBType) \i -> MkC . fromPrimExpr <$> f (nullExpr i)
+            where
+              nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
+              nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+                where
+                  DatabaseType{ typeName } = typeInformation @a
 
 
 filter :: (a -> Expr Bool) -> a -> Query a

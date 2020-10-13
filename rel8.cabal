@@ -1,8 +1,8 @@
-cabal-version:       3.0
+cabal-version:       2.0
 name:                rel8
 version:             0.1.0.0
 synopsis:            Hey! Hey! Can u rel8?
-license:             BSD-2-Clause
+license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
@@ -11,11 +11,11 @@ extra-source-files:  CHANGELOG.md
 
 library
   build-depends:
-    , aeson
-    , base ^>=4.12 || ^>= 4.13
+      aeson
+    , base ^>=4.12 || ^>= 4.13 || ^>= 4.14
     , bytestring
     , case-insensitive
-    , opaleye
+    , opaleye ^>= 0.7.1.0
     , postgresql-simple
     , product-profunctors
     , profunctors
@@ -32,23 +32,18 @@ library
     src
   exposed-modules:
     Rel8
-    Rel8.Table
     Rel8.Tabulate
     Rel8.Text
   other-modules:
     Rel8.Column
     Rel8.ColumnSchema
+    Rel8.Core
     Rel8.DBEq
-    Rel8.DBType
     Rel8.DBOrd
     Rel8.EqTable
     Rel8.Expr
-    Rel8.FromRow
-    Rel8.Lit
-    Rel8.MaybeTable
     Rel8.Optimize
     Rel8.Query
-    Rel8.Recontextualise
     Rel8.SimpleConstraints
     Rel8.TableSchema
     Rel8.Unconstrained
@@ -58,7 +53,7 @@ test-suite tests
   type:
     exitcode-stdio-1.0
   build-depends:
-    , base
+      base
     , bytestring
     , case-insensitive
     , containers

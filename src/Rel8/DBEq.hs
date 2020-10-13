@@ -9,7 +9,7 @@ import Data.Int
 import Data.Kind
 import Data.Text
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DBType
+import Rel8.Core
 import Rel8.Expr
 
 

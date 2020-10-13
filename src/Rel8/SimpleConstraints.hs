@@ -14,7 +14,7 @@ module Rel8.SimpleConstraints ( Selects, IsTableIn ) where
 
 import Rel8.ColumnSchema
 import Rel8.Expr
-import Rel8.Table
+import Rel8.Core
 
 
 -- | @Selects m schema row@ says that in the monad @m@, the schema definition

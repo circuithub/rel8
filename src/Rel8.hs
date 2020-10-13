@@ -11,6 +11,8 @@ module Rel8
 
     -- ** Defining Database Types
   , DBType( typeInformation )
+  , JSONEncoded( JSONEncoded )
+  , ReadShow( ReadShow )
   , DatabaseType(..)
   , parseDatabaseType
   , DBEq( eqExprs )
@@ -77,7 +79,7 @@ module Rel8
     -- ** @SELECT@
   , select
   , traceQuery
-  , FromRow(..)
+  , Serializable(..)
   , Query
   , Identity
 
@@ -86,7 +88,6 @@ module Rel8
   , Insert(..)
   , Returning(..)
   , OnConflict(..)
-  , litTable
 
     -- ** @DELETE@
   , delete
@@ -100,6 +101,9 @@ module Rel8
   , IsTableIn
   , Selects
 
+    -- TODO
+  , ExprType
+
     -- * Next Steps
     -- $nextSteps
   )
@@ -109,18 +113,14 @@ import Data.Functor.Identity
 import Prelude hiding ( filter )
 import Rel8.Column
 import Rel8.ColumnSchema
+import Rel8.Core
 import Rel8.DBEq
-import Rel8.DBType
 import Rel8.DBOrd
 import Rel8.EqTable
 import Rel8.Expr
-import Rel8.FromRow
-import Rel8.Lit
-import Rel8.MaybeTable
 import Rel8.Query
-import Rel8.Table
-import Rel8.TableSchema
 import Rel8.SimpleConstraints
+import Rel8.TableSchema
 
 {- $nextSteps
 
