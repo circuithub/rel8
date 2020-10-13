@@ -551,7 +551,12 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
         packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
         packmap = Opaleye.PackMap \f () ->
           fmap fromStructure $
-          htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f (Opaleye.ConstExpr Opaleye.NullLit)
+          htabulate (Proxy @DBType) \i -> MkC . fromPrimExpr <$> f (nullExpr i)
+            where
+              nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
+              nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+                where
+                  DatabaseType{ typeName } = typeInformation @a
 
 
 filter :: (a -> Expr Bool) -> a -> Query a
