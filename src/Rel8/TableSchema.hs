@@ -2,6 +2,8 @@
 {-# language KindSignatures #-}
 {-# language NamedFieldPuns #-}
 
+{-# options -fno-warn-deprecations #-}
+
 module Rel8.TableSchema where
 
 import Data.Kind
@@ -62,4 +64,4 @@ toOpaleyeTable TableSchema{ tableName, tableSchema } writer view =
   where
 
     tableFields =
-      Opaleye.TableProperties writer view
+      Opaleye.TableFields writer view

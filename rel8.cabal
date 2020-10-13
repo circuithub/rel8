@@ -15,7 +15,7 @@ library
     , base ^>=4.12 || ^>= 4.13
     , bytestring
     , case-insensitive
-    , opaleye
+    , opaleye ^>= 0.7.1.0
     , postgresql-simple
     , product-profunctors
     , profunctors

@@ -33,7 +33,7 @@ import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Numeric.Natural
-import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), formatAndShowSQL, runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
+import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
@@ -45,6 +45,7 @@ import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( limit )
+import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
@@ -57,12 +58,12 @@ import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 import Rel8.Column
 import Rel8.ColumnSchema
+import Rel8.Core
 import Rel8.Expr
 import qualified Rel8.Optimize
 import Rel8.SimpleConstraints
 import Rel8.TableSchema
 import Rel8.Unconstrained
-import Rel8.Core
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -129,7 +130,7 @@ queryRunner
    . Serializable row haskell
   => Opaleye.FromFields row haskell
 queryRunner =
-  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const True )
+  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const 1 )
 
 
 unpackspec
@@ -542,13 +543,15 @@ catMaybe e =
   catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
 
 
-values :: (ExprTable expr, Foldable f) => f expr -> Query expr
-values = liftOpaleye . Opaleye.valuesExplicit unpackspec valuesspec . toList
+values :: forall expr f. (ExprTable expr, Foldable f) => f expr -> Query expr
+values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
-    valuesspec =
-      Opaleye.Valuesspec $ Opaleye.PackMap \f () ->
-        fmap fromStructure $
-        htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f ()
+    valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
+      where
+        packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
+        packmap = Opaleye.PackMap \f () ->
+          fmap fromStructure $
+          htabulate (Proxy @Unconstrained) \_ -> MkC . fromPrimExpr <$> f (Opaleye.ConstExpr Opaleye.NullLit)
 
 
 filter :: (a -> Expr Bool) -> a -> Query a

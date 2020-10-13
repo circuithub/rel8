@@ -37,7 +37,6 @@ import Data.CaseInsensitive ( CI )
 import Data.Functor.Identity
 import Data.Int
 import Data.Kind
-import Data.Kind ( Type )
 import Data.Profunctor ( Profunctor(..), dimap )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.Scientific ( Scientific )
@@ -621,7 +620,7 @@ fromOpaleye f =
   DatabaseType
     { encode = \x -> case f x of Opaleye.Column e -> e
     , decode = fromField
-    , typeName = showPGType (Proxy @b)
+    , typeName = showSqlType (Proxy @b)
     }
 
 
