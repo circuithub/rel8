@@ -28,4 +28,4 @@ instance DBOrd Text
 instance DBOrd Bool
 
 
-instance DBOrd a => DBOrd ( Maybe a ) where
+instance DBOrd ( Maybe a ) where
