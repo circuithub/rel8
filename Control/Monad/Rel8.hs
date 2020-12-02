@@ -6,6 +6,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -244,6 +245,7 @@ instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e 
          conn <- ask
          step conn op)
     where
+      step :: Pg.Connection -> StatementSyntax (ReaderT Pg.Connection m a) -> ReaderT Pg.Connection m a
       step pg (Select q k) = runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
       step pg (InsertReturning q k) =
         runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k

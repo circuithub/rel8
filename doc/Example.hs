@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -21,9 +22,8 @@ data Small f =
        -- , partColor  :: C f "Color" 'NoDefault Int32
        -- , partWeight :: C f "Weight" 'NoDefault Double
        -- , partCity   :: C f "City" 'NoDefault String
-       } deriving (Generic)
+       } deriving (Generic, HigherKindedTable)
 
-instance Table (Small Expr) (Small QueryResult)
 instance BaseTable Small where
   tableName = "small"
   -- tabular DomExpr =
@@ -42,9 +42,8 @@ data Part f =
        , partColor  :: C f "Color" 'NoDefault Int32
        , partWeight :: C f "Weight" 'NoDefault Double
        , partCity   :: C f "City" 'NoDefault String
-       } deriving (Generic)
+       } deriving (Generic, HigherKindedTable)
 
-instance Table (Part Expr) (Part QueryResult)
 instance BaseTable Part where tableName = "part"
 deriving instance Show (Part QueryResult)
 deriving instance Show (Part SchemaInfo)
@@ -63,9 +62,8 @@ data Supplier f = Supplier
   , supplierName :: C f "SName" 'NoDefault String
   , supplierStatus :: C f "Status" 'NoDefault Int32
   , supplierCity :: C f "City" 'NoDefault String
-  } deriving (Generic)
+  } deriving (Generic, HigherKindedTable)
 
-instance Table (Supplier Expr) (Supplier QueryResult)
 instance BaseTable Supplier where tableName = "supplier"
 deriving instance Show (Supplier QueryResult)
 

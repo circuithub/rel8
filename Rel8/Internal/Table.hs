@@ -15,11 +15,11 @@
 -- | This module defines the 'Table' type class.
 module Rel8.Internal.Table where
 
+import Data.Kind ( Type )
 import Data.Proxy
 import GHC.TypeLits
 import Control.Applicative
-import Control.Lens (Iso', from, iso, view)
-import Data.Aeson (FromJSON, ToJSON)
+import Control.Lens (AnIso', Iso', cloneIso, from, iso, view)
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
@@ -59,6 +59,110 @@ type family MkRowF a :: * -> * where
   MkRowF (a :*: b) = Product (MkRowF a) (MkRowF b)
   MkRowF (K1 i c) = RowF c
 
+
+data TableType = 'AnExpr | 'ATable
+
+
+type family Choose (a :: Type) (b :: Type) :: TableType where
+  Choose (a1, a2) (b1, b2) = 'ATable
+  Choose (a1, a2, a3) (b1, b2, b3) = 'ATable
+  Choose (a1, a2, a3, a4) (b1, b2, b3, b4) = 'ATable
+  Choose (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5) = 'ATable
+  Choose (Expr a) a = 'AnExpr
+  Choose (t Expr) (t QueryResult) = 'ATable
+  Choose (t Expr x) (t QueryResult x) = 'ATable
+  Choose (MaybeTable a) (Maybe b) = 'ATable
+  Choose (f a b c d) (g s t u v) = 'ATable
+
+
+type family ExprType (a :: Type) :: Type where
+  ExprType (a, b) = (ExprType a, ExprType b)
+  ExprType (a, b, c) = (ExprType a, ExprType b, ExprType c)
+  ExprType (a, b, c, d) = (ExprType a, ExprType b, ExprType c, ExprType d)
+  ExprType (a, b, c, d, e) = (ExprType a, ExprType b, ExprType c, ExprType d, ExprType e)
+  ExprType (t QueryResult) = t Expr
+  ExprType (t QueryResult x) = t Expr x
+  ExprType (Maybe (t QueryResult)) = MaybeTable (t Expr)
+  ExprType (Maybe (a, b)) = MaybeTable (ExprType a, ExprType b)
+  ExprType (Maybe a) = Expr (Maybe a)
+  ExprType (f a b c d) = f (ExprType a) (ExprType b) (ExprType c) (ExprType d)
+  ExprType a = Expr a
+
+
+type family ResultType (a :: Type) :: Type where
+  ResultType (a, b) = (ResultType a, ResultType b)
+  ResultType (a, b, c) = (ResultType a, ResultType b, ResultType c)
+  ResultType (a, b, c, d) = (ResultType a, ResultType b, ResultType c, ResultType d)
+  ResultType (a, b, c, d, e) = (ResultType a, ResultType b, ResultType c, ResultType d, ResultType e)
+  ResultType (t Expr) = t QueryResult
+  ResultType (t Expr x) = t QueryResult x
+  ResultType (Expr a) = a
+  ResultType (MaybeTable a) = Maybe (ResultType a)
+  ResultType (f a b c d) = f (ResultType a) (ResultType b) (ResultType c) (ResultType d)
+
+
+class (Representable (HRowF t), Traversable (HRowF t)) => HigherKindedTable t where
+  type HRowF t :: * -> *
+  type HRowF t = MkRowF (Rep (t Expr))
+
+  hexpressions :: AnIso' (t Expr) (HRowF t O.PrimExpr)
+  default hexpressions
+    :: ( HRowF t ~ MkRowF (Rep (t Expr))
+       , Generic (t Expr)
+       , GTable (Rep (t Expr)) (Rep (t QueryResult))
+       ) => AnIso' (t Expr) (HRowF t O.PrimExpr)
+  hexpressions = generic . gexpressions
+
+
+  hrowParser :: RowParser (t QueryResult)
+  default hrowParser
+    :: ( GTable (Rep (t Expr)) (Rep (t QueryResult))
+       , Generic (t QueryResult)
+       )
+    => RowParser (t QueryResult)
+  hrowParser = fmap to growParser
+
+
+instance HigherKindedTable t => TableC 'ATable (t Expr) (t QueryResult) where
+  type RowF (t Expr) = HRowF t
+  expressions_ _ _ = cloneIso hexpressions
+  rowParser_ _ _ = hrowParser
+
+
+class GTable expr haskell | expr -> haskell, haskell -> expr where
+  growParser :: RowParser (haskell a)
+  gexpressions :: Iso' (expr a) (MkRowF expr O.PrimExpr)
+
+
+instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
+  growParser = M1 <$> growParser
+  gexpressions = _M1 . gexpressions
+
+
+instance (GTable le lh, GTable re rh) =>
+         GTable (le :*: re) (lh :*: rh) where
+  growParser = liftA2 (:*:) growParser growParser
+  gexpressions =
+    iso
+      (\(l :*: r) -> Pair (view gexpressions l) (view gexpressions r))
+      (\(Pair l r) ->
+         view (from gexpressions) l :*: view (from gexpressions) r)
+
+
+instance {-# OVERLAPPABLE #-}
+         Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
+  growParser = K1 <$> rowParser
+  gexpressions = _K1 . expressions
+
+
+instance DBType a =>
+         GTable (K1 i (Expr a)) (K1 i a) where
+  growParser = K1 <$> field
+  gexpressions =
+    iso
+      (\(K1 (Expr prim)) -> Identity prim)
+      (\(Identity prim) -> K1 (Expr prim))
+
 --------------------------------------------------------------------------------
 
 -- | 'Table' @expr haskell@ specifies that the @expr@ contains one or more
@@ -72,7 +176,7 @@ type family MkRowF a :: * -> * where
 -- You should not need to define your own instances of 'Table' in idiomatic
 -- @rel8@ usage - beyond simplying deriving an instance and using generics.
 class (Representable (RowF expr), Traversable (RowF expr)) =>
-      Table expr haskell | expr -> haskell, haskell -> expr where
+      TableC (t :: TableType) expr haskell where
 
   -- | Every 'Table' is isomorphic to a 'Functor' with finite cardinality
   -- (a 'Representable' functor). This type witnesses what that functor
@@ -85,63 +189,45 @@ class (Representable (RowF expr), Traversable (RowF expr)) =>
   -- expressions, and the user friendly expression type. A default
   -- implementation is provided, assuming every field in @expr@ contains
   -- exactly one 'Expr'.
-  expressions :: Iso' expr (RowF expr O.PrimExpr)
+  expressions_ :: Proxy t -> Proxy haskell -> Iso' expr (RowF expr O.PrimExpr)
 
   -- | Every expression can be parsed into Haskell, once results have been
   -- retrieved from the database. A generic implementation is provided which
   -- assumes that every field in @haskell@ represents exactly one column
   -- in the result.
-  rowParser :: RowParser haskell
+  rowParser_ :: Proxy t -> Proxy expr -> RowParser haskell
 
   default
-    rowParser
+    rowParser_
       :: (Generic haskell, GTable (Rep expr) (Rep haskell))
-      => RowParser haskell
-  rowParser = fmap to growParser
+      => Proxy t -> Proxy expr -> RowParser haskell
+  rowParser_ _ _ = fmap to growParser
 
   default
-    expressions
+    expressions_
       :: ( Generic expr
          , GTable (Rep expr) (Rep haskell)
          , RowF expr ~ MkRowF (Rep expr)
          )
-      => Iso' expr (RowF expr O.PrimExpr)
-  expressions = generic . gexpressions
+      => Proxy t -> Proxy haskell -> Iso' expr (RowF expr O.PrimExpr)
+  expressions_ _ _ = generic . gexpressions
 
 
---------------------------------------------------------------------------------
-class GTable expr haskell | expr -> haskell, haskell -> expr where
-  growParser :: RowParser (haskell a)
-  gexpressions :: Iso' (expr a) (MkRowF expr O.PrimExpr)
-
-instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
-  growParser = M1 <$> growParser
-  gexpressions = _M1 . gexpressions
-
-instance (GTable le lh, GTable re rh) =>
-         GTable (le :*: re) (lh :*: rh) where
-  growParser = liftA2 (:*:) growParser growParser
-  gexpressions =
-    iso
-      (\(l :*: r) -> Pair (view gexpressions l) (view gexpressions r))
-      (\(Pair l r) ->
-         view (from gexpressions) l :*: view (from gexpressions) r)
-
-instance {-# OVERLAPPABLE #-}
-         Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
-  growParser = K1 <$> rowParser
-  gexpressions = _K1 . expressions
-
-instance DBType a =>
-         GTable (K1 i (Expr a)) (K1 i a) where
-  growParser = K1 <$> field
-  gexpressions =
-    iso
-      (\(K1 (Expr prim)) -> Identity prim)
-      (\(Identity prim) -> K1 (Expr prim))
+expressions :: forall expr haskell. Table expr haskell => Iso' expr (RowF expr O.PrimExpr)
+expressions = expressions_ (Proxy @(Choose expr haskell)) (Proxy @haskell)
 
 
-bool :: (Predicate bool, Table a haskell) => a -> a -> Expr bool -> a
+rowParser :: forall expr haskell. Table expr haskell => RowParser haskell
+rowParser = rowParser_ (Proxy @(Choose expr haskell)) (Proxy @expr)
+
+
+class (TableC (Choose expr haskell) expr haskell, ExprType haskell ~ expr, ResultType expr ~ haskell) => Table expr haskell | expr -> haskell, haskell -> expr
+
+
+instance (TableC (Choose expr haskell) expr haskell, ExprType haskell ~ expr, ResultType expr ~ haskell) => Table expr haskell where
+
+
+bool :: forall bool a haskell. (Predicate bool, Table a haskell) => a -> a -> Expr bool -> a
 bool as bs predicate = view (from expressions) $ mzipWithRep go
   (view expressions as)
   (view expressions bs)
@@ -167,20 +253,22 @@ instance Monad MaybeTable where
 
 -- | The result of a left/right join is a table, but the table may be entirely
 -- @null@ sometimes.
-instance (Table expr haskell) => Table (MaybeTable expr) (Maybe haskell) where
+instance (Table expr haskell) => TableC 'ATable (MaybeTable expr) (Maybe haskell) where
   type RowF (MaybeTable expr) = Product Identity (RowF expr)
 
-  expressions =
+  expressions_ _ _ =
     dimap
       (\(MaybeTable tag row) ->
-         Pair (view expressions tag) (view expressions row))
+         Pair
+           (view expressions tag)
+           (view expressions row))
       (fmap
          (\(Pair tag row) ->
             MaybeTable
               (view (from expressions) tag)
               (view (from expressions) row)))
 
-  rowParser = do
+  rowParser_ _ _ = do
     isNull' <- field
     if fromMaybe True isNull'
       then Nothing <$
@@ -193,7 +281,7 @@ instance (Table expr haskell) => Table (MaybeTable expr) (Maybe haskell) where
 -- It may be helpful to remember this operator by the mneumonic - '$' on the left
 -- means function on the left, '?' on the right means 'MaybeTable' on the right.
 infixl 4 $?
-($?) :: forall a b maybeB. (DBType maybeB, ToNullable b maybeB)
+($?) :: forall a b maybeB. (DBType maybeB, ToNullable b maybeB, ExprType maybeB ~ Expr maybeB)
   => (a -> Expr b) -> MaybeTable a -> Expr maybeB
 f $? ma = maybeTable null_ (toNullable . f) ma
   where
@@ -237,18 +325,22 @@ instance Bifunctor TheseTable where
 
 -- | The result of a full outer join is a pair of tables, but one of the tables
 -- may be entirely @null@ sometimes.
-instance (Table exprA a, Table exprB b) => Table (TheseTable exprA exprB) (These a b) where
+instance (Table exprA a, Table exprB b, ExprType (Maybe b) ~ MaybeTable exprB, ExprType (Maybe a) ~ MaybeTable exprA) => TableC 'ATable (TheseTable exprA exprB) (These a b) where
   type RowF (TheseTable exprA exprB) =
     Product (RowF (MaybeTable exprA)) (RowF (MaybeTable exprB))
 
-  expressions = dimap back (fmap forth)
+  expressions_ _ _ = dimap back (fmap forth)
     where
       back (TheseTable a b) =
-         Pair (view expressions a) (view expressions b)
+         Pair
+           (view expressions a)
+           (view expressions b)
       forth (Pair a b) =
-        TheseTable (view (from expressions) a) (view (from expressions) b)
+        TheseTable
+          (view (from expressions) a)
+          (view (from expressions) b)
 
-  rowParser = do
+  rowParser_ _ _ = do
     ma <- rowParser
     mb <- rowParser
     case (ma, mb) of
@@ -291,41 +383,11 @@ nullable a f b =
 
 
 --------------------------------------------------------------------------------
-{- | A one column 'Table' of type @a@. This type is required for queries that
-   return only one column (for reasons of preserving type inference). It can
-   also be used to build "anonymous" tables, by joining multiple tables with
-   tupling.
-
-   === Example: Querying a single column
-
-   @
-   data TestTable f = TestTable { col :: Col f "col" 'NoDefault Int}
-
-   oneCol :: Stream (Of (Col Int))
-   oneCol = select connection $ testColumn <$> queryTable
-   @
-
-   === Example: Building tables out of single columns
-
-   @
-   data T1 f = TestTable { col1 :: Col f "col" 'NoDefault Int}
-   data T2 f = TestTable { col2 :: Col f "col" 'NoDefault Bool}
-
-   q :: Stream (Of (Col Int, Col Bool))
-   q = select connection $ proc () -> do
-     t1 <- queryTable -< ()
-     t2 <- queryTable -< ()
-     returnA -< (col1 t1, col2 t2)
-   @
--}
-newtype Col a = Col { unCol :: a }
-  deriving (Show, ToJSON, FromJSON, Read, Eq, Ord)
-
--- | Single 'Expr'essions are tables, but the result will be wrapped in 'Col'.
-instance DBType a => Table (Expr a) (Col a) where
+-- | Single 'Expr'essions are tables.
+instance DBType a => TableC 'AnExpr (Expr a) a where
   type RowF (Expr a) = Identity
-  expressions = dimap (\(Expr a) -> return a) (fmap (Expr . runIdentity))
-  rowParser = fmap Col field
+  expressions_ _ _ = dimap (\(Expr a) -> return a) (fmap (Expr . runIdentity))
+  rowParser_ _ _ = field
 
 --------------------------------------------------------------------------------
 traversePrimExprs
@@ -458,24 +520,24 @@ viewTable =
     (from expressions)
     (fmap
        (\(Colimit (SchemaInfo str)) -> O.BaseTableAttrExpr str)
-       (view (tabular AsSchemaInfo) (columns @table)))
+       (view (tabular @table AsSchemaInfo) (columns @table)))
 
 
 --------------------------------------------------------------------------------
 -- | Query all rows in a table. Equivalent to @SELECT * FROM table@.
-queryTable :: BaseTable table => O.Query (table Expr)
+queryTable :: forall table. BaseTable table => O.Query (table Expr)
 queryTable =
   O.queryTableExplicit
-    (O.Unpackspec (O.PackMap traversePrimExprs))
-    tableDefinition
+    (O.Unpackspec (O.PackMap (traversePrimExprs @_ @(table Expr))))
+    (tableDefinition @table)
 
 --------------------------------------------------------------------------------
 tableDefinition
-  :: BaseTable table
+  :: forall table. BaseTable table
   => O.Table (table Insert) (table Expr)
 tableDefinition =
   tableDefinition_
-    (fmap (\(Colimit (InsertExpr (Expr x))) -> x) . view (tabular AsInsert))
+    (fmap (\(Colimit (InsertExpr (Expr x))) -> x) . view (tabular @table AsInsert))
 
 tableDefinitionUpdate
   :: BaseTable table
@@ -514,7 +576,7 @@ tableDefinition_ toExprs =
             index
               (fmap
                  (\(Colimit (SchemaInfo str)) -> str)
-                 (view (tabular AsSchemaInfo) (columns @table)))
+                 (view (tabular @table AsSchemaInfo) (columns @table)))
 
           exprs :: exprs (RowF (table Expr) O.PrimExpr)
           exprs = fmap toExprs a
@@ -594,13 +656,13 @@ instance KnownSymbol name =>
 -- Table products as tuples
 
 instance (Table a a', Table b b') =>
-         Table (a, b) (a', b')
+         TableC 'ATable (a, b) (a', b')
 instance (Table a a', Table b b', Table c c') =>
-         Table (a, b, c) (a', b', c')
+         TableC 'ATable (a, b, c) (a', b', c')
 instance (Table a a', Table b b', Table c c', Table d d') =>
-         Table (a, b, c, d) (a', b', c', d')
+         TableC 'ATable (a, b, c, d) (a', b', c', d')
 instance (Table a a', Table b b', Table c c', Table d d', Table e e') =>
-         Table (a, b, c, d, e) (a', b', c', d', e')
+         TableC 'ATable (a, b, c, d, e) (a', b', c', d', e')
 
 instance (AggregateTable a a', AggregateTable b b') =>
          AggregateTable (a, b) (a', b')
