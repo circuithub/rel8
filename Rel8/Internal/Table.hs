@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -15,9 +16,7 @@
 -- | This module defines the 'Table' type class.
 module Rel8.Internal.Table where
 
-import Data.Kind ( Type )
-import Data.Proxy
-import GHC.TypeLits
+import Data.String (IsString(..))
 import Control.Applicative
 import Control.Lens (AnIso', Iso', cloneIso, from, iso, view)
 import Data.Bifunctor ( Bifunctor, bimap )
@@ -26,13 +25,17 @@ import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Rep (Representable, index, liftR3, mzipWithRep, tabulate, pureRep)
 import qualified Data.Functor.Rep as Representable
+import Data.Kind ( Type )
 import Data.Maybe (fromMaybe)
 import Data.Profunctor (dimap)
+import Data.Proxy
 import Data.Tagged (Tagged(..), untag)
+import Data.These ( These( This, That, These ) )
 import Database.PostgreSQL.Simple.FromRow (RowParser, field, fieldWith)
 import GHC.Generics
        ((:*:)(..), Generic, K1(..), M1(..), Rep, to)
 import GHC.Generics.Lens (generic, _M1, _K1)
+import GHC.TypeLits
 import Generics.OneLiner (nullaryOp, ADTRecord, Constraints)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Column as O
@@ -45,6 +48,7 @@ import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Table as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Internal.Values as O
+import qualified Opaleye.PGTypes as O
 import qualified Opaleye.Table as O hiding (required)
 import Prelude hiding (not)
 import Prelude hiding (not, id)
@@ -52,7 +56,6 @@ import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
 import Rel8.Internal.Types
-import Data.These ( These( This, That, These ) )
 
 type family MkRowF a :: * -> * where
   MkRowF (M1 i c f) = MkRowF f
@@ -123,25 +126,39 @@ class (Representable (HRowF t), Traversable (HRowF t)) => HigherKindedTable t wh
   hrowParser = fmap to growParser
 
 
+  hlit :: t QueryResult -> t Expr
+  default hlit
+    :: ( GTable (Rep (t Expr)) (Rep (t QueryResult))
+       , Generic (t QueryResult)
+       , Generic (t Expr)
+       )
+    => t QueryResult -> t Expr
+  hlit = to . glit . view generic
+
+
 instance HigherKindedTable t => TableC 'ATable (t Expr) (t QueryResult) where
   type RowF (t Expr) = HRowF t
   expressions_ _ _ = cloneIso hexpressions
   rowParser_ _ _ = hrowParser
+  tlit _ = hlit
 
 
 class GTable expr haskell | expr -> haskell, haskell -> expr where
   growParser :: RowParser (haskell a)
   gexpressions :: Iso' (expr a) (MkRowF expr O.PrimExpr)
+  glit :: haskell a -> expr a
 
 
 instance GTable expr haskell => GTable (M1 i c expr) (M1 i c haskell) where
   growParser = M1 <$> growParser
   gexpressions = _M1 . gexpressions
+  glit (M1 x) = M1 $ glit x
 
 
 instance (GTable le lh, GTable re rh) =>
          GTable (le :*: re) (lh :*: rh) where
   growParser = liftA2 (:*:) growParser growParser
+  glit (x :*: y) = glit x :*: glit y
   gexpressions =
     iso
       (\(l :*: r) -> Pair (view gexpressions l) (view gexpressions r))
@@ -152,11 +169,13 @@ instance (GTable le lh, GTable re rh) =>
 instance {-# OVERLAPPABLE #-}
          Table expr haskell => GTable (K1 i expr) (K1 i haskell) where
   growParser = K1 <$> rowParser
+  glit (K1 x) = K1 $ lit x
   gexpressions = _K1 . expressions
 
 
-instance DBType a =>
+instance (DBType a, ExprType a ~ Expr a) =>
          GTable (K1 i (Expr a)) (K1 i a) where
+  glit (K1 x) = K1 $ lit x
   growParser = K1 <$> field
   gexpressions =
     iso
@@ -211,6 +230,12 @@ class (Representable (RowF expr), Traversable (RowF expr)) =>
          )
       => Proxy t -> Proxy haskell -> Iso' expr (RowF expr O.PrimExpr)
   expressions_ _ _ = generic . gexpressions
+
+  tlit :: Proxy t -> haskell -> expr
+  default tlit
+    :: (Generic haskell, GTable (Rep expr) (Rep haskell), Generic expr)
+    => Proxy t -> haskell -> expr
+  tlit _ = to . glit . view generic
 
 
 expressions :: forall expr haskell. Table expr haskell => Iso' expr (RowF expr O.PrimExpr)
@@ -275,6 +300,10 @@ instance (Table expr haskell) => TableC 'ATable (MaybeTable expr) (Maybe haskell
            sequence_ (pureRep @(RowF expr) (fieldWith (\_ _ -> pure ())))
       else fmap Just rowParser
 
+  tlit _ = \case
+    Nothing -> MaybeTable (lit Nothing) (view (from expressions) (pureRep (O.ConstExpr O.NullLit)))
+    Just a  -> MaybeTable (lit (Just False)) $ lit a
+
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@. Like field selection.
 --
@@ -328,6 +357,11 @@ instance Bifunctor TheseTable where
 instance (Table exprA a, Table exprB b, ExprType (Maybe b) ~ MaybeTable exprB, ExprType (Maybe a) ~ MaybeTable exprA) => TableC 'ATable (TheseTable exprA exprB) (These a b) where
   type RowF (TheseTable exprA exprB) =
     Product (RowF (MaybeTable exprA)) (RowF (MaybeTable exprB))
+
+  tlit _ = \case
+    This a    -> TheseTable (lit (Just a)) (lit Nothing)
+    That b    -> TheseTable (lit Nothing)  (lit (Just b))
+    These a b -> TheseTable (lit (Just a)) (lit (Just b))
 
   expressions_ _ _ = dimap back (fmap forth)
     where
@@ -388,6 +422,7 @@ instance DBType a => TableC 'AnExpr (Expr a) a where
   type RowF (Expr a) = Identity
   expressions_ _ _ = dimap (\(Expr a) -> return a) (fmap (Expr . runIdentity))
   rowParser_ _ _ = field
+  tlit _ = Expr . formatLit dbTypeInfo
 
 --------------------------------------------------------------------------------
 traversePrimExprs
@@ -672,3 +707,32 @@ instance (AggregateTable a a', AggregateTable b b', AggregateTable c c', Aggrega
          AggregateTable (a, b, c, d) (a', b', c', d')
 instance (AggregateTable a a', AggregateTable b b', AggregateTable c c', AggregateTable d d', AggregateTable e e') =>
          AggregateTable (a, b, c, d, e) (a', b', c', d', e')
+
+
+--------------------------------------------------------------------------------
+instance (IsString a, DBType a, ExprType a ~ Expr a) => IsString (Expr a) where
+  fromString = lit . fromString
+
+
+--------------------------------------------------------------------------------
+-- | Lift a Haskell value into a literal database expression.
+lit :: forall haskell expr. Table expr haskell => haskell -> expr
+lit = tlit (Proxy @(Choose expr haskell))
+
+
+instance {-# OVERLAPS#-} (IsString a, DBType a, ExprType (Maybe a) ~ Expr (Maybe a)) => IsString (Expr (Maybe a)) where
+  fromString = lit . Just . fromString
+
+
+-- | It is assumed that any Haskell types that have a 'Num' instance also have
+-- the corresponding operations in the database. Hence, Num a => Num (Expr a).
+-- *However*, if this is not the case, you should `newtype` the Haskell type
+-- and avoid providing a 'Num' instance, or you may write be able to write
+-- ill-typed queries!
+instance (DBType a, Num a, ExprType a ~ Expr a) => Num (Expr a) where
+  a + b = columnToExpr (O.binOp (O.:+) (exprToColumn a) (exprToColumn b))
+  a * b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
+  abs = dbFunction "abs"
+  signum = columnToExpr @O.PGInt8 . signum . exprToColumn
+  fromInteger = lit . fromInteger
+  negate = columnToExpr @O.PGInt8 . negate . exprToColumn

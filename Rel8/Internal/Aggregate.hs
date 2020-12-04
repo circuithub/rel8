@@ -18,6 +18,7 @@ import qualified Opaleye.Internal.QueryArr as O
 import Prelude hiding (not, (.), id)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
+import Rel8.Internal.Table
 import Rel8.Internal.Types
 
 --------------------------------------------------------------------------------

@@ -26,24 +26,6 @@ newtype Expr t = Expr O.PrimExpr
 
 type role Expr representational
 
-instance (IsString a, DBType a) => IsString (Expr a) where
-  fromString = lit . fromString
-
-instance {-# OVERLAPS#-} (IsString a, DBType a) => IsString (Expr (Maybe a)) where
-  fromString = lit . Just . fromString
-
--- | It is assumed that any Haskell types that have a 'Num' instance also have
--- the corresponding operations in the database. Hence, Num a => Num (Expr a).
--- *However*, if this is not the case, you should `newtype` the Haskell type
--- and avoid providing a 'Num' instance, or you may write be able to write
--- ill-typed queries!
-instance (DBType a, Num a) => Num (Expr a) where
-  a + b = columnToExpr (O.binOp (O.:+) (exprToColumn a) (exprToColumn b))
-  a * b = columnToExpr (O.binOp (O.:*) (exprToColumn a) (exprToColumn b))
-  abs = dbFunction "abs"
-  signum = columnToExpr @O.PGInt8 . signum . exprToColumn
-  fromInteger = lit . fromInteger
-  negate = columnToExpr @O.PGInt8 . negate . exprToColumn
 
 --------------------------------------------------------------------------------
 -- | (Unsafely) coerce the phantom type given to 'Expr'. This operation is
@@ -127,12 +109,6 @@ coerceExpr (Expr a) = Expr a
 -- | Casts an 'Expr' as @text@.
 dbShow :: DBType a => Expr a -> Expr Text
 dbShow = unsafeCastExpr "text"
-
-
---------------------------------------------------------------------------------
--- | Lift a Haskell value into a literal database expression.
-lit :: DBType a => a -> Expr a
-lit = Expr . formatLit dbTypeInfo
 
 
 --------------------------------------------------------------------------------
