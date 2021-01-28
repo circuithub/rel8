@@ -71,6 +71,7 @@ library
                      , unliftio >= 0.2.7.0 && < 0.3
                      , uuid
                      , vector
+                     , witherable >= 0.3.5 && < 0.4
                      , lens
                      , adjunctions
   -- hs-source-dirs:

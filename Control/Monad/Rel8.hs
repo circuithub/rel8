@@ -40,6 +40,7 @@ module Control.Monad.Rel8
     TransactionSyntax(..)
   ) where
 
+import Control.Applicative (empty)
 import Control.Exception (fromException)
 import Control.Monad.Free.Church (F, liftF, iterM)
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -47,11 +48,13 @@ import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Resource (MonadUnliftIO, runResourceT)
+import Control.Monad.Trans.State.Strict (evalState, evalStateT, get, put)
+import Data.Foldable (toList)
+import Data.Functor.Identity (Identity(Identity, runIdentity))
 import UnliftIO.Exception (throwIO, try, mask)
 import Data.Int (Int64)
-import qualified Data.List.NonEmpty as NonEmpty
-import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (listToMaybe)
+import Data.Witherable (Witherable, wither)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Opaleye (Query)
@@ -68,14 +71,14 @@ data StatementSyntax f where
       Table pg haskell =>
       Query pg -> ([haskell] -> k) -> StatementSyntax k
   InsertReturning ::
-      BaseTable table =>
-      NonEmpty (table Insert) -> (NonEmpty (table QueryResult) -> k) -> StatementSyntax k
+      (BaseTable table, Traversable t) =>
+      t (table Insert) -> (t (table QueryResult) -> k) -> StatementSyntax k
   Insert ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
   InsertIgnoringConflictsReturning ::
-      BaseTable table =>
-      NonEmpty (table Insert) -> ([table QueryResult] -> k) -> StatementSyntax k
+      (BaseTable table, Witherable t) =>
+      t (table Insert) -> (t (table QueryResult) -> k) -> StatementSyntax k
   InsertIgnoringConflicts ::
       BaseTable table =>
       [table Insert] -> (Int64 -> k) -> StatementSyntax k
@@ -111,13 +114,14 @@ insert1Returning
      , BaseTable table
      )
   => table Insert -> m (table QueryResult)
-insert1Returning  = fmap NonEmpty.head . insertReturning . (NonEmpty.:|[])
+insert1Returning  = fmap runIdentity . insertReturning . Identity
 
 insertReturning
   :: ( MonadStatement m
      , BaseTable table
+     , Traversable t
      )
-  => NonEmpty (table Insert) -> m (NonEmpty (table QueryResult))
+  => t (table Insert) -> m (t (table QueryResult))
 insertReturning rows = liftStatements (liftF (InsertReturning rows id))
 
 insert
@@ -140,8 +144,9 @@ insert1IgnoringConflictsReturning = fmap listToMaybe . insertIgnoringConflictsRe
 insertIgnoringConflictsReturning
   :: ( MonadStatement m
      , BaseTable table
+     , Witherable t
      )
-  => NonEmpty (table Insert) -> m [table QueryResult]
+  => t (table Insert) -> m (t (table QueryResult))
 insertIgnoringConflictsReturning rows = liftStatements (liftF (InsertIgnoringConflictsReturning rows id))
 
 update
@@ -247,16 +252,30 @@ instance (MonadIO m, MonadUnliftIO m) => MonadStatement (PostgreSQLStatementT e 
     where
       step :: Pg.Connection -> StatementSyntax (ReaderT Pg.Connection m a) -> ReaderT Pg.Connection m a
       step pg (Select q k) = runResourceT (S.toList_ (Rel8.IO.select (Rel8.IO.stream pg) q)) >>= k
-      step pg (InsertReturning q k) =
-        runResourceT (NonEmpty.fromList <$> S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
+
+      step pg (InsertReturning q k) = do
+        results <- runResourceT $ S.toList_ (Rel8.IO.insertReturning (Rel8.IO.stream pg) (toList q))
+        case traverse (const (get >>= uncons)) q `evalStateT` results of
+          Nothing -> liftIO $ fail "insertReturning dropped some rows"
+          Just rows -> k rows
+        where
+          uncons [] = empty
+          uncons (a : as) = a <$ put as
+
       step pg (Insert q k) = liftIO (Rel8.IO.insert pg q) >>= k
-      step pg (InsertIgnoringConflictsReturning q k) =
-        runResourceT (S.toList_ (Rel8.IO.insertIgnoringConflictsReturning (Rel8.IO.stream pg) (NonEmpty.toList q))) >>= k
+      step pg (InsertIgnoringConflictsReturning q k) = do
+        results <- runResourceT $ S.toList_ (Rel8.IO.insertIgnoringConflictsReturning (Rel8.IO.stream pg) (toList q))
+        k $ wither (const (get >>= uncons)) q `evalState` results
+        where
+          uncons [] = pure Nothing
+          uncons (a : as) = Just a <$ put as
+
       step pg (InsertIgnoringConflicts q k) = liftIO (Rel8.IO.insertIgnoringConflicts pg q) >>= k
       step pg (Update a b k) = liftIO (Rel8.IO.update pg a b) >>= k
       step pg (UpdateReturning a b k) =
         runResourceT (S.toList_ (Rel8.IO.updateReturning (Rel8.IO.stream pg) a b)) >>= k
       step pg (Delete q k) = liftIO (Rel8.IO.delete pg q) >>= k
+
 
 instance (Monad m) => MonadRollback e (PostgreSQLStatementT e m) where
   abortTransaction l = PostgreSQLStatementT (ExceptT (return (Left l)))
