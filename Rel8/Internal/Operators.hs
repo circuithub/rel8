@@ -14,7 +14,7 @@ import Data.Time (UTCTime, Day)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.PGTypes as O
-import Prelude hiding (not)
+import Prelude hiding (not, null)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 
@@ -118,3 +118,9 @@ case_ cases defaultCase =
              (exprToColumn (toNullable predicate), exprToColumn when))
           cases)
        (exprToColumn defaultCase))
+
+-- | Case statement without default. @mcase [(x,a), (y, b)]@ corresponds to
+-- @CASE WHEN x THEN a WHEN y THEN b END@.
+mcase :: (DBType (UnMaybe maybeA), Predicate bool, ToNullable a maybeA)
+  => [(Expr bool, Expr a)] -> Expr maybeA
+mcase cases = case_ (map (fmap toNullable) cases) null

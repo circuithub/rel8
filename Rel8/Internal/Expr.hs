@@ -17,6 +17,7 @@ import Data.Text
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.PGTypes as O
+import Prelude hiding (null)
 import Rel8.Internal.DBType
 
 --------------------------------------------------------------------------------
@@ -51,7 +52,7 @@ unsafeCastExpr t = columnToExpr . O.unsafeCast t . exprToColumn
 -- If an Expr is already nullable, then this acts like the identity function.
 -- This is useful as it allows projecting an already-nullable column from a left
 -- join.
-class ToNullable a maybeA | a -> maybeA where
+class maybeA ~ Maybe (UnMaybe maybeA) => ToNullable a maybeA | a -> maybeA where
   toNullable :: Expr a -> Expr maybeA
 
 instance ToNullableHelper a maybeA (IsMaybe a) => ToNullable a maybeA where
@@ -61,7 +62,7 @@ instance ToNullableHelper a maybeA (IsMaybe a) => ToNullable a maybeA where
 -- | A helper class to implement 'ToNullable' by scrutenising the argument
 -- and partioning into 'Maybe'/'NotMaybe' while retaining functional
 -- dependencies.
-class isMaybe ~ IsMaybe a =>
+class (maybeA ~ Maybe (UnMaybe maybeA), isMaybe ~ IsMaybe a) =>
         ToNullableHelper a maybeA isMaybe | isMaybe a -> maybeA where
   toNullableHelper :: proxy (join :: Bool) -> Expr a -> Expr maybeA
 
@@ -76,6 +77,14 @@ instance ToNullableHelper (Maybe a) (Maybe a) 'True where
 type family IsMaybe a :: Bool where
   IsMaybe (Maybe a) = 'True
   IsMaybe _ = 'False
+
+type family UnMaybe a :: * where
+  UnMaybe (Maybe a) = a
+
+
+--------------------------------------------------------------------------------
+null :: forall a. DBType (Maybe a) => Expr (Maybe a)
+null = unsafeCastExpr (dbTypeName (dbTypeInfo @(Maybe a))) (Expr (O.ConstExpr O.NullLit))
 
 
 --------------------------------------------------------------------------------

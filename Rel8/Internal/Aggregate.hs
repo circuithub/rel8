@@ -1,7 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RoleAnnotations #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Rel8.Internal.Aggregate where
@@ -15,9 +15,10 @@ import Data.Vector (Vector)
 import qualified Opaleye.Aggregate as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.QueryArr as O
-import Prelude hiding (not, (.), id)
+import Prelude hiding ((.), id, not, null, sum)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
+import Rel8.Internal.Operators
 import Rel8.Internal.Table
 import Rel8.Internal.Types
 
@@ -40,7 +41,7 @@ instance DBAvg Int16 Scientific
 -- | The class of data types that can be aggregated under the @sum@ operation.
 -- This type class contains two parameters, as @sum@ can be a type-changing
 -- operation in PostgreSQL.
-class DBSum a res | a -> res where
+class (DBType a, Expr a ~ ExprType a) => DBSum a res | a -> res where
   -- | Corresponds to @sum@.
   sum :: Expr a -> Aggregate res
   sum (Expr a) = Aggregate (Just (O.AggrSum, [], O.AggrAll)) a
@@ -131,3 +132,11 @@ groupBy (Expr a) = Aggregate Nothing a
 -- | Corresponds to @COUNT(*)@.
 countStar :: Aggregate Int64
 countStar = count (lit @Int64 0)
+
+-- | Corresponds to @COUNT(*) FILTER (WHERE <condition>)@.
+countWhere :: Predicate bool => Expr bool -> Aggregate Int64
+countWhere condition = count (mcase [(condition, lit @Int64 0)])
+
+-- | Corresponds to @SUM(<expr>) FILTER (WHERE <condition>)@.
+sumWhere :: (Predicate bool, DBSum a res, Num a) => Expr bool -> Expr a -> Aggregate res
+sumWhere condition a = sum (case_ [(condition, a)] (lit 0))

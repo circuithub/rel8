@@ -56,7 +56,7 @@ module Rel8
     -- * Aggregation
   , aggregate
   , AggregateTable
-  , count, groupBy, DBSum(..), countStar, DBMin(..), DBMax(..), DBAvg(..)
+  , count, countStar, countWhere, groupBy, DBSum(..), sumWhere, DBMin(..), DBMax(..), DBAvg(..)
   , boolAnd, boolOr, stringAgg, arrayAgg, countDistinct
   , countRows, Aggregate
 
@@ -66,7 +66,7 @@ module Rel8
   , TheseTable, theseTable
 
     -- * Expressions
-  , Expr, coerceExpr, dbShow, case_
+  , Expr, coerceExpr, dbShow, case_, mcase
 
     -- ** Equality
   , DBEq, (==.), in_, ilike
@@ -85,8 +85,9 @@ module Rel8
   , TypeInfo(..), showableDbType, compositeDBType
 
     -- ** Null
-  , ToNullable(toNullable) , ($?), isNull, nullable
+  , ToNullable(toNullable), UnMaybe, ($?), isNull, nullable
   , liftOpNull, mapNull
+  , null
 
     -- *** Null-lifted operators
     -- $nullLift
@@ -150,7 +151,7 @@ import qualified Opaleye.Join as O
 import qualified Opaleye.Operators as O
 import qualified Opaleye.Order as O
 import qualified Opaleye.Values as O
-import Prelude hiding (not, (.), id)
+import Prelude hiding ((.), id, not, null)
 import Rel8.Internal
 import Streaming (Of, Stream)
 
@@ -257,6 +258,7 @@ filterQuery f q = proc _ -> do
 -- | Corresponds to the @IS NULL@ operator.
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = columnToExpr . O.isNull . exprToColumn
+
 
 -- | Test if an 'Expr' is in a list of 'Expr's. This is performed by folding
 -- '==.' over all values and combining them with '||.'.

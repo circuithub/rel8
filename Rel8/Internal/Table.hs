@@ -50,8 +50,7 @@ import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Internal.Values as O
 import qualified Opaleye.PGTypes as O
 import qualified Opaleye.Table as O hiding (required)
-import Prelude hiding (not)
-import Prelude hiding (not, id)
+import Prelude hiding (not, null)
 import Rel8.Internal.DBType
 import Rel8.Internal.Expr
 import Rel8.Internal.Operators
@@ -312,12 +311,8 @@ instance (Table expr haskell) => TableC 'ATable (MaybeTable expr) (Maybe haskell
 infixl 4 $?
 ($?) :: forall a b maybeB. (DBType maybeB, ToNullable b maybeB, ExprType maybeB ~ Expr maybeB)
   => (a -> Expr b) -> MaybeTable a -> Expr maybeB
-f $? ma = maybeTable null_ (toNullable . f) ma
-  where
-    null_ =
-      unsafeCastExpr
-        (dbTypeName (dbTypeInfo @maybeB))
-        (Expr (O.ConstExpr O.NullLit))
+f $? ma = maybeTable (null @(UnMaybe maybeB)) (toNullable . f) ma
+
 
 -- | Check if a 'MaybeTable' is a @NULL@ row. Usually this means a @LEFT JOIN@
 -- that did match any rows.
