@@ -36,6 +36,7 @@ library
                        Rel8.IO
                        Rel8.Internal
                        Rel8.Text
+                       Rel8.Time
                        Control.Monad.Rel8
   other-modules:       Rel8.Internal.Aggregate
                        Rel8.Internal.DBType
