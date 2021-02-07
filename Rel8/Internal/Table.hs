@@ -299,9 +299,8 @@ instance (Table expr haskell) => TableC 'ATable (MaybeTable expr) (Maybe haskell
            sequence_ (pureRep @(RowF expr) (fieldWith (\_ _ -> pure ())))
       else fmap Just rowParser
 
-  tlit _ = \case
-    Nothing -> MaybeTable (lit Nothing) (view (from expressions) (pureRep (O.ConstExpr O.NullLit)))
-    Just a  -> MaybeTable (lit (Just False)) $ lit a
+  tlit _ = maybe nothingTable (pure . lit)
+
 
 -- | Project an expression out of a 'MaybeTable', preserving the fact that this
 -- column might be @null@. Like field selection.
@@ -334,6 +333,16 @@ maybeTable b f (MaybeTable tag a) =
       (exprToColumn conditional)
       where
         unColumn (O.Column result) = result
+
+
+nothingTable :: Table a haskell => MaybeTable a
+nothingTable =
+  MaybeTable null (view (from expressions) (pureRep (O.ConstExpr O.NullLit)))
+
+
+altTable :: Table a haskell => MaybeTable a -> MaybeTable a -> MaybeTable a
+altTable ma@(MaybeTable tag a) (MaybeTable tag' b) =
+  MaybeTable (bool tag tag' (isTableNull ma)) (bool a b (isTableNull ma))
 
 
 --------------------------------------------------------------------------------

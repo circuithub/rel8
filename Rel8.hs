@@ -62,7 +62,7 @@ module Rel8
 
     -- * Tables
   , bool
-  , MaybeTable, isTableNull, maybeTable
+  , MaybeTable, isTableNull, maybeTable, nothingTable, altTable
   , TheseTable, theseTable
 
     -- * Expressions
