@@ -740,3 +740,8 @@ instance (DBType a, Num a, ExprType a ~ Expr a) => Num (Expr a) where
   signum = columnToExpr @O.PGInt8 . signum . exprToColumn
   fromInteger = lit . fromInteger
   negate = columnToExpr @O.PGInt8 . negate . exprToColumn
+
+
+instance (DBType a, Fractional a, ExprType a ~ Expr a) => Fractional (Expr a) where
+  a / b = columnToExpr (O.binOp (O.:/) (exprToColumn a) (exprToColumn b))
+  fromRational = lit . fromRational
