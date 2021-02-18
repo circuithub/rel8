@@ -19,6 +19,7 @@ module Rel8.Internal.Table where
 import Data.String (IsString(..))
 import Control.Applicative
 import Control.Lens (AnIso', Iso', cloneIso, from, iso, view)
+import Control.Monad.Trans.State.Strict ( State, runState, state )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
@@ -33,7 +34,7 @@ import Data.Tagged (Tagged(..), untag)
 import Data.These ( These( This, That, These ) )
 import Database.PostgreSQL.Simple.FromRow (RowParser, field, fieldWith)
 import GHC.Generics
-       ((:*:)(..), Generic, K1(..), M1(..), Rep, to)
+       ((:*:)(..), Generic, K1(..), M1(..), Meta(..), Rep, S1, to)
 import GHC.Generics.Lens (generic, _M1, _K1)
 import GHC.TypeLits
 import Generics.OneLiner (nullaryOp, ADTRecord, Constraints)
@@ -44,8 +45,10 @@ import qualified Opaleye.Internal.Binary as O
 import qualified Opaleye.Internal.Column as O
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.PackMap as O
+import qualified Opaleye.Internal.PrimQuery as O ( Bindings, PrimQuery'( Rebind ) )
 import qualified Opaleye.Internal.QueryArr as O
 import qualified Opaleye.Internal.Table as O
+import qualified Opaleye.Internal.Tag as O
 import qualified Opaleye.Internal.Unpackspec as O
 import qualified Opaleye.Internal.Values as O
 import qualified Opaleye.PGTypes as O
@@ -74,6 +77,7 @@ type family Choose (a :: Type) (b :: Type) :: TableType where
   Choose (t Expr) (t QueryResult) = 'ATable
   Choose (t Expr x) (t QueryResult x) = 'ATable
   Choose (MaybeTable a) (Maybe b) = 'ATable
+  Choose (TheseTable a b) (These a b) = 'ATable
   Choose (f a b c d) (g s t u v) = 'ATable
 
 
@@ -85,7 +89,9 @@ type family ExprType (a :: Type) :: Type where
   ExprType (t QueryResult) = t Expr
   ExprType (t QueryResult x) = t Expr x
   ExprType (Maybe (t QueryResult)) = MaybeTable (t Expr)
+  ExprType (These (t QueryResult) (v QueryResult)) = TheseTable (t Expr) (v Expr)
   ExprType (Maybe (a, b)) = MaybeTable (ExprType a, ExprType b)
+  ExprType (These (a, b) (c, d)) = TheseTable (ExprType a, ExprType b) (ExprType c, ExprType d)
   ExprType (Maybe a) = Expr (Maybe a)
   ExprType (f a b c d) = f (ExprType a) (ExprType b) (ExprType c) (ExprType d)
   ExprType a = Expr a
@@ -100,6 +106,7 @@ type family ResultType (a :: Type) :: Type where
   ResultType (t Expr x) = t QueryResult x
   ResultType (Expr a) = a
   ResultType (MaybeTable a) = Maybe (ResultType a)
+  ResultType (TheseTable a b) = These (ResultType a) (ResultType b)
   ResultType (f a b c d) = f (ResultType a) (ResultType b) (ResultType c) (ResultType d)
 
 
@@ -133,6 +140,26 @@ class (Representable (HRowF t), Traversable (HRowF t)) => HigherKindedTable t wh
        )
     => t QueryResult -> t Expr
   hlit = to . glit . view generic
+
+
+  hbindings :: t Name -> t Expr -> State O.Tag (O.Bindings O.PrimExpr, t Expr)
+  default hbindings
+    :: ( GBindings (Rep (t Name)) (Rep (t Expr))
+       , Generic (t Name)
+       , Generic (t Expr)
+       )
+    => t Name -> t Expr -> State O.Tag (O.Bindings O.PrimExpr, t Expr)
+  hbindings names exprs =
+    fmap to <$> gbindings (view generic names) (view generic exprs)
+
+
+  hdefaultNames :: (String -> String) -> t Name
+  default hdefaultNames
+    :: ( GDefaultNames (Rep (t Name))
+       , Generic (t Name)
+       )
+    => (String -> String) -> (t Name)
+  hdefaultNames = to . gdefaultNames
 
 
 instance HigherKindedTable t => TableC 'ATable (t Expr) (t QueryResult) where
@@ -745,3 +772,143 @@ instance (DBType a, Num a, ExprType a ~ Expr a) => Num (Expr a) where
 instance (DBType a, Fractional a, ExprType a ~ Expr a) => Fractional (Expr a) where
   a / b = columnToExpr (O.binOp (O.:/) (exprToColumn a) (exprToColumn b))
   fromRational = lit . fromRational
+
+
+class GBindings name expr | expr -> name, name -> expr where
+  gbindings :: name a -> expr a -> State O.Tag (O.Bindings O.PrimExpr, expr a)
+
+
+instance GBindings name expr => GBindings (M1 i c name) (M1 i c expr) where
+  gbindings (M1 names) (M1 exprs) = fmap M1 <$> gbindings names exprs
+
+
+instance (GBindings ln le, GBindings rn re) =>
+         GBindings (ln :*: rn) (le :*: re) where
+  gbindings (inames :*: inames') (iexprs :*: iexprs') = do
+    (onames, oexprs) <- gbindings inames iexprs
+    (onames', oexprs') <- gbindings inames' iexprs'
+    pure (onames <> onames', oexprs :*: oexprs')
+
+
+instance Bindings name expr => GBindings (K1 i name) (K1 i expr) where
+  gbindings (K1 names) (K1 exprs) = fmap K1 <$> bindings names exprs
+
+
+class Bindings name expr | name -> expr, expr -> name where
+  bindings :: name -> expr -> State O.Tag (O.Bindings O.PrimExpr, expr)
+  default bindings
+    :: (GBindings (Rep name) (Rep expr), Generic name, Generic expr)
+    => name -> expr -> State O.Tag (O.Bindings O.PrimExpr, expr)
+  bindings names exprs =
+    fmap to <$> gbindings (view generic names) (view generic exprs)
+
+
+instance Bindings (Name a) (Expr a) where
+  bindings (Name name) (Expr expr) =
+    pure ([(symbol, expr)], Expr (O.AttrExpr symbol))
+    where
+      symbol = O.Symbol name Nothing
+
+
+instance HigherKindedTable t => Bindings (t Name) (t Expr) where
+  bindings = hbindings
+
+
+instance Bindings name expr => Bindings (MaybeTable name) (MaybeTable expr) where
+  bindings (MaybeTable _ names) (MaybeTable (Expr expr) exprs) = do
+    symbol <- state (\tag -> (O.Symbol "maybe" (Just tag), O.next tag))
+    (onames, oexprs) <- bindings names exprs
+    pure ((symbol, expr) : onames, MaybeTable (Expr (O.AttrExpr symbol)) oexprs)
+
+
+instance (Bindings name expr, Bindings name' expr') =>
+  Bindings (TheseTable name name') (TheseTable expr expr')
+ where
+  bindings (TheseTable inames inames') (TheseTable iexprs iexprs') = do
+    (onames, oexprs) <- bindings inames iexprs
+    (onames', oexprs') <- bindings inames' iexprs'
+    pure (onames <> onames', TheseTable oexprs oexprs')
+
+
+instance (Bindings a a', Bindings b b') =>
+  Bindings (a, b) (a', b')
+
+
+instance (Bindings a a', Bindings b b', Bindings c c') =>
+  Bindings (a, b, c) (a', b', c')
+
+
+instance (Bindings a a', Bindings b b', Bindings c c', Bindings d d') =>
+  Bindings (a, b, c, d) (a', b', c', d')
+
+
+instance (Bindings a a', Bindings b b', Bindings c c', Bindings d d', Bindings e e') =>
+  Bindings (a, b, c, d, e) (a', b', c', d', e')
+
+
+renameColumns :: Bindings name expr => name -> O.QueryArr i expr -> O.QueryArr i expr
+renameColumns names (O.QueryArr f) = O.QueryArr $ \(i, query, tag) ->
+  let
+    (exprs, query', tag') = f (i, query, tag)
+    ((onames, oexprs), tag'') = runState (bindings names exprs) tag'
+    query'' = O.Rebind False onames query'
+  in
+    (oexprs, query'', tag'')
+
+
+class DefaultNames a where
+  -- | Construct a record of 'Name's suitable for use with 'renameColumns' based on the
+  -- field names of record selectors.
+  defaultNames :: (String -> String) -> a
+  default defaultNames :: (Generic a, GDefaultNames (Rep a)) => (String -> String) -> a
+  defaultNames = to . gdefaultNames
+
+
+instance HigherKindedTable t => DefaultNames (t Name) where
+  defaultNames = hdefaultNames
+
+
+instance DefaultNames a => DefaultNames (MaybeTable a) where
+  defaultNames = pure . defaultNames
+
+
+instance (DefaultNames a, DefaultNames b) => DefaultNames (TheseTable a b) where
+  defaultNames f = TheseTable (defaultNames f) (defaultNames f)
+
+
+instance (DefaultNames a, DefaultNames b) =>
+  DefaultNames (a, b)
+
+
+instance (DefaultNames a, DefaultNames b, DefaultNames c) =>
+  DefaultNames (a, b, c)
+
+
+instance (DefaultNames a, DefaultNames b, DefaultNames c, DefaultNames d) =>
+  DefaultNames (a, b, c, d)
+
+
+instance (DefaultNames a, DefaultNames b, DefaultNames c, DefaultNames d, DefaultNames e) =>
+  DefaultNames (a, b, c, d, e)
+
+
+class GDefaultNames a where
+  gdefaultNames :: (String -> String) -> a x
+
+
+instance {-# OVERLAPS #-} KnownSymbol name =>
+  GDefaultNames (S1 ('MetaSel ('Just name) s u l) (K1 i (Name a)))
+ where
+  gdefaultNames f = M1 (K1 (Name (f (symbolVal (Proxy @name)))))
+
+
+instance DefaultNames a => GDefaultNames (K1 i a) where
+  gdefaultNames = K1 . defaultNames
+
+
+instance GDefaultNames a => GDefaultNames (M1 i c a) where
+  gdefaultNames = M1 . gdefaultNames
+
+
+instance (GDefaultNames a, GDefaultNames b) => GDefaultNames (a :*: b) where
+  gdefaultNames f = gdefaultNames f :*: gdefaultNames f

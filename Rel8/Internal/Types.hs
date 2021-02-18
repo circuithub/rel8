@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
@@ -8,6 +9,7 @@
 
 module Rel8.Internal.Types where
 
+import Data.String ( IsString )
 import Rel8.Internal.Expr
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 
@@ -28,6 +30,12 @@ data Insert a = InsertExpr (Expr a)
 data SchemaInfo a =
   SchemaInfo String
   deriving (Show)
+
+
+--------------------------------------------------------------------------------
+-- | Used for naming the columns of a query with 'renameColumns'.
+newtype Name a = Name String
+  deriving (IsString, Show)
 
 
 --------------------------------------------------------------------------------
@@ -62,6 +70,7 @@ type family C f columnName hasDefault columnType :: * where
   C Insert name 'HasDefault t = Default (Expr t)
   C Insert name 'NoDefault t = Expr t
   C Aggregate name _ t = Aggregate t
+  C Name _ _ t = Name t
 
 -- | @Anon@ can be used to define columns like 'C', but does not contain the
 -- extra metadata needed to define a 'BaseTable' instance. The main use of
@@ -89,6 +98,7 @@ type family Anon f columnType :: * where
   Anon Expr t = Expr t
   Anon QueryResult t = t
   Anon Aggregate t = Aggregate t
+  Anon Name t = Name t
 
 newtype Limit f = Limit
   { runLimit :: forall a. f a

@@ -99,6 +99,10 @@ module Rel8
     -- * Values
   , values
 
+    -- * Rename columns
+  , Bindings, renameColumns
+  , DefaultNames, defaultNames
+
     -- * Running Queries
     -- ** @SELECT@
   , select
@@ -114,7 +118,7 @@ module Rel8
   , delete
 
     -- * Interpretations
-  , QueryResult, SchemaInfo
+  , QueryResult, SchemaInfo, Name
 
     -- * Re-exported symbols
   , Connection, Stream, Of, Generic
