@@ -39,7 +39,6 @@ module Rel8
 
     -- ** Expressions
   , Expr
-  , Context
   , coerceExpr
   , unsafeCoerceExpr
 
@@ -86,11 +85,7 @@ module Rel8
   , update
   , Update(..)
 
-    -- * Common Table Subtypes
-  , IsTableIn
-  , Selects
-
-    -- TODO
+    -- * TOOD
   , ExprType
 
     -- * Next Steps
@@ -107,7 +102,6 @@ import Rel8.DBEq
 import Rel8.EqTable
 import Rel8.Expr
 import Rel8.Query
-import Rel8.SimpleConstraints
 import Rel8.TableSchema
 
 {- $nextSteps

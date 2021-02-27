@@ -48,6 +48,7 @@ import Data.Typeable ( Typeable )
 import Data.UUID ( UUID )
 import Database.PostgreSQL.Simple.FromField ( FromField, FieldParser, fromField, optionalField, returnError, ResultError( Incompatible ) )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
+import Data.Functor.Compose ( Compose(..) )
 import GHC.Generics hiding ( C )
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -102,19 +103,21 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
+class HigherKindedTable (t :: (Type -> Type) -> Type) where
   -- | Like 'Field', but for higher-kinded tables.
-  type HField t = ( field :: Type -> Type ) | field -> t
-  type HField t =
-    GenericField t
+  type HField t = (field :: Type -> Type) | field -> t
+  type HField t = GenericField t
 
   -- | Like 'Constraintable', but for higher-kinded tables.
-  type HConstrainTable t ( f :: Type -> Type ) ( c :: Type -> Constraint ) :: Constraint
-  type HConstrainTable t f c =
-    GHConstrainTable ( Rep ( t f ) ) ( Rep ( t SPINE ) ) c
+  type HConstrainTable t (f :: Type -> Type) (c :: Type -> Constraint) :: Constraint
+  type HConstrainTable t f c = GHConstrainTable (Rep (t f)) (Rep (t SPINE)) c
+
+  hfield :: t f -> HField t x -> C f x
+  htabulate :: ( forall x. c x => HField t x -> C f x ) -> t f
+  htraverse :: Applicative m => (forall x. C f x -> m (C g x)) -> t f -> m (t g)
+  hdicts :: forall f c. HConstrainTable t f c => t (Dict c)
 
   -- | Like 'field', but for higher-kinded tables.
-  hfield :: t f -> HField t x -> C f x
   default hfield
     :: forall f x
      . ( Generic ( t f )
@@ -126,20 +129,20 @@ class HigherKindedTable ( t :: ( Type -> Type ) -> Type ) where
     ghfield @( Rep ( t f ) ) @t @f @( Rep ( t SPINE ) ) ( from x ) i
 
   -- | Like 'tabulateMCP', but for higher-kinded tables.
-  htabulate
-    :: ( Applicative m, HConstrainTable t f c )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
 
-  default htabulate
-    :: forall f m c proxy
-     . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t SPINE ) ) c, Generic ( t f )
-       , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t SPINE ) )
-       , HField t ~ GenericField t
-       )
-    => proxy c -> ( forall x. c x => HField t x -> m ( C f x ) ) -> m ( t f )
-  htabulate proxy f =
-    fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t SPINE ) ) proxy ( f . GenericField ) )
+  -- default htabulate
+  --   :: forall f
+  --    . ( Applicative m, GHConstrainTable ( Rep ( t f ) ) ( Rep ( t SPINE ) ) c, Generic ( t f )
+  --      , GHigherKindedTable ( Rep ( t f ) ) t f ( Rep ( t SPINE ) )
+  --      , HField t ~ GenericField t
+  --      )
+  --   => ( forall x. c x => HField t x -> C f x ) -> t f
+  -- htabulate proxy f =
+  --   fmap to ( ghtabulate @( Rep ( t f ) ) @t @f @( Rep ( t SPINE ) ) proxy ( f . GenericField ) )
 
+
+data Dict c a where
+  Dict :: c a => Dict c a
 
 
 data TableHField t ( f :: Type -> Type ) x where
@@ -147,29 +150,28 @@ data TableHField t ( f :: Type -> Type ) x where
 
 
 -- | Any 'HigherKindedTable' is also a 'Table'.
-instance HigherKindedTable t => Table (t f) where
-  type Structure (t f) = t
-  type Context (t f) = f
-  toStructure = id
-  fromStructure = id
+instance (HigherKindedTable t, f ~ g) => Table f (t g) where
+  type Columns (t g) = t
+  toColumns = id
+  fromColumns = id
 
 
 data GenericField t a where
-  GenericField :: GHField t ( Rep ( t SPINE ) ) a -> GenericField t a
+  GenericField :: GHField t (Rep (t SPINE)) a -> GenericField t a
 
 
-class GHigherKindedTable ( rep :: Type -> Type ) ( t :: ( Type -> Type ) -> Type ) ( f :: Type -> Type ) ( repIdentity :: Type -> Type ) where
+class GHigherKindedTable (rep :: Type -> Type) (t :: (Type -> Type) -> Type) (f :: Type -> Type) (repIdentity :: Type -> Type) where
   data GHField t repIdentity :: Type -> Type
 
   type GHConstrainTable rep repIdentity ( c :: Type -> Constraint ) :: Constraint
 
   ghfield :: rep a -> GHField t repIdentity x -> C f x
 
-  ghtabulate
-    :: ( Applicative m, GHConstrainTable rep repIdentity c )
-    => proxy c
-    -> ( forall x. c x => GHField t repIdentity x -> m ( C f x ) )
-    -> m ( rep a )
+  -- ghtabulate
+  --   :: ( Applicative m, GHConstrainTable rep repIdentity c )
+  --   => proxy c
+  --   -> ( forall x. c x => GHField t repIdentity x -> m ( C f x ) )
+  --   -> m ( rep a )
 
 
 instance GHigherKindedTable x t f x' => GHigherKindedTable ( M1 i c x ) t f ( M1 i' c' x' ) where
@@ -182,8 +184,8 @@ instance GHigherKindedTable x t f x' => GHigherKindedTable ( M1 i c x ) t f ( M1
   ghfield ( M1 a ) ( M1Field i ) =
     ghfield a i
 
-  ghtabulate proxy f =
-    M1 <$> ghtabulate @x @t @f @x' proxy ( f . M1Field )
+--   ghtabulate proxy f =
+--     M1 <$> ghtabulate @x @t @f @x' proxy ( f . M1Field )
 
 
 instance ( GHigherKindedTable x t f x', GHigherKindedTable y t f y' ) => GHigherKindedTable ( x :*: y ) t f ( x' :*: y' ) where
@@ -198,9 +200,9 @@ instance ( GHigherKindedTable x t f x', GHigherKindedTable y t f y' ) => GHigher
     FieldL i -> ghfield x i
     FieldR i -> ghfield y i
 
-  ghtabulate proxy f =
-    (:*:) <$> ghtabulate @x @t @f @x' proxy ( f . FieldL )
-          <*> ghtabulate @y @t @f @y' proxy ( f . FieldR )
+--   ghtabulate proxy f =
+--     (:*:) <$> ghtabulate @x @t @f @x' proxy ( f . FieldL )
+--           <*> ghtabulate @y @t @f @y' proxy ( f . FieldR )
 
 
 type family IsColumnApplication ( a :: Type ) :: Bool where
@@ -219,8 +221,8 @@ instance DispatchK1 ( IsColumnApplication c' ) f c c' => GHigherKindedTable ( K1
   ghfield ( K1 a ) ( K1Field i ) =
     k1field @( IsColumnApplication c' ) @f @c @c' a i
 
-  ghtabulate proxy f =
-    K1 <$> k1tabulate @( IsColumnApplication c' ) @f @c @c' proxy ( f . K1Field )
+--   ghtabulate proxy f =
+--     K1 <$> k1tabulate @( IsColumnApplication c' ) @f @c @c' proxy ( f . K1Field )
 
 
 class DispatchK1 ( isSPINE :: Bool ) f a a' where
@@ -230,9 +232,9 @@ class DispatchK1 ( isSPINE :: Bool ) f a a' where
 
   k1field :: a -> K1Field isSPINE a' x -> C f x
 
-  k1tabulate
-    :: ( ConstrainK1 isSPINE a a' c, Applicative m )
-    => proxy c -> ( forall x. c x => K1Field isSPINE a' x -> m ( C f x ) ) -> m a
+--   k1tabulate
+--     :: ( ConstrainK1 isSPINE a a' c, Applicative m )
+--     => proxy c -> ( forall x. c x => K1Field isSPINE a' x -> m ( C f x ) ) -> m a
 
 
 instance (a ~ Column f b) => DispatchK1 'True f a ( SPINE b ) where
@@ -245,8 +247,8 @@ instance (a ~ Column f b) => DispatchK1 'True f a ( SPINE b ) where
   k1field a K1True =
     MkC a
 
-  k1tabulate _ f =
-    toColumn <$> f @b K1True
+--   k1tabulate _ f =
+--     toColumn <$> f @b K1True
 
 
 data SPINE a
@@ -259,25 +261,11 @@ writing higher-kinded data types is usually more convenient. See also:
 'HigherKindedTable'.
 
 -}
-class HigherKindedTable (Structure t) => Table (t :: Type) where
-  type Structure t :: (Type -> Type) -> Type
-  type Context t :: Type -> Type
+class HigherKindedTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> context where
+  type Columns t :: (Type -> Type) -> Type
 
-  toStructure :: t -> Structure t (Context t)
-  fromStructure :: Structure t (Context t) -> t
-
-
-
--- | Effectfully map a table from one context to another.
-traverseTableWithIndexC
-  :: forall c t t' m
-   . (Applicative m, Table t, Table t', HConstrainTable (Structure t') (Context t') c, Structure t ~ Structure t')
-  => (forall x. c x => HField (Structure t) x -> C (Context t) x -> m (C (Context t') x))
-  -> t
-  -> m t'
-traverseTableWithIndexC f t =
-  fmap fromStructure $
-  htabulate (Proxy @c) \index -> f index (hfield (toStructure t) index)
+  toColumns :: t -> Columns t context
+  fromColumns :: Columns t context -> t
 
 
 data HPair x y (f :: Type -> Type) = HPair { hfst :: x f, hsnd :: y f }
@@ -287,107 +275,38 @@ data HPair x y (f :: Type -> Type) = HPair { hfst :: x f, hsnd :: y f }
 deriving instance (HigherKindedTable x, HigherKindedTable y) => HigherKindedTable (HPair x y)
 
 
-instance (Table a, Table b, Context a ~ Context b) => Table (a, b) where
-  type Structure (a, b) = HPair (Structure a) (Structure b)
-  type Context (a, b) = Context a
-  toStructure (a, b) = HPair (toStructure a) (toStructure b)
-  fromStructure (HPair x y) = (fromStructure x, fromStructure y)
+instance (Table f a, Table f b) => Table f (a, b) where
+  type Columns (a, b) = HPair (Columns a) (Columns b)
+  toColumns (a, b) = HPair (toColumns a) (toColumns b)
+  fromColumns (HPair x y) = (fromColumns x, fromColumns y)
 
 
--- | Map a 'Table' from one type to another. The table types must be compatible,
--- see 'Compatible' for what that means.
-mapTable
-  :: forall t' t
-   . (Table t, Table t', Structure t ~ Structure t', HConstrainTable (Structure t) (Context t') Unconstrained)
-  => (forall x. C (Context t) x -> C (Context t') x) -> t -> t'
-mapTable f = runIdentity . traverseTable (Identity . f)
-
-
--- | Map a 'Table' from one type to another, where all columns in the table are
--- subject to a constraint.
-mapTableC
-  :: forall c t' t
-   . (Table t, Table t', Structure t ~ Structure t', HConstrainTable (Structure t) (Context t') c)
-  => (forall x. c x => C (Context t) x -> C (Context t') x)
-  -> t -> t'
-mapTableC f =
-  runIdentity . traverseTableC @c ( Identity . f )
-
-
--- | Effectfully traverse all fields in a 'Table', potentially producing another
--- @Table@.
-traverseTable
-  :: forall t' t m
-   . (Applicative m, Table t, Table t', Structure t ~ Structure t', HConstrainTable (Structure t) (Context t') Unconstrained)
-  => (forall x. C (Context t) x -> m (C (Context t') x))
-  -> t
-  -> m t'
-traverseTable f =
-  traverseTableWithIndexC @Unconstrained (const f)
-
-
--- | Effectfully traverse all fields in a 'Table', provided that all fields
--- satisfy a given constraint. For example, if all fields in a table have an
--- instance for 'Read', we can apply 'readMaybe' to all fields in the table,
--- failing if any read fails:
---
--- >>> traverseTableC @Read ( traverseC readMaybe ) MyTable{ fieldA = "True" }
--- Just MyTable{ fieldA = True }
-traverseTableC
-  :: forall c m t t'
-   . (Table t, Table t', Applicative m, Structure t ~ Structure t', HConstrainTable (Structure t) (Context t') c)
-  => (forall x. c x => C (Context t) x -> m (C (Context t') x))
-  -> t
-  -> m t'
-traverseTableC f =
-  traverseTableWithIndexC @c (const f)
-
-
-zipTablesWithM
-  :: forall t m
-   . ( Applicative m
-     , Table t
-     , HConstrainTable (Structure t) (Context t) Unconstrained
-     )
-  => ( forall x. C ( Context t ) x -> C ( Context t ) x -> m ( C ( Context t ) x ) )
-  -> t -> t -> m t
-zipTablesWithM f t t' =
-  fmap fromStructure $
-  htabulate (Proxy @Unconstrained) \index ->
-    f (hfield (toStructure t) index) (hfield (toStructure t') index)
-
-
-instance (Context a ~ f, Table a, Structure a ~ Structure a') => DispatchK1 'False f a a' where
+instance (Table f a, Columns a ~ Columns a') => DispatchK1 'False f a a' where
   data K1Field 'False a' x where
-    K1False :: HField (Structure a') x -> K1Field 'False a' x
+    K1False :: HField (Columns a') x -> K1Field 'False a' x
 
-  type ConstrainK1 'False a a' c =
-    HConstrainTable (Structure a) (Context a) c
+  -- type ConstrainK1 'False a a' c =
+  --   HConstrainTable (Columns a) (Context a) c
 
   k1field a (K1False i) =
-    hfield (toStructure a) i
+    hfield (toColumns a) i
 
-  k1tabulate proxy f =
-    fromStructure <$> htabulate proxy (f . K1False)
+-- --   k1tabulate proxy f =
+-- --     fromColumns <$> htabulate proxy (f . K1False)
 
 
 newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
   deriving ( Generic, HigherKindedTable )
 
 
--- | Any 'Identity' can be seen as a 'Table' with only one column.
-instance Table (Identity a) where
-  type Context (Identity a) = Identity
-  type Structure (Identity a) = HIdentity a
-  toStructure = HIdentity . runIdentity
-  fromStructure = Identity . unHIdentity
-
-
 -- | @Serializable@ witnesses the one-to-one correspondence between the type @sql@,
 -- which contains SQL expressions, and the type @haskell@, which contains the
 -- Haskell decoding of rows containing @sql@ SQL expressions.
-class (ExprTable sql, SerializableChoice sql haskell) => Serializable sql haskell | sql -> haskell, haskell -> sql where
-instance (ExprTable a, SerializableChoice a b) => Serializable a b where
+class SerializationMethod sql haskell => Serializable sql haskell | sql -> haskell, haskell -> sql where
+  lit2 :: haskell -> sql
+
+instance SerializationMethod a b => Serializable a b where
+  lit2 = lit
 
 
 type family ExprType (a :: Type) :: Type where
@@ -405,58 +324,63 @@ type family ResultType (a :: Type) :: Type where
   ResultType (MaybeTable a) = Maybe (ResultType a)
 
 
-class (ExprTable a, a ~ ExprType b, b ~ ResultType a) => SerializableChoice (a :: Type) (b :: Type) where
-  rowParser :: a -> RowParser b
-  lit :: b -> a
+class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => SerializationMethod (expr :: Type) (haskell :: Type) where
+  rowParser :: RowParser haskell
+  lit :: haskell -> expr
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (expr ~ Expr, identity ~ Identity, ExprTable (t expr), Table (t identity), HConstrainTable t Identity DBType) => SerializableChoice ( t expr ) ( t identity ) where
-  rowParser =
-    traverseTableC @DBType ( traverseCC @DBType \_ -> fieldWith ( decode typeInformation ) )
+instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t Identity DBType) => SerializationMethod (s expr) (t identity) where
+--   rowParser _ = htraverse f $ htabulate @t \i -> g (hfield hdicts i) 
+--     where
+--       f :: C RowParser x -> RowParser (C Identity x)
+--       f (MkC x) = MkC <$> x
 
-  lit =
-    runIdentity . mapContext (Proxy @Lit) (Proxy @DBType) (Identity . mapCC @DBType lit)
+--       g :: forall a. C (Dict DBType) a -> C RowParser a
+--       g (MkC Dict) = MkC $ fieldWith $ decode $ typeInformation @a
 
+  lit t = 
+    fromColumns $ htabulate \i ->
+      case (hfield (hdicts @t @Identity @DBType) i, hfield t i) of
+        (MkC Dict, MkC x) -> MkC $ lit2 x -- mapCC @DBType lit x
 
-instance DBType a => SerializableChoice (Expr a) a where
-  rowParser _ = fieldWith (decode typeInformation)
+instance (DBType a, a ~ b) => SerializationMethod (Expr a) b where
+  rowParser = fieldWith (decode typeInformation)
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
       DatabaseType{ encode, typeName } = typeInformation
 
 
-instance (Serializable a1 b1, Serializable a2 b2) => SerializableChoice (a1, a2) (b1, b2) where
-  rowParser (a, b) =
-    liftA2 (,) (rowParser a) (rowParser b)
+instance (Serializable a1 b1, Serializable a2 b2) => SerializationMethod (a1, a2) (b1, b2) where
+  rowParser = liftA2 (,) rowParser rowParser
 
   lit (a, b) = (lit a, lit b)
 
 
-instance
-  ( Context a ~ Expr
-  , Table a
-  , HConstrainTable (Structure a) Expr Unconstrained
-  , HConstrainTable (Structure a) Expr DBType
-  , Serializable a b
-  , ExprType (Maybe b) ~ MaybeTable a
-  ) => SerializableChoice (MaybeTable a) (Maybe b) where
+-- instance
+--   ( Context a ~ Expr
+--   , Table a
+--   , HConstrainTable (Structure a) Expr Unconstrained
+--   , HConstrainTable (Structure a) Expr DBType
+--   , Serializable a b
+--   , ExprType (Maybe b) ~ MaybeTable a
+--   ) => SerializationMethod (MaybeTable a) (Maybe b) where
 
-  rowParser ( MaybeTable _ t ) = do
-    rowExists <- fieldWith ( decode typeInformation )
+--   rowParser ( MaybeTable _ t ) = do
+--     rowExists <- fieldWith ( decode typeInformation )
 
-    case rowExists of
-      Just True ->
-        Just <$> rowParser t
+--     case rowExists of
+--       Just True ->
+--         Just <$> rowParser t
 
-      _ ->
-        Nothing <$ traverseTableC @DBType @RowParser @_ @a nullField t
+--       _ ->
+--         Nothing <$ traverseTableC @DBType @RowParser @_ @a nullField t
 
-  lit = \case
-    Nothing -> noTable
-    Just x -> pure (lit x)
+--   lit = \case
+--     Nothing -> noTable
+--     Just x -> pure (lit x)
 
 
 nullField :: forall x f. C f x -> RowParser ( C f x )
@@ -464,8 +388,7 @@ nullField x = x <$ fieldWith (\_ _ -> pure ())
 
 
 -- | Typed SQL expressions
-newtype Expr ( a :: Type ) =
-  Expr { toPrimExpr :: Opaleye.PrimExpr }
+newtype Expr (a :: Type) = Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
 type role Expr representational
@@ -476,8 +399,8 @@ instance ( IsString a, DBType a ) => IsString ( Expr a ) where
     lit . fromString
 
 
-class (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => ExprTable a
-instance (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => ExprTable a
+-- class (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => Table Expr a
+-- instance (HConstrainTable (Structure a) Expr Unconstrained, Table a, Context a ~ Expr, HConstrainTable (Structure a) Expr DBType) => Table Expr a
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the
@@ -518,51 +441,51 @@ instance Monad MaybeTable where
         null_ (lit False) (\x' -> null_ (lit False) (\y' -> x' ||. y') y) x
 
 
-data HMaybeTable g f =
-  HMaybeTable
-    { hnullTag :: Column f (Maybe Bool)
-    , hcontents :: g f
-    }
-  deriving
-    (Generic)
+-- data HMaybeTable g f =
+--   HMaybeTable
+--     { hnullTag :: Column f (Maybe Bool)
+--     , hcontents :: g f
+--     }
+--   deriving
+--     (Generic)
 
 
-deriving instance (forall f. Table (g f)) => HigherKindedTable (HMaybeTable g)
+-- deriving instance (forall f. Table (g f)) => HigherKindedTable (HMaybeTable g)
 
 
-instance (ExprTable a, HigherKindedTable (Structure a)) => Table (MaybeTable a) where
-  type Structure (MaybeTable a) = HMaybeTable (Structure a)
-  type Context (MaybeTable a) = Expr
+-- instance (Table Expr a, HigherKindedTable (Structure a)) => Table (MaybeTable a) where
+--   type Structure (MaybeTable a) = HMaybeTable (Structure a)
+--   type Context (MaybeTable a) = Expr
 
-  toStructure (MaybeTable x y) = HMaybeTable x (toStructure y)
-  fromStructure (HMaybeTable x y) = MaybeTable x (fromStructure y)
+--   toStructure (MaybeTable x y) = HMaybeTable x (toStructure y)
+--   fromColumns (HMaybeTable x y) = MaybeTable x (fromColumns y)
 
 
 maybeTable
-  :: ExprTable b
+  :: Table Expr b
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
-noTable :: forall a. ExprTable a => MaybeTable a
-noTable = MaybeTable tag t
-  where
-    tag :: Expr (Maybe Bool)
-    tag = lit (Nothing :: Maybe Bool)
+noTable :: forall a. Table Expr a => MaybeTable a
+noTable = undefined
+-- noTable = MaybeTable tag t
+--   where
+--     tag :: Expr (Maybe Bool)
+--     tag = lit (Nothing :: Maybe Bool)
 
-    t :: a
-    t = fromStructure $ runIdentity $ htabulate (Proxy @DBType) f
-      where
-        f :: forall x i. DBType x => i x -> Identity (C Expr x)
-        f _ = pure $ MkC $ unsafeCoerceExpr (lit (Nothing :: Maybe x) :: Expr (Maybe x))
+--     t :: a
+--     t = fromColumns $ runIdentity $ htabulate (Proxy @DBType) f
+--       where
+--         f :: forall x i. DBType x => i x -> Identity (C Expr x)
+--         f _ = pure $ MkC $ unsafeCoerceExpr (lit (Nothing :: Maybe x) :: Expr (Maybe x))
 
 
-instance Table (Expr a) where
-  type Context (Expr a) = Expr
-  type Structure (Expr a) = HIdentity a
-  toStructure = HIdentity
-  fromStructure = unHIdentity
+instance expr ~ Expr => Table expr (Expr a) where
+  type Columns (Expr a) = HIdentity a
+  toColumns = HIdentity
+  fromColumns = unHIdentity
 
 
 {-| Haskell types that can be represented as expressiosn in a database. There
@@ -588,7 +511,7 @@ just used integers (the type distinction does not impact query generation).
 
 -}
 
-class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => DBType ( a :: Type ) where
+class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a), Serializable (Expr a) a) => DBType (a :: Type) where
   typeInformation :: DatabaseType a a
 
 
@@ -746,71 +669,67 @@ infixr 2 ||.
     Expr ( Opaleye.BinExpr Opaleye.OpOr a b )
 
 
-ifThenElse_ :: ExprTable a => Expr Bool -> a -> a -> a
+ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
 ifThenElse_ bool whenTrue whenFalse =
   case_ [ ( bool, whenTrue ) ] whenFalse
 
 
-case_ :: forall a. ExprTable a => [ ( Expr Bool, a ) ] -> a -> a
+case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
-  fromStructure $ runIdentity $ htabulate @(Structure a) (Proxy @Unconstrained) \x ->
-    pure $ MkC $ fromPrimExpr $
+  fromColumns $ htabulate @(Columns a) \x -> MkC $ fromPrimExpr $
     Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ hfield (toStructure alt) x ) | ( bool, alt ) <- alts ]
-        ( toPrimExpr $ toColumn $ hfield (toStructure def) x )
+        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr $ toColumn $ hfield (toColumns def) x )
 
 
 unsafeCoerceExpr :: Expr a -> Expr b
-unsafeCoerceExpr ( Expr x ) = Expr x
+unsafeCoerceExpr (Expr x) = Expr x
 
 
 retype :: Expr a -> Expr b
-retype =
-  fromPrimExpr . toPrimExpr
+retype = fromPrimExpr . toPrimExpr
 
 
-isNull :: Expr ( Maybe a ) -> Expr Bool
-isNull =
-  fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+isNull :: Expr (Maybe a) -> Expr Bool
+isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
 
 
 fromPrimExpr :: Opaleye.PrimExpr -> Expr a
-fromPrimExpr =
-  Expr
+fromPrimExpr = Expr
 
 
-type family Apply (g :: (Type -> Type) -> Type -> Type) (f :: Type -> Type) :: Type -> Type where
-  Apply Lit Identity = Expr
-  Apply g f = g f
+-- type family Apply (g :: (Type -> Type) -> Type -> Type) (f :: Type -> Type) :: Type -> Type where
+--   Apply Lit Identity = Expr
+--   Apply g f = g f
 
 
-data Lit (f :: Type -> Type) a
+-- data Lit (f :: Type -> Type) a
 
 
-class
-  ( Table a
-  , Table b
-  , MapContext g a ~ b
-  , Structure a ~ Structure b
-  , Apply g (Context a) ~ Context b
-  ) =>
-    Recontextualise g a b
-  where
+-- class
+--   ( Table a
+--   , Table b
+--   , MapContext g a ~ b
+--   , Structure a ~ Structure b
+--   , Apply g (Context a) ~ Context b
+--   ) =>
+--     Recontextualise g a b
+--   where
 
-  type MapContext (g :: (Type -> Type) -> Type -> Type) a :: Type
+--   type MapContext (g :: (Type -> Type) -> Type -> Type) a :: Type
 
-  mapContext :: (Applicative m, HConstrainTable (Structure a) (Context b) c)
-    => proxy g
-    -> proxy' c
-    -> (forall x. c x => C (Context a) x -> m (C (Context b) x))
-    -> a
-    -> m b
+--   mapContext :: (Applicative m, HConstrainTable (Structure a) (Context b) c)
+--     => proxy g
+--     -> proxy' c
+--     -> (forall x. c x => C (Context a) x -> m (C (Context b) x))
+--     -> a
+--     -> m b
 
 
-instance (HigherKindedTable t, f' ~ Apply g f) => Recontextualise g (t f) (t f') where
-  type MapContext g (t f) = t (Apply g f)
+-- instance (HigherKindedTable t, f' ~ Apply g f) => Recontextualise g (t f) (t f') where
+--   type MapContext g (t f) = t (Apply g f)
 
-  mapContext _ c f as = htabulate c (\field -> f (hfield as field))
+--   mapContext _ c f as = htabulate c (\field -> f (hfield as field))
 
 
 -- | A deriving-via helper type for column types that store a Haskell value
@@ -834,3 +753,21 @@ instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
   typeInformation =
     parseDatabaseType (fmap ReadShow . readEither) $
     lmap (show . fromReadShow) typeInformation
+
+
+mapTable 
+  :: (Columns s ~ Columns t, Table f s, Table g t) 
+  => (forall x. C f x -> C g x) -> s -> t
+mapTable f = fromColumns . runIdentity . htraverse (pure . f) . toColumns
+
+
+zipTablesWithM 
+  :: (Columns x ~ Columns y, Columns y ~ Columns z, Table f x, Table g y, Table h z) 
+  => (forall x. C f x -> C g y -> m (C h z)) -> x -> y -> m z
+zipTablesWithM f x y = undefined
+
+
+traverseTable 
+  :: (Columns x ~ Columns y, Table f x, Table g y) 
+  => (forall x. C f x -> m (C g y)) -> x -> m y
+traverseTable f = undefined

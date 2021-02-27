@@ -130,15 +130,13 @@ queryRunner
    . Serializable row haskell
   => Opaleye.FromFields row haskell
 queryRunner =
-  Opaleye.QueryRunner ( void unpackspec ) rowParser ( const 1 )
+  Opaleye.QueryRunner ( void unpackspec ) (const rowParser) ( const 1 )
 
 
-unpackspec
-  :: (ExprTable row)
-  => Opaleye.Unpackspec row row
+unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
-  Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    traverseTable (traverseC (traversePrimExpr f))
+  Opaleye.Unpackspec $ Opaleye.PackMap \f -> 
+    fmap fromColumns . htraverse (traverseC (traversePrimExpr f)) . toColumns
 
 
 -- | Run an @INSERT@ statement
@@ -154,10 +152,9 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
     toOpaleyeInsert
       :: forall schema result value
-       . ( ExprTable value
-         , Context schema ~ ColumnSchema
-         , Structure value ~ Structure schema
-         , Table schema
+       . ( Table Expr value
+         , Table ColumnSchema schema
+         , Columns value ~ Columns schema
          )
       => TableSchema schema
       -> [ value ]
@@ -185,9 +182,8 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
 writer
   :: forall value schema
-   . ( Context value ~ Expr
-     , Context schema ~ ColumnSchema
-     , Selects schema value
+   . ( Table Expr value 
+     , Table ColumnSchema schema
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -197,23 +193,23 @@ writer into_ =
        . ( Functor list, Applicative f )
       => ( ( list Opaleye.PrimExpr, String ) -> f () )
       -> list value
-      -> f ()
-    go f xs =
-      void
-        ( traverseTableWithIndexC
-            @Unconstrained
-            @schema
-            @value
-            ( \i ->
-                traverseC \ColumnSchema{ columnName } -> do
-                  f ( toPrimExpr . toColumn . flip hfield i . toStructure <$> xs
-                    , columnName
-                    )
+      -> f () 
+    go f xs = undefined
+      -- void
+      --   ( traverseTableWithIndexC
+      --       @Unconstrained
+      --       @schema
+      --       @value
+      --       ( \i ->
+      --           traverseC \ColumnSchema{ columnName } -> do
+      --             f ( toPrimExpr . toColumn . flip hfield i . toStructure <$> xs
+      --               , columnName
+      --               )
 
-                  return ( column columnName )
-            )
-            ( tableColumns into_ )
-        )
+      --             return ( column columnName )
+      --       )
+      --       ( tableColumns into_ )
+      --   )
 
   in
   Opaleye.Writer ( Opaleye.PackMap go )
@@ -239,7 +235,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: * -> * where
   Insert
-    :: Selects schema value
+    :: (Columns value ~ Columns schema, Table Expr value, Table ColumnSchema schema)
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , rows :: [ value ]
@@ -265,9 +261,10 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( Selects schema row
-       , Table projection
-       , Context row ~ Context projection
+    :: ( Table Expr projection
+       , Table ColumnSchema schema
+       , Table Expr row
+       , Columns schema ~ Columns row
        , Serializable projection a
        )
     => ( row -> projection )
@@ -279,7 +276,7 @@ data OnConflict
   | DoNothing
 
 
-selectQuery :: forall a . ExprTable a => Query a -> Maybe String
+selectQuery :: forall a . Table Expr a => Query a -> Maybe String
 selectQuery ( Query opaleye ) =
   showSqlForPostgresExplicit
 
@@ -303,10 +300,9 @@ delete c Delete{ from, deleteWhere, returning } =
 
     go
       :: forall schema r row
-       . ( Context schema ~ ColumnSchema
-         , ExprTable row
-         , Structure schema ~ Structure row
-         , Table schema
+       . ( Table Expr row 
+         , Table ColumnSchema schema
+         , Columns schema ~ Columns row
          )
       => TableSchema schema
       -> ( row -> Expr Bool )
@@ -326,7 +322,7 @@ delete c Delete{ from, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: Selects from row
+    :: ( Columns from ~ Columns row, Table Expr row, Table ColumnSchema from )
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
@@ -342,10 +338,9 @@ update connection Update{ target, set, updateWhere, returning } =
 
     go
       :: forall returning target row
-       . ( Context target ~ ColumnSchema
-         , ExprTable row
-         , Structure target ~ Structure row
-         , Table target
+       . ( Table Expr row
+         , Columns target ~ Columns row
+         , Table ColumnSchema target
          )
       => TableSchema target
       -> ( row -> row )
@@ -373,7 +368,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: Selects target row
+    :: ( Columns target ~ Columns row, Table Expr row, Table ColumnSchema target )
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Bool
@@ -393,13 +388,13 @@ exists query =
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: Selects schema row => TableSchema schema -> Query row
+each :: (Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema) => TableSchema schema -> Query row
 each = each_forAll
 
 
 each_forAll
   :: forall schema row
-   . Selects schema row
+   . ( Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema )
   => TableSchema schema -> Query row
 each_forAll schema =
   liftOpaleye
@@ -453,13 +448,13 @@ optional =
 -- | Combine the results of two queries of the same type.
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
-union :: ExprTable a => Query a -> Query a -> Query a
+union :: Table Expr a => Query a -> Query a -> Query a
 union = union_forAll
 
 
 union_forAll
   :: forall a
-   . ExprTable a
+   . Table Expr a
   => Query a -> Query a -> Query a
 union_forAll l r =
   liftOpaleye
@@ -483,11 +478,11 @@ union_forAll l r =
 -- | Select all distinct rows from a query, removing duplicates.
 --
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
-distinct :: ExprTable a => Query a -> Query a
+distinct :: Table Expr a => Query a -> Query a
 distinct = distinct_forAll
 
 
-distinct_forAll :: forall a. ExprTable a => Query a -> Query a
+distinct_forAll :: forall a. Table Expr a => Query a -> Query a
 distinct_forAll query =
   liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
 
@@ -543,20 +538,20 @@ catMaybe e =
   catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
 
 
-values :: forall expr f. (ExprTable expr, Foldable f) => f expr -> Query expr
+values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
     valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
       where
         packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
-        packmap = Opaleye.PackMap \f () ->
-          fmap fromStructure $
-          htabulate (Proxy @DBType) \i -> MkC . fromPrimExpr <$> f (nullExpr i)
-            where
-              nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
-              nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
-                where
-                  DatabaseType{ typeName } = typeInformation @a
+        packmap = Opaleye.PackMap \f () -> undefined
+          -- fmap fromColumns $
+          -- htabulate (Proxy @DBType) \i -> MkC . fromPrimExpr <$> f (nullExpr i)
+          --   where
+          --     nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
+          --     nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+          --       where
+          --         DatabaseType{ typeName } = typeInformation @a
 
 
 filter :: (a -> Expr Bool) -> a -> Query a

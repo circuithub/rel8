@@ -22,7 +22,6 @@ module Rel8.Expr
   , (&&.)
   , (||.)
   , Expr
-  , ExprTable
   , Function
   , and_
   , or_

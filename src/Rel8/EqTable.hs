@@ -1,4 +1,5 @@
 {-# language BlockArguments #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -15,7 +16,7 @@ import Rel8.Core
 
 -- | The class of database tables (containing one or more columns) that can be
 -- compared for equality as a whole.
-class ExprTable a => EqTable a where
+class Table Expr a => EqTable a where
   -- | Compare two tables or expressions for equality.
   --
   -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
@@ -31,7 +32,7 @@ class ExprTable a => EqTable a where
   --
   -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
   -- Expr m Bool
-  (==.) :: a -> a -> Context a Bool
+  (==.) :: a -> a -> Expr Bool
 
 
 -- | Any @Expr@s can be compared for equality as long as the underlying
