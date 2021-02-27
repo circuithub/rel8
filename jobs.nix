@@ -1,2 +1,5 @@
-let pkgs = import ./nix/pkgs.nix;
-in { rel8 = pkgs.haskellPackages.rel8; }
+let project = import ./.;
+in { 
+  rel8 = project.hsPkgs.components.library; 
+  tests = project.hsPkgs.components.checks.tests; 
+}
