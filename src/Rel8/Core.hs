@@ -511,7 +511,7 @@ just used integers (the type distinction does not impact query generation).
 
 -}
 
-class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a), Serializable (Expr a) a) => DBType (a :: Type) where
+class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => DBType (a :: Type) where
   typeInformation :: DatabaseType a a
 
 
