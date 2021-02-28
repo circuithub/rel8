@@ -1382,7 +1382,7 @@ opaleyeReturning returning =
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
 ddlTable schema writer_ =
-  toOpaleyeTable schema writer_ ( Opaleye.View ( tableColumns schema ) )
+  toOpaleyeTable schema writer_ $ Opaleye.View (tableColumns schema)
 
 
 -- | The constituent parts of a SQL @INSERT@ statement.
@@ -1391,7 +1391,7 @@ data Insert :: Type -> Type where
     :: (Columns value ~ Columns schema, Table Expr value, Table ColumnSchema schema)
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
-       , rows :: [ value ]
+       , rows :: [value]
          -- ^ The rows to insert.
        , onConflict :: OnConflict
          -- ^ What to do if the inserted rows conflict with data already in the
@@ -1420,8 +1420,8 @@ data Returning schema a where
        , Columns schema ~ Columns row
        , Serializable projection a
        )
-    => ( row -> projection )
-    -> Returning schema [ a ]
+    => (row -> projection)
+    -> Returning schema [a]
 
 
 data OnConflict
@@ -1430,24 +1430,16 @@ data OnConflict
 
 
 selectQuery :: forall a . Table Expr a => Query a -> Maybe String
-selectQuery ( Query opaleye ) =
-  showSqlForPostgresExplicit
-
+selectQuery (Query opaleye) = showSqlForPostgresExplicit
   where
-
     showSqlForPostgresExplicit =
       case Opaleye.runQueryArrUnpack unpackspec opaleye of
-        ( x, y, z ) ->
-          Opaleye.formatAndShowSQL
-            ( x
-            , Rel8.Optimize.optimize ( Opaleye.optimize y )
-            , z
-            )
+        (x, y, z) -> Opaleye.formatAndShowSQL (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
 
 
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from = deleteFrom, deleteWhere, returning } =
-  liftIO ( Opaleye.runDelete_ c ( go deleteFrom deleteWhere returning ) )
+  liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
 
   where
 
@@ -1458,12 +1450,12 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
          , Columns schema ~ Columns row
          )
       => TableSchema schema
-      -> ( row -> Expr Bool )
+      -> (row -> Expr Bool)
       -> Returning schema r
       -> Opaleye.Delete r
     go schema deleteWhere_ returning_ =
       Opaleye.Delete
-        { dTable = ddlTable schema ( Opaleye.Writer ( pure () ) )
+        { dTable = ddlTable schema $ Opaleye.Writer $ pure ()
         , dWhere =
             Opaleye.Column
               . toPrimExpr
@@ -1475,7 +1467,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: ( Columns from ~ Columns row, Table Expr row, Table ColumnSchema from )
+    :: (Columns from ~ Columns row, Table Expr row, Table ColumnSchema from)
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
@@ -1485,7 +1477,7 @@ data Delete from return where
 
 update :: MonadIO m => Connection -> Update target returning -> m returning
 update connection Update{ target, set, updateWhere, returning } =
-  liftIO ( Opaleye.runUpdate_ connection ( go target set updateWhere returning ) )
+  liftIO $ Opaleye.runUpdate_ connection (go target set updateWhere returning)
 
   where
 
@@ -1496,8 +1488,8 @@ update connection Update{ target, set, updateWhere, returning } =
          , Table ColumnSchema target
          )
       => TableSchema target
-      -> ( row -> row )
-      -> ( row -> Expr Bool )
+      -> (row -> row)
+      -> (row -> Expr Bool)
       -> Returning target returning
       -> Opaleye.Update returning
     go target_ set_ updateWhere_ returning_ =
@@ -1521,7 +1513,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: ( Columns target ~ Columns row, Table Expr row, Table ColumnSchema target )
+    :: (Columns target ~ Columns row, Table Expr row, Table ColumnSchema target)
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Bool
@@ -1533,9 +1525,8 @@ data Update target returning where
 -- | Exists checks if a query returns at least one row.
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
-exists :: Query a -> Query ( Expr Bool )
-exists query =
-  liftOpaleye ( lit True <$ Opaleye.restrictExists ( toOpaleye query ) )
+exists :: Query a -> Query (Expr Bool)
+exists query = liftOpaleye $ lit True <$ Opaleye.restrictExists (toOpaleye query)
 
 
 -- | Select each row from a table definition.
@@ -1547,29 +1538,15 @@ each = each_forAll
 
 each_forAll
   :: forall schema row
-   . ( Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema )
+   . (Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema)
   => TableSchema schema -> Query row
-each_forAll schema =
-  liftOpaleye
-    ( Opaleye.selectTableExplicit
-        unpackspec
-        ( toOpaleyeTable schema noWriter view )
-    )
-
+each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
   where
-
     noWriter :: Opaleye.Writer () row
-    noWriter =
-      Opaleye.Writer ( Opaleye.PackMap \_ _ -> pure () )
-
+    noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
 
     view :: Opaleye.View row
-    view =
-      Opaleye.View
-        ( mapTable
-            ( mapC ( column . columnName ) )
-            ( tableColumns schema )
-        )
+    view = Opaleye.View $ mapTable (mapC (column . columnName)) (tableColumns schema)
 
 
 -- | Select all rows from another table that match a given predicate. If the
@@ -1577,25 +1554,13 @@ each_forAll schema =
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 optional :: Query a -> Query (MaybeTable a)
-optional =
-  liftOpaleye . Opaleye.laterally (Opaleye.QueryArr . go) . toOpaleye
-
+optional = liftOpaleye . Opaleye.laterally (Opaleye.QueryArr . go) . toOpaleye
   where
-
-    go query (i, left, tag) =
-      ( MaybeTable t' a, join, Opaleye.next tag' )
-
+    go query (i, left, tag) = (MaybeTable t' a, join, Opaleye.next tag')
       where
-
-        ( MaybeTable t a, right, tag' ) =
-          Opaleye.runSimpleQueryArr (pure <$> query) (i, tag)
-
-        ( t', bindings ) =
-          Opaleye.run $
-          Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
-
-        join =
-          Opaleye.Join Opaleye.LeftJoin (toPrimExpr $ lit True) [] bindings left right
+        (MaybeTable t a, right, tag') = Opaleye.runSimpleQueryArr (pure <$> query) (i, tag)
+        (t', bindings) = Opaleye.run $ Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
+        join = Opaleye.Join Opaleye.LeftJoin (toPrimExpr $ lit True) [] bindings left right
 
 
 -- | Combine the results of two queries of the same type.
@@ -1609,23 +1574,12 @@ union_forAll
   :: forall a
    . Table Expr a
   => Query a -> Query a -> Query a
-union_forAll l r =
-  liftOpaleye
-    ( Opaleye.unionExplicit
-        binaryspec
-        ( toOpaleye l )
-        ( toOpaleye r )
-    )
-
+union_forAll l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
-
     binaryspec :: Opaleye.Binaryspec a a
     binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f ( a, b ) ->
-        zipTablesWithM
-          ( zipCWithM \x y -> fromPrimExpr <$> f ( toPrimExpr x, toPrimExpr y ) )
-          a
-          b
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Select all distinct rows from a query, removing duplicates.
@@ -1636,11 +1590,8 @@ distinct = distinct_forAll
 
 
 distinct_forAll :: forall a. Table Expr a => Query a -> Query a
-distinct_forAll query =
-  liftOpaleye ( Opaleye.distinctExplicit distinctspec ( toOpaleye query ) )
-
+distinct_forAll query = liftOpaleye $ Opaleye.distinctExplicit distinctspec (toOpaleye query)
   where
-
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
@@ -1651,24 +1602,14 @@ distinct_forAll query =
 --
 -- @limit n@ is equivalent to the SQL @LIMIT n@.
 limit :: Natural -> Query a -> Query a
-limit n query =
-  liftOpaleye
-    ( Opaleye.limit
-        ( fromIntegral n )
-        ( toOpaleye query )
-    )
+limit n query = liftOpaleye $ Opaleye.limit (fromIntegral n) (toOpaleye query)
 
 
 -- | @offset n@ drops the first @n@ rows from a query.
 --
 -- @offset n@ is equivalent to the SQL @OFFSET n@.
 offset :: Natural -> Query a -> Query a
-offset n query =
-  liftOpaleye
-    ( Opaleye.offset
-        ( fromIntegral n )
-        ( toOpaleye query )
-    )
+offset n query = liftOpaleye $ Opaleye.offset (fromIntegral n) (toOpaleye query)
 
 
 -- | Drop any rows that don't match a predicate.
@@ -1676,8 +1617,8 @@ offset n query =
 -- @where_ expr@ is equivalent to the SQL @WHERE expr@.
 where_ :: Expr Bool -> Query ()
 where_ x =
-  liftOpaleye $ Opaleye.QueryArr \( (), left, t ) ->
-    ( (), Opaleye.restrict ( toPrimExpr x ) left, t )
+  liftOpaleye $ Opaleye.QueryArr \((), left, t) ->
+    ((), Opaleye.restrict (toPrimExpr x) left, t)
 
 
 catMaybeTable :: MaybeTable a -> Query a
@@ -1723,7 +1664,7 @@ strings:
 
 @
 \{\-\# LANGUAGE OverloadedStrings -\}
-tableSchema :: TableSchema ( HaskellPackage ColumnSchema )
+tableSchema :: TableSchema (HaskellPackage ColumnSchema)
 tableSchema =
   TableSchema
     { ...
@@ -1738,12 +1679,12 @@ If you want to programatically create @ColumnSchema@'s, you can use
 'Data.String.fromString':
 
 @
-import Data.String ( fromString )
+import Data.String (fromString)
 
 commonPrefix :: String
 commonPrefix = "prefix_"
 
-tableSchema :: TableSchema ( HaskellPackage ColumnSchema )
+tableSchema :: TableSchema (HaskellPackage ColumnSchema)
 tableSchema =
   TableSchema
     { ...
@@ -1755,15 +1696,14 @@ tableSchema =
 @
 
 -}
-newtype ColumnSchema ( a :: Type ) =
+newtype ColumnSchema (a :: Type) =
   ColumnSchema { columnName :: String }
 
 
 -- | You can construct @ColumnSchema@ values by using @\{\-\# LANGUAGE OverloadedStrings #-\}@ and writing
 -- literal strings in your source code.
-instance IsString ( ColumnSchema a ) where
-  fromString =
-    ColumnSchema
+instance IsString (ColumnSchema a) where
+  fromString = ColumnSchema
 
 
 toOpaleyeTable
