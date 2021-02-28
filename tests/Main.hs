@@ -643,3 +643,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       Rel8.each testTableSchema
 
     sort (deleted <> selected) === sort rows
+
+
+data HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
+  deriving (Generic, Rel8.HigherKindedTable)
