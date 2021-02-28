@@ -17,6 +17,7 @@ module Rel8.Column
   , zipCWithMC
   ) where
 
+import Data.Functor.Compose
 import Data.Functor.Identity
 import Data.Kind
 
@@ -55,6 +56,7 @@ should only need to be aware of the type family when defining your table types.
 -}
 type family Column ( context :: Type -> Type ) ( a :: Type ) :: Type where
   Column Identity a = a
+  Column (Compose f g) a = f (Column g a)
   Column f a = f a
 
 

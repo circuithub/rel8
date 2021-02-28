@@ -27,7 +27,6 @@ import Control.Monad ( void )
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Int
-import Data.Proxy
 import Data.String ( fromString )
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
@@ -61,9 +60,8 @@ import Rel8.ColumnSchema
 import Rel8.Core
 import Rel8.Expr
 import qualified Rel8.Optimize
-import Rel8.SimpleConstraints
 import Rel8.TableSchema
-import Rel8.Unconstrained
+import Data.Functor.Compose (Compose)
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -87,7 +85,7 @@ toOpaleye ( Query q ) =
 instance Monad Query where
   return = pure
   Query ( Opaleye.QueryArr f ) >>= g = Query $ Opaleye.QueryArr \input ->
-    case ( f input ) of
+    case f input of
       ( a, primQuery, tag ) ->
         case g a of
           Query ( Opaleye.QueryArr h ) ->
@@ -184,6 +182,7 @@ writer
   :: forall value schema
    . ( Table Expr value 
      , Table ColumnSchema schema
+     , Columns value ~ Columns schema
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -194,7 +193,18 @@ writer into_ =
       => ( ( list Opaleye.PrimExpr, String ) -> f () )
       -> list value
       -> f () 
-    go f xs = undefined
+    go f xs = 
+      void $
+        htraverse @(Columns schema) @(Compose f Expr) @Expr sequenceC $
+          htabulate @(Columns schema) @(Compose f Expr) \i ->
+            case hfield (toColumns (tableColumns into_)) i of
+              MkC ColumnSchema{ columnName } ->
+                MkC $ 
+                  column columnName <$
+                  f ( toPrimExpr . toColumn . flip hfield i . toColumns <$> xs
+                    , columnName
+                    )
+
       -- void
       --   ( traverseTableWithIndexC
       --       @Unconstrained
@@ -202,7 +212,7 @@ writer into_ =
       --       @value
       --       ( \i ->
       --           traverseC \ColumnSchema{ columnName } -> do
-      --             f ( toPrimExpr . toColumn . flip hfield i . toStructure <$> xs
+      --             f 
       --               , columnName
       --               )
 
@@ -538,20 +548,23 @@ catMaybe e =
   catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
 
 
-values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
+values :: forall expr f. (Table Expr expr, Foldable f, HConstrainTable (Columns expr) DBType) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
     valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
       where
         packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
-        packmap = Opaleye.PackMap \f () -> undefined
-          -- fmap fromColumns $
-          -- htabulate (Proxy @DBType) \i -> MkC . fromPrimExpr <$> f (nullExpr i)
-          --   where
-          --     nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
-          --     nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
-          --       where
-          --         DatabaseType{ typeName } = typeInformation @a
+        packmap = Opaleye.PackMap \f () -> 
+          fmap fromColumns $
+            htraverse (traverseC (traversePrimExpr f)) $
+              htabulate @(Columns expr) @Expr \i -> 
+                case hfield (hdicts @(Columns expr) @DBType) i of
+                  MkC Dict -> MkC $ fromPrimExpr $ nullExpr i
+            where
+              nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
+              nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+                where
+                  DatabaseType{ typeName } = typeInformation @a
 
 
 filter :: (a -> Expr Bool) -> a -> Query a
