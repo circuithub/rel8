@@ -34,14 +34,7 @@ library
     Rel8
     Rel8.Text
   other-modules:
-    Rel8.Column
-    Rel8.ColumnSchema
-    Rel8.DBEq
-    Rel8.EqTable
-    Rel8.Expr
     Rel8.Optimize
-    Rel8.Query
-    Rel8.TableSchema
 
 
 test-suite tests

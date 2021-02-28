@@ -28,18 +28,23 @@
 {-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
 
-{-# options -fno-warn-deprecations #-}
+{-# options -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-prepositive-qualified-module -Wno-deprecations -Wno-monomorphism-restriction -Wno-missing-local-signatures #-}
 
 module Rel8
   ( -- * Database types
     DBType(..)
-  , DBEq(..)
-  , DatabaseType(..)
-  , parseDatabaseType
-    
+
     -- ** Deriving-via helpers
   , JSONEncoded(..)
   , ReadShow(..)
+
+    -- ** @DatabaseType@
+  , DatabaseType(..)
+  , mapDatabaseType
+  , parseDatabaseType
+
+    -- * Database types with equality
+  , DBEq(..)
 
     -- * Expressions
   , Expr
@@ -55,7 +60,7 @@ module Rel8
   , catMaybe
   , not_
   , ifThenElse_
-  , (==.)
+  , EqTable(..)
 
     -- ** Functions
   , Function
@@ -64,7 +69,7 @@ module Rel8
    
     -- * Tables and higher-kinded tables
   , Table(..)
-  , HigherKindedTable(..)
+  , HigherKindedTable
 
     -- * Table schemas
   , Column
@@ -121,7 +126,6 @@ import Data.Aeson.Types ( parseEither )
 -- base
 import Prelude hiding ( filter )
 import Control.Applicative ( liftA2 )
-
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
@@ -172,9 +176,6 @@ import Database.PostgreSQL.Simple.FromField
   )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 
--- profunctors
-import Data.Profunctor ( Profunctor(..), dimap )
-
 -- scientific
 import Data.Scientific ( Scientific )
 
@@ -187,17 +188,13 @@ import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 
 -- uuid
 import Data.UUID ( UUID )
-
 import Data.Functor.Compose ( Compose )
 import Data.Functor.Identity ( Identity(runIdentity) )
 import Data.Kind ( Type, Constraint )
-
-
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Foldable ( Foldable(toList, foldl') )
 import Data.Int ( Int32, Int64 )
-
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
@@ -207,7 +204,6 @@ import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.Binary as Opaleye
-
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye ()
 import qualified Opaleye.Internal.Manipulation as Opaleye
@@ -225,87 +221,283 @@ import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
-
-import Rel8.ColumnSchema ( ColumnSchema(..) )
-
 import qualified Rel8.Optimize
-import Rel8.TableSchema
-    ( toOpaleyeTable, TableSchema(..) )
 
 
+{-| Haskell types that can be represented as expressions in a database. There
+should be an instance of @DBType@ for all column types in your database schema
+(e.g., @int@, @timestamptz@, etc).
 
-{-| The @Column@ type family should be used to indicate which fields of your
-data types are single columns in queries. This type family has special support
-when a query is executed, allowing you to use a single data type for both query
-data and rows decoded to Haskell.
+Rel8 comes with stock instances for all default types in PostgreSQL, so you
+should only need to derive instances of this class for custom database types,
+such as types defined in PostgreSQL extensions, or custom domain types.
 
-To understand why this type family is special, let's consider a simple
-higher-kinded data type of Haskell packages:
+[ Creating @DBType@s using @newtype@ ]
+
+Generalized newtype deriving can be used when you want use a @newtype@ around a
+database type for clarity and accuracy in your Haskell code. A common example is
+to @newtype@ row id types:
 
 @
-data HaskellPackage f = HaskellPackage
-  { packageName   :: Column f String
-  , packageAuthor :: Column f String
-  }
+newtype UserId = UserId { toInt32 :: Int32 }
+  deriving (DBType)
 @
 
-In queries, @f@ will be some type of 'Rel8.Expr', and @Column Expr a@
-reduces to just @Expr a@:
-
->>> :t packageName (package :: Package Expr)
-Expr String
-
-When we 'Rel8.Query.select' queries of this type, @f@ will be instantiated as
-@Identity@, at which point all wrapping entire disappears:
-
->>> :t packageName (package :: Package Identity)
-String
-
-In @rel8@ we try hard to always know what @f@ is, which means holes should
-mention precise types, rather than the @Column@ type family. You should only
-need to be aware of the type family when defining your table types.
+You can now write queries using @UserId@ instead of @Int32@, which may help
+avoid making bad joins. However, when SQL is generated, it will be as if you
+just used integers (the type distinction does not impact query generation).
 -}
-type family Column (context :: Type -> Type) (a :: Type) :: Type where
-  Column Identity a      = a
-  Column (Compose f g) a = f (Column g a) -- TODO: Can we drop this and just use a Column (Compose f g) a?
-  Column f a             = f a
+class AnExpr a => DBType (a :: Type) where
+  -- | Lookup the type information for the type @a@.
+  typeInformation :: DatabaseType a
 
 
--- | The @C@ newtype simply wraps 'Column', but this allows us to work around
--- injectivity problems of functions that return type family applications.
-newtype C f x = MkC { toColumn :: Column f x }
+{-| A deriving-via helper type for column types that store a Haskell value
+using a JSON encoding described by @aeson@'s 'ToJSON' and 'FromJSON' type
+classes.
+
+The declaration:
+
+@
+data Pet = Pet { petName :: String, petAge :: Int }
+  deriving (Generic, ToJSON, FromJSON)
+  deriving DBType via JSONEncoded Pet
+@
+
+will allow you to store @Pet@ values in a single SQL column (stored as @json@
+values).
+-}
+newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
 
 
--- | Lift functions that map between 'Column's to functions that map between
--- 'C's.
-mapC :: (Column f x -> Column g y) -> C f x -> C g y
-mapC f (MkC x) = MkC $ f x 
+instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
+  typeInformation =
+    parseDatabaseType (fmap JSONEncoded . parseEither parseJSON) (toJSON . fromJSONEncoded) typeInformation
 
 
--- | Effectfully map from one column to another.
-traverseC
-  :: Applicative m
-  => ( Column f x -> m ( Column g y ) ) -> C f x -> m ( C g y )
-traverseC f ( MkC x ) =
-  MkC <$> f x
+-- | A deriving-via helper type for column types that store a Haskell value
+-- using a Haskell's 'Read' and 'Show' type classes.
+newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
--- | If a column contains an effectful operation, sequence that operation into a
---  new column.
-sequenceC
-  :: ( Column f a ~ m ( Column g y ), Functor m )
-  => C f a -> m ( C g y )
-sequenceC ( MkC x ) =
-  MkC <$> x
+{-| Anything that has an instance of 'DBType' is an 'Expr'. This class packages that knowledge up. -}
+class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr (a :: Type)
+instance (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr a
 
 
--- | Zip two columns together under an effectful context.
-zipCWithM
-  :: Applicative m
-  => ( Column f x -> Column g y -> m ( Column h z ) )
-  -> C f x -> C g y -> m ( C h z )
-zipCWithM f ( MkC x ) ( MkC y ) =
-  MkC <$> f x y
+{-| A @DatabaseType@ describes how to encode and decode a Haskell type to and
+from database queries. The @typeName@ is the name of the type in the database,
+which is used to accurately type literals. 
+-}
+data DatabaseType (a :: Type) = DatabaseType
+  { encode :: a -> Opaleye.PrimExpr
+    -- ^ How to encode a single Haskell value as a SQL expression.
+  , decode :: FieldParser a
+    -- ^ How to deserialize a single result back to Haskell.
+  , typeName :: String
+    -- ^ The name of the SQL type.
+  }
+
+
+mapDatabaseType :: (a -> b) -> (b -> a) -> DatabaseType a -> DatabaseType b
+mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
+  { encode = encode . bToA
+  , decode = \x y -> aToB <$> decode x y
+  , typeName
+  }
+
+
+parseDatabaseType :: Typeable b => (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
+parseDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
+  { encode = encode . bToA
+  , decode = \x y -> decode x y >>= either (returnError Incompatible x) return . aToB
+  , typeName
+  }
+
+
+{-| Database column types that can be compared for equality in queries.
+
+Usually, this means producing an expression using the (overloaded) @=@
+operator, but types can provide a more elaborate expression if necessary.
+
+[ @DBEq@ with @newtype@s ]
+
+Like with 'Rel8.DBType', @DBEq@ plays well with generalized newtype deriving.
+The example given for @DBType@ added a @UserId@ @newtype@, but without a @DBEq@
+instance won't actually be able to use that in joins or where-clauses, because
+it lacks equality. We can add this by changing our @newtype@ definition to:
+
+@
+newtype UserId = UserId { toInt32 :: Int32 }
+  deriving (DBType, DBEq)
+@
+
+This will re-use the equality logic for @Int32@, which is to just use the @=@
+operator.
+
+[ @DBEq@ with @DeriveAnyType@ ]
+
+You can also use @DBEq@ with the @DeriveAnyType@ extension to easily add
+equality to your type, assuming that @=@ is sufficient on @DBType@ encoded
+values. Extending the example from 'Rel8.ReadShow''s 'Rel8.DBType' instance, we
+could add equality to @Color@ by writing:
+
+@
+data Color = Red | Green | Blue | Purple | Gold
+  deriving (Generic, Show, Read, DBEq)
+  deriving DBType via ReadShow Color
+@
+
+This means @Color@s will be treated as the literal strings @"Red"@, @"Green"@,
+etc, in the database, and they can be compared for equality by just using @=@.
+-}
+class DBType a => DBEq (a :: Type) where
+  eqExprs :: Expr a -> Expr a -> Expr Bool
+  eqExprs = binExpr (Opaleye.:==)
+
+
+-- | Typed SQL expressions
+newtype Expr (a :: Type) = Expr { toPrimExpr :: Opaleye.PrimExpr }
+
+
+null_ :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+null_ whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
+
+
+isNull :: Expr (Maybe a) -> Expr Bool
+isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+
+
+binaryOperator :: String -> Expr a -> Expr b -> Expr c
+binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
+
+
+unsafeCoerceExpr :: Expr a -> Expr b
+unsafeCoerceExpr (Expr x) = Expr x
+
+
+liftNull :: Expr a -> Expr ( Maybe a )
+liftNull = retype
+
+
+-- | The SQL @AND@ operator.
+infixr 3 &&.
+(&&.) :: Expr Bool -> Expr Bool -> Expr Bool
+Expr a &&. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpAnd a b
+
+
+and_ :: Foldable f => f (Expr Bool) -> Expr Bool
+and_ = foldl' (&&.) (lit True)
+
+
+-- | The SQL @OR@ operator.
+infixr 2 ||.
+(||.) :: Expr Bool -> Expr Bool -> Expr Bool
+Expr a ||. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpOr a b
+
+
+or_ :: Foldable f => f (Expr Bool) -> Expr Bool
+or_ = foldl' (||.) (lit False)
+
+
+catMaybe :: Expr (Maybe a) -> Query (Expr a)
+catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
+  where
+    nullTag = ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))
+
+
+-- | The SQL @NOT@ operator.
+not_ :: Expr Bool -> Expr Bool
+not_ (Expr a) = Expr $ Opaleye.UnExpr Opaleye.OpNot a
+
+
+ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
+ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
+
+
+-- | The class of database tables (containing one or more columns) that can be
+-- compared for equality as a whole.
+class Table Expr a => EqTable a where
+  -- | Compare two tables or expressions for equality.
+  --
+  -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
+  -- you to compare expressions:
+  --
+  -- >>> :t exprA
+  -- Expr m Int
+  --
+  -- >>> :t exprA ==. exprA
+  -- Expr m Bool
+  --
+  -- But you can also compare composite structures:
+  --
+  -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
+  -- Expr m Bool
+  (==.) :: a -> a -> Expr Bool
+
+
+-- | The @Function@ type class is an implementation detail that allows
+-- @function@ to be polymorphic in the number of arguments it consumes.
+class Function arg res where
+  -- | Build a function of multiple arguments.
+  applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
+
+
+instance arg ~ Expr a => Function arg (Expr res) where
+  applyArgument mkExpr (Expr a) = Expr $ mkExpr [a]
+
+
+instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
+  applyArgument f (Expr a) = applyArgument (f . (a :))
+
+
+{-| Construct an n-ary function that produces an 'Expr' that when called runs a
+SQL function.
+
+For example, if we have a SQL function @foo(x, y, z)@, we can represent this
+in Rel8 with:
+
+@
+foo :: Expr m Int32 -> Expr m Int32 -> Expr m Bool -> Expr m Text
+foo = dbFunction "foo"
+@
+
+-}
+function :: Function args result => String -> args -> result
+function = applyArgument . Opaleye.FunExpr
+
+
+{-| Construct a function call for functions with no arguments.
+
+As an example, we can call the database function @now()@ by using
+@nullaryFunction@:
+
+@
+now :: Expr m UTCTime
+now = nullaryFunction "now"
+@
+
+-}
+nullaryFunction :: DBType a => String -> Expr a
+nullaryFunction = nullaryFunction_forAll
+  where
+    nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
+    nullaryFunction_forAll name =
+      const (Expr (Opaleye.FunExpr name [])) (lit (undefined :: a))
+
+
+{-| Types that represent SQL tables.
+
+You generally should not need to derive instances of this class manually, as
+writing higher-kinded data types is usually more convenient. See also:
+'HigherKindedTable'.
+
+-}
+class HigherKindedTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> context where
+  type Columns t :: (Type -> Type) -> Type
+
+  toColumns :: t -> Columns t context
+  fromColumns :: Columns t context -> t
 
 
 {-| Higher-kinded data types.
@@ -353,7 +545,7 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HigherKindedTable (t :: (Type -> Type) -> Type) where
+class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type) where
   type HField t = (field :: Type -> Type) | field -> t
   type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
@@ -363,79 +555,205 @@ class HigherKindedTable (t :: (Type -> Type) -> Type) where
   hdicts :: forall c. HConstrainTable t c => t (Dict c)
 
   type HField t = GenericHField t
-  type HConstrainTable t c = HConstrainTable (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t SPINE) ()))) c
+  type HConstrainTable t c = HConstrainTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ()))) c
 
   default hfield
     :: forall f x
      . ( Generic (t f)
        , HField t ~ GenericHField t
-       , Columns (WithShape f (Rep (t SPINE)) (Rep (t f) ())) ~ Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))
-       , HField (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))) ~ HField (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t SPINE) ())))
-       , HigherKindedTable (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ())))
-       , Table f (WithShape f (Rep (t SPINE)) (Rep (t f) ()))
+       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))) ~ HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ())))
+       , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
+       , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
        )
     => t f -> HField t x -> C f x
   hfield x (GenericHField i) =
-    hfield (toColumns (WithShape @f @(Rep (t SPINE)) (GHC.Generics.from @_ @() x))) i
+    hfield (toColumns (WithShape @f @(Rep (t IsColumn)) (GHC.Generics.from @_ @() x))) i
 
   default htabulate
     :: forall f
      . ( Generic (t f)
        , HField t ~ GenericHField t
-       , Columns (WithShape f (Rep (t SPINE)) (Rep (t f) ())) ~ Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))
-       , HField (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))) ~ HField (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t SPINE) ())))
-       , HigherKindedTable (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ())))
-       , Table f (WithShape f (Rep (t SPINE)) (Rep (t f) ()))
+       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))) ~ HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ())))
+       , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
+       , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
        )
     => (forall a. HField t a -> C f a) -> t f
   htabulate f =
-    to @_ @() $ forgetShape @f @(Rep (t SPINE)) $ fromColumns $ htabulate (f . GenericHField)
+    to @_ @() $ forgetShape @f @(Rep (t IsColumn)) $ fromColumns $ htabulate (f . GenericHField)
 
   default htraverse
     :: forall f g m
      . ( Applicative m
        , Generic (t f)
        , Generic (t g)
-       , Columns (WithShape f (Rep (t SPINE)) (Rep (t f) ())) ~ Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))
-       , HigherKindedTable (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ())))
-       , Table f (WithShape f (Rep (t SPINE)) (Rep (t f) ()))
-       , Table g (WithShape g (Rep (t SPINE)) (Rep (t g) ()))
-       , Columns (WithShape g (Rep (t SPINE)) (Rep (t g) ())) ~ Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t f) ()))
+       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
+       , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
+       , Table g (WithShape g (Rep (t IsColumn)) (Rep (t g) ()))
+       , Columns (WithShape g (Rep (t IsColumn)) (Rep (t g) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
        )
     => (forall a. C f a -> m (C g a)) -> t f -> m (t g)
   htraverse f x =
-    fmap (to @_ @() . forgetShape @g @(Rep (t SPINE)) . fromColumns)
+    fmap (to @_ @() . forgetShape @g @(Rep (t IsColumn)) . fromColumns)
       $ htraverse f
       $ toColumns
-      $ WithShape @f @(Rep (t SPINE))
+      $ WithShape @f @(Rep (t IsColumn))
       $ GHC.Generics.from @_ @() x
 
   default hdicts
     :: forall c
      . ( Generic (t (Dict c))
-       , Table (Dict c) (WithShape (Dict c) (Rep (t SPINE)) (Rep (t (Dict c)) ()))
-       , HConstrainTable (Columns (WithShape (Dict c) (Rep (t SPINE)) (Rep (t (Dict c)) ()))) c
+       , Table (Dict c) (WithShape (Dict c) (Rep (t IsColumn)) (Rep (t (Dict c)) ()))
+       , HConstrainTable (Columns (WithShape (Dict c) (Rep (t IsColumn)) (Rep (t (Dict c)) ()))) c
        )
     => t (Dict c)
   hdicts =
     to @_ @() $
-      forgetShape @(Dict c) @(Rep (t SPINE)) $
+      forgetShape @(Dict c) @(Rep (t IsColumn)) $
         fromColumns $
-          hdicts @(Columns (WithShape (Dict c) (Rep (t SPINE)) (Rep (t (Dict c)) ()))) @c
+          hdicts @(Columns (WithShape (Dict c) (Rep (t IsColumn)) (Rep (t (Dict c)) ()))) @c
 
 
-data Dict c a where
-  Dict :: c a => Dict c a
+{-| The schema for a table. This is used to specify the name and schema
+that a table belongs to (the @FROM@ part of a SQL query), along with
+the schema of the columns within this table.
+
+For each selectable table in your database, you should provide a @TableSchema@
+in order to interact with the table via Rel8. For a table storing a list of
+Haskell packages (as defined in the example for 'Rel8.Column.Column'), we would
+write:
+
+@
+haskellPackage :: TableSchema ( HaskellPackage 'Rel8.ColumnSchema.ColumnSchema' )
+haskellPackage =
+  TableSchema
+    { tableName = "haskell_package"
+    , tableSchema = Nothing -- Assumes that haskell_package is reachable from your connections search_path
+    , tableColumns =
+        HaskellPackage { packageName = "name"
+                       , packageAuthor = "author"
+                       }
+    }
+@
+-}
+data TableSchema (schema :: Type) = TableSchema
+  { tableName :: String
+    -- ^ The name of the table.
+  , tableSchema :: Maybe String
+    -- ^ The schema that this table belongs to. If 'Nothing', whatever is on
+    -- the connection's @search_path@ will be used.
+  , tableColumns :: schema
+    -- ^ The columns of the table. Typically you would use a a higher-kinded
+    -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
+  } deriving stock Functor
 
 
-data SPINE a
+{-| The @Column@ type family should be used to indicate which fields of your
+data types are single columns in queries. This type family has special support
+when a query is executed, allowing you to use a single data type for both query
+data and rows decoded to Haskell.
+
+To understand why this type family is special, let's consider a simple
+higher-kinded data type of Haskell packages:
+
+@
+data HaskellPackage f = HaskellPackage
+  { packageName   :: Column f String
+  , packageAuthor :: Column f String
+  }
+@
+
+In queries, @f@ will be some type of 'Expr', and @Column Expr a@
+reduces to just @Expr a@:
+
+>>> :t packageName (package :: Package Expr)
+Expr String
+
+When we 'select' queries of this type, @f@ will be instantiated as
+@Identity@, at which point all wrapping entire disappears:
+
+>>> :t packageName (package :: Package Identity)
+String
+
+In @rel8@ we try hard to always know what @f@ is, which means holes should
+mention precise types, rather than the @Column@ type family. You should only
+need to be aware of the type family when defining your table types.
+-}
+type family Column (context :: Type -> Type) (a :: Type) :: Type where
+  Column Identity a      = a
+  Column (Compose f g) a = f (Column g a) -- TODO: Can we drop this and just use a Column (Compose f g) a?
+  Column f a             = f a
 
 
-data GenericHField t a where
-  GenericHField :: HField (Columns (WithShape SPINE (Rep (t SPINE)) (Rep (t SPINE) ()))) a -> GenericHField t a
+-- | The @C@ newtype simply wraps 'Column', but this allows us to work around
+-- injectivity problems of functions that return type family applications.
+newtype C f x = MkC { toColumn :: Column f x }
 
 
+-- | Lift functions that map between 'Column's to functions that map between
+-- 'C's.
+mapC :: (Column f x -> Column g y) -> C f x -> C g y
+mapC f (MkC x) = MkC $ f x 
+
+
+-- | Effectfully map from one column to another.
+traverseC :: Applicative m => (Column f x -> m (Column g y)) -> C f x -> m (C g y)
+traverseC f (MkC x) = MkC <$> f x
+
+
+-- | If a column contains an effectful operation, sequence that operation into a
+--  new column.
+sequenceC :: (Column f a ~ m (Column g y), Functor m) => C f a -> m (C g y)
+sequenceC (MkC x) = MkC <$> x
+
+
+-- | Zip two columns together under an effectful context.
+zipCWithM :: Applicative m => (Column f x -> Column g y -> m (Column h z)) -> C f x -> C g y -> m (C h z)
+zipCWithM f (MkC x) (MkC y) = MkC <$> f x y
+
+
+{-| To facilitate generic deriving for higher-kinded table, we work through
+Tables and the WithShape wrapper. The idea is that whenever we have a 't f', we
+can view this as a specific Table instance for Rep (t f). However, the story is
+not quite as simple as a typical generic traversal. For higher kinded tables,
+we expect one of two things to be true for all fields:
+
+1. The field is a Column application. In this case we know that we've got a
+   single DBType, and we need to have a single HIdentity in Columns.
+
+2. The field is a nested Table. In this case, we need to concatenate all
+   Columns of this Table into the parent Table.
+
+To distinguish between these two cases, we apply t to a special IsColumn tag.
+This controlled application lets us observe more information at each K1 node in
+the rep.
+
+However, there's /another/ complication! If we have 't Identity', then any
+Column fields will vanish, but we'll be unable to easily see this in the K1
+node. To deal with this, we also explicitly track the context in the
+'WithShape' type.
+-}
 newtype WithShape (context :: Type -> Type) (shape :: Type -> Type) a = WithShape { forgetShape :: a }
+
+
+-- | A special functor for use with Column to see the structure of a
+-- higher-kinded table.
+data IsColumn a
+
+
+{-| We would like to write a default type
+
+@
+type HField t = HField (Columns (Rep ..))
+@
+
+but this will violate the injectivity of the HField type (as there might be
+two 't's with the same 'Rep'). This newtype restores that injectivity.
+-}
+newtype GenericHField t a where
+  GenericHField :: HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ()))) a -> GenericHField t a
 
 
 instance (context ~ context', Table context (WithShape context f (g a))) => Table context (WithShape context' (M1 i c f) (M1 i c g a)) where
@@ -461,10 +779,13 @@ instance (context ~ context', K1Helper (IsColumnApplication shape) context shape
 
 
 type family IsColumnApplication (a :: Type) :: Bool where
-  IsColumnApplication (SPINE a) = 'True
-  IsColumnApplication _         = 'False
+  IsColumnApplication (IsColumn _) = 'True
+  IsColumnApplication _            = 'False
 
 
+{-| This helper lets us distinguish between 'fieldN :: Column f Int' and
+'nestedTable :: t f' fields in higher kinded tables. 
+-}
 class (isColumnApplication ~ IsColumnApplication shape, HigherKindedTable (K1Columns isColumnApplication shape a)) => K1Helper (isColumnApplication :: Bool) (context :: Type -> Type) (shape :: Type) (a :: Type) where
   type K1Columns isColumnApplication shape a :: (Type -> Type) -> Type
   toColumnsHelper :: a -> K1Columns isColumnApplication shape a context
@@ -477,24 +798,10 @@ instance (Table context a, IsColumnApplication shape ~ 'False) => K1Helper 'Fals
   fromColumnsHelper = fromColumns
 
 
-instance (f ~ context, g ~ Column context a) => K1Helper 'True context (SPINE a) g where
-  type K1Columns 'True (SPINE a) g = HIdentity a
+instance (DBType a, f ~ context, g ~ Column context a) => K1Helper 'True context (IsColumn a) g where
+  type K1Columns 'True (IsColumn a) g = HIdentity a
   toColumnsHelper = HIdentity
   fromColumnsHelper = unHIdentity
-
-
-{-| Types that represent SQL tables.
-
-You generally should not need to derive instances of this class manually, as
-writing higher-kinded data types is usually more convenient. See also:
-'HigherKindedTable'.
-
--}
-class HigherKindedTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> context where
-  type Columns t :: (Type -> Type) -> Type
-
-  toColumns :: t -> Columns t context
-  fromColumns :: Columns t context -> t
 
 
 -- | Any 'HigherKindedTable' is also a 'Table'.
@@ -504,10 +811,15 @@ instance (HigherKindedTable t, f ~ g) => Table f (t g) where
   fromColumns = id
 
 
+{-| Pair two higher-kinded tables. This is primarily used to facilitate generic
+deriving of higher-kinded tables with more than 1 field (it deals with the
+@:*:@ case).
+-}
 data HPair x y (f :: Type -> Type) = HPair { hfst :: x f, hsnd :: y f }
-  deriving (Generic)
+  deriving stock (Generic)
 
 
+-- | A HField type for indexing into HPair.
 data HPairField x y a where
   HPairFst :: HField x a -> HPairField x y a
   HPairSnd :: HField y a -> HPairField x y a
@@ -534,6 +846,9 @@ instance (Table f a, Table f b) => Table f (a, b) where
   fromColumns (HPair x y) = (fromColumns x, fromColumns y)
 
 
+{-| A single-column higher-kinded table. This is primarily useful for
+facilitating generic-deriving of higher kinded tables.
+-}
 newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
 
 
@@ -541,7 +856,7 @@ data HIdentityField x y where
   HIdentityField :: HIdentityField x x
 
 
-instance HigherKindedTable (HIdentity a) where
+instance DBType a => HigherKindedTable (HIdentity a) where
   type HConstrainTable (HIdentity a) c = (c a)
   type HField (HIdentity a) = HIdentityField a
 
@@ -553,17 +868,16 @@ instance HigherKindedTable (HIdentity a) where
   htraverse f (HIdentity a) = HIdentity . toColumn @g <$> f (MkC a :: C f a)
 
 
--- | @Serializable@ witnesses the one-to-one correspondence between the type @sql@,
--- which contains SQL expressions, and the type @haskell@, which contains the
--- Haskell decoding of rows containing @sql@ SQL expressions.
-class SerializationMethod sql haskell => Serializable sql haskell | sql -> haskell, haskell -> sql where
-  lit :: haskell -> sql
+{-| @Serializable@ witnesses the one-to-one correspondence between the type
+@sql@, which contains SQL expressions, and the type @haskell@, which contains
+the Haskell decoding of rows containing @sql@ SQL expressions.
+-}
+class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => Serializable expr haskell where
+  lit :: haskell -> expr
+  rowParser :: RowParser haskell
 
 
-instance SerializationMethod a b => Serializable a b where
-  lit = litImpl
-
-
+-- | Compute the corresponding expression type for a Haskell response type.
 type family ExprType (a :: Type) :: Type where
   ExprType (a, b) = (ExprType a, ExprType b)
   ExprType (t Identity) = t Expr
@@ -572,6 +886,7 @@ type family ExprType (a :: Type) :: Type where
   ExprType a = Expr a
 
 
+-- | Compute the corresponding expression type for a SQL response type.
 type family ResultType (a :: Type) :: Type where
   ResultType (a, b) = (ResultType a, ResultType b)
   ResultType (t Expr) = t Identity
@@ -579,40 +894,35 @@ type family ResultType (a :: Type) :: Type where
   ResultType (MaybeTable a) = Maybe (ResultType a)
 
 
-class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => SerializationMethod (expr :: Type) (haskell :: Type) where
-  rowParser :: RowParser haskell
-  litImpl :: haskell -> expr
-
-
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t DBType) => SerializationMethod (s expr) (t identity) where
+instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t DBType) => Serializable (s expr) (t identity) where
   rowParser = htraverse sequenceC $ htabulate @t (f . hfield (hdicts @t))
     where
       f :: forall a. C (Dict DBType) a -> C (Compose RowParser Identity) a
       f (MkC Dict) = MkC $ fieldWith $ decode $ typeInformation @a
 
-  litImpl t =
+  lit t =
     fromColumns $ htabulate \i ->
       case (hfield (hdicts @t @DBType) i, hfield t i) of
         (MkC Dict, MkC x) -> MkC $ lit x
 
 
-instance (DBType a, a ~ b) => SerializationMethod (Expr a) b where
+instance (DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser = fieldWith (decode typeInformation)
 
-  litImpl = Expr . Opaleye.CastExpr typeName . encode
+  lit = Expr . Opaleye.CastExpr typeName . encode
     where
       DatabaseType{ encode, typeName } = typeInformation
 
 
-instance (Serializable a1 b1, Serializable a2 b2) => SerializationMethod (a1, a2) (b1, b2) where
+instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
   rowParser = liftA2 (,) rowParser rowParser
 
-  litImpl (a, b) = (lit a, lit b)
+  lit (a, b) = (lit a, lit b)
 
 
-instance (Table Expr (MaybeTable a), Table Expr a, ExprType (Maybe b) ~ MaybeTable a, ResultType a ~ b, SerializationMethod a b, HConstrainTable (Columns a) DBType) => SerializationMethod (MaybeTable a) (Maybe b) where
+instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (MaybeTable a) (Maybe b) where
   rowParser = do
     rowExists <- fieldWith ( decode typeInformation )
 
@@ -620,17 +930,13 @@ instance (Table Expr (MaybeTable a), Table Expr a, ExprType (Maybe b) ~ MaybeTab
       Just True -> Just <$> rowParser
       _         -> Nothing <$ htraverse nullField (hdicts @(Columns a) @DBType)
 
-  litImpl = \case
+  lit = \case
     Nothing -> noTable
     Just x  -> pure $ lit x
 
 
 nullField :: forall x f. C f x -> RowParser (C f x)
 nullField x = x <$ fieldWith (\_ _ -> pure ())
-
-
--- | Typed SQL expressions
-newtype Expr (a :: Type) = Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
 type role Expr representational
@@ -659,8 +965,7 @@ data MaybeTable t where
        , table :: t
        }
     -> MaybeTable t
-  deriving
-    ( Functor )
+  deriving stock Functor
 
 
 instance Applicative MaybeTable where
@@ -679,13 +984,12 @@ instance Monad MaybeTable where
         null_ (lit False) (\x' -> null_ (lit False) (x' ||.) y) x
 
 
-data HMaybeTable g f =
-  HMaybeTable
-    { hnullTag :: Column f (Maybe Bool)
-    , hcontents :: g f
-    }
-  deriving
-    (Generic, HigherKindedTable)
+data HMaybeTable g f = HMaybeTable
+  { hnullTag :: Column f (Maybe Bool)
+  , hcontents :: g f
+  }
+  deriving stock Generic
+  deriving anyclass HigherKindedTable
 
 
 instance Table Expr a => Table Expr (MaybeTable a) where
@@ -702,7 +1006,7 @@ maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
-noTable :: forall a. (Table Expr a, HConstrainTable (Columns a) DBType) => MaybeTable a
+noTable :: forall a. Table Expr a => MaybeTable a
 noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
     f :: forall x. HField (Columns a) x -> C Expr x
@@ -711,69 +1015,18 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
         MkC Dict -> MkC $ unsafeCoerceExpr (lit (Nothing :: Maybe x))
 
 
-instance expr ~ Expr => Table expr (Expr a) where
+instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
   type Columns (Expr a) = HIdentity a
   toColumns = HIdentity
   fromColumns = unHIdentity
 
 
-{-| Haskell types that can be represented as expressiosn in a database. There
-should be an instance of @DBType@ for all column types in your database
-schema (e.g., @int@, @timestamptz@, etc).
-
-Rel8 comes with stock instances for all default types in PostgreSQL.
-
-[ @newtype@ing @DBType@s ]
-
-Generalized newtype deriving can be used when you want use a @newtype@ around a
-database type for clarity and accuracy in your Haskell code. A common example is
-to @newtype@ row id types:
-
-@
-newtype UserId = UserId { toInt32 :: Int32 }
-  deriving ( DBType )
-@
-
-You can now write queries using @UserId@ instead of @Int32@, which may help
-avoid making bad joins. However, when SQL is generated, it will be as if you
-just used integers (the type distinction does not impact query generation).
-
--}
-class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => DBType (a :: Type) where
-  typeInformation :: DatabaseType a a
-
-
-data DatabaseType a b =
-  DatabaseType
-    { encode :: a -> Opaleye.PrimExpr
-    , decode :: FieldParser b
-    , typeName :: String
-    }
-
-
-fromOpaleye :: forall a b. (FromField a, IsSqlType b) => (a -> Opaleye.Column b) -> DatabaseType a a
+fromOpaleye :: forall a b. (FromField a, IsSqlType b) => (a -> Opaleye.Column b) -> DatabaseType a
 fromOpaleye f =
   DatabaseType
     { encode = \x -> case f x of Opaleye.Column e -> e
     , decode = fromField
     , typeName = showSqlType (Proxy @b)
-    }
-
-
-parseDatabaseType :: Typeable b => (a -> Either String b) -> DatabaseType i a -> DatabaseType i b
-parseDatabaseType f DatabaseType{ encode, decode, typeName } =
-  DatabaseType
-    { encode = encode
-    , decode = \x y -> decode x y >>= either (returnError Incompatible x) return . f
-    , typeName
-    }
-
-
-instance Profunctor DatabaseType where
-  dimap f g DatabaseType{ encode, decode, typeName } = DatabaseType
-    { encode = encode . f
-    , decode = \x y -> g <$> decode x y
-    , typeName
     }
 
 
@@ -784,7 +1037,7 @@ instance DBType Bool where
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  typeInformation = dimap fromIntegral fromIntegral $ fromOpaleye pgInt4
+  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
@@ -880,29 +1133,6 @@ instance DBType (CI Data.Text.Lazy.Text) where
   typeInformation = fromOpaleye pgCiLazyText
 
 
-liftNull :: Expr a -> Expr ( Maybe a )
-liftNull =
-  retype
-
-
-null_ :: Expr b -> ( Expr a -> Expr b ) -> Expr ( Maybe a ) -> Expr b
-null_ whenNull f a =
- ifThenElse_ ( isNull a ) whenNull ( f ( retype a ) )
-
-
--- | The SQL @OR@ operator.
-infixr 2 ||.
-
-
-(||.) :: Expr Bool -> Expr Bool -> Expr Bool
-(||.) ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr Opaleye.OpOr a b )
-
-
-ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
-ifThenElse_ bool whenTrue = case_ [ ( bool, whenTrue ) ]
-
-
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
   fromColumns $ htabulate @(Columns a) \x -> MkC $ fromPrimExpr $
@@ -911,43 +1141,26 @@ case_ alts def =
         ( toPrimExpr $ toColumn $ hfield (toColumns def) x )
 
 
-unsafeCoerceExpr :: Expr a -> Expr b
-unsafeCoerceExpr (Expr x) = Expr x
-
-
 retype :: Expr a -> Expr b
 retype = fromPrimExpr . toPrimExpr
-
-
-isNull :: Expr (Maybe a) -> Expr Bool
-isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
 
 
 fromPrimExpr :: Opaleye.PrimExpr -> Expr a
 fromPrimExpr = Expr
 
 
--- | A deriving-via helper type for column types that store a Haskell value
--- using a JSON encoding described by @aeson@'s 'ToJSON' and 'FromJSON' type
--- classes.
-newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
+{-| The 'DBType' instance for 'ReadShow' allows you to serialize a type using
+Haskell's 'Read' and 'Show' instances:
 
-
-instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
-  typeInformation =
-    parseDatabaseType (fmap JSONEncoded . parseEither parseJSON) $
-      lmap (toJSON . fromJSONEncoded) typeInformation
-
-
--- | A deriving-via helper type for column types that store a Haskell value
--- using a Haskell's 'Read' and 'Show' type classes.
-newtype ReadShow a = ReadShow { fromReadShow :: a }
-
-
+@
+data Color = Red | Green | Blue
+  deriving (Read, Show)
+  deriving DBType via ReadShow Color
+@
+-}
 instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
   typeInformation =
-    parseDatabaseType (fmap ReadShow . readEither) $
-      lmap (show . fromReadShow) typeInformation
+    parseDatabaseType (fmap ReadShow . readEither) (show . fromReadShow) typeInformation
 
 
 mapTable
@@ -973,74 +1186,6 @@ traverseTable
 traverseTable f = fmap fromColumns . htraverse f . toColumns
 
 
-
--- | The SQL @AND@ operator.
-infixr 3 &&.
-(&&.) :: Expr Bool -> Expr Bool -> Expr Bool
-(&&.) ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr Opaleye.OpAnd a b )
-
-
--- | The SQL @NOT@ operator.
-not_ :: Expr Bool -> Expr Bool
-not_ ( Expr a ) =
-  Expr ( Opaleye.UnExpr Opaleye.OpNot a )
-
-
--- | The @Function@ type class is an implementation detail that allows
--- @function@ to be polymorphic in the number of arguments it consumes.
-class Function arg res where
-  -- | Build a function of multiple arguments.
-  applyArgument :: ( [ Opaleye.PrimExpr ] -> Opaleye.PrimExpr ) -> arg -> res
-
-
-instance arg ~ Expr a => Function arg ( Expr res ) where
-  applyArgument mkExpr ( Expr a ) =
-    Expr ( mkExpr [ a ] )
-
-
-instance ( arg ~ Expr a, Function args res ) => Function arg ( args -> res ) where
-  applyArgument f ( Expr a ) =
-    applyArgument ( f . ( a : ) )
-
-
-{-| Construct an n-ary function that produces an 'Expr' that when called runs a
-SQL function.
-
-For example, if we have a SQL function @foo(x, y, z)@, we can represent this
-in Rel8 with:
-
-@
-foo :: Expr m Int32 -> Expr m Int32 -> Expr m Bool -> Expr m Text
-foo = dbFunction "foo"
-@
-
--}
-function :: Function args result => String -> args -> result
-function =
-  applyArgument . Opaleye.FunExpr
-
-
-{-| Construct a function call for functions with no arguments.
-
-As an example, we can call the database function @now()@ by using
-@nullaryFunction@:
-
-@
-now :: Expr m UTCTime
-now = nullaryFunction "now"
-@
-
--}
-nullaryFunction :: DBType a => String -> Expr a
-nullaryFunction = nullaryFunction_forAll
-
-
-nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
-nullaryFunction_forAll name =
-  const (Expr ( Opaleye.FunExpr name [] )) (lit (undefined :: a))
-
-
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
 binExpr op ( Expr a ) ( Expr b ) =
     Expr ( Opaleye.BinExpr op a b )
@@ -1056,62 +1201,6 @@ traversePrimExpr
   => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr a -> f ( Expr a )
 traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
-
-
-and_ :: Foldable f => f ( Expr Bool ) -> Expr Bool
-and_ =
-  foldl' (&&.) ( lit True )
-
-
-or_ :: Foldable f => f ( Expr Bool ) -> Expr Bool
-or_ =
-  foldl' (||.) ( lit False )
-
-
-binaryOperator :: String -> Expr a -> Expr b -> Expr c
-binaryOperator op (Expr a) (Expr b) =
-  Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
-
-
-{-| Database types that can be compared for equality in queries.
-
-Usually, this means producing an expression using the (overloaded) @=@
-operator, but types can provide a more elaborate expression if necessary.
-
-[ @DBEq@ with @newtype@s ]
-
-Like with 'Rel8.DBType', @DBEq@ plays well with generalized newtype deriving.
-The example given there showed a @UserId@ @newtype@, but we won't actually be
-able to use that in joins or where-clauses because it lacks equality. We can
-add this by changing our @newtype@ definition to:
-
-@
-newtype UserId = UserId { toInt32 :: Int32 }
-  deriving ( DBType, DBEq )
-@
-
-This will re-use the equality logic for @Int32@, which is to just use the @=@
-operator.
-
-[ @DBEq@ with @DeriveAnyType@ ]
-
-You can also use @DBEq@ with the @DeriveAnyType@ extension to easily add
-equality to your type, assuming that @=@ is sufficient on @DBType@ encoded
-values. Extending the example from 'Rel8.DBType', we could add equality
-to @Color@ by writing:
-
-@
-data Color = Red | Green | Blue | Purple | Gold
-  deriving ( Show, DBType, DBEq )
-@
-
-This means @Color@s will be treated as the literal strings @"Red"@, @"Green"@,
-etc in the database, and they can be compared for equality by just using @=@.
--}
-class DBType a => DBEq (a :: Type) where
-  eqExprs :: Expr a -> Expr a -> Expr Bool
-  eqExprs =
-    binExpr (Opaleye.:==)
 
 
 instance DBEq String
@@ -1297,7 +1386,7 @@ ddlTable schema writer_ =
 
 
 -- | The constituent parts of a SQL @INSERT@ statement.
-data Insert :: * -> * where
+data Insert :: Type -> Type where
   Insert
     :: (Columns value ~ Columns schema, Table Expr value, Table ColumnSchema schema)
     => { into :: TableSchema schema
@@ -1597,12 +1686,7 @@ catMaybeTable MaybeTable{ nullTag, table } = do
   return table
 
 
-catMaybe :: Expr (Maybe a) -> Query (Expr a)
-catMaybe e =
-  catMaybeTable $ MaybeTable (ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))) (unsafeCoerceExpr e)
-
-
-values :: forall expr f. (Table Expr expr, Foldable f, HConstrainTable (Columns expr) DBType) => f expr -> Query expr
+values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
     valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
@@ -1627,28 +1711,74 @@ filter f a = do
   return a
 
 
--- | The class of database tables (containing one or more columns) that can be
--- compared for equality as a whole.
-class Table Expr a => EqTable a where
-  -- | Compare two tables or expressions for equality.
-  --
-  -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
-  -- you to compare expressions:
-  --
-  -- >>> :t exprA
-  -- Expr m Int
-  --
-  -- >>> :t exprA ==. exprA
-  -- Expr m Bool
-  --
-  -- But you can also compare composite structures:
-  --
-  -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
-  -- Expr m Bool
-  (==.) :: a -> a -> Expr Bool
-
-
 -- | Any @Expr@s can be compared for equality as long as the underlying
 -- database type supports equality comparisons.
 instance DBEq a => EqTable (Expr a) where
   (==.) = eqExprs
+
+
+{-| The schema for a column in a table. To construct values of this type,
+enable the @OverloadedStrings@ language extension and write literal Haskell
+strings:
+
+@
+\{\-\# LANGUAGE OverloadedStrings -\}
+tableSchema :: TableSchema ( HaskellPackage ColumnSchema )
+tableSchema =
+  TableSchema
+    { ...
+    , tableColumns =
+        HaskallPackage
+          { packageName = "name" -- Here "name" :: ColumnSchema due to OverloadedStrings
+          }
+    }
+@
+
+If you want to programatically create @ColumnSchema@'s, you can use
+'Data.String.fromString':
+
+@
+import Data.String ( fromString )
+
+commonPrefix :: String
+commonPrefix = "prefix_"
+
+tableSchema :: TableSchema ( HaskellPackage ColumnSchema )
+tableSchema =
+  TableSchema
+    { ...
+    , tableColumns =
+        HaskallPackage
+          { packageName = fromString ( prefix ++ "name" )
+          }
+    }
+@
+
+-}
+newtype ColumnSchema ( a :: Type ) =
+  ColumnSchema { columnName :: String }
+
+
+-- | You can construct @ColumnSchema@ values by using @\{\-\# LANGUAGE OverloadedStrings #-\}@ and writing
+-- literal strings in your source code.
+instance IsString ( ColumnSchema a ) where
+  fromString =
+    ColumnSchema
+
+
+toOpaleyeTable
+  :: TableSchema schema
+  -> Opaleye.Writer write view
+  -> Opaleye.View view
+  -> Opaleye.Table write view
+toOpaleyeTable TableSchema{ tableName, tableSchema } writer_ view =
+  maybe withoutSchema withSchema tableSchema
+  where
+    tableFields = Opaleye.TableFields writer_ view
+
+    withoutSchema = Opaleye.Table tableName tableFields
+    withSchema s = Opaleye.TableWithSchema s tableName tableFields
+
+
+data Dict c a where
+  Dict :: c a => Dict c a
