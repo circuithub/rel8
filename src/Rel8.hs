@@ -55,6 +55,7 @@ module Rel8
   , catMaybe
   , not_
   , ifThenElse_
+  , (==.)
 
     -- ** Functions
   , Function
@@ -67,6 +68,8 @@ module Rel8
 
     -- * Table schemas
   , Column
+  , TableSchema(..)
+  , ColumnSchema
 
     -- * Queries
   , Query
@@ -227,7 +230,7 @@ import Rel8.ColumnSchema ( ColumnSchema(..) )
 
 import qualified Rel8.Optimize
 import Rel8.TableSchema
-    ( toOpaleyeTable, TableSchema(tableColumns) )
+    ( toOpaleyeTable, TableSchema(..) )
 
 
 
@@ -1622,3 +1625,30 @@ filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = do
   where_ $ f a
   return a
+
+
+-- | The class of database tables (containing one or more columns) that can be
+-- compared for equality as a whole.
+class Table Expr a => EqTable a where
+  -- | Compare two tables or expressions for equality.
+  --
+  -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
+  -- you to compare expressions:
+  --
+  -- >>> :t exprA
+  -- Expr m Int
+  --
+  -- >>> :t exprA ==. exprA
+  -- Expr m Bool
+  --
+  -- But you can also compare composite structures:
+  --
+  -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
+  -- Expr m Bool
+  (==.) :: a -> a -> Expr Bool
+
+
+-- | Any @Expr@s can be compared for equality as long as the underlying
+-- database type supports equality comparisons.
+instance DBEq a => EqTable (Expr a) where
+  (==.) = eqExprs

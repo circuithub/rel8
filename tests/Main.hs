@@ -22,6 +22,7 @@ import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
 import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive (mk)
 import Data.Foldable ( for_ )
+import Data.Functor.Identity ( Identity )
 import Data.Function ( on )
 import Data.Int ( Int32, Int64 )
 import Data.Bifunctor ( bimap )
@@ -119,9 +120,9 @@ data TestTable f = TestTable
     ( Generic, Rel8.HigherKindedTable )
 
 
-deriving instance Eq (TestTable Rel8.Identity)
-deriving instance Ord (TestTable Rel8.Identity)
-deriving instance Show (TestTable Rel8.Identity)
+deriving instance Eq (TestTable Identity)
+deriving instance Ord (TestTable Identity)
+deriving instance Show (TestTable Identity)
 
 
 testTableSchema :: Rel8.TableSchema ( TestTable Rel8.ColumnSchema )
@@ -376,7 +377,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.ExprType (Maybe a) ~ Rel8.Expr (Maybe a), Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
@@ -392,7 +393,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     maybeEq f Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
-    t :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -431,13 +432,13 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Eq a, Show a, Rel8.DBEq a, Rel8.ExprType (Maybe a) ~ Rel8.Expr (Maybe a)) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: (Rel8.ExprType a ~ Rel8.Expr a, Rel8.DBType a, Eq a, Show a, Rel8.DBEq a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
+    t :: (Eq a, Show a, Rel8.DBEq a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
@@ -521,9 +522,9 @@ data TwoTestTables f =
     ( Generic, Rel8.HigherKindedTable )
 
 
-deriving instance Eq (TwoTestTables Rel8.Identity)
-deriving instance Ord (TwoTestTables Rel8.Identity)
-deriving instance Show (TwoTestTables Rel8.Identity)
+deriving instance Eq (TwoTestTables Identity)
+deriving instance Ord (TwoTestTables Identity)
+deriving instance Show (TwoTestTables Identity)
 
 
 testNestedTables :: IO TmpPostgres.DB -> TestTree
@@ -542,9 +543,9 @@ testNestedTables = databasePropertyTest "Nested TestTables" \transaction -> eval
 testMaybeTableApplicative :: IO TmpPostgres.DB -> TestTree
 testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction -> evalM do
   rows <- forAll do
-    -- TODO: We shouldn't need the @Rel8.Identity type application, but without
+    -- TODO: We shouldn't need the @Identity type application, but without
     -- it this fails to type check.
-    Gen.list (Range.linear 0 10) $ liftA2 (TestTable @Rel8.Identity) (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
+    Gen.list (Range.linear 0 10) $ liftA2 (TestTable @Identity) (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
 
   transaction \connection -> do
     liftIO $ executeMany connection
@@ -649,9 +650,9 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 data HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving (Generic, Rel8.HigherKindedTable)
 
-deriving instance Eq (HKNestedPair Rel8.Identity)
-deriving instance Ord (HKNestedPair Rel8.Identity)
-deriving instance Show (HKNestedPair Rel8.Identity)
+deriving instance Eq (HKNestedPair Identity)
+deriving instance Ord (HKNestedPair Identity)
+deriving instance Show (HKNestedPair Identity)
 
 
 testSelectNestedPairs :: IO TmpPostgres.DB -> TestTree
