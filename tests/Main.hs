@@ -78,6 +78,7 @@ tests =
     , testLogicalFixities getTestDatabase
     , testUpdate getTestDatabase
     , testDelete getTestDatabase
+    , testSelectNestedPairs getTestDatabase
     ]
 
   where
@@ -647,3 +648,18 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 data HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving (Generic, Rel8.HigherKindedTable)
+
+deriving instance Eq (HKNestedPair Rel8.Identity)
+deriving instance Ord (HKNestedPair Rel8.Identity)
+deriving instance Show (HKNestedPair Rel8.Identity)
+
+
+testSelectNestedPairs :: IO TmpPostgres.DB -> TestTree
+testSelectNestedPairs = databasePropertyTest "Can SELECT nested pairs" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) $ HKNestedPair <$> liftA2 (,) genTestTable genTestTable
+
+  transaction \connection -> do
+    selected <- Rel8.select connection do
+      Rel8.values $ map Rel8.lit rows
+
+    sort selected === sort rows
