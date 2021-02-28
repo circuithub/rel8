@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingStrategies #-}
 {-# language BlockArguments #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
@@ -13,7 +14,9 @@
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
-module Main where
+{-# options -Weverything -Wno-prepositive-qualified-module -Wno-unsafe -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-implicit-prelude #-}
+
+module Main (main) where
 
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Exception.Lifted ( bracket, throwIO, finally )
@@ -38,12 +41,14 @@ import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTr
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
-import Hedgehog ( Property, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
 import Test.Tasty
 import Test.Tasty.Hedgehog ( testProperty )
+import Control.Monad (void)
+import Data.Word (Word32)
 
 
 main :: IO ()
@@ -87,15 +92,16 @@ tests =
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
-      bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> do
+      bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> void do
         execute_ conn [sql|
           CREATE EXTENSION citext;
           CREATE TABLE test_table ( column1 text not null, column2 bool not null );
         |]
 
-      return (db)
+      return db
 
     stopTestDatabase = TmpPostgres.stop
+
 
 databasePropertyTest
   :: TestName
@@ -116,13 +122,13 @@ data TestTable f = TestTable
   { testTableColumn1 :: Rel8.Column f String
   , testTableColumn2 :: Rel8.Column f Bool
   }
-  deriving
-    ( Generic, Rel8.HigherKindedTable )
+  deriving stock Generic
+  deriving anyclass Rel8.HigherKindedTable
 
 
-deriving instance Eq (TestTable Identity)
-deriving instance Ord (TestTable Identity)
-deriving instance Show (TestTable Identity)
+deriving stock instance Eq (TestTable Identity)
+deriving stock instance Ord (TestTable Identity)
+deriving stock instance Show (TestTable Identity)
 
 
 testTableSchema :: Rel8.TableSchema ( TestTable Rel8.ColumnSchema )
@@ -142,13 +148,14 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
-      Rel8.Insert
-        { into = testTableSchema
-        , rows = map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsInserted
-        }
+    void do
+      Rel8.insert connection
+        Rel8.Insert
+          { into = testTableSchema
+          , rows = map Rel8.lit rows
+          , onConflict = Rel8.DoNothing
+          , returning = Rel8.NumberOfRowsInserted
+          }
 
     selected <- Rel8.select connection do
       Rel8.each testTableSchema
@@ -254,7 +261,7 @@ testExists = databasePropertyTest "EXISTS (Rel8.exists)" \transaction -> do
   transaction \connection -> do
     selected <- Rel8.select connection do
       row <- Rel8.values $ Rel8.lit <$> rows1
-      Rel8.exists do
+      _ <- Rel8.exists do
         Rel8.values $ Rel8.lit <$> rows2
       return row
 
@@ -271,7 +278,7 @@ testOptional = databasePropertyTest "Rel8.optional" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    liftIO do
+    void $ liftIO do
       executeMany connection
         [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
         [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
@@ -360,14 +367,14 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Day" genDay
-  , dbTypeTest "Double" $ (/10) . fromIntegral @_ @Double <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Float" $ (/10) . fromIntegral @_ @Float <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Double" $ (/10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Float" $ (/10) . fromIntegral @Int @Float <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
   , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "LocalTime" genLocalTime
-  , dbTypeTest "Scientific" $ (/10) . fromIntegral @_ @Scientific <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Scientific" $ (/10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "TimeOfDay" genTimeOfDay
@@ -388,9 +395,10 @@ testDBType getTestDatabase = testGroup "DBType instances"
       , databasePropertyTest ("Maybe " <> name) (t (maybeEq f) (Gen.maybe generator)) getTestDatabase
       ]
 
-    maybeEq f Nothing Nothing = True
-    maybeEq f Just{} Nothing = False
-    maybeEq f Nothing Just{} = False
+    maybeEq :: (x -> y -> Bool) -> Maybe x -> Maybe y -> Bool
+    maybeEq _ Nothing Nothing = True
+    maybeEq _ Just{} Nothing = False
+    maybeEq _ Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
     t :: (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
@@ -401,24 +409,29 @@ testDBType getTestDatabase = testGroup "DBType instances"
         [res] <- Rel8.select connection $ pure $ Rel8.lit x
         diff res eq x
 
+    genDay :: Gen Day
     genDay = do
       year <- Gen.integral (Range.linear 1970 3000)
       month <- Gen.integral (Range.linear 1 12)
       day <- Gen.integral (Range.linear 1 31)
       Gen.just $ pure $ fromGregorianValid year month day
 
+    genDiffTime :: Gen DiffTime
     genDiffTime = secondsToDiffTime <$> Gen.integral (Range.linear 0 86401)
 
+    genTimeOfDay :: Gen TimeOfDay
     genTimeOfDay = do
       hour <- Gen.integral (Range.linear 0 23)
-      min <- Gen.integral (Range.linear 0 59)
-      sec <- fromIntegral <$> Gen.integral (Range.linear 0 59)
-      Gen.just $ pure $ makeTimeOfDayValid hour min sec
+      minute <- Gen.integral (Range.linear 0 59)
+      sec <- fromIntegral @Int <$> Gen.integral (Range.linear 0 59)
+      Gen.just $ pure $ makeTimeOfDayValid hour minute sec
 
     genLocalTime = LocalTime <$> genDay <*> genTimeOfDay
 
+    genTimeZone :: Gen TimeZone
     genTimeZone = hoursToTimeZone <$> Gen.integral (Range.linear (-6) 6)
 
+    genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
 
 
@@ -501,7 +514,7 @@ testMaybeTable = databasePropertyTest "maybeTable" \transaction -> evalM do
   (rows, def) <- forAll $ liftA2 (,) (Gen.list (Range.linear 0 10) genTestTable) genTestTable
 
   transaction \connection -> do
-    liftIO $ executeMany connection
+    void $ liftIO $ executeMany connection
       [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
       [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
 
@@ -518,13 +531,13 @@ data TwoTestTables f =
     { testTable1 :: TestTable f
     , testTable2 :: TestTable f
     }
-  deriving
-    ( Generic, Rel8.HigherKindedTable )
+  deriving stock Generic 
+  deriving anyclass Rel8.HigherKindedTable
 
 
-deriving instance Eq (TwoTestTables Identity)
-deriving instance Ord (TwoTestTables Identity)
-deriving instance Show (TwoTestTables Identity)
+deriving stock instance Eq (TwoTestTables Identity)
+deriving stock instance Ord (TwoTestTables Identity)
+deriving stock instance Show (TwoTestTables Identity)
 
 
 testNestedTables :: IO TmpPostgres.DB -> TestTree
@@ -548,7 +561,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
     Gen.list (Range.linear 0 10) $ liftA2 (TestTable @Identity) (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
 
   transaction \connection -> do
-    liftIO $ executeMany connection
+    void $ liftIO $ executeMany connection
       [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
       [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
 
@@ -570,6 +583,7 @@ rollingBack connection m =
     m `finally` liftIO (rollback connection)
 
 
+genTestTable :: Gen (TestTable Identity)
 genTestTable = do
   testTableColumn1 <- Gen.list (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
@@ -581,7 +595,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
   rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
+    void $Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
         , rows = map Rel8.lit $ Map.keys rows
@@ -589,7 +603,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
         , returning = Rel8.NumberOfRowsInserted
         }
 
-    Rel8.update connection
+    void $ Rel8.update connection
       Rel8.Update
         { target = testTableSchema
         , set = \r ->
@@ -625,7 +639,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
 
   transaction \connection -> do
-    Rel8.insert connection
+    void $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
         , rows = map Rel8.lit rows
@@ -647,12 +661,13 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
     sort (deleted <> selected) === sort rows
 
 
-data HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
-  deriving (Generic, Rel8.HigherKindedTable)
+newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
+  deriving stock Generic
+  deriving anyclass Rel8.HigherKindedTable
 
-deriving instance Eq (HKNestedPair Identity)
-deriving instance Ord (HKNestedPair Identity)
-deriving instance Show (HKNestedPair Identity)
+deriving stock instance Eq (HKNestedPair Identity)
+deriving stock instance Ord (HKNestedPair Identity)
+deriving stock instance Show (HKNestedPair Identity)
 
 
 testSelectNestedPairs :: IO TmpPostgres.DB -> TestTree
