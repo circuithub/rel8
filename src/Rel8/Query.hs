@@ -62,7 +62,6 @@ import Rel8.Expr
 import qualified Rel8.Optimize
 import Rel8.TableSchema
 import Data.Functor.Compose (Compose)
-import Debug.Trace
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -144,7 +143,7 @@ insert connection Insert{ into, rows, onConflict, returning } =
   liftIO
     ( Opaleye.runInsert_
         connection
-        ( toOpaleyeInsert into (trace (show (length rows)) rows) returning )
+        ( toOpaleyeInsert into rows returning )
     )
 
   where
