@@ -9,9 +9,7 @@
 
 module Rel8.EqTable ( EqTable, (==.) ) where
 
-import Rel8.DBEq
-import Rel8.Expr
-import Rel8.Core
+import Rel8
 
 
 -- | The class of database tables (containing one or more columns) that can be
