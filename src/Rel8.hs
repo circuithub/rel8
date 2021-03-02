@@ -28,8 +28,6 @@
 {-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
 
-{-# options -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode -Wno-missing-import-lists -Wno-prepositive-qualified-module -Wno-deprecations -Wno-monomorphism-restriction -Wno-missing-local-signatures #-}
-
 module Rel8
   ( -- * Database types
     DBType(..)

@@ -28,7 +28,10 @@ library
   default-language:
     Haskell2010
   ghc-options:
-    -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-deprecations -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures 
   hs-source-dirs:
     src
   exposed-modules:
