@@ -41,8 +41,17 @@ module Rel8
   , mapDatabaseType
   , parseDatabaseType
 
-    -- * Database types with equality
+    -- ** Database types with equality
   , DBEq(..)
+
+    -- * Tables and higher-kinded tables
+  , Table(..)
+  , HigherKindedTable
+
+    -- ** Table schemas
+  , Column
+  , TableSchema(..)
+  , ColumnSchema
 
     -- * Expressions
   , Expr
@@ -68,43 +77,50 @@ module Rel8
   , Function
   , function
   , nullaryFunction
-   
-    -- * Tables and higher-kinded tables
-  , Table(..)
-  , HigherKindedTable
-
-    -- * Table schemas
-  , Column
-  , TableSchema(..)
-  , ColumnSchema
 
     -- * Queries
   , Query
+  , showQuery
+
+    -- ** Selecting rows
   , each
   , values
+
+    -- ** Filtering
   , filter
   , where_
+  , distinct
+
+    -- ** @LIMIT@/@OFFSET@
   , limit
   , offset
+
+    -- ** Combining 'Query's
   , union
-  , distinct
   , exists
+
+    -- ** Optional 'Query's
   , optional
   , MaybeTable
   , maybeTable
   , noTable
   , catMaybeTable
-  , showQuery
+
+    -- ** Aggregation
   , aggregate
+  , AggregateTable(..)
+
+    -- ** Array aggregation
+  , Array
+  , arrayAgg
 
     -- * IO
-  , Serializable
-  , lit
+  , Serializable(..)
 
     -- * Running statements
     -- ** @SELECT@
   , select
-   
+
     -- ** @INSERT@
   , Insert(..)
   , OnConflict(..)
@@ -120,21 +136,30 @@ module Rel8
 
     -- * @.. RETURNING@
   , Returning(..)
-  )
-  where
+  ) where
 
 -- aeson
 import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
 -- base
-import Prelude hiding ( filter )
-import Control.Applicative ( liftA2, ZipList(..) )
+import Control.Applicative ( ZipList(..), liftA2 )
 import qualified Control.Applicative
+import Control.Monad ( void )
+import Control.Monad.IO.Class ( MonadIO(..) )
+import Data.Foldable ( Foldable( toList, foldl' ) )
+import Data.Foldable ( fold )
+import Data.Functor.Compose ( Compose(..) )
+import Data.Functor.Identity ( Identity( runIdentity ) )
+import Data.Int ( Int32, Int64 )
+import Data.Kind ( Constraint, Type )
+import Data.Monoid ( Sum( Sum ), getSum )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
 import GHC.Generics ( (:*:)(..), Generic, K1(..), M1(..), Rep, from, to )
+import Numeric.Natural ( Natural )
+import Prelude hiding ( filter )
 import Text.Read ( readEither )
 
 -- bytestring
@@ -144,9 +169,34 @@ import qualified Data.ByteString.Lazy
 -- case-insensitive
 import Data.CaseInsensitive ( CI )
 
+-- containers
+import Data.Sequence ( Seq, fromList )
+
 -- opaleye
+import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit )
+import qualified Opaleye.Aggregate as Opaleye
+import qualified Opaleye.Binary as Opaleye
+import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Internal.Aggregate as Opaleye
+import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
+import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye ()
+import qualified Opaleye.Internal.Manipulation as Opaleye
+import qualified Opaleye.Internal.Optimize as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
+import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
+import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Internal.RunQuery as Opaleye
+import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
+import qualified Opaleye.Internal.Unpackspec as Opaleye
+import qualified Opaleye.Internal.Values as Opaleye
+import qualified Opaleye.Lateral as Opaleye
+import qualified Opaleye.Operators as Opaleye hiding ( restrict )
+import qualified Opaleye.Order as Opaleye
 import Opaleye.PGTypes
   ( IsSqlType(..)
   , pgBool
@@ -169,17 +219,26 @@ import Opaleye.PGTypes
   , pgValueJSON
   , pgZonedTime
   )
+import qualified Opaleye.Table as Opaleye
 
 -- postgresql-simple
+import qualified Database.PostgreSQL.Simple
+import Database.PostgreSQL.Simple ( Connection )
 import Database.PostgreSQL.Simple.FromField
   ( FieldParser
   , FromField
   , ResultError( Incompatible )
   , fromField
   , optionalField
-  , returnError, pgArrayFieldParser
+  , pgArrayFieldParser
+  , returnError
   )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
+import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
+import Database.PostgreSQL.Simple.Types ( PGArray( PGArray ) )
+
+-- rel8
+import qualified Rel8.Optimize
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -193,45 +252,6 @@ import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 
 -- uuid
 import Data.UUID ( UUID )
-import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Identity ( Identity(runIdentity) )
-import Data.Kind ( Type, Constraint )
-import Control.Monad ( void )
-import Control.Monad.IO.Class ( MonadIO(..) )
-import Data.Foldable ( Foldable(toList, foldl') )
-import Data.Int ( Int32, Int64 )
-import qualified Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple ( Connection )
-import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import Numeric.Natural ( Natural )
-import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
-import qualified Opaleye.Aggregate as Opaleye
-import qualified Opaleye.Binary as Opaleye
-import qualified Opaleye.Distinct as Opaleye
-import qualified Opaleye.Internal.Aggregate as Opaleye
-import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye ()
-import qualified Opaleye.Internal.Manipulation as Opaleye
-import qualified Opaleye.Internal.Optimize as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
-import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
-import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.RunQuery as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
-import qualified Opaleye.Internal.Tag as Opaleye
-import qualified Opaleye.Internal.Unpackspec as Opaleye
-import qualified Opaleye.Internal.Values as Opaleye
-import qualified Opaleye.Lateral as Opaleye
-import qualified Opaleye.Operators as Opaleye hiding ( restrict )
-import qualified Opaleye.Order as Opaleye
-import qualified Opaleye.Table as Opaleye
-import qualified Rel8.Optimize
-import Data.Foldable (fold)
-import Data.Monoid (Sum(Sum), getSum)
-import Database.PostgreSQL.Simple.Types (PGArray(PGArray))
-import Data.Sequence (Seq, fromList)
 
 
 {-| Haskell types that can be represented as expressions in a database. There
@@ -294,6 +314,8 @@ newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 {-| Anything that has an instance of 'DBType' is an 'Expr'. This class packages that knowledge up. -}
 class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr (a :: Type)
+
+
 instance (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr a
 
 
@@ -423,6 +445,8 @@ catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
 
 -- | The SQL @AND@ operator.
 infixr 3 &&.
+
+
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
 Expr a &&. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpAnd a b
 
@@ -437,6 +461,8 @@ and_ = foldl' (&&.) (lit True)
 
 -- | The SQL @OR@ operator.
 infixr 2 ||.
+
+
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
 Expr a ||. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpOr a b
 
@@ -741,7 +767,7 @@ newtype C f x = MkC { toColumn :: Column f x }
 -- | Lift functions that map between 'Column's to functions that map between
 -- 'C's.
 mapC :: (Column f x -> Column g y) -> C f x -> C g y
-mapC f (MkC x) = MkC $ f x 
+mapC f (MkC x) = MkC $ f x
 
 
 -- | Effectfully map from one column to another.
@@ -922,8 +948,8 @@ class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => S
   lit :: haskell -> expr
 
   -- TODO Don't use Applicative f, instead supply a htraverse function. We _don't_ want access to 'pure'
-  rowParser :: forall f. Applicative f 
-    => (forall x. Typeable x => FieldParser x -> FieldParser (f x)) 
+  rowParser :: forall f. Applicative f
+    => (forall x. Typeable x => FieldParser x -> FieldParser (f x))
     -> RowParser (f haskell)
 
 
@@ -971,14 +997,14 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
-  rowParser inject = liftA2 (,) <$> rowParser @a1 inject <*> rowParser @a2 inject 
+  rowParser inject = liftA2 (,) <$> rowParser @a1 inject <*> rowParser @a2 inject
 
   lit (a, b) = (lit a, lit b)
 
 
 instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (MaybeTable a) (Maybe b) where
   rowParser inject = do
-    tags <- fieldWith $ inject $ decode typeInformation 
+    tags <- fieldWith $ inject $ decode typeInformation
     rows <- rowParser @a \fieldParser x y -> Compose <$> inject (fallback fieldParser) x y
     return $ liftA2 f tags (getCompose rows)
     where
@@ -990,7 +1016,7 @@ instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (
       fallback :: forall x. FieldParser x -> FieldParser (Maybe x)
       fallback fieldParser x (Just y) = Just <$> fieldParser x (Just y)
       fallback fieldParser x Nothing = Control.Applicative.optional (fieldParser x Nothing)
- 
+
   lit = \case
     Nothing -> noTable
     Just x  -> pure $ lit x
@@ -1348,7 +1374,7 @@ queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowP
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
-  Opaleye.Unpackspec $ Opaleye.PackMap \f -> 
+  Opaleye.Unpackspec $ Opaleye.PackMap \f ->
     fmap fromColumns . htraverse (traverseC (traversePrimExpr f)) . toColumns
 
 
@@ -1395,7 +1421,7 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
 writer
   :: forall value schema
-   . ( Table Expr value 
+   . ( Table Expr value
      , Table ColumnSchema schema
      , Columns value ~ Columns schema
      )
@@ -1407,14 +1433,14 @@ writer into_ =
        . ( Functor list, Applicative f )
       => ( ( list Opaleye.PrimExpr, String ) -> f () )
       -> list value
-      -> f () 
-    go f xs = 
+      -> f ()
+    go f xs =
       void $
         htraverse @(Columns schema) @(Compose f Expr) @Expr sequenceC $
           htabulate @(Columns schema) @(Compose f Expr) \i ->
             case hfield (toColumns (tableColumns into_)) i of
               MkC ColumnSchema{ columnName } ->
-                MkC $ 
+                MkC $
                   column columnName <$
                   f ( toPrimExpr . toColumn . flip hfield i . toColumns <$> xs
                     , columnName
@@ -1501,7 +1527,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
     go
       :: forall schema r row
-       . ( Table Expr row 
+       . ( Table Expr row
          , Table ColumnSchema schema
          , Columns schema ~ Columns row
          )
@@ -1689,10 +1715,10 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
     valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
       where
         packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
-        packmap = Opaleye.PackMap \f () -> 
+        packmap = Opaleye.PackMap \f () ->
           fmap fromColumns $
             htraverse (traverseC (traversePrimExpr f)) $
-              htabulate @(Columns expr) @Expr \i -> 
+              htabulate @(Columns expr) @Expr \i ->
                 case hfield (hdicts @(Columns expr) @DBType) i of
                   MkC Dict -> MkC $ fromPrimExpr $ nullExpr i
             where
@@ -1735,8 +1761,6 @@ If you want to programatically create @ColumnSchema@'s, you can use
 'Data.String.fromString':
 
 @
-import Data.String (fromString)
-
 commonPrefix :: String
 commonPrefix = "prefix_"
 
@@ -1785,7 +1809,7 @@ aggregate = liftOpaleye . Opaleye.laterally (Opaleye.aggregate aggregator) . toO
 
 
 showQuery :: Table Expr a => Query a -> String
-showQuery = fold . selectQuery 
+showQuery = fold . selectQuery
 
 
 class Table Expr a => AggregateTable a where
@@ -1800,7 +1824,7 @@ instance Table f a => Table f (Sum a) where
 
 class DBType a => DBSum a where
   sumAggregator :: Opaleye.Aggregator (Expr a) (Expr a)
-  sumAggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Expr primExpr) -> 
+  sumAggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Expr primExpr) ->
     Expr <$> f (Just (Opaleye.AggrSum, [], Opaleye.AggrAll), primExpr)
 
 
@@ -1817,11 +1841,15 @@ instance (Table Expr a, HConstrainTable (Columns a) DBSum) => AggregateTable (Su
           mkColumn i = case (hfield (hdicts @(Columns (Sum a)) @DBSum) i, hfield (toColumns a) i) of
             (MkC Dict, MkC expr) ->
               case sumAggregator of
-                Opaleye.Aggregator (Opaleye.PackMap g) -> 
+                Opaleye.Aggregator (Opaleye.PackMap g) ->
                   MkC $ g f expr
 
 
 newtype Array a = Array a
+
+
+arrayAgg :: a -> Array a
+arrayAgg = Array
 
 
 instance Table f a => Table f (Array a) where
@@ -1831,7 +1859,7 @@ instance Table f a => Table f (Array a) where
 
 
 instance Serializable a b => Serializable (Array a) (Seq b) where
-  rowParser inject = fmap (fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y -> 
+  rowParser inject = fmap (fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
     Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
     where
 
@@ -1857,4 +1885,4 @@ instance Table Expr a => AggregateTable (Array a) where
           mkColumn i = case hfield (toColumns a) i of
             MkC (Expr primExpr) ->
               MkC $ Expr <$> f (Just (Opaleye.AggrArr, [], Opaleye.AggrAll), primExpr)
-            
+
