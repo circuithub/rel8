@@ -1612,7 +1612,8 @@ data Update target returning where
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
 exists :: Query a -> Query (Expr Bool)
-exists query = liftOpaleye $ lit True <$ Opaleye.restrictExists (toOpaleye query)
+exists query = maybeTable (lit False) (const (lit True)) <$> optional do
+  liftOpaleye $ Opaleye.restrictExists (toOpaleye query)
 
 
 -- | Select each row from a table definition.

@@ -258,22 +258,14 @@ testDistinct = databasePropertyTest "DISTINCT (Rel8.distinct)" \transaction -> d
 
 testExists :: IO TmpPostgres.DB -> TestTree
 testExists = databasePropertyTest "EXISTS (Rel8.exists)" \transaction -> do
-  rows1 <- forAll $ Gen.list (Range.linear 1 10) genTestTable
-  rows2 <- forAll $ Gen.maybe genTestTable
+  rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
-      row <- Rel8.values $ Rel8.lit <$> rows1
-      _ <- Rel8.exists do
-        Rel8.values $ Rel8.lit <$> rows2
-      return row
+    exists <- Rel8.select connection $ Rel8.exists $ Rel8.values $ Rel8.lit <$> rows
 
-    case rows2 of
-      Nothing -> sort selected === []
-      Just{}  -> sort selected === sort rows1
-
-    cover 1 "EXISTS = False" $ null rows2
-    cover 1 "EXISTS = True" $ not $ null rows2
+    case rows of
+      [] -> exists === [False]
+      _ -> exists === [True]
 
 
 testOptional :: IO TmpPostgres.DB -> TestTree
