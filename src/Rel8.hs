@@ -48,16 +48,20 @@ module Rel8
 
     -- * Expressions
   , Expr
+  , unsafeCoerceExpr
+  , binaryOperator
+
+    -- ** @null@
   , null_
   , isNull
-  , binaryOperator
-  , unsafeCoerceExpr
   , liftNull
+  , catMaybe
+
+    -- ** Boolean operations
   , (&&.)
   , and_
   , (||.)
   , or_
-  , catMaybe
   , not_
   , ifThenElse_
   , EqTable(..)
@@ -92,6 +96,8 @@ module Rel8
   , maybeTable
   , noTable
   , catMaybeTable
+  , showQuery
+  , aggregate
 
     -- * IO
   , Serializable
@@ -125,7 +131,8 @@ import Data.Aeson.Types ( parseEither )
 
 -- base
 import Prelude hiding ( filter )
-import Control.Applicative ( liftA2 )
+import Control.Applicative ( liftA2, ZipList(..) )
+import qualified Control.Applicative
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
@@ -172,7 +179,7 @@ import Database.PostgreSQL.Simple.FromField
   , ResultError( Incompatible )
   , fromField
   , optionalField
-  , returnError
+  , returnError, pgArrayFieldParser
   )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 
@@ -188,7 +195,7 @@ import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 
 -- uuid
 import Data.UUID ( UUID )
-import Data.Functor.Compose ( Compose )
+import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity(runIdentity) )
 import Data.Kind ( Type, Constraint )
 import Control.Monad ( void )
@@ -200,6 +207,7 @@ import Database.PostgreSQL.Simple ( Connection )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Numeric.Natural ( Natural )
 import qualified Opaleye ( runInsert_, Insert(..), OnConflict(..), runDelete_, Delete(..), runUpdate_, Update(..), valuesExplicit )
+import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
@@ -209,7 +217,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye ()
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, limit )
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.RunQuery as Opaleye
@@ -222,6 +230,10 @@ import qualified Opaleye.Operators as Opaleye hiding ( restrict )
 import qualified Opaleye.Order as Opaleye
 import qualified Opaleye.Table as Opaleye
 import qualified Rel8.Optimize
+import Data.Foldable (fold)
+import Data.Monoid (Sum(Sum), getSum)
+import Database.PostgreSQL.Simple.Types (PGArray(PGArray))
+import Data.Sequence (Seq, fromList)
 
 
 {-| Haskell types that can be represented as expressions in a database. There
@@ -247,7 +259,7 @@ You can now write queries using @UserId@ instead of @Int32@, which may help
 avoid making bad joins. However, when SQL is generated, it will be as if you
 just used integers (the type distinction does not impact query generation).
 -}
-class AnExpr a => DBType (a :: Type) where
+class (AnExpr a, Typeable a) => DBType (a :: Type) where
   -- | Lookup the type information for the type @a@.
   typeInformation :: DatabaseType a
 
@@ -271,8 +283,10 @@ newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
 
 
 instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
-  typeInformation =
-    parseDatabaseType (fmap JSONEncoded . parseEither parseJSON) (toJSON . fromJSONEncoded) typeInformation
+  typeInformation = parseDatabaseType f g typeInformation
+    where
+      f = fmap JSONEncoded . parseEither parseJSON
+      g = toJSON . fromJSONEncoded
 
 
 -- | A deriving-via helper type for column types that store a Haskell value
@@ -299,6 +313,10 @@ data DatabaseType (a :: Type) = DatabaseType
   }
 
 
+{-| Simultaneously map over how a type is both encoded and decoded, while
+retaining the name of the type. This operation is useful if you want to
+essentially @newtype@ another 'DatabaseType'. 
+-}
 mapDatabaseType :: (a -> b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
   { encode = encode . bToA
@@ -307,6 +325,12 @@ mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseTyp
   }
 
 
+{-| Apply a parser to a 'DatabaseType'.
+
+This can be used if the data stored in the database should only be subset of a
+given 'DatabaseType'. The parser is applied when deserializing rows returned -
+the encoder assumes that the input data is already in the appropriate form.
+-}
 parseDatabaseType :: Typeable b => (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 parseDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
   { encode = encode . bToA
@@ -360,24 +384,43 @@ class DBType a => DBEq (a :: Type) where
 newtype Expr (a :: Type) = Expr { toPrimExpr :: Opaleye.PrimExpr }
 
 
-null_ :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-null_ whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
-
-
-isNull :: Expr (Maybe a) -> Expr Bool
-isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
-
-
-binaryOperator :: String -> Expr a -> Expr b -> Expr c
-binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
-
-
+-- | Unsafely treat an 'Expr' that returns @a@s as returning @b@s.
 unsafeCoerceExpr :: Expr a -> Expr b
 unsafeCoerceExpr (Expr x) = Expr x
 
 
+-- | Construct an expression by applying an infix binary operator to two
+-- operands.
+binaryOperator :: String -> Expr a -> Expr b -> Expr c
+binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
+
+
+-- | Like 'maybe', but to eliminate @null@.
+null_ :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+null_ whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
+
+
+-- | Like 'isNothing', but for @null@.
+isNull :: Expr (Maybe a) -> Expr Bool
+isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+
+
+{-| Lift an expression that's not null to a type that might be @null@. This is
+an identity operation in terms of any generated query, and just modifies the
+query's type.
+-}
 liftNull :: Expr a -> Expr ( Maybe a )
 liftNull = retype
+
+
+{-| Filter a 'Query' that might return @null@ to a 'Query' without any @null@s.
+
+Corresponds to 'catMaybes'.
+-}
+catMaybe :: Expr (Maybe a) -> Query (Expr a)
+catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
+  where
+    nullTag = ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))
 
 
 -- | The SQL @AND@ operator.
@@ -386,6 +429,10 @@ infixr 3 &&.
 Expr a &&. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpAnd a b
 
 
+{-| Fold @AND@ over a collection of expressions.
+ 
+@and_ mempty = lit True@
+-}
 and_ :: Foldable f => f (Expr Bool) -> Expr Bool
 and_ = foldl' (&&.) (lit True)
 
@@ -396,14 +443,12 @@ infixr 2 ||.
 Expr a ||. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpOr a b
 
 
+{-| Fold @OR@ over a collection of expressions.
+ 
+@or_ mempty = lit False@
+-}
 or_ :: Foldable f => f (Expr Bool) -> Expr Bool
 or_ = foldl' (||.) (lit False)
-
-
-catMaybe :: Expr (Maybe a) -> Query (Expr a)
-catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
-  where
-    nullTag = ifThenElse_ (isNull e) (lit Nothing) (lit (Just False))
 
 
 -- | The SQL @NOT@ operator.
@@ -411,6 +456,9 @@ not_ :: Expr Bool -> Expr Bool
 not_ (Expr a) = Expr $ Opaleye.UnExpr Opaleye.OpNot a
 
 
+{-| Branch two expressions based on a predicate. Similar to @if ... then ...
+else@ in Haskell (and implemented using @CASE@ in SQL).
+-}
 ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
 ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
 
@@ -874,20 +922,27 @@ the Haskell decoding of rows containing @sql@ SQL expressions.
 -}
 class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => Serializable expr haskell where
   lit :: haskell -> expr
-  rowParser :: RowParser haskell
+
+  -- TODO Don't use Applicative f, instead supply a htraverse function. We _don't_ want access to 'pure'
+  rowParser :: forall f. Applicative f 
+    => (forall x. Typeable x => FieldParser x -> FieldParser (f x)) 
+    -> RowParser (f haskell)
 
 
 -- | Compute the corresponding expression type for a Haskell response type.
 type family ExprType (a :: Type) :: Type where
+  ExprType (Seq a) = Array (ExprType a)
   ExprType (a, b) = (ExprType a, ExprType b)
   ExprType (t Identity) = t Expr
   ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
+  ExprType (Maybe (a, b)) = MaybeTable (ExprType (a, b))
   ExprType (Maybe a) = Expr (Maybe a)
   ExprType a = Expr a
 
 
 -- | Compute the corresponding expression type for a SQL response type.
 type family ResultType (a :: Type) :: Type where
+  ResultType (Array a) = Seq (ResultType a)
   ResultType (a, b) = (ResultType a, ResultType b)
   ResultType (t Expr) = t Identity
   ResultType (Expr a) = a
@@ -897,10 +952,11 @@ type family ResultType (a :: Type) :: Type where
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t DBType) => Serializable (s expr) (t identity) where
-  rowParser = htraverse sequenceC $ htabulate @t (f . hfield (hdicts @t))
+  rowParser :: forall f. Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t identity))
+  rowParser inject = getCompose $ htraverse sequenceC $ htabulate (f . hfield (hdicts @t @DBType))
     where
-      f :: forall a. C (Dict DBType) a -> C (Compose RowParser Identity) a
-      f (MkC Dict) = MkC $ fieldWith $ decode $ typeInformation @a
+      f :: forall a. C (Dict DBType) a -> C (Compose (Compose RowParser f) Identity) a
+      f (MkC Dict) = MkC $ Compose $ fieldWith $ inject $ decode $ typeInformation @a
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -909,7 +965,7 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstra
 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
-  rowParser = fieldWith (decode typeInformation)
+  rowParser inject = fieldWith $ inject $ decode typeInformation
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
@@ -917,26 +973,29 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
-  rowParser = liftA2 (,) rowParser rowParser
+  rowParser inject = liftA2 (,) <$> rowParser @a1 inject <*> rowParser @a2 inject 
 
   lit (a, b) = (lit a, lit b)
 
 
 instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (MaybeTable a) (Maybe b) where
-  rowParser = do
-    rowExists <- fieldWith ( decode typeInformation )
+  rowParser inject = do
+    tags <- fieldWith $ inject $ decode typeInformation 
+    rows <- rowParser @a \fieldParser x y -> Compose <$> inject (fallback fieldParser) x y
+    return $ liftA2 f tags (getCompose rows)
+    where
+      f :: Maybe Bool -> Maybe b -> Maybe b
+      f (Just True)  (Just row) = Just row
+      f (Just True)  Nothing    = error "TODO"
+      f _            _          = Nothing
 
-    case rowExists of
-      Just True -> Just <$> rowParser
-      _         -> Nothing <$ htraverse nullField (hdicts @(Columns a) @DBType)
-
+      fallback :: forall x. FieldParser x -> FieldParser (Maybe x)
+      fallback fieldParser x (Just y) = Just <$> fieldParser x (Just y)
+      fallback fieldParser x Nothing = Control.Applicative.optional (fieldParser x Nothing)
+ 
   lit = \case
     Nothing -> noTable
     Just x  -> pure $ lit x
-
-
-nullField :: forall x f. C f x -> RowParser (C f x)
-nullField x = x <$ fieldWith (\_ _ -> pure ())
 
 
 type role Expr representational
@@ -1286,8 +1345,7 @@ queryRunner
   :: forall row haskell
    . Serializable row haskell
   => Opaleye.FromFields row haskell
-queryRunner =
-  Opaleye.QueryRunner ( void unpackspec ) (const rowParser) ( const 1 )
+queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowParser (\f x y -> pure <$> f x y))) (const 1)
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -1722,3 +1780,75 @@ toOpaleyeTable TableSchema{ tableName, tableSchema } writer_ view =
 
 data Dict c a where
   Dict :: c a => Dict c a
+
+
+aggregate :: forall a. AggregateTable a => Query a -> Query a
+aggregate = liftOpaleye . Opaleye.laterally (Opaleye.aggregate aggregator) . toOpaleye
+
+
+showQuery :: Table Expr a => Query a -> String
+showQuery = fold . selectQuery 
+
+
+class Table Expr a => AggregateTable a where
+  aggregator :: Opaleye.Aggregator a a
+
+
+instance Table f a => Table f (Sum a) where
+  type Columns (Sum a) = Columns a
+  toColumns = toColumns . getSum
+  fromColumns = Sum . fromColumns
+
+
+class DBType a => DBSum a where
+  sumAggregator :: Opaleye.Aggregator (Expr a) (Expr a)
+  sumAggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Expr primExpr) -> 
+    Expr <$> f (Just (Opaleye.AggrSum, [], Opaleye.AggrAll), primExpr)
+
+
+instance DBSum Int32
+
+
+instance (Table Expr a, HConstrainTable (Columns a) DBSum) => AggregateTable (Sum a) where
+  aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
+    where
+      go :: forall f. Applicative f => (((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Sum a -> f (Sum a))
+      go f a = fromColumns <$> htraverse sequenceC (htabulate mkColumn)
+        where
+          mkColumn :: forall y. HField (Columns (Sum a)) y -> C (Compose f Expr) y
+          mkColumn i = case (hfield (hdicts @(Columns (Sum a)) @DBSum) i, hfield (toColumns a) i) of
+            (MkC Dict, MkC expr) ->
+              case sumAggregator of
+                Opaleye.Aggregator (Opaleye.PackMap g) -> 
+                  MkC $ g f expr
+
+
+newtype Array a = Array a
+
+
+instance Table f a => Table f (Array a) where
+  type Columns (Array a) = Columns a
+  toColumns (Array a) = toColumns a
+  fromColumns = Array . fromColumns
+
+
+instance Serializable a b => Serializable (Array a) (Seq b) where
+  rowParser inject = fmap (fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y -> 
+    Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
+    where
+
+      pgArrayToZipList :: forall x. PGArray x -> ZipList x
+      pgArrayToZipList (PGArray a) = ZipList a
+
+
+instance Table Expr a => AggregateTable (Array a) where
+  aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
+    where
+      go :: forall f. Applicative f => (((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Array a -> f (Array a))
+      go f a = fromColumns <$> htraverse sequenceC (htabulate mkColumn)
+        where
+          mkColumn :: forall y. HField (Columns (Array a)) y -> C (Compose f Expr) y
+          mkColumn i = case hfield (toColumns a) i of
+            MkC (Expr primExpr) ->
+              MkC $ Expr <$> f (Just (Opaleye.AggrArr, [], Opaleye.AggrAll), primExpr)
+            
