@@ -1075,7 +1075,7 @@ instance Monad MaybeTable where
 
 data HMaybeTable g f = HMaybeTable
   { hnullTag :: Column f (Maybe Bool)
-  , hcontents :: g f
+  , htable :: g f
   }
   deriving stock Generic
   deriving anyclass HigherKindedTable
