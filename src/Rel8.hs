@@ -1840,6 +1840,14 @@ instance Serializable a b => Serializable (Array a) (Seq b) where
       pgArrayToZipList :: forall x. PGArray x -> ZipList x
       pgArrayToZipList (PGArray a) = ZipList a
 
+  lit xs = Array $ fromColumns $ htabulate f
+    where
+      exprs :: [Columns a Expr]
+      exprs = toList $ toColumns . lit <$> xs
+
+      f :: forall x. HField (Columns a) x -> C Expr x
+      f i = MkC $ fromPrimExpr $ Opaleye.ArrayExpr $ toPrimExpr . toColumn . flip hfield i <$> exprs
+
 
 instance Table Expr a => AggregateTable (Array a) where
   aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
