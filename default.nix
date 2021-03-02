@@ -17,4 +17,13 @@ pkgs.haskell-nix.project {
     name = "rel8";
     src = ./.;
   };
+
+  modules = [ 
+    { packages.rel8 = {
+        preCheck = ''
+          export PATH="${pkgs.postgresql}/bin:${"$PATH"}"
+        '';
+      };
+    }
+  ];
 }
