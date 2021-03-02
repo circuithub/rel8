@@ -143,7 +143,9 @@ import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
 -- base
-import Control.Applicative ( ZipList(..), liftA2 )
+
+-- base
+import Control.Applicative ( ZipList(..), liftA2, (<|>) )
 import qualified Control.Applicative
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
@@ -1082,6 +1084,7 @@ instance Table Expr a => Table Expr (MaybeTable a) where
   fromColumns (HMaybeTable x y) = MaybeTable x (fromColumns y)
 
 
+-- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
 maybeTable
   :: Table Expr b
   => b -> (a -> b) -> MaybeTable a -> b
@@ -1089,6 +1092,7 @@ maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null_ (lit False) id nullTag) (f table) def
 
 
+-- | The null table. Like 'Nothing'.
 noTable :: forall a. Table Expr a => MaybeTable a
 noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
@@ -1703,12 +1707,29 @@ where_ x =
     ((), Opaleye.restrict (toPrimExpr x) left, t)
 
 
+-- | Filter out 'MaybeTable's, returning only the tables that are not-null.
+--
+-- This operation can be used to "undo" the effect of 'optional', which
+-- operationally is like turning a @LEFT JOIN@ back into a full @JOIN@.
 catMaybeTable :: MaybeTable a -> Query a
 catMaybeTable MaybeTable{ nullTag, table } = do
   where_ $ not_ $ isNull nullTag
   return table
 
 
+-- | Construct a query that returns the given input list of rows. This is like
+-- folding a list of 'return' statements under 'union', but uses the SQL
+-- @VALUES@ expression for efficiency.
+--
+-- Typically @values@ will be used with 'lit':
+--
+-- @
+-- example :: Query Bool
+-- example = values [ lit True, lit False ]
+-- @
+--
+-- When selected, 'example' will produce a query that returns two rows - one
+-- for @True@ and one for @False@.
 values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
@@ -1728,6 +1749,18 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
                   DatabaseType{ typeName } = typeInformation @a
 
 
+-- | @filter f x@ will be a zero-row query when @f x@ is @False@, and will
+-- return @x@ unchanged when @f x@ is @True@. This is similar to
+-- 'Control.Monad.guard', but as the predicate is separate from the argument,
+-- it is easy to use in a pipeline of 'Query' transformations.
+--
+-- @
+-- data User f = User { ... , userIsDeleted :: Column f Bool }
+-- userSchema :: TableSchema (User ColumnSchema)
+--
+-- notDeletedUsers :: User Expr -> Query (User Expr)
+-- notDeletedUsers = filter (not_ . userIsDeleted) =<< each userSchema
+-- @
 filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = do
   where_ $ f a
@@ -1804,16 +1837,32 @@ data Dict c a where
   Dict :: c a => Dict c a
 
 
-aggregate :: forall a. AggregateTable a => Query a -> Query a
-aggregate = liftOpaleye . Opaleye.laterally (Opaleye.aggregate aggregator) . toOpaleye
+-- | Aggregate all rows in a 'Query'.
+--
+-- This function is like 'Data.Foldable.fold', in that the rows in the 'Query'
+-- will be combined according to their 'AggregateTable' instance (which in turn
+-- is like 'Monoid').
+aggregate :: AggregateTable a => Query a -> Query a
+aggregate = fmap (maybeTable aggUnit id) . optional . liftOpaleye . Opaleye.laterally (Opaleye.aggregate aggregator) . toOpaleye
 
 
+-- | Like 'aggregate', but also lets you supply a transformation function from
+-- @a@ into an 'AggregateTable'. This is function is no more than just
+-- @aggregate . fmap f@, but we provide this function for similarity with
+-- 'Data.Foldable.foldMap'.
+aggregateMap :: AggregateTable b => (a -> b) -> Query a -> Query b
+aggregateMap f = aggregate . fmap f
+
+
+-- | Convert a query to a 'String' containing the query as a @SELECT@
+-- statement.
 showQuery :: Table Expr a => Query a -> String
 showQuery = fold . selectQuery
 
 
 class Table Expr a => AggregateTable a where
   aggregator :: Opaleye.Aggregator a a
+  aggUnit :: a
 
 
 instance Table f a => Table f (Sum a) where
@@ -1845,9 +1894,13 @@ instance (Table Expr a, HConstrainTable (Columns a) DBSum) => AggregateTable (Su
                   MkC $ g f expr
 
 
+-- | An @Array a@ is an array expression of zero or more @a@s. Note that this
+-- is distinct from a @Query a@, which is zero or more /rows/ of @a@s.
+-- Construct @Array@s with 'arrayAgg'.
 newtype Array a = Array a
 
 
+-- | Inject a single element into an 'Array'.
 arrayAgg :: a -> Array a
 arrayAgg = Array
 
@@ -1860,11 +1913,18 @@ instance Table f a => Table f (Array a) where
 
 instance Serializable a b => Serializable (Array a) (Seq b) where
   rowParser inject = fmap (fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
-    Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
+    Compose . fmap pgArrayToZipList <$> inject (arrayOrElement fieldParser) x y
     where
 
       pgArrayToZipList :: forall x. PGArray x -> ZipList x
       pgArrayToZipList (PGArray a) = ZipList a
+
+      -- An Array will only be selected as an array type if it's been passed
+      -- through aggregate. We don't guarantee that - for example, we want to
+      -- allow `select c $ pure $ arrayAgg x`. In this case, we allow parsing
+      -- as a single element and lift that back into 'PGArray'.
+      arrayOrElement :: forall x. Typeable x => FieldParser x -> FieldParser (PGArray x)
+      arrayOrElement fieldParser x y = PGArray . pure <$> fieldParser x y <|> pgArrayFieldParser fieldParser x y
 
   lit xs = Array $ fromColumns $ htabulate f
     where
@@ -1872,10 +1932,20 @@ instance Serializable a b => Serializable (Array a) (Seq b) where
       exprs = toList $ toColumns . lit <$> xs
 
       f :: forall x. HField (Columns a) x -> C Expr x
-      f i = MkC $ fromPrimExpr $ Opaleye.ArrayExpr $ toPrimExpr . toColumn . flip hfield i <$> exprs
+      f i = case hfield (hdicts @(Columns a) @DBType) i of 
+        MkC Dict ->
+          MkC $ fromPrimExpr $ 
+            Opaleye.CastExpr arrayTy $
+              Opaleye.ArrayExpr $ toPrimExpr . toColumn . flip hfield i <$> exprs
+          where 
+            arrayTy = typeName (typeInformation @x) <> "[]"
 
 
-instance Table Expr a => AggregateTable (Array a) where
+-- | Aggregate multiple @a@s into a arrays. This aggregation thus allows you to
+-- associate one row with multiple other rows.
+instance (Table Expr a, Serializable a (ResultType a)) => AggregateTable (Array a) where
+  aggUnit = lit mempty
+
   aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
     where
       go :: forall f. Applicative f => (((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Array a -> f (Array a))

@@ -41,7 +41,7 @@ import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTr
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen, annotate )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -85,6 +85,9 @@ tests =
     , testUpdate getTestDatabase
     , testDelete getTestDatabase
     , testSelectNestedPairs getTestDatabase
+    , testSelectUnaggregatedArray getTestDatabase
+    , testSelectArray getTestDatabase
+    , testAggregateArrayLit getTestDatabase
     ]
 
   where
@@ -679,3 +682,37 @@ testSelectNestedPairs = databasePropertyTest "Can SELECT nested pairs" \transact
       Rel8.values $ map Rel8.lit rows
 
     sort selected === sort rows
+
+
+testSelectUnaggregatedArray :: IO TmpPostgres.DB -> TestTree
+testSelectUnaggregatedArray = databasePropertyTest "Can SELECT Arrays (without aggregation)" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
+
+  transaction \connection -> do
+    selected <- Rel8.select connection do
+      Rel8.arrayAgg <$> Rel8.values (map Rel8.lit rows)
+
+    sort selected === sort (pure <$> rows)
+
+
+testSelectArray :: IO TmpPostgres.DB -> TestTree
+testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
+
+  transaction \connection -> do
+    selected <- Rel8.select connection $ Rel8.aggregate do
+      Rel8.arrayAgg <$> Rel8.values (map Rel8.lit rows)
+
+    selected === [foldMap pure rows]
+
+
+testAggregateArrayLit :: IO TmpPostgres.DB -> TestTree
+testAggregateArrayLit = databasePropertyTest "Can use aggregate with a literal array" \transaction -> evalM do
+  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
+
+  annotate $ Rel8.showQuery $ Rel8.aggregate $ pure (Rel8.lit (foldMap pure rows) :: Rel8.Array (Rel8.Expr Bool))
+
+  transaction \connection -> do
+    selected <- Rel8.select connection $ Rel8.aggregate $ pure (Rel8.lit (foldMap pure rows) :: Rel8.Array (Rel8.Expr Bool))
+
+    selected === [foldMap pure rows]
