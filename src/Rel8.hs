@@ -62,6 +62,8 @@ module Rel8
   , null_
   , isNull
   , liftNull
+  , mapNull
+  , liftOpNull
   , catMaybe
 
     -- ** Boolean operations
@@ -433,6 +435,14 @@ query's type.
 -}
 liftNull :: Expr a -> Expr ( Maybe a )
 liftNull = retype
+
+
+mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
+mapNull f = retype . f . retype
+
+
+liftOpNull :: (Expr a -> Expr b -> Expr c) -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
+liftOpNull f a b = retype (f (retype a) (retype b))
 
 
 {-| Filter a 'Query' that might return @null@ to a 'Query' without any @null@s.
@@ -1055,18 +1065,12 @@ data MaybeTable t where
 
 instance Applicative MaybeTable where
   pure = MaybeTable (lit (Just True))
-  MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftNull (nullOr t t')) (f a)
-    where
-      nullOr x y =
-        null_ (lit False) (\x' -> null_ (lit False) (x' ||.) y) x
+  MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftOpNull (&&.) t t') (f a)
 
 
 instance Monad MaybeTable where
   MaybeTable t a >>= f = case f a of
-    MaybeTable t' b -> MaybeTable (liftNull (nullOr t t')) b
-    where
-      nullOr x y =
-        null_ (lit False) (\x' -> null_ (lit False) (x' ||.) y) x
+    MaybeTable t' b -> MaybeTable (liftOpNull (&&.) t t') b
 
 
 data HMaybeTable g f = HMaybeTable

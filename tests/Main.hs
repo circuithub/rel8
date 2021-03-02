@@ -550,25 +550,24 @@ testNestedTables = databasePropertyTest "Nested TestTables" \transaction -> eval
 
 testMaybeTableApplicative :: IO TmpPostgres.DB -> TestTree
 testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction -> evalM do
-  rows <- forAll do
-    -- TODO: We shouldn't need the @Identity type application, but without
-    -- it this fails to type check.
-    Gen.list (Range.linear 0 10) $ liftA2 (TestTable @Identity) (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
+  rows1 <- genRows
+  rows2 <- genRows
 
   transaction \connection -> do
-    void $ liftIO $ executeMany connection
-      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
-
     selected <- Rel8.select connection do
-      fmap (pure id <*>) (Rel8.optional (Rel8.each testTableSchema))
+      as <- Rel8.optional (Rel8.values (Rel8.lit <$> rows1))
+      bs <- Rel8.optional (Rel8.values (Rel8.lit <$> rows2))
+      pure $ liftA2 (,) as bs
 
-    let rowsExpected = case rows of
-          [] -> [Nothing]
-          xs -> map Just xs
-
-    sort selected === sort rowsExpected
-
+    case (rows1, rows2) of
+      ([], []) -> selected === [Nothing]
+      ([], bs) -> selected === (Nothing <$ bs)
+      (as, []) -> selected === (Nothing <$ as)
+      (as, bs) -> sort selected === sort (Just <$> liftA2 (,) as bs)
+  where
+    genRows :: PropertyT IO [TestTable Identity]
+    genRows = forAll do
+      Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
