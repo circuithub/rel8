@@ -87,6 +87,7 @@ module Rel8
 
     -- ** Selecting rows
   , each
+  , Selects
   , values
 
     -- ** Filtering
@@ -1411,10 +1412,7 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
     toOpaleyeInsert
       :: forall schema result value
-       . ( Table Expr value
-         , Table ColumnSchema schema
-         , Congruent value schema
-         )
+       . Selects schema value
       => TableSchema schema
       -> [ value ]
       -> Returning schema result
@@ -1441,10 +1439,7 @@ insert connection Insert{ into, rows, onConflict, returning } =
 
 writer
   :: forall value schema
-   . ( Table Expr value
-     , Table ColumnSchema schema
-     , Congruent value schema
-     )
+   . Selects schema value
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
   let
@@ -1490,7 +1485,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: Type -> Type where
   Insert
-    :: (Congruent value schema, Table Expr value, Table ColumnSchema schema)
+    :: Selects schema value
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , rows :: [value]
@@ -1516,11 +1511,7 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( Table ColumnSchema schema
-       , Table Expr row
-       , Congruent schema row
-       , Serializable projection a
-       )
+    :: ( Selects schema row, Serializable projection a )
     => (row -> projection)
     -> Returning schema [a]
 
@@ -1546,10 +1537,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
     go
       :: forall schema r row
-       . ( Table Expr row
-         , Table ColumnSchema schema
-         , Congruent schema row
-         )
+       . Selects schema row 
       => TableSchema schema
       -> (row -> Expr Bool)
       -> Returning schema r
@@ -1568,7 +1556,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: (Congruent from row, Table Expr row, Table ColumnSchema from)
+    :: Selects from row
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
@@ -1584,10 +1572,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
     go
       :: forall returning target row
-       . ( Table Expr row
-         , Congruent target row
-         , Table ColumnSchema target
-         )
+       . Selects target row
       => TableSchema target
       -> (row -> row)
       -> (row -> Expr Bool)
@@ -1614,7 +1599,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: (Congruent target row, Table Expr row, Table ColumnSchema target)
+    :: Selects target row
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Bool
@@ -1634,13 +1619,13 @@ exists query = maybeTable (lit False) (const (lit True)) <$> optional do
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: (Congruent schema row, Table Expr row, Table ColumnSchema schema) => TableSchema schema -> Query row
+each :: Selects schema row => TableSchema schema -> Query row
 each = each_forAll
 
 
 each_forAll
   :: forall schema row
-   . (Congruent schema row, Table Expr row, Table ColumnSchema schema)
+   . Selects schema row
   => TableSchema schema -> Query row
 each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
   where
@@ -2041,9 +2026,15 @@ orderBy :: Order a -> Query a -> Query a
 orderBy (Order o) = liftOpaleye . Opaleye.laterally (Opaleye.orderBy o) . toOpaleye
 
 
--- | We say that two 'Tables' are congruent if they have the same set of
+-- | We say that two 'Table's are congruent if they have the same set of
 -- columns. This is primarily useful for operations like @SELECT FROM@, where
 -- we have a @Table@ of @ColumnSchema@s, and need to select them to a
 -- corresponding @Table@ of @Expr@s.
 class (Columns a ~ Columns b) => Congruent a b
 instance (Columns a ~ Columns b) => Congruent a b
+
+
+-- | We say that @Table a@ "selects" @Table b@ if @a@ and @b@ are 'Congruent',
+-- @a@ contains 'ColumnSchema's and @b@ contains 'Expr's.
+class (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
+instance (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
