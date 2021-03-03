@@ -110,13 +110,19 @@ module Rel8
   , noTable
   , catMaybeTable
 
-    -- ** Aggregation
+    -- * Aggregates
+  , Aggregate
+  , Foldability (Semifold, Fold)
   , aggregate
-  , AggregateTable(..)
-
-    -- ** Array aggregation
-  , Array
+  , aggregate1
   , arrayAgg
+  , arrayAgg1
+  , groupBy
+  , DBMax (max)
+
+    -- * Compound aggregates
+  , ListTable, many
+  , NonEmptyTable, some
 
     -- ** Ordering
   , orderBy
@@ -155,24 +161,25 @@ import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
 -- base
-
--- base
-import Control.Applicative ( ZipList(..), liftA2, (<|>) )
+import Control.Applicative ( ZipList(..), liftA2 )
 import qualified Control.Applicative
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
-import Data.Foldable ( Foldable(toList, foldl'), fold )
+import Data.Foldable ( Foldable( toList, foldl' ) )
+import Data.Foldable ( fold )
+import Data.Functor ( (<&>) )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity( runIdentity ) )
 import Data.Int ( Int32, Int64 )
 import Data.Kind ( Constraint, Type )
-import Data.Monoid ( Sum( Sum ), getSum )
+import Data.List.NonEmpty ( NonEmpty, nonEmpty )
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
 import GHC.Generics ( (:*:)(..), Generic, K1(..), M1(..), Rep, from, to )
 import Numeric.Natural ( Natural )
-import Prelude hiding ( filter )
+import Prelude hiding ( filter, max )
 import Text.Read ( readEither )
 
 -- bytestring
@@ -181,9 +188,6 @@ import qualified Data.ByteString.Lazy
 
 -- case-insensitive
 import Data.CaseInsensitive ( CI )
-
--- containers
-import Data.Sequence ( Seq, fromList )
 
 -- opaleye
 import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit )
@@ -225,7 +229,6 @@ import Opaleye.PGTypes
   , pgNumeric
   , pgStrictByteString
   , pgStrictText
-  , pgString
   , pgTimeOfDay
   , pgUTCTime
   , pgUUID
@@ -248,7 +251,7 @@ import Database.PostgreSQL.Simple.FromField
   )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple.Types ( PGArray( PGArray ) )
+import Database.PostgreSQL.Simple.Types ( PGArray( PGArray, fromPGArray ) )
 
 -- rel8
 import qualified Rel8.Optimize
@@ -258,6 +261,7 @@ import Data.Scientific ( Scientific )
 
 -- text
 import Data.Text ( Text )
+import qualified Data.Text as Text
 import qualified Data.Text.Lazy
 
 -- time
@@ -330,10 +334,22 @@ newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
 {-| Anything that has an instance of 'DBType' is an 'Expr'. This class packages that knowledge up. -}
-class (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr (a :: Type)
+class
+  ( ExprType a ~ Expr a
+  , ResultType (Expr a) ~ a
+  , ExprType (Maybe a) ~ Expr (Maybe a)
+  , ExprType [a] ~ Expr [a]
+  , ExprType (NonEmpty a) ~ Expr (NonEmpty a)
+  ) => AnExpr (a :: Type)
 
 
-instance (ExprType a ~ Expr a, ResultType (Expr a) ~ a, ExprType (Maybe a) ~ Expr (Maybe a)) => AnExpr a
+instance
+  ( ExprType a ~ Expr a
+  , ResultType (Expr a) ~ a
+  , ExprType (Maybe a) ~ Expr (Maybe a)
+  , ExprType [a] ~ Expr [a]
+  , ExprType (NonEmpty a) ~ Expr (NonEmpty a)
+  ) => AnExpr a
 
 
 {-| A @DatabaseType@ describes how to encode and decode a Haskell type to and
@@ -980,22 +996,28 @@ class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => S
 
 -- | Compute the corresponding expression type for a Haskell response type.
 type family ExprType (a :: Type) :: Type where
-  ExprType (Seq a) = Array (ExprType a)
   ExprType (a, b) = (ExprType a, ExprType b)
   ExprType (t Identity) = t Expr
   ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
   ExprType (Maybe (a, b)) = MaybeTable (ExprType (a, b))
   ExprType (Maybe a) = Expr (Maybe a)
+  ExprType [t Identity] = ListTable Expr (t Expr)
+  ExprType [(a, b)] = ListTable Expr (ExprType (a, b))
+  ExprType [a] = Expr [a]
+  ExprType (NonEmpty (t Identity)) = NonEmptyTable Expr (t Expr)
+  ExprType (NonEmpty (a, b)) = NonEmptyTable Expr (ExprType (a, b))
+  ExprType (NonEmpty a) = Expr (NonEmpty a)
   ExprType a = Expr a
 
 
 -- | Compute the corresponding expression type for a SQL response type.
 type family ResultType (a :: Type) :: Type where
-  ResultType (Array a) = Seq (ResultType a)
   ResultType (a, b) = (ResultType a, ResultType b)
   ResultType (t Expr) = t Identity
   ResultType (Expr a) = a
   ResultType (MaybeTable a) = Maybe (ResultType a)
+  ResultType (ListTable Expr a) = [ResultType a]
+  ResultType (NonEmptyTable Expr a) = NonEmpty (ResultType a)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1171,11 +1193,6 @@ instance DBType Data.Text.Lazy.Text where
   typeInformation = fromOpaleye pgLazyText
 
 
--- | Corresponds to the @text@ PostgreSQL type.
-instance DBType String where
-  typeInformation = fromOpaleye pgString
-
-
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
 instance DBType a => DBType ( Maybe a ) where
@@ -1237,6 +1254,23 @@ instance DBType (CI Data.Text.Lazy.Text) where
   typeInformation = fromOpaleye pgCiLazyText
 
 
+instance DBType a => DBType [a] where
+  typeInformation = DatabaseType
+    { encode = Opaleye.ArrayExpr . map encode
+    , decode = fmap (fmap fromPGArray) <$> pgArrayFieldParser decode
+    , typeName = typeName <> "[]"
+    }
+    where
+      DatabaseType{ encode, decode, typeName } = typeInformation
+
+
+instance DBType a => DBType (NonEmpty a) where
+  typeInformation = parseDatabaseType nonEmptyEither toList typeInformation
+    where
+      nonEmptyEither =
+        maybe (Left "DBType.NonEmpty.decode: empty list") Right . nonEmpty
+
+
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
   fromColumns $ htabulate @(Columns a) \x -> MkC $ fromPrimExpr $
@@ -1245,7 +1279,7 @@ case_ alts def =
         ( toPrimExpr $ toColumn $ hfield (toColumns def) x )
 
 
-retype :: Expr a -> Expr b
+retype :: forall b a. Expr a -> Expr b
 retype = fromPrimExpr . toPrimExpr
 
 
@@ -1264,7 +1298,7 @@ data Color = Red | Green | Blue
 -}
 instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
   typeInformation =
-    parseDatabaseType (fmap ReadShow . readEither) (show . fromReadShow) typeInformation
+    parseDatabaseType (fmap ReadShow . readEither . Text.unpack) (Text.pack . show . fromReadShow) typeInformation
 
 
 mapTable
@@ -1307,9 +1341,6 @@ traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
 
 
-instance DBEq String
-
-
 instance DBEq Int32
 
 
@@ -1336,13 +1367,15 @@ newtype Query a = Query (Opaleye.Query a)
 
 
 liftOpaleye :: Opaleye.Query a -> Query a
-liftOpaleye =
-  Query
+liftOpaleye = Query
 
 
 toOpaleye :: Query a -> Opaleye.Query a
-toOpaleye ( Query q ) =
-  q
+toOpaleye (Query q) = q
+
+
+mapOpaleye :: (Opaleye.Query a -> Opaleye.Query b) -> Query a -> Query b
+mapOpaleye f = liftOpaleye . f . toOpaleye
 
 
 instance Monad Query where
@@ -1612,8 +1645,8 @@ data Update target returning where
 --
 -- @exists q@ is the same as the SQL expression @EXISTS ( q )@
 exists :: Query a -> Query (Expr Bool)
-exists query = maybeTable (lit False) (const (lit True)) <$> optional do
-  liftOpaleye $ Opaleye.restrictExists (toOpaleye query)
+exists = fmap (maybeTable (lit False) (const (lit True))) .
+  optional . mapOpaleye Opaleye.restrictExists
 
 
 -- | Select each row from a table definition.
@@ -1641,7 +1674,7 @@ each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpa
 --
 -- @leftJoin t p@ is equivalent to @LEFT JOIN t ON p@.
 optional :: Query a -> Query (MaybeTable a)
-optional = liftOpaleye . Opaleye.laterally (Opaleye.QueryArr . go) . toOpaleye
+optional = mapOpaleye $ Opaleye.laterally (Opaleye.QueryArr . go)
   where
     go query (i, left, tag) = (MaybeTable t' a, join, Opaleye.next tag')
       where
@@ -1677,7 +1710,7 @@ distinct = distinct_forAll
 
 
 distinct_forAll :: forall a. Table Expr a => Query a -> Query a
-distinct_forAll query = liftOpaleye $ Opaleye.distinctExplicit distinctspec (toOpaleye query)
+distinct_forAll = mapOpaleye (Opaleye.distinctExplicit distinctspec)
   where
     distinctspec :: Opaleye.Distinctspec a a
     distinctspec =
@@ -1689,14 +1722,14 @@ distinct_forAll query = liftOpaleye $ Opaleye.distinctExplicit distinctspec (toO
 --
 -- @limit n@ is equivalent to the SQL @LIMIT n@.
 limit :: Natural -> Query a -> Query a
-limit n query = liftOpaleye $ Opaleye.limit (fromIntegral n) (toOpaleye query)
+limit n = mapOpaleye $ Opaleye.limit (fromIntegral n)
 
 
 -- | @offset n@ drops the first @n@ rows from a query.
 --
 -- @offset n@ is equivalent to the SQL @OFFSET n@.
 offset :: Natural -> Query a -> Query a
-offset n query = liftOpaleye $ Opaleye.offset (fromIntegral n) (toOpaleye query)
+offset n = mapOpaleye $ Opaleye.offset (fromIntegral n)
 
 
 -- | Drop any rows that don't match a predicate.
@@ -1838,124 +1871,237 @@ data Dict c a where
   Dict :: c a => Dict c a
 
 
--- | Aggregate all rows in a 'Query'.
---
--- This function is like 'Data.Foldable.fold', in that the rows in the 'Query'
--- will be combined according to their 'AggregateTable' instance (which in turn
--- is like 'Monoid').
-aggregate :: AggregateTable a => Query a -> Query a
-aggregate = fmap (maybeTable aggUnit id) . optional . liftOpaleye . Opaleye.laterally (Opaleye.aggregate aggregator) . toOpaleye
-
-
--- | Like 'aggregate', but also lets you supply a transformation function from
--- @a@ into an 'AggregateTable'. This is function is no more than just
--- @aggregate . fmap f@, but we provide this function for similarity with
--- 'Data.Foldable.foldMap'.
-aggregateMap :: AggregateTable b => (a -> b) -> Query a -> Query b
-aggregateMap f = aggregate . fmap f
-
-
 -- | Convert a query to a 'String' containing the query as a @SELECT@
 -- statement.
 showQuery :: Table Expr a => Query a -> String
 showQuery = fold . selectQuery
 
 
-class Table Expr a => AggregateTable a where
-  aggregator :: Opaleye.Aggregator a a
-  aggUnit :: a
+data Aggregator a =
+  Aggregator
+    (Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct))
+    Opaleye.PrimExpr
 
 
-instance Table f a => Table f (Sum a) where
-  type Columns (Sum a) = Columns a
-  toColumns = toColumns . getSum
-  fromColumns = Sum . fromColumns
+data Foldability = 'Semifold | 'Fold
 
 
-class DBType a => DBSum a where
-  sumAggregator :: Opaleye.Aggregator (Expr a) (Expr a)
-  sumAggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Expr primExpr) ->
-    Expr <$> f (Just (Opaleye.AggrSum, [], Opaleye.AggrAll), primExpr)
+data Aggregate (foldability :: Foldability) a where
+  Aggregate :: Expr a -> Aggregator a -> Aggregate foldability a
+  Aggregate1 :: Aggregator a -> Aggregate 'Semifold a
 
 
-instance DBSum Int32
+-- | Compute the corresponding expression type for an aggregation type.
+type family UnAggrType (a :: Type) :: Type where
+  UnAggrType (a, b) = (UnAggrType a, UnAggrType b)
+  UnAggrType (t (Aggregate _)) = t Expr
+  UnAggrType (Aggregate _ a) = Expr a
+  UnAggrType (ListTable (Aggregate _) a) = ListTable Expr a
+  UnAggrType (NonEmptyTable (Aggregate _) a) = NonEmptyTable Expr a
 
 
-instance (Table Expr a, HConstrainTable (Columns a) DBSum) => AggregateTable (Sum a) where
-  aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
+getAggregator :: Aggregate foldability a -> Aggregator a
+getAggregator (Aggregate _ aggregator) = aggregator
+getAggregator (Aggregate1 aggregator) = aggregator
+
+
+groupBy :: Expr a -> Aggregate 'Semifold a
+groupBy (Expr a) = Aggregate1 (Aggregator Nothing a)
+
+
+arrayAgg :: DBType a => Expr a -> Aggregate foldability [a]
+arrayAgg (Expr a) = Aggregate (lit []) (Aggregator (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a)
+
+
+arrayAgg1 :: Expr a -> Aggregate 'Semifold (NonEmpty a)
+arrayAgg1 (Expr a) = Aggregate1 (Aggregator (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a)
+
+
+class DBType a => DBMax foldability a where
+  max :: Expr a -> Aggregate foldability a
+
+  default max :: (foldability ~ 'Semifold) => Expr a -> Aggregate foldability a
+  max (Expr a) = Aggregate1 $ Aggregator (Just (Opaleye.AggrMax, [], Opaleye.AggrAll)) a
+
+
+instance DBMax 'Semifold Int64
+instance DBMax 'Semifold Double
+instance DBMax 'Semifold Int32
+instance DBMax 'Semifold Scientific
+instance DBMax 'Semifold Float
+instance DBMax 'Semifold Text
+
+
+instance DBMax 'Semifold a => DBMax foldability (Maybe a) where
+  max expr = case getAggregator (max @'Semifold (retype @a expr)) of
+    Aggregator a e -> Aggregate (lit Nothing) (Aggregator a e)
+
+
+aggregate1 ::
+  ( Table (Aggregate semifold) aggregates
+  , Table Expr exprs
+  , Columns aggregates ~ Columns exprs
+  , exprs ~ UnAggrType aggregates
+  )
+  => Query aggregates -> Query exprs
+aggregate1 = mapOpaleye $ Opaleye.aggregate $ Opaleye.Aggregator $
+  Opaleye.PackMap $ \f ->
+    traverseTable $ \(MkC (getAggregator -> Aggregator a e)) -> MkC . Expr <$> f (a, e)
+
+
+aggregate ::
+  ( Table (Aggregate 'Fold) aggregates
+  , Table Expr exprs
+  , Columns aggregates ~ Columns exprs
+  , exprs ~ UnAggrType aggregates
+  )
+  => Query aggregates -> Query exprs
+aggregate aggregates = fmap (maybeTable defaults id) $ optional $ aggregate1 aggregates
+  where
+    defaults = runIdentity $ traverseTable go $ unquery aggregates
+      where
+        go (MkC (Aggregate a _)) = pure (MkC a)
+
+        -- HACK: this is very unsafe
+        unquery (Query query) = case Opaleye.runSimpleQueryArrStart query () of
+          (a, _, _) -> a
+
+
+newtype ComposeColumn f g a = ComposeColumn (Column f (g a))
+
+
+traverseComposeColumn :: forall f g t m x. Applicative m => (forall a. C f a -> m (C g a)) -> C (ComposeColumn f t) x -> m (C (ComposeColumn g t) x)
+traverseComposeColumn f (MkC (ComposeColumn a)) = f (MkC @f @(t x) a) <&> \case
+  MkC b -> MkC (ComposeColumn b)
+
+
+class c (f a) => ComposeConstraint f c a
+instance c (f a) => ComposeConstraint f c a
+
+
+data HComposeField f t a where
+  HComposeField :: HField t a -> HComposeField f t (f a)
+
+
+newtype HComposeTable g t f = HComposeTable (t (ComposeColumn f g))
+
+
+instance (HConstrainTable t (ComposeConstraint f DBType), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
+  type HField (HComposeTable f t) = HComposeField f t
+  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint f c)
+
+  hfield (HComposeTable columns) (HComposeField field) = case hfield columns field of
+    MkC (ComposeColumn a) -> MkC a
+
+  htabulate f = HComposeTable (htabulate (\field -> MkC (ComposeColumn (toColumn (f (HComposeField field))))))
+
+  htraverse f (HComposeTable t) = fmap HComposeTable $ htraverse (traverseComposeColumn f) t
+
+  hdicts :: forall c. HConstrainTable t (ComposeConstraint f c) => HComposeTable f t (Dict c)
+  hdicts = HComposeTable $ runIdentity $ htraverse (\(MkC Dict) -> pure (MkC (ComposeColumn Dict))) (hdicts @t @(ComposeConstraint f c))
+
+
+newtype ListTable f a = ListTable (Columns a (ComposeColumn f []))
+
+
+instance (HConstrainTable (Columns a) (ComposeConstraint [] DBType), Table Expr a) => Table f (ListTable f a) where
+  type Columns (ListTable f a) = HComposeTable [] (Columns a)
+
+  toColumns (ListTable a) = HComposeTable a
+  fromColumns (HComposeTable a) = ListTable a
+
+
+instance
+  ( expr ~ Expr
+  , ExprType [b] ~ ListTable expr a
+  , Serializable a b
+  , HConstrainTable (Columns a) (ComposeConstraint [] DBType)
+  ) => Serializable (ListTable expr a) [b]
+ where
+
+  rowParser inject = fmap getZipList . getCompose <$> rowParser @a \fieldParser x y ->
+    Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
     where
-      go :: forall f. Applicative f => (((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Sum a -> f (Sum a))
-      go f a = fromColumns <$> htraverse sequenceC (htabulate mkColumn)
-        where
-          mkColumn :: forall y. HField (Columns (Sum a)) y -> C (Compose f Expr) y
-          mkColumn i = case (hfield (hdicts @(Columns (Sum a)) @DBSum) i, hfield (toColumns a) i) of
-            (MkC Dict, MkC expr) ->
-              case sumAggregator of
-                Opaleye.Aggregator (Opaleye.PackMap g) ->
-                  MkC $ g f expr
-
-
--- | An @Array a@ is an array expression of zero or more @a@s. Note that this
--- is distinct from a @Query a@, which is zero or more /rows/ of @a@s.
--- Construct @Array@s with 'arrayAgg'.
-newtype Array a = Array a
-
-
--- | Inject a single element into an 'Array'.
-arrayAgg :: a -> Array a
-arrayAgg = Array
-
-
-instance Table f a => Table f (Array a) where
-  type Columns (Array a) = Columns a
-  toColumns (Array a) = toColumns a
-  fromColumns = Array . fromColumns
-
-
-instance Serializable a b => Serializable (Array a) (Seq b) where
-  rowParser inject = fmap (fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
-    Compose . fmap pgArrayToZipList <$> inject (arrayOrElement fieldParser) x y
-    where
-
       pgArrayToZipList :: forall x. PGArray x -> ZipList x
       pgArrayToZipList (PGArray a) = ZipList a
 
-      -- An Array will only be selected as an array type if it's been passed
-      -- through aggregate. We don't guarantee that - for example, we want to
-      -- allow `select c $ pure $ arrayAgg x`. In this case, we allow parsing
-      -- as a single element and lift that back into 'PGArray'.
-      arrayOrElement :: forall x. Typeable x => FieldParser x -> FieldParser (PGArray x)
-      arrayOrElement fieldParser x y = PGArray . pure <$> fieldParser x y <|> pgArrayFieldParser fieldParser x y
 
-  lit xs = Array $ fromColumns $ htabulate f
+  lit (map lit -> xs) = ListTable $ htabulate $ \field ->
+    case hfield dbtypes field of
+      MkC Dict -> MkC $ ComposeColumn $ listOf $
+        map (\x -> toColumn (hfield (toColumns x) field)) xs
     where
-      exprs :: [Columns a Expr]
-      exprs = toList $ toColumns . lit <$> xs
+      dbtypes :: Columns a (Dict DBType)
+      dbtypes = hdicts
 
-      f :: forall x. HField (Columns a) x -> C Expr x
-      f i = case hfield (hdicts @(Columns a) @DBType) i of
-        MkC Dict ->
-          MkC $ fromPrimExpr $
-            Opaleye.CastExpr arrayTy $
-              Opaleye.ArrayExpr $ toPrimExpr . toColumn . flip hfield i <$> exprs
-          where
-            arrayTy = typeName (typeInformation @x) <> "[]"
-
-
--- | Aggregate multiple @a@s into a arrays. This aggregation thus allows you to
--- associate one row with multiple other rows.
-instance (Table Expr a, Serializable a (ResultType a)) => AggregateTable (Array a) where
-  aggUnit = lit mempty
-
-  aggregator = Opaleye.Aggregator $ Opaleye.PackMap go
-    where
-      go :: forall f. Applicative f => (((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Array a -> f (Array a))
-      go f a = fromColumns <$> htraverse sequenceC (htabulate mkColumn)
+      listOf :: forall x. DBType x => [Expr x] -> Expr [x]
+      listOf as = fromPrimExpr $
+        Opaleye.CastExpr array $
+        Opaleye.ArrayExpr (map toPrimExpr as)
         where
-          mkColumn :: forall y. HField (Columns (Array a)) y -> C (Compose f Expr) y
-          mkColumn i = case hfield (toColumns a) i of
-            MkC (Expr primExpr) ->
-              MkC $ Expr <$> f (Just (Opaleye.AggrArr, [], Opaleye.AggrAll), primExpr)
+          array = typeName (typeInformation @[x])
+
+
+many :: forall exprs foldability. Table Expr exprs => exprs -> ListTable (Aggregate foldability) exprs
+many exprs = ListTable $ htabulate $ \field -> case hfield constraints field of
+  MkC Dict -> MkC $ ComposeColumn $ case hfield (toColumns exprs) field of
+    MkC a -> arrayAgg a
+  where
+    constraints :: Columns exprs (Dict DBType)
+    constraints = hdicts
+
+
+newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeColumn f NonEmpty))
+
+
+instance (HConstrainTable (Columns a) (ComposeConstraint NonEmpty DBType), Table Expr a) => Table f (NonEmptyTable f a) where
+  type Columns (NonEmptyTable f a) = HComposeTable NonEmpty (Columns a)
+
+  toColumns (NonEmptyTable a) = HComposeTable a
+  fromColumns (HComposeTable a) = NonEmptyTable a
+
+
+instance
+  ( expr ~ Expr
+  , ExprType (NonEmpty b) ~ NonEmptyTable expr a
+  , Serializable a b
+  , HConstrainTable (Columns a) (ComposeConstraint NonEmpty DBType)
+  ) => Serializable (NonEmptyTable expr a) (NonEmpty b)
+ where
+
+  rowParser inject = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
+      Compose . fmap pgArrayToZipList <$> inject (pgNonEmptyFieldParser fieldParser) x y
+    where
+      pgArrayToZipList :: forall x. PGArray x -> ZipList x
+      pgArrayToZipList (PGArray a) = ZipList a
+
+      pgNonEmptyFieldParser parser x y = do
+        list <- pgArrayFieldParser parser x y
+        case list of
+          PGArray [] -> returnError Incompatible x "Serializable.NonEmptyTable.rowParser: empty list"
+          _ -> pure list
+
+
+  lit (fmap lit -> xs) = NonEmptyTable $ htabulate $ \field ->
+    case hfield dbtypes field of
+      MkC Dict -> MkC $ ComposeColumn $ nonEmptyOf $
+        fmap (\x -> toColumn (hfield (toColumns x) field)) xs
+    where
+      dbtypes :: Columns a (Dict DBType)
+      dbtypes = hdicts
+
+      nonEmptyOf :: forall x. DBType x => NonEmpty (Expr x) -> Expr (NonEmpty x)
+      nonEmptyOf as = fromPrimExpr $
+        Opaleye.CastExpr array $
+        Opaleye.ArrayExpr (map toPrimExpr (toList as))
+        where
+          array = typeName (typeInformation @(NonEmpty x))
+
+
+some :: Table Expr exprs => exprs -> NonEmptyTable (Aggregate 'Semifold) exprs
+some exprs = NonEmptyTable $ runIdentity $ traverseTable go exprs
+  where
+    go (MkC a) = pure (MkC (ComposeColumn (arrayAgg1 a)))
 
 
 {-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
