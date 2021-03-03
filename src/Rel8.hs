@@ -112,9 +112,8 @@ module Rel8
 
     -- * Aggregates
   , Aggregate
-  , Foldability (Semifold, Fold)
+  , AggregateTable
   , aggregate
-  , aggregate1
   , arrayAgg
   , arrayAgg1
   , groupBy
@@ -252,6 +251,9 @@ import Database.PostgreSQL.Simple.FromField
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.Types ( PGArray( PGArray, fromPGArray ) )
+
+-- product-profunctors
+import Data.Profunctor.Product ( (***!) )
 
 -- rel8
 import qualified Rel8.Optimize
@@ -727,6 +729,10 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
       forgetShape @(Dict c) @(Rep (t IsColumn)) $
         fromColumns $
           hdicts @(Columns (WithShape (Dict c) (Rep (t IsColumn)) (Rep (t (Dict c)) ()))) @c
+
+
+hmap :: HigherKindedTable t => (forall x. C f x -> C g x) -> t f -> t g
+hmap f = runIdentity . htraverse (pure . f)
 
 
 {-| The schema for a table. This is used to specify the name and schema
@@ -1877,97 +1883,101 @@ showQuery :: Table Expr a => Query a -> String
 showQuery = fold . selectQuery
 
 
-data Aggregator a =
-  Aggregator
+data Aggregate a = Aggregate
     (Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct))
     Opaleye.PrimExpr
 
 
-data Foldability = 'Semifold | 'Fold
+instance (DBType a, aggregate ~ Aggregate) => Table aggregate (Aggregate a) where
+  type Columns (Aggregate a) = HIdentity a
+  toColumns = HIdentity
+  fromColumns = unHIdentity
 
 
-data Aggregate (foldability :: Foldability) a where
-  Aggregate :: Expr a -> Aggregator a -> Aggregate foldability a
-  Aggregate1 :: Aggregator a -> Aggregate 'Semifold a
+class AggregateTable aggregates exprs | aggregates -> exprs, exprs -> aggregates where
+  aggregators :: Opaleye.Aggregator aggregates exprs
+  groupBy :: exprs -> aggregates
+
+  default aggregators ::
+    ( Table Aggregate aggregates
+    , Table Expr exprs
+    , Congruent exprs aggregates
+    )
+    => Opaleye.Aggregator aggregates exprs
+  aggregators = Opaleye.Aggregator $
+    Opaleye.PackMap $ \f ->
+      traverseTable $ \(MkC (Aggregate a e)) -> MkC . Expr <$> f (a, e)
+
+  default groupBy ::
+    ( Table Aggregate aggregates
+    , Table Expr exprs
+    , Congruent exprs aggregates
+    )
+    => exprs -> aggregates
+  groupBy = mapTable (mapC groupBy)
 
 
--- | Compute the corresponding expression type for an aggregation type.
-type family UnAggrType (a :: Type) :: Type where
-  UnAggrType (a, b) = (UnAggrType a, UnAggrType b)
-  UnAggrType (t (Aggregate _)) = t Expr
-  UnAggrType (Aggregate _ a) = Expr a
-  UnAggrType (ListTable (Aggregate _) a) = ListTable Expr a
-  UnAggrType (NonEmptyTable (Aggregate _) a) = NonEmptyTable Expr a
-
-
-getAggregator :: Aggregate foldability a -> Aggregator a
-getAggregator (Aggregate _ aggregator) = aggregator
-getAggregator (Aggregate1 aggregator) = aggregator
-
-
-groupBy :: Expr a -> Aggregate 'Semifold a
-groupBy (Expr a) = Aggregate1 (Aggregator Nothing a)
-
-
-arrayAgg :: DBType a => Expr a -> Aggregate foldability [a]
-arrayAgg (Expr a) = Aggregate (lit []) (Aggregator (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a)
-
-
-arrayAgg1 :: Expr a -> Aggregate 'Semifold (NonEmpty a)
-arrayAgg1 (Expr a) = Aggregate1 (Aggregator (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a)
-
-
-class DBType a => DBMax foldability a where
-  max :: Expr a -> Aggregate foldability a
-
-  default max :: (foldability ~ 'Semifold) => Expr a -> Aggregate foldability a
-  max (Expr a) = Aggregate1 $ Aggregator (Just (Opaleye.AggrMax, [], Opaleye.AggrAll)) a
-
-
-instance DBMax 'Semifold Int64
-instance DBMax 'Semifold Double
-instance DBMax 'Semifold Int32
-instance DBMax 'Semifold Scientific
-instance DBMax 'Semifold Float
-instance DBMax 'Semifold Text
-
-
-instance DBMax 'Semifold a => DBMax foldability (Maybe a) where
-  max expr = case getAggregator (max @'Semifold (retype @a expr)) of
-    Aggregator a e -> Aggregate (lit Nothing) (Aggregator a e)
-
-
-aggregate1 ::
-  ( Table (Aggregate semifold) aggregates
-  , Table Expr exprs
-  , Columns aggregates ~ Columns exprs
-  , exprs ~ UnAggrType aggregates
+instance
+  ( AggregateTable aggregates1 exprs1
+  , AggregateTable aggregates2 exprs2
   )
+  => AggregateTable (aggregates1, aggregates2) (exprs1, exprs2)
+ where
+  aggregators = aggregators ***! aggregators
+  groupBy = groupBy ***! groupBy
+
+
+instance HigherKindedTable t => AggregateTable (t Aggregate) (t Expr)
+
+
+instance AggregateTable (Aggregate a) (Expr a) where
+  aggregators = Opaleye.Aggregator $ Opaleye.PackMap $
+    \f (Aggregate a e) -> fromPrimExpr <$> f (a, e)
+  groupBy = Aggregate Nothing . toPrimExpr
+
+
+instance (Table Expr a, HConstrainTable (Columns a) (ComposeConstraint DBType [])) =>
+  AggregateTable (ListTable Aggregate a) (ListTable Expr a)
+
+
+instance (Table Expr a, HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)) =>
+  AggregateTable (NonEmptyTable Aggregate a) (NonEmptyTable Expr a)
+
+
+arrayAgg :: Expr a -> Aggregate [a]
+arrayAgg (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+
+
+arrayAgg1 :: Expr a -> Aggregate (NonEmpty a)
+arrayAgg1 (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+
+
+class DBMax a where
+  max :: Expr a -> Aggregate a
+  max (Expr a) = Aggregate (Just (Opaleye.AggrMax, [], Opaleye.AggrAll)) a
+
+
+instance DBMax Int64
+instance DBMax Double
+instance DBMax Int32
+instance DBMax Scientific
+instance DBMax Float
+instance DBMax Text
+
+
+instance DBMax a => DBMax (Maybe a) where
+  max expr = case max (retype @a expr) of
+    Aggregate a e -> Aggregate a e
+
+
+aggregate :: AggregateTable aggregates exprs
   => Query aggregates -> Query exprs
-aggregate1 = mapOpaleye $ Opaleye.aggregate $ Opaleye.Aggregator $
-  Opaleye.PackMap $ \f ->
-    traverseTable $ \(MkC (getAggregator -> Aggregator a e)) -> MkC . Expr <$> f (a, e)
+aggregate = mapOpaleye $ Opaleye.aggregate aggregators
 
 
-aggregate ::
-  ( Table (Aggregate 'Fold) aggregates
-  , Table Expr exprs
-  , Columns aggregates ~ Columns exprs
-  , exprs ~ UnAggrType aggregates
-  )
-  => Query aggregates -> Query exprs
-aggregate aggregates = fmap (maybeTable defaults id) $ optional $ aggregate1 aggregates
-  where
-    defaults = runIdentity $ traverseTable go $ unquery aggregates
-      where
-        go (MkC (Aggregate a _)) = pure (MkC a)
-
-        -- HACK: this is very unsafe
-        unquery (Query query) = case Opaleye.runSimpleQueryArrStart query () of
-          (a, _, _) -> a
-
-
-newtype ComposeColumn f g a = ComposeColumn (Column f (g a))
+newtype ComposeColumn f g a = ComposeColumn
+  { getComposeColumn :: Column f (g a)
+  }
 
 
 traverseComposeColumn :: forall f g t m x. Applicative m => (forall a. C f a -> m (C g a)) -> C (ComposeColumn f t) x -> m (C (ComposeColumn g t) x)
@@ -1975,8 +1985,8 @@ traverseComposeColumn f (MkC (ComposeColumn a)) = f (MkC @f @(t x) a) <&> \case
   MkC b -> MkC (ComposeColumn b)
 
 
-class c (f a) => ComposeConstraint f c a
-instance c (f a) => ComposeConstraint f c a
+class c (f a) => ComposeConstraint c f a
+instance c (f a) => ComposeConstraint c f a
 
 
 data HComposeField f t a where
@@ -1986,25 +1996,25 @@ data HComposeField f t a where
 newtype HComposeTable g t f = HComposeTable (t (ComposeColumn f g))
 
 
-instance (HConstrainTable t (ComposeConstraint f DBType), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
+instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
   type HField (HComposeTable f t) = HComposeField f t
-  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint f c)
+  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
-  hfield (HComposeTable columns) (HComposeField field) = case hfield columns field of
-    MkC (ComposeColumn a) -> MkC a
+  hfield (HComposeTable columns) (HComposeField field) =
+    mapC getComposeColumn (hfield columns field)
 
-  htabulate f = HComposeTable (htabulate (\field -> MkC (ComposeColumn (toColumn (f (HComposeField field))))))
+  htabulate f = HComposeTable (htabulate (mapC ComposeColumn . f . HComposeField))
 
-  htraverse f (HComposeTable t) = fmap HComposeTable $ htraverse (traverseComposeColumn f) t
+  htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeColumn f) t
 
-  hdicts :: forall c. HConstrainTable t (ComposeConstraint f c) => HComposeTable f t (Dict c)
-  hdicts = HComposeTable $ runIdentity $ htraverse (\(MkC Dict) -> pure (MkC (ComposeColumn Dict))) (hdicts @t @(ComposeConstraint f c))
+  hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Dict c)
+  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeColumn Dict) (hdicts @_ @(ComposeConstraint c f))
 
 
 newtype ListTable f a = ListTable (Columns a (ComposeColumn f []))
 
 
-instance (HConstrainTable (Columns a) (ComposeConstraint [] DBType), Table Expr a) => Table f (ListTable f a) where
+instance (HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr a) => Table f (ListTable f a) where
   type Columns (ListTable f a) = HComposeTable [] (Columns a)
 
   toColumns (ListTable a) = HComposeTable a
@@ -2015,7 +2025,7 @@ instance
   ( expr ~ Expr
   , ExprType [b] ~ ListTable expr a
   , Serializable a b
-  , HConstrainTable (Columns a) (ComposeConstraint [] DBType)
+  , HConstrainTable (Columns a) (ComposeConstraint DBType [])
   ) => Serializable (ListTable expr a) [b]
  where
 
@@ -2042,19 +2052,14 @@ instance
           array = typeName (typeInformation @[x])
 
 
-many :: forall exprs foldability. Table Expr exprs => exprs -> ListTable (Aggregate foldability) exprs
-many exprs = ListTable $ htabulate $ \field -> case hfield constraints field of
-  MkC Dict -> MkC $ ComposeColumn $ case hfield (toColumns exprs) field of
-    MkC a -> arrayAgg a
-  where
-    constraints :: Columns exprs (Dict DBType)
-    constraints = hdicts
+many :: Table Expr exprs => exprs -> ListTable Aggregate exprs
+many = ListTable . mapTable (mapC (ComposeColumn . arrayAgg))
 
 
 newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeColumn f NonEmpty))
 
 
-instance (HConstrainTable (Columns a) (ComposeConstraint NonEmpty DBType), Table Expr a) => Table f (NonEmptyTable f a) where
+instance (HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table Expr a) => Table f (NonEmptyTable f a) where
   type Columns (NonEmptyTable f a) = HComposeTable NonEmpty (Columns a)
 
   toColumns (NonEmptyTable a) = HComposeTable a
@@ -2065,12 +2070,12 @@ instance
   ( expr ~ Expr
   , ExprType (NonEmpty b) ~ NonEmptyTable expr a
   , Serializable a b
-  , HConstrainTable (Columns a) (ComposeConstraint NonEmpty DBType)
+  , HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)
   ) => Serializable (NonEmptyTable expr a) (NonEmpty b)
  where
 
   rowParser inject = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
-      Compose . fmap pgArrayToZipList <$> inject (pgNonEmptyFieldParser fieldParser) x y
+    Compose . fmap pgArrayToZipList <$> inject (pgNonEmptyFieldParser fieldParser) x y
     where
       pgArrayToZipList :: forall x. PGArray x -> ZipList x
       pgArrayToZipList (PGArray a) = ZipList a
@@ -2098,10 +2103,8 @@ instance
           array = typeName (typeInformation @(NonEmpty x))
 
 
-some :: Table Expr exprs => exprs -> NonEmptyTable (Aggregate 'Semifold) exprs
-some exprs = NonEmptyTable $ runIdentity $ traverseTable go exprs
-  where
-    go (MkC a) = pure (MkC (ComposeColumn (arrayAgg1 a)))
+some :: Table Expr exprs => exprs -> NonEmptyTable Aggregate exprs
+some = NonEmptyTable . mapTable (mapC (ComposeColumn . arrayAgg1))
 
 
 {-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
