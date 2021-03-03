@@ -734,16 +734,17 @@ haskellPackage =
     }
 @
 -}
-data TableSchema (schema :: Type) = TableSchema
-  { tableName :: String
-    -- ^ The name of the table.
-  , tableSchema :: Maybe String
-    -- ^ The schema that this table belongs to. If 'Nothing', whatever is on
-    -- the connection's @search_path@ will be used.
-  , tableColumns :: schema
-    -- ^ The columns of the table. Typically you would use a a higher-kinded
-    -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
-  } deriving stock Functor
+data TableSchema (schema :: Type) where
+  TableSchema :: Table ColumnSchema schema => 
+    { tableName :: String
+      -- ^ The name of the table.
+    , tableSchema :: Maybe String
+      -- ^ The schema that this table belongs to. If 'Nothing', whatever is on
+      -- the connection's @search_path@ will be used.
+    , tableColumns :: schema
+      -- ^ The columns of the table. Typically you would use a a higher-kinded
+      -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
+    } -> TableSchema schema
 
 
 {-| The @Column@ type family should be used to indicate which fields of your
@@ -1412,7 +1413,6 @@ insert connection Insert{ into, rows, onConflict, returning } =
     toOpaleyeInsert
       :: forall schema result value
        . ( Table Expr value
-         , Table ColumnSchema schema
          , Congruent value schema
          )
       => TableSchema schema
@@ -1420,12 +1420,13 @@ insert connection Insert{ into, rows, onConflict, returning } =
       -> Returning schema result
       -> Opaleye.Insert result
     toOpaleyeInsert into_ iRows returning_ =
-      Opaleye.Insert
-        { iTable = ddlTable into_ ( writer into_ )
-        , iRows
-        , iReturning = opaleyeReturning returning_
-        , iOnConflict
-        }
+      case into_ of 
+        TableSchema{} -> Opaleye.Insert
+          { iTable = ddlTable into_ ( writer into_ )
+          , iRows
+          , iReturning = opaleyeReturning returning_
+          , iOnConflict
+          }
 
       where
 
@@ -1442,11 +1443,10 @@ insert connection Insert{ into, rows, onConflict, returning } =
 writer
   :: forall value schema
    . ( Table Expr value
-     , Table ColumnSchema schema
      , Congruent value schema
      )
   => TableSchema schema -> Opaleye.Writer value schema
-writer into_ =
+writer TableSchema{ tableColumns } =
   let
     go
       :: forall f list
@@ -1458,7 +1458,7 @@ writer into_ =
       void $
         htraverse @(Columns schema) @(Compose f Expr) @Expr sequenceC $
           htabulate @(Columns schema) @(Compose f Expr) \i ->
-            case hfield (toColumns (tableColumns into_)) i of
+            case hfield (toColumns tableColumns) i of
               MkC ColumnSchema{ columnName } ->
                 MkC $
                   column columnName <$
@@ -1470,7 +1470,7 @@ writer into_ =
   Opaleye.Writer ( Opaleye.PackMap go )
 
 
-opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
+opaleyeReturning :: Table ColumnSchema schema => Returning schema result -> Opaleye.Returning schema result
 opaleyeReturning returning =
   case returning of
     NumberOfRowsInserted ->
@@ -1490,7 +1490,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: Type -> Type where
   Insert
-    :: (Congruent value schema, Table Expr value, Table ColumnSchema schema)
+    :: (Congruent value schema, Table Expr value)
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , rows :: [value]
@@ -1516,8 +1516,7 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( Table ColumnSchema schema
-       , Table Expr row
+    :: ( Table Expr row
        , Congruent schema row
        , Serializable projection a
        )
@@ -1547,7 +1546,6 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
     go
       :: forall schema r row
        . ( Table Expr row
-         , Table ColumnSchema schema
          , Congruent schema row
          )
       => TableSchema schema
@@ -1555,20 +1553,21 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
       -> Returning schema r
       -> Opaleye.Delete r
     go schema deleteWhere_ returning_ =
-      Opaleye.Delete
-        { dTable = ddlTable schema $ Opaleye.Writer $ pure ()
-        , dWhere =
-            Opaleye.Column
-              . toPrimExpr
-              . deleteWhere_
-              . mapTable (mapC (column . columnName))
-        , dReturning = opaleyeReturning returning_
-        }
+      case schema of 
+        TableSchema{} -> Opaleye.Delete
+          { dTable = ddlTable schema $ Opaleye.Writer $ pure ()
+          , dWhere =
+              Opaleye.Column
+                . toPrimExpr
+                . deleteWhere_
+                . mapTable (mapC (column . columnName))
+          , dReturning = opaleyeReturning returning_
+          }
 
 
 data Delete from return where
   Delete
-    :: (Congruent from row, Table Expr row, Table ColumnSchema from)
+    :: ( Congruent from row, Table Expr row )
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
@@ -1586,7 +1585,6 @@ update connection Update{ target, set, updateWhere, returning } =
       :: forall returning target row
        . ( Table Expr row
          , Congruent target row
-         , Table ColumnSchema target
          )
       => TableSchema target
       -> (row -> row)
@@ -1594,27 +1592,28 @@ update connection Update{ target, set, updateWhere, returning } =
       -> Returning target returning
       -> Opaleye.Update returning
     go target_ set_ updateWhere_ returning_ =
-      Opaleye.Update
-        { uTable =
-            ddlTable target_ (writer target_)
+      case target_ of
+        TableSchema{} -> Opaleye.Update
+          { uTable =
+              ddlTable target_ (writer target_)
 
-        , uReturning =
-            opaleyeReturning returning_
+          , uReturning =
+              opaleyeReturning returning_
 
-        , uWhere =
-            Opaleye.Column
-              . toPrimExpr
-              . updateWhere_
-              . mapTable (mapC (column . columnName))
+          , uWhere =
+              Opaleye.Column
+                . toPrimExpr
+                . updateWhere_
+                . mapTable (mapC (column . columnName))
 
-        , uUpdateWith =
-            set_ . mapTable (mapC (column . columnName))
-        }
+          , uUpdateWith =
+              set_ . mapTable (mapC (column . columnName))
+          }
 
 
 data Update target returning where
   Update
-    :: (Congruent target row, Table Expr row, Table ColumnSchema target)
+    :: ( Congruent target row, Table Expr row )
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Bool
@@ -1634,21 +1633,21 @@ exists query = maybeTable (lit False) (const (lit True)) <$> optional do
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: (Congruent schema row, Table Expr row, Table ColumnSchema schema) => TableSchema schema -> Query row
+each :: (Congruent schema row, Table Expr row) => TableSchema schema -> Query row
 each = each_forAll
 
 
 each_forAll
   :: forall schema row
-   . (Congruent schema row, Table Expr row, Table ColumnSchema schema)
+   . (Congruent schema row, Table Expr row)
   => TableSchema schema -> Query row
-each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
+each_forAll schema@TableSchema{ tableColumns } = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
   where
     noWriter :: Opaleye.Writer () row
     noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
 
     view :: Opaleye.View row
-    view = Opaleye.View $ mapTable (mapC (column . columnName)) (tableColumns schema)
+    view = Opaleye.View $ mapTable (mapC (column . columnName)) tableColumns
 
 
 -- | Select all rows from another table that match a given predicate. If the
