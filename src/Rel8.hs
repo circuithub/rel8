@@ -1516,8 +1516,7 @@ data Returning schema a where
   -- >>> :t insert Insert{ returning = Projection fooId }
   -- IO [ FooId ]
   Projection
-    :: ( Table Expr projection
-       , Table ColumnSchema schema
+    :: ( Table ColumnSchema schema
        , Table Expr row
        , Congruent schema row
        , Serializable projection a
