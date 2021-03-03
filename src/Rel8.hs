@@ -47,6 +47,7 @@ module Rel8
     -- * Tables and higher-kinded tables
   , Table(..)
   , HigherKindedTable
+  , Congruent
 
     -- ** Table schemas
   , Column
@@ -656,7 +657,7 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
     :: forall f x
      . ( Generic (t f)
        , HField t ~ GenericHField t
-       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , Congruent (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
        , HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))) ~ HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ())))
        , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
        , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
@@ -669,7 +670,7 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
     :: forall f
      . ( Generic (t f)
        , HField t ~ GenericHField t
-       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , Congruent (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
        , HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))) ~ HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ())))
        , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
        , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
@@ -683,11 +684,11 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
      . ( Applicative m
        , Generic (t f)
        , Generic (t g)
-       , Columns (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , Congruent (WithShape f (Rep (t IsColumn)) (Rep (t f) ())) (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
        , HigherKindedTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ())))
        , Table f (WithShape f (Rep (t IsColumn)) (Rep (t f) ()))
        , Table g (WithShape g (Rep (t IsColumn)) (Rep (t g) ()))
-       , Columns (WithShape g (Rep (t IsColumn)) (Rep (t g) ())) ~ Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
+       , Congruent (WithShape g (Rep (t IsColumn)) (Rep (t g) ())) (WithShape IsColumn (Rep (t IsColumn)) (Rep (t f) ()))
        )
     => (forall a. C f a -> m (C g a)) -> t f -> m (t g)
   htraverse f x =
@@ -1266,14 +1267,14 @@ instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
 
 
 mapTable
-  :: (Columns s ~ Columns t, Table f s, Table g t)
+  :: (Congruent s t, Table f s, Table g t)
   => (forall x. C f x -> C g x) -> s -> t
 mapTable f = fromColumns . runIdentity . htraverse (pure . f) . toColumns
 
 
 zipTablesWithM
   :: forall x y z f g h m
-   . (Columns x ~ Columns y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
+   . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
   => (forall a. C f a -> C g a -> m (C h a)) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
@@ -1283,7 +1284,7 @@ zipTablesWithM f (toColumns -> x) (toColumns -> y) =
 
 
 traverseTable
-  :: (Columns x ~ Columns y, Table f x, Table g y, Applicative m)
+  :: (Congruent x y, Table f x, Table g y, Applicative m)
   => (forall a. C f a -> m (C g a)) -> x -> m y
 traverseTable f = fmap fromColumns . htraverse f . toColumns
 
@@ -1412,7 +1413,7 @@ insert connection Insert{ into, rows, onConflict, returning } =
       :: forall schema result value
        . ( Table Expr value
          , Table ColumnSchema schema
-         , Columns value ~ Columns schema
+         , Congruent value schema
          )
       => TableSchema schema
       -> [ value ]
@@ -1442,7 +1443,7 @@ writer
   :: forall value schema
    . ( Table Expr value
      , Table ColumnSchema schema
-     , Columns value ~ Columns schema
+     , Congruent value schema
      )
   => TableSchema schema -> Opaleye.Writer value schema
 writer into_ =
@@ -1489,7 +1490,7 @@ ddlTable schema writer_ =
 -- | The constituent parts of a SQL @INSERT@ statement.
 data Insert :: Type -> Type where
   Insert
-    :: (Columns value ~ Columns schema, Table Expr value, Table ColumnSchema schema)
+    :: (Congruent value schema, Table Expr value, Table ColumnSchema schema)
     => { into :: TableSchema schema
          -- ^ Which table to insert into.
        , rows :: [value]
@@ -1518,7 +1519,7 @@ data Returning schema a where
     :: ( Table Expr projection
        , Table ColumnSchema schema
        , Table Expr row
-       , Columns schema ~ Columns row
+       , Congruent schema row
        , Serializable projection a
        )
     => (row -> projection)
@@ -1548,7 +1549,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
       :: forall schema r row
        . ( Table Expr row
          , Table ColumnSchema schema
-         , Columns schema ~ Columns row
+         , Congruent schema row
          )
       => TableSchema schema
       -> (row -> Expr Bool)
@@ -1568,7 +1569,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
 data Delete from return where
   Delete
-    :: (Columns from ~ Columns row, Table Expr row, Table ColumnSchema from)
+    :: (Congruent from row, Table Expr row, Table ColumnSchema from)
     => { from :: TableSchema from
        , deleteWhere :: row -> Expr Bool
        , returning :: Returning from return
@@ -1585,7 +1586,7 @@ update connection Update{ target, set, updateWhere, returning } =
     go
       :: forall returning target row
        . ( Table Expr row
-         , Columns target ~ Columns row
+         , Congruent target row
          , Table ColumnSchema target
          )
       => TableSchema target
@@ -1614,7 +1615,7 @@ update connection Update{ target, set, updateWhere, returning } =
 
 data Update target returning where
   Update
-    :: (Columns target ~ Columns row, Table Expr row, Table ColumnSchema target)
+    :: (Congruent target row, Table Expr row, Table ColumnSchema target)
     => { target :: TableSchema target
        , set :: row -> row
        , updateWhere :: row -> Expr Bool
@@ -1634,13 +1635,13 @@ exists query = maybeTable (lit False) (const (lit True)) <$> optional do
 -- | Select each row from a table definition.
 --
 -- This is equivalent to @FROM table@.
-each :: (Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema) => TableSchema schema -> Query row
+each :: (Congruent schema row, Table Expr row, Table ColumnSchema schema) => TableSchema schema -> Query row
 each = each_forAll
 
 
 each_forAll
   :: forall schema row
-   . (Columns schema ~ Columns row, Table Expr row, Table ColumnSchema schema)
+   . (Congruent schema row, Table Expr row, Table ColumnSchema schema)
   => TableSchema schema -> Query row
 each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
   where
@@ -2041,7 +2042,9 @@ orderBy :: Order a -> Query a -> Query a
 orderBy (Order o) = liftOpaleye . Opaleye.laterally (Opaleye.orderBy o) . toOpaleye
 
 
-thing :: Query (Expr Bool)
-thing = do
-  x <- orderBy asc $ values [lit True, lit False]
-  return x
+-- | We say that two 'Tables' are congruent if they have the same set of
+-- columns. This is primarily useful for operations like @SELECT FROM@, where
+-- we have a @Table@ of @ColumnSchema@s, and need to select them to a
+-- corresponding @Table@ of @Expr@s.
+class (Columns a ~ Columns b) => Congruent a b
+instance (Columns a ~ Columns b) => Congruent a b
