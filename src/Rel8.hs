@@ -116,6 +116,14 @@ module Rel8
   , Array
   , arrayAgg
 
+    -- ** Ordering
+  , orderBy
+  , Order
+  , asc
+  , desc
+  , nullsFirst
+  , nullsLast
+
     -- * IO
   , Serializable(..)
 
@@ -151,8 +159,7 @@ import Control.Applicative ( ZipList(..), liftA2, (<|>) )
 import qualified Control.Applicative
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
-import Data.Foldable ( Foldable( toList, foldl' ) )
-import Data.Foldable ( fold )
+import Data.Foldable ( Foldable(toList, foldl'), fold )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity( runIdentity ) )
 import Data.Int ( Int32, Int64 )
@@ -186,8 +193,8 @@ import qualified Opaleye.Internal.Binary as Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye ()
 import qualified Opaleye.Internal.Manipulation as Opaleye
+import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
@@ -256,6 +263,10 @@ import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
 
 -- uuid
 import Data.UUID ( UUID )
+import Data.Functor.Contravariant (Contravariant)
+import Data.Functor.Contravariant.Divisible (Divisible, Decidable)
+import Data.Functor.Const (Const(Const), getConst)
+import Data.Bifunctor (first)
 
 
 {-| Haskell types that can be represented as expressions in a database. There
@@ -1937,12 +1948,12 @@ instance Serializable a b => Serializable (Array a) (Seq b) where
       exprs = toList $ toColumns . lit <$> xs
 
       f :: forall x. HField (Columns a) x -> C Expr x
-      f i = case hfield (hdicts @(Columns a) @DBType) i of 
+      f i = case hfield (hdicts @(Columns a) @DBType) i of
         MkC Dict ->
-          MkC $ fromPrimExpr $ 
+          MkC $ fromPrimExpr $
             Opaleye.CastExpr arrayTy $
               Opaleye.ArrayExpr $ toPrimExpr . toColumn . flip hfield i <$> exprs
-          where 
+          where
             arrayTy = typeName (typeInformation @x) <> "[]"
 
 
@@ -1961,3 +1972,76 @@ instance (Table Expr a, Serializable a (ResultType a)) => AggregateTable (Array 
             MkC (Expr primExpr) ->
               MkC $ Expr <$> f (Just (Opaleye.AggrArr, [], Opaleye.AggrAll), primExpr)
 
+
+{-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
+and 'desc', and you can combine @Order@ via its various instances.
+
+A common pattern is to use '<>' to combine multiple orderings in sequence, and '>$<' (from 'Contravariant') to select individual columns. For example, to sort a @Query@ on two columns, we could do:
+
+@
+orderExample :: Query (Expr Int, Expr Bool) -> Query (Expr Int, Expr Bool)
+orderExample = orderBy (fst >$< asc <> snd >$< desc)
+@
+-}
+newtype Order a = Order (Opaleye.Order a)
+  deriving newtype (Contravariant, Divisible, Decidable, Semigroup, Monoid)
+
+
+{-| Sort a table in ascending order.
+-}
+asc :: Table Expr a => Order a
+asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
+  where
+    f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
+    f (MkC (Expr primExpr)) = Const [(orderOp, primExpr)]
+
+    orderOp :: Opaleye.OrderOp
+    orderOp = Opaleye.OrderOp 
+      { orderDirection = Opaleye.OpAsc
+        , orderNulls = Opaleye.NullsLast 
+      }
+
+
+{-| Sort a table in descending order.
+-}
+desc :: Table Expr a => Order a
+desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
+  where
+    f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
+    f (MkC (Expr primExpr)) = Const [(orderOp, primExpr)]
+
+    orderOp :: Opaleye.OrderOp
+    orderOp = Opaleye.OrderOp 
+      { orderDirection = Opaleye.OpDesc
+        , orderNulls = Opaleye.NullsFirst 
+      }
+
+
+{-| Transform an ordering so that @null@ values appear first.
+-}
+nullsFirst :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
+nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
+  where
+    g :: Opaleye.OrderOp -> Opaleye.OrderOp
+    g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsFirst }
+
+
+{-| Transform an ordering so that @null@ values appear first.
+-}
+nullsLast :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
+nullsLast (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
+  where
+    g :: Opaleye.OrderOp -> Opaleye.OrderOp
+    g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsLast }
+
+
+{-| Order the rows returned by a 'Query' according to a particular 'Order'.
+-}
+orderBy :: Order a -> Query a -> Query a
+orderBy (Order o) = liftOpaleye . Opaleye.laterally (Opaleye.orderBy o) . toOpaleye
+
+
+thing :: Query (Expr Bool)
+thing = do
+  x <- orderBy asc $ values [lit True, lit False]
+  return x
