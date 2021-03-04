@@ -47,12 +47,15 @@ module Rel8
     -- * Tables and higher-kinded tables
   , Table(..)
   , HigherKindedTable
+  , GHigherKindedTable(..)
   , Congruent
 
     -- ** Table schemas
   , Column
+  , OuterJoin
   , TableSchema(..)
   , ColumnSchema
+  , At(..)
 
     -- * Expressions
   , Expr
@@ -865,35 +868,185 @@ In @rel8@ we try hard to always know what @f@ is, which means holes should
 mention precise types, rather than the @Column@ type family. You should only
 need to be aware of the type family when defining your table types.
 -}
-type family Column (context :: Type -> Type) (a :: Type) :: Type where
-  Column Identity a      = a
-  Column f a             = f a
+type family Column (context :: At (Type -> Type)) (a :: Type) :: Type where
+  Column ('At Identity) a      = a
+  Column ('At f) a             = f a
+
+
+type family OuterJoin (context :: At (Type -> Type)) (t :: At (Type -> Type) -> Type) :: Type where
+  OuterJoin ('At Identity) t     = Maybe (t ('At Identity))
+  OuterJoin ('At Expr) t         = MaybeTable (t ('At Expr))
+  OuterJoin ('At ColumnSchema) t = HMaybeTable (GRep t) ColumnSchema
 
 
 -- | The @C@ newtype simply wraps 'Column', but this allows us to work around
 -- injectivity problems of functions that return type family applications.
-newtype C f x = MkC { toColumn :: Column f x }
+newtype C f x = MkC { toColumn :: Column ('At f) x }
 
 
 -- | Lift functions that map between 'Column's to functions that map between
 -- 'C's.
-mapC :: (Column f x -> Column g y) -> C f x -> C g y
+mapC :: (Column ('At f) x -> Column ('At g) y) -> C f x -> C g y
 mapC f (MkC x) = MkC $ f x
 
 
 -- | Effectfully map from one column to another.
-traverseC :: Applicative m => (Column f x -> m (Column g y)) -> C f x -> m (C g y)
+traverseC :: Applicative m => (Column ('At f) x -> m (Column ('At g) y)) -> C f x -> m (C g y)
 traverseC f (MkC x) = MkC <$> f x
 
 
 -- | Zip two columns together.
-zipCWith :: (Column f x -> Column g y -> Column h z) -> C f x -> C g y -> C h z
+zipCWith :: (Column ('At f) x -> Column ('At g) y -> Column ('At h) z) -> C f x -> C g y -> C h z
 zipCWith f (MkC x) (MkC y) = MkC (f x y)
 
 
 -- | Zip two columns together under an effectful context.
-zipCWithM :: Applicative m => (Column f x -> Column g y -> m (Column h z)) -> C f x -> C g y -> m (C h z)
+zipCWithM :: Applicative m => (Column ('At f) x -> Column ('At g) y -> m (Column ('At h) z)) -> C f x -> C g y -> m (C h z)
 zipCWithM f (MkC x) (MkC y) = MkC <$> f x y
+
+
+class HigherKindedTable (GRep t) => GHigherKindedTable (t :: At (Type -> Type) -> Type) where
+  type GRep t :: (Type -> Type) -> Type
+  type GRep t = GColumns (Rep (t ('At Expr)))
+
+  toExprs :: t ('At Expr) -> GRep t Expr
+  fromExprs :: GRep t Expr -> t ('At Expr)
+
+  default toExprs 
+    :: ( GColumns (Rep (t ('At Expr))) ~ GRep t 
+       , GHigherKindedTableImpl Expr (Rep (t ('At Expr)))
+       , Generic (t ('At Expr))
+       ) 
+    => t ('At Expr) -> GRep t Expr
+  toExprs = ghigherKindedTo @Expr @(Rep (t ('At Expr))) . GHC.Generics.from @_ @()
+
+  default fromExprs 
+    :: ( GColumns (Rep (t ('At Expr))) ~ GRep t 
+       , GHigherKindedTableImpl Expr (Rep (t ('At Expr)))
+       , Generic (t ('At Expr))
+       ) 
+    => GRep t Expr -> t ('At Expr)
+  fromExprs = to @_ @() . ghigherKindedFrom @Expr @(Rep (t ('At Expr))) 
+
+  toColumnSchemas :: t ('At ColumnSchema) -> GRep t ColumnSchema
+  fromColumnSchemas :: GRep t ColumnSchema -> t ('At ColumnSchema)
+
+  default toColumnSchemas 
+    :: ( GColumns (Rep (t ('At ColumnSchema))) ~ GRep t 
+       , GHigherKindedTableImpl ColumnSchema (Rep (t ('At ColumnSchema)))
+       , Generic (t ('At ColumnSchema))
+       ) 
+    => t ('At ColumnSchema) -> GRep t ColumnSchema
+  toColumnSchemas = ghigherKindedTo @ColumnSchema @(Rep (t ('At ColumnSchema))) . GHC.Generics.from @_ @()
+
+  default fromColumnSchemas 
+    :: ( GColumns (Rep (t ('At ColumnSchema))) ~ GRep t 
+       , GHigherKindedTableImpl ColumnSchema (Rep (t ('At ColumnSchema)))
+       , Generic (t ('At ColumnSchema))
+       ) 
+    => GRep t ColumnSchema -> t ('At ColumnSchema)
+  fromColumnSchemas = to @_ @() . ghigherKindedFrom @ColumnSchema @(Rep (t ('At ColumnSchema))) 
+
+  glit :: t ('At Identity) -> t ('At Expr)
+  default glit 
+    :: ( Generic (t ('At Identity))
+       , Generic (t ('At Expr))
+       , GSerializable (Rep (t ('At Expr))) (Rep (t ('At Identity))) 
+       ) 
+    => t ('At Identity) -> t ('At Expr)
+  glit = to @_ @() . glitImpl @(Rep (t ('At Expr))) @(Rep (t ('At Identity))) . GHC.Generics.from @_ @()
+
+  growParser :: Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t ('At Identity)))
+  default growParser
+    :: ( Generic (t ('At Identity))
+       , GSerializable (Rep (t ('At Expr))) (Rep (t ('At Identity))) 
+       , Applicative f
+       ) 
+    => (forall a. Typeable a => FieldParser a -> FieldParser (f a))
+    -> RowParser (f (t ('At Identity)))
+  growParser f = fmap (to @_ @()) <$> growParserImpl @(Rep (t ('At Expr))) @(Rep (t ('At Identity))) f
+
+
+class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
+  glitImpl :: haskell x -> expr x
+
+  growParserImpl :: forall f x. Applicative f
+    => (forall a. Typeable a => FieldParser a -> FieldParser (f a))
+    -> RowParser (f (haskell x))
+
+
+instance GSerializable f f' => GSerializable (M1 i c f) (M1 i' c' f') where
+  glitImpl = M1 . glitImpl @f @f' . unM1
+  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f
+
+
+instance (GSerializable f f', GSerializable g g') => GSerializable (f :*: g) (f' :*: g') where
+  glitImpl (x :*: y) = glitImpl @f @f' x :*: glitImpl @g @g' y
+  growParserImpl f = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f) (growParserImpl @g @g' f)
+
+
+instance Serializable expr haskell => GSerializable (K1 i expr) (K1 i haskell) where
+  glitImpl = K1 . lit . unK1
+  growParserImpl f = fmap K1 <$> rowParser @expr @haskell f
+
+
+class GHigherKindedTableImpl (context :: Type -> Type) (rep :: Type -> Type) where
+  type GColumns rep :: (Type -> Type) -> Type
+  ghigherKindedTo :: rep x -> GColumns rep context
+  ghigherKindedFrom :: GColumns rep context -> rep x
+
+
+instance GHigherKindedTableImpl context f => GHigherKindedTableImpl context (M1 i c f) where
+  type GColumns (M1 i c f) = GColumns f
+  ghigherKindedTo = ghigherKindedTo @context @f . unM1
+  ghigherKindedFrom = M1 . ghigherKindedFrom @context @f
+
+
+instance (GHigherKindedTableImpl context f, GHigherKindedTableImpl context g) => GHigherKindedTableImpl context (f :*: g) where
+  type GColumns (f :*: g) = HPair (GColumns f) (GColumns g)
+  ghigherKindedTo (x :*: y) = HPair (ghigherKindedTo @context @f x) (ghigherKindedTo @context @g y)
+  ghigherKindedFrom (HPair x y) = ghigherKindedFrom @context @f x :*: ghigherKindedFrom @context @g y
+
+instance Table context a => GHigherKindedTableImpl context (K1 i a) where
+  type GColumns (K1 i a) = Columns a
+  ghigherKindedTo (K1 a) = toColumns a
+  ghigherKindedFrom = K1 . fromColumns
+
+
+data At a = At a
+
+
+class Helper f t where
+  helperTo :: t ('At f) -> GRep t f
+  helperFrom :: GRep t f -> t ('At f)
+
+
+instance (x ~ 'At f, GHigherKindedTable t, Helper f t) => Table f (t x) where
+  type Columns (t x) = GRep t
+  toColumns = helperTo
+  fromColumns = helperFrom
+
+
+instance GHigherKindedTable t => Helper Expr t where
+  helperTo = toExprs
+  helperFrom = fromExprs
+
+instance GHigherKindedTable t => Helper ColumnSchema t where
+  helperTo = toColumnSchemas
+  helperFrom = fromColumnSchemas
+
+
+{-| We would like to write a default type
+
+@
+type HField t = HField (Columns (Rep ..))
+@
+
+but this will violate the injectivity of the HField type (as there might be
+two 't's with the same 'Rep'). This newtype restores that injectivity.
+-}
+newtype GenericHField t a where
+  GenericHField :: HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ()))) a -> GenericHField t a
 
 
 {-| To facilitate generic deriving for higher-kinded table, we work through
@@ -923,19 +1076,6 @@ newtype WithShape (context :: Type -> Type) (shape :: Type -> Type) a = WithShap
 -- | A special functor for use with Column to see the structure of a
 -- higher-kinded table.
 data IsColumn a
-
-
-{-| We would like to write a default type
-
-@
-type HField t = HField (Columns (Rep ..))
-@
-
-but this will violate the injectivity of the HField type (as there might be
-two 't's with the same 'Rep'). This newtype restores that injectivity.
--}
-newtype GenericHField t a where
-  GenericHField :: HField (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ()))) a -> GenericHField t a
 
 
 instance (context ~ context', Table context (WithShape context f (g a))) => Table context (WithShape context' (M1 i c f) (M1 i c g a)) where
@@ -980,7 +1120,7 @@ instance (Table context a, IsColumnApplication shape ~ 'False) => K1Helper 'Fals
   fromColumnsHelper = fromColumns
 
 
-instance (DBType a, f ~ context, g ~ Column context a) => K1Helper 'True context (IsColumn a) g where
+instance (DBType a, f ~ context, g ~ Column ('At context) a) => K1Helper 'True context (IsColumn a) g where
   type K1Columns 'True (IsColumn a) g = HIdentity a
   toColumnsHelper = HIdentity
   fromColumnsHelper = unHIdentity
@@ -1033,7 +1173,7 @@ instance (Table f a, Table f b) => Table f (a, b) where
 {-| A single-column higher-kinded table. This is primarily useful for
 facilitating generic-deriving of higher kinded tables.
 -}
-newtype HIdentity a f = HIdentity { unHIdentity :: Column f a }
+newtype HIdentity a f = HIdentity { unHIdentity :: Column ('At f) a }
 
 
 data HIdentityField x y where
@@ -1078,13 +1218,14 @@ their to be multiple expression types. Usually this is not the case, but for
 @ExprFor a' a@), or just @Expr (Maybe a)@ (if @a@ is a single column).
 -}
 class Table Expr expr => ExprFor expr haskell
-instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                      => ExprFor a                b
-instance DBType a                                                         => ExprFor (Expr (Maybe a)) (Maybe a)
-instance (ExprFor a b, Table Expr a)                                      => ExprFor (MaybeTable a)   (Maybe b)
-instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)         => ExprFor a                [b]
-instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b) => ExprFor a                (NonEmpty b)
-instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                     => ExprFor a                (b1, b2)
-instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)           => ExprFor a                (t identity)
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                         => ExprFor a                b
+instance DBType a                                                            => ExprFor (Expr (Maybe a)) (Maybe a)
+instance (ExprFor a b, Table Expr a)                                         => ExprFor (MaybeTable a)   (Maybe b)
+instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)            => ExprFor a                [b]
+instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)    => ExprFor a                (NonEmpty b)
+instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                        => ExprFor a                (b1, b2)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)              => ExprFor a                (t identity)
+instance (GHigherKindedTable t, a ~ t ('At Expr), identity ~ ('At Identity)) => ExprFor a                (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1100,6 +1241,11 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Seria
     fromColumns $ htabulate \i ->
       case (hfield (hdbtype @t) i, hfield t i) of
         (MkC Dict, MkC x) -> MkC $ monolit x
+
+
+instance (s ~ t, expr ~ 'At Expr, identity ~ 'At Identity, GHigherKindedTable t) => Serializable (s expr) (t identity) where
+  lit = glit
+  rowParser f = growParser f
 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
@@ -1175,7 +1321,7 @@ instance Monad MaybeTable where
 
 
 data HMaybeTable g f = HMaybeTable
-  { hnullTag :: Column f (Maybe Bool)
+  { hnullTag :: Column ('At f) (Maybe Bool)
   , htable :: g f
   }
   deriving stock Generic
@@ -1966,6 +2112,11 @@ instance IsString (ColumnSchema a) where
   fromString = ColumnSchema
 
 
+instance (DBType a, f ~ ColumnSchema) => Table f (ColumnSchema a) where
+  type Columns (ColumnSchema a) = HIdentity a
+  toColumns = HIdentity
+  fromColumns = unHIdentity
+
 toOpaleyeTable
   :: TableSchema schema
   -> Opaleye.Writer write view
@@ -2337,7 +2488,7 @@ instance c (f a) => ComposeConstraint c f a
 
 
 newtype ComposeInner f g a = ComposeInner
-  { getComposeInner :: Column f (g a)
+  { getComposeInner :: Column ('At f) (g a)
   }
 
 
@@ -2356,7 +2507,7 @@ zipComposeInnerWith f (MkC (ComposeInner a)) (MkC (ComposeInner b)) =
 
 
 newtype ComposeOuter f g a = ComposeOuter
-  { getComposeOuter :: f (Column g a)
+  { getComposeOuter :: f (Column ('At g) a)
   }
 
 
