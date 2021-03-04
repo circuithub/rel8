@@ -330,19 +330,6 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
 newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
-{-| Anything that has an instance of 'DBType' is an 'Expr'. This class packages that knowledge up. -}
-class
-  ( ExprFor (Expr a) a
-  , ExprFor (Expr (Maybe a)) (Maybe a)
-  ) => AnExpr (a :: Type)
-
-
-instance
-  ( ExprFor (Expr a) a
-  , ExprFor (Expr (Maybe a)) (Maybe a)
-  ) => AnExpr a
-
-
 {-| A @DatabaseType@ describes how to encode and decode a Haskell type to and
 from database queries. The @typeName@ is the name of the type in the database,
 which is used to accurately type literals. 
@@ -1016,7 +1003,7 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstra
         (MkC Dict, MkC x) -> MkC $ monolit x
 
 
-instance (AnExpr a, DBType a, a ~ b) => Serializable (Expr a) b where
+instance (DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser inject = fieldWith $ inject $ decode typeInformation
 
   lit = Expr . Opaleye.CastExpr typeName . encode
