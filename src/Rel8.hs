@@ -114,8 +114,8 @@ module Rel8
   , Aggregate
   , AggregateTable
   , aggregate
-  , arrayAgg
-  , arrayAgg1
+  , listAgg
+  , nonEmptyAgg
   , groupBy
   , DBMax (max)
 
@@ -164,8 +164,7 @@ import Control.Applicative ( ZipList(..), liftA2 )
 import qualified Control.Applicative
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
-import Data.Foldable ( Foldable( toList, foldl' ) )
-import Data.Foldable ( fold )
+import Data.Foldable ( fold, foldl', toList )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity( runIdentity ) )
 import Data.Int ( Int32, Int64 )
@@ -299,7 +298,7 @@ You can now write queries using @UserId@ instead of @Int32@, which may help
 avoid making bad joins. However, when SQL is generated, it will be as if you
 just used integers (the type distinction does not impact query generation).
 -}
-class (AnExpr a, Typeable a) => DBType (a :: Type) where
+class Typeable a => DBType (a :: Type) where
   -- | Lookup the type information for the type @a@.
   typeInformation :: DatabaseType a
 
@@ -339,8 +338,6 @@ class
   ( ExprType a ~ Expr a
   , ResultType (Expr a) ~ a
   , ExprType (Maybe a) ~ Expr (Maybe a)
-  , ExprType [a] ~ Expr [a]
-  , ExprType (NonEmpty a) ~ Expr (NonEmpty a)
   ) => AnExpr (a :: Type)
 
 
@@ -348,8 +345,6 @@ instance
   ( ExprType a ~ Expr a
   , ResultType (Expr a) ~ a
   , ExprType (Maybe a) ~ Expr (Maybe a)
-  , ExprType [a] ~ Expr [a]
-  , ExprType (NonEmpty a) ~ Expr (NonEmpty a)
   ) => AnExpr a
 
 
@@ -365,6 +360,10 @@ data DatabaseType (a :: Type) = DatabaseType
   , typeName :: String
     -- ^ The name of the SQL type.
   }
+
+
+monolit :: forall a. DBType a => a -> Expr a
+monolit = fromPrimExpr . encode (typeInformation @a)
 
 
 {-| Simultaneously map over how a type is both encoded and decoded, while
@@ -592,12 +591,8 @@ now = nullaryFunction "now"
 @
 
 -}
-nullaryFunction :: DBType a => String -> Expr a
-nullaryFunction = nullaryFunction_forAll
-  where
-    nullaryFunction_forAll :: forall a. DBType a => String -> Expr a
-    nullaryFunction_forAll name =
-      const (Expr (Opaleye.FunExpr name [])) (lit (undefined :: a))
+nullaryFunction :: String -> Expr a
+nullaryFunction name = Expr (Opaleye.FunExpr name [])
 
 
 {-| Types that represent SQL tables.
@@ -731,7 +726,11 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
 
 
 hmap :: HigherKindedTable t => (forall x. C f x -> C g x) -> t f -> t g
-hmap f = runIdentity . htraverse (pure . f)
+hmap f t = htabulate $ f <$> hfield t
+
+
+hzipWith :: HigherKindedTable t => (forall x. C f x -> C g x -> C h x) -> t f -> t g -> t h
+hzipWith f t u = htabulate $ f <$> hfield t <*> hfield u
 
 
 {-| The schema for a table. This is used to specify the name and schema
@@ -818,6 +817,11 @@ mapC f (MkC x) = MkC $ f x
 -- | Effectfully map from one column to another.
 traverseC :: Applicative m => (Column f x -> m (Column g y)) -> C f x -> m (C g y)
 traverseC f (MkC x) = MkC <$> f x
+
+
+-- | Zip two columns together.
+zipCWith :: (Column f x -> Column g y -> Column h z) -> C f x -> C g y -> C h z
+zipCWith f (MkC x) (MkC y) = MkC (f x y)
 
 
 -- | Zip two columns together under an effectful context.
@@ -999,12 +1003,8 @@ type family ExprType (a :: Type) :: Type where
   ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
   ExprType (Maybe (a, b)) = MaybeTable (ExprType (a, b))
   ExprType (Maybe a) = Expr (Maybe a)
-  ExprType [t Identity] = ListTable Expr (t Expr)
-  ExprType [(a, b)] = ListTable Expr (ExprType (a, b))
-  ExprType [a] = Expr [a]
-  ExprType (NonEmpty (t Identity)) = NonEmptyTable Expr (t Expr)
-  ExprType (NonEmpty (a, b)) = NonEmptyTable Expr (ExprType (a, b))
-  ExprType (NonEmpty a) = Expr (NonEmpty a)
+  ExprType [a] = ListTable Expr (ExprType a)
+  ExprType (NonEmpty a) = NonEmptyTable Expr (ExprType a)
   ExprType a = Expr a
 
 
@@ -1030,10 +1030,10 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstra
   lit t =
     fromColumns $ htabulate \i ->
       case (hfield (hdicts @t @DBType) i, hfield t i) of
-        (MkC Dict, MkC x) -> MkC $ lit x
+        (MkC Dict, MkC x) -> MkC $ monolit x
 
 
-instance (DBType a, a ~ b) => Serializable (Expr a) b where
+instance (AnExpr a, DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser inject = fieldWith $ inject $ decode typeInformation
 
   lit = Expr . Opaleye.CastExpr typeName . encode
@@ -1070,9 +1070,8 @@ instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (
 type role Expr representational
 
 
-instance ( IsString a, DBType a ) => IsString ( Expr a ) where
-  fromString =
-    lit . fromString
+instance (IsString a, DBType a) => IsString (Expr a) where
+  fromString = monolit . fromString
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the
@@ -1136,7 +1135,7 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
     f :: forall x. HField (Columns a) x -> C Expr x
     f i =
       case hfield (hdicts @(Columns a) @DBType) i of
-        MkC Dict -> MkC $ unsafeCoerceExpr (lit (Nothing :: Maybe x))
+        MkC Dict -> MkC $ unsafeCoerceExpr (monolit (Nothing :: Maybe x))
 
 
 instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
@@ -1936,12 +1935,18 @@ instance (Table Expr a, HConstrainTable (Columns a) (ComposeConstraint DBType No
   AggregateTable (NonEmptyTable Aggregate a) (NonEmptyTable Expr a)
 
 
-arrayAgg :: Expr a -> Aggregate [a]
-arrayAgg (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+listAgg :: Table Expr exprs => exprs -> ListTable Aggregate exprs
+listAgg = ListTable . mapTable (mapC (ComposeInner . go))
+  where
+    go :: Expr a -> Aggregate [a]
+    go (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
 
 
-arrayAgg1 :: Expr a -> Aggregate (NonEmpty a)
-arrayAgg1 (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+nonEmptyAgg :: Table Expr exprs => exprs -> NonEmptyTable Aggregate exprs
+nonEmptyAgg = NonEmptyTable . mapTable (mapC (ComposeInner . go))
+  where
+    go :: Expr a -> Aggregate (NonEmpty a)
+    go (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
 
 
 class DBMax a where
@@ -1962,35 +1967,8 @@ instance DBMax a => DBMax (Maybe a) where
     Aggregate a e -> Aggregate a e
 
 
-aggregate :: AggregateTable aggregates exprs
-  => Query aggregates -> Query exprs
+aggregate :: AggregateTable aggregates exprs => Query aggregates -> Query exprs
 aggregate = mapOpaleye $ Opaleye.aggregate aggregators
-
-
-class c (f a) => ComposeConstraint c f a
-instance c (f a) => ComposeConstraint c f a
-
-
-data HComposeField f t a where
-  HComposeField :: HField t a -> HComposeField f t (f a)
-
-
-newtype HComposeTable g t f = HComposeTable (t (ComposeInner f g))
-
-
-instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
-  type HField (HComposeTable f t) = HComposeField f t
-  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
-
-  hfield (HComposeTable columns) (HComposeField field) =
-    mapC getComposeInner (hfield columns field)
-
-  htabulate f = HComposeTable (htabulate (mapC ComposeInner . f . HComposeField))
-
-  htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
-
-  hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Dict c)
-  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
 
 
 newtype ListTable f a = ListTable (Columns a (ComposeInner f []))
@@ -2005,7 +1983,6 @@ instance (HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr 
 
 instance
   ( expr ~ Expr
-  , ExprType [b] ~ ListTable expr a
   , Serializable a b
   , HConstrainTable (Columns a) (ComposeConstraint DBType [])
   ) => Serializable (ListTable expr a) [b]
@@ -2034,8 +2011,20 @@ instance
           array = typeName (typeInformation @[x])
 
 
-many :: Table Expr exprs => exprs -> ListTable Aggregate exprs
-many = ListTable . mapTable (mapC (ComposeInner . arrayAgg))
+instance (expr ~ Expr, Table expr a) => Semigroup (ListTable expr a) where
+  ListTable a <> ListTable b =
+    ListTable (hzipWith (zipCWith (zipComposeInnerWith (binaryOperator "||"))) a b)
+
+
+instance (expr ~ Expr, Table expr a) => Monoid (ListTable expr a) where
+  mempty = ListTable $ htabulate $ \field ->
+    case hfield (hdicts @_ @DBType) field of
+      MkC Dict -> MkC $ ComposeInner $ monolit []
+
+
+many :: (Table Expr exprs, HConstrainTable (Columns exprs) (ComposeConstraint DBType []))
+  => Query exprs -> Query (ListTable Expr exprs)
+many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 
 
 newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeInner f NonEmpty))
@@ -2050,7 +2039,6 @@ instance (HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table
 
 instance
   ( expr ~ Expr
-  , ExprType (NonEmpty b) ~ NonEmptyTable expr a
   , Serializable a b
   , HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)
   ) => Serializable (NonEmptyTable expr a) (NonEmpty b)
@@ -2068,7 +2056,6 @@ instance
           PGArray [] -> returnError Incompatible x "Serializable.NonEmptyTable.rowParser: empty list"
           _ -> pure list
 
-
   lit (fmap lit -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield dbtypes field of
       MkC Dict -> MkC $ ComposeInner $ nonEmptyOf $
@@ -2085,8 +2072,13 @@ instance
           array = typeName (typeInformation @(NonEmpty x))
 
 
-some :: Table Expr exprs => exprs -> NonEmptyTable Aggregate exprs
-some = NonEmptyTable . mapTable (mapC (ComposeInner . arrayAgg1))
+instance (expr ~ Expr, Table expr a) => Semigroup (NonEmptyTable expr a) where
+  NonEmptyTable a <> NonEmptyTable b =
+    NonEmptyTable (hzipWith (zipCWith (zipComposeInnerWith (binaryOperator "||"))) a b)
+
+
+some :: (Table Expr exprs, HConstrainTable (Columns exprs) (ComposeConstraint DBType NonEmpty)) => Query exprs -> Query (NonEmptyTable Expr exprs)
+some = aggregate . fmap nonEmptyAgg
 
 
 {-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
@@ -2171,6 +2163,11 @@ class (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => S
 instance (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
 
 
+-- Compose things
+class c (f a) => ComposeConstraint c f a
+instance c (f a) => ComposeConstraint c f a
+
+
 newtype ComposeInner f g a = ComposeInner
   { getComposeInner :: Column f (g a)
   }
@@ -2183,6 +2180,34 @@ traverseComposeInner f (MkC (ComposeInner a)) =
   mapC ComposeInner <$> f (MkC @_ @(t a) a)
 
 
+zipComposeInnerWith :: ()
+  => (Column f (g a) -> Column h (i b) -> Column j (k c))
+  -> ComposeInner f g a -> ComposeInner h i b -> ComposeInner j k c
+zipComposeInnerWith f (ComposeInner a) (ComposeInner b) = ComposeInner (f a b)
+
+
 newtype ComposeOuter f g a = ComposeOuter
   { getComposeOuter :: f (Column g a)
   }
+
+
+data HComposeField f t a where
+  HComposeField :: HField t a -> HComposeField f t (f a)
+
+
+newtype HComposeTable g t f = HComposeTable (t (ComposeInner f g))
+
+
+instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
+  type HField (HComposeTable f t) = HComposeField f t
+  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
+
+  hfield (HComposeTable columns) (HComposeField field) =
+    mapC getComposeInner (hfield columns field)
+
+  htabulate f = HComposeTable (htabulate (mapC ComposeInner . f . HComposeField))
+
+  htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
+
+  hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Dict c)
+  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
