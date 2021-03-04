@@ -41,7 +41,7 @@ import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTr
 import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen, annotate )
+import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import qualified Rel8
@@ -49,6 +49,7 @@ import Test.Tasty
 import Test.Tasty.Hedgehog ( testProperty )
 import Control.Monad (void)
 import Data.Word (Word32)
+import Data.Text (Text, pack)
 
 
 main :: IO ()
@@ -85,9 +86,7 @@ tests =
     , testUpdate getTestDatabase
     , testDelete getTestDatabase
     , testSelectNestedPairs getTestDatabase
-    , testSelectUnaggregatedArray getTestDatabase
     , testSelectArray getTestDatabase
-    , testAggregateArrayLit getTestDatabase
     ]
 
   where
@@ -122,7 +121,7 @@ databasePropertyTest testName f getTestDatabase =
 
 
 data TestTable f = TestTable
-  { testTableColumn1 :: Rel8.Column f String
+  { testTableColumn1 :: Rel8.Column f Text
   , testTableColumn2 :: Rel8.Column f Bool
   }
   deriving stock Generic
@@ -370,7 +369,6 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "LocalTime" genLocalTime
   , dbTypeTest "Scientific" $ (/10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
@@ -379,7 +377,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.ExprFor (Rel8.Expr a) a, Show a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
@@ -396,12 +394,12 @@ testDBType getTestDatabase = testGroup "DBType instances"
     maybeEq _ Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
-    t :: (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b. (Show a, Rel8.ExprFor (Rel8.Expr a) a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
       transaction \connection -> do
-        [res] <- Rel8.select connection $ pure $ Rel8.lit x
+        [res] <- Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr a)
         diff res eq x
 
     genDay :: Gen Day
@@ -436,22 +434,21 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
-  , dbEqTest "String" $ Gen.list (Range.linear 0 10) Gen.unicode
   ]
 
   where
-    dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.ExprFor (Rel8.Expr a) a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: (Eq a, Show a, Rel8.DBEq a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
+    t :: forall a. (Eq a, Show a, Rel8.DBEq a, Rel8.ExprFor (Rel8.Expr a) a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
       transaction \connection -> do
-        [res] <- Rel8.select connection $ pure $ Rel8.lit x Rel8.==. Rel8.lit y
+        [res] <- Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr a) x Rel8.==. Rel8.lit y
         res === (x == y)
 
         cover 1 "Equal" $ x == y
@@ -478,7 +475,7 @@ testFromString = databasePropertyTest "FromString" \transaction -> do
 
   transaction \connection -> do
     [result] <- Rel8.select connection $ pure $ fromString str
-    result === str
+    result === pack str
 
 
 testCatMaybeTable :: IO TmpPostgres.DB -> TestTree
@@ -567,7 +564,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
   where
     genRows :: PropertyT IO [TestTable Identity]
     genRows = forAll do
-      Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.list (Range.linear 0 10) Gen.unicode) (pure True)
+      Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
@@ -579,7 +576,7 @@ rollingBack connection m =
 
 genTestTable :: Gen (TestTable Identity)
 genTestTable = do
-  testTableColumn1 <- Gen.list (Range.linear 0 5) Gen.alphaNum
+  testTableColumn1 <- Gen.text (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
   return TestTable{..}
 
@@ -675,35 +672,12 @@ testSelectNestedPairs = databasePropertyTest "Can SELECT nested pairs" \transact
     sort selected === sort rows
 
 
-testSelectUnaggregatedArray :: IO TmpPostgres.DB -> TestTree
-testSelectUnaggregatedArray = databasePropertyTest "Can SELECT Arrays (without aggregation)" \transaction -> do
-  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
-
-  transaction \connection -> do
-    selected <- Rel8.select connection do
-      Rel8.arrayAgg <$> Rel8.values (map Rel8.lit rows)
-
-    sort selected === sort (pure <$> rows)
-
-
 testSelectArray :: IO TmpPostgres.DB -> TestTree
 testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \transaction -> do
-  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
+  rows <- forAll $ Gen.list (Range.linear 1 10) Gen.bool
 
   transaction \connection -> do
     selected <- Rel8.select connection $ Rel8.aggregate do
-      Rel8.arrayAgg <$> Rel8.values (map Rel8.lit rows)
-
-    selected === [foldMap pure rows]
-
-
-testAggregateArrayLit :: IO TmpPostgres.DB -> TestTree
-testAggregateArrayLit = databasePropertyTest "Can use aggregate with a literal array" \transaction -> evalM do
-  rows <- forAll $ Gen.list (Range.linear 0 10) Gen.bool
-
-  annotate $ Rel8.showQuery $ Rel8.aggregate $ pure (Rel8.lit (foldMap pure rows) :: Rel8.Array (Rel8.Expr Bool))
-
-  transaction \connection -> do
-    selected <- Rel8.select connection $ Rel8.aggregate $ pure (Rel8.lit (foldMap pure rows) :: Rel8.Array (Rel8.Expr Bool))
+      Rel8.listAgg <$> Rel8.values (map Rel8.lit rows)
 
     selected === [foldMap pure rows]

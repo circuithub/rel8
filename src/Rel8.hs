@@ -132,6 +132,7 @@ module Rel8
 
     -- * IO
   , Serializable(..)
+  , ExprFor
 
     -- * Running statements
     -- ** @SELECT@
