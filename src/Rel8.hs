@@ -332,16 +332,14 @@ newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 {-| Anything that has an instance of 'DBType' is an 'Expr'. This class packages that knowledge up. -}
 class
-  ( ExprType a ~ Expr a
-  , ResultType (Expr a) ~ a
-  , ExprType (Maybe a) ~ Expr (Maybe a)
+  ( ExprFor (Expr a) a
+  , ExprFor (Expr (Maybe a)) (Maybe a)
   ) => AnExpr (a :: Type)
 
 
 instance
-  ( ExprType a ~ Expr a
-  , ResultType (Expr a) ~ a
-  , ExprType (Maybe a) ~ Expr (Maybe a)
+  ( ExprFor (Expr a) a
+  , ExprFor (Expr (Maybe a)) (Maybe a)
   ) => AnExpr a
 
 
@@ -984,7 +982,7 @@ instance DBType a => HigherKindedTable (HIdentity a) where
 @sql@, which contains SQL expressions, and the type @haskell@, which contains
 the Haskell decoding of rows containing @sql@ SQL expressions.
 -}
-class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => Serializable expr haskell where
+class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
   -- TODO Don't use Applicative f, instead supply a htraverse function. We _don't_ want access to 'pure'
@@ -993,26 +991,14 @@ class (Table Expr expr, expr ~ ExprType haskell, haskell ~ ResultType expr) => S
     -> RowParser (f haskell)
 
 
--- | Compute the corresponding expression type for a Haskell response type.
-type family ExprType (a :: Type) :: Type where
-  ExprType (a, b) = (ExprType a, ExprType b)
-  ExprType (t Identity) = t Expr
-  ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
-  ExprType (Maybe (a, b)) = MaybeTable (ExprType (a, b))
-  ExprType (Maybe a) = Expr (Maybe a)
-  ExprType [a] = ListTable (ExprType a)
-  ExprType (NonEmpty a) = NonEmptyTable (ExprType a)
-  ExprType a = Expr a
-
-
--- | Compute the corresponding expression type for a SQL response type.
-type family ResultType (a :: Type) :: Type where
-  ResultType (a, b) = (ResultType a, ResultType b)
-  ResultType (t Expr) = t Identity
-  ResultType (Expr a) = a
-  ResultType (MaybeTable a) = Maybe (ResultType a)
-  ResultType (ListTable a) = [ResultType a]
-  ResultType (NonEmptyTable a) = NonEmpty (ResultType a)
+class Table Expr expr => ExprFor expr haskell
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                      => ExprFor a                     b
+instance DBType a                                                         => ExprFor (Expr (Maybe a))      (Maybe a)
+instance (ExprFor a b, Table Expr a)                                      => ExprFor (MaybeTable a)        (Maybe b)
+instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)         => ExprFor a                     [b]
+instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b) => ExprFor a                     (NonEmpty b)
+instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                     => ExprFor a                     (b1, b2)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)           => ExprFor a                     (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1044,7 +1030,7 @@ instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, 
   lit (a, b) = (lit a, lit b)
 
 
-instance (ExprType (Maybe b) ~ MaybeTable a, Serializable a b) => Serializable (MaybeTable a) (Maybe b) where
+instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   rowParser inject = do
     tags <- fieldWith $ inject $ decode typeInformation
     rows <- rowParser @a \fieldParser x y -> Compose <$> inject (fallback fieldParser) x y
@@ -1417,7 +1403,7 @@ queryRunner
   :: forall row haskell
    . Serializable row haskell
   => Opaleye.FromFields row haskell
-queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowParser (\f x y -> pure <$> f x y))) (const 1)
+queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowParser @row (\f x y -> pure <$> f x y))) (const 1)
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -2010,7 +1996,7 @@ instance
       pgArrayToZipList (PGArray a) = ZipList a
 
 
-  lit (map lit -> xs) = ListTable $ htabulate $ \field ->
+  lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
     case hfield dbtypes field of
       MkC Dict -> MkC $ ComposeInner $ listOf $
         map (\x -> toColumn (hfield (toColumns x) field)) xs
@@ -2070,7 +2056,7 @@ instance
           PGArray [] -> returnError Incompatible x "Serializable.NonEmptyTable.rowParser: empty list"
           _ -> pure list
 
-  lit (fmap lit -> xs) = NonEmptyTable $ htabulate $ \field ->
+  lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield dbtypes field of
       MkC Dict -> MkC $ ComposeInner $ nonEmptyOf $
         fmap (\x -> toColumn (hfield (toColumns x) field)) xs
