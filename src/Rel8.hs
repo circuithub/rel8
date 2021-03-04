@@ -110,7 +110,7 @@ module Rel8
   , noTable
   , catMaybeTable
 
-    -- * Aggregates
+    -- ** Aggregation
   , Aggregate
   , aggregate
   , listAgg
@@ -118,7 +118,7 @@ module Rel8
   , groupBy
   , DBMax (max)
 
-    -- * Compound aggregates
+    -- *** List aggregation
   , ListTable, many
   , NonEmptyTable, some
 
@@ -147,11 +147,11 @@ module Rel8
   , Delete(..)
   , delete
 
-    -- * @UPDATE@
+    -- ** @UPDATE@
   , update
   , Update(..)
 
-    -- * @.. RETURNING@
+    -- ** @.. RETURNING@
   , Returning(..)
   ) where
 
@@ -449,10 +449,24 @@ liftNull :: Expr a -> Expr ( Maybe a )
 liftNull = retype
 
 
+{- | Lift an operation on non-@null@ values to an operation on possibly @null@
+values.
+
+@mapNull@ requires that the supplied function "preserves nulls", as no actual
+case analysis is done (instead the @Expr (Maybe a)@ is simply retyped and
+assumed to not be @null@). In most cases, this is true, but this contract can
+be violated with custom functions.
+-}
 mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNull f = retype . f . retype
 
 
+{- | Lift a binary operation on non-@null@ expressions to an equivalent binary
+operator on possibly @null@ expressions.
+
+Similar to @mapNull@, it is assumed that this binary operator will return
+@null@ if either of its operands are @null@.
+-}
 liftOpNull :: (Expr a -> Expr b -> Expr c) -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 liftOpNull f a b = retype (f (retype a) (retype b))
 
@@ -994,14 +1008,26 @@ class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | exp
     -> RowParser (f haskell)
 
 
+{-| @ExprFor expr haskell@ witnesses that @expr@ is the "expression
+representation" of the Haskell type @haskell@. You can think of this as the
+type obtained if you were to quote @haskell@ constants into a query. 
+
+This type class exists to provide "backwards" type inference for
+'Serializable'. While the functional dependency on 'Serializable' shows that
+for any @expr@ there is exactly one @haskell@ type that is returned when the
+expression is @select@ed, this type class is less restrictive, allowing for
+their to be multiple expression types. Usually this is not the case, but for
+@Maybe a@, we may allow expressions to be either @MaybeTable a'@ (where
+@ExprFor a' a@), or just @Expr (Maybe a)@ (if @a@ is a single column).
+-}
 class Table Expr expr => ExprFor expr haskell
-instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                      => ExprFor a                     b
-instance DBType a                                                         => ExprFor (Expr (Maybe a))      (Maybe a)
-instance (ExprFor a b, Table Expr a)                                      => ExprFor (MaybeTable a)        (Maybe b)
-instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)         => ExprFor a                     [b]
-instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b) => ExprFor a                     (NonEmpty b)
-instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                     => ExprFor a                     (b1, b2)
-instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)           => ExprFor a                     (t identity)
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                      => ExprFor a                b
+instance DBType a                                                         => ExprFor (Expr (Maybe a)) (Maybe a)
+instance (ExprFor a b, Table Expr a)                                      => ExprFor (MaybeTable a)   (Maybe b)
+instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)         => ExprFor a                [b]
+instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b) => ExprFor a                (NonEmpty b)
+instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                     => ExprFor a                (b1, b2)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)           => ExprFor a                (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1917,7 +1943,12 @@ nonEmptyAgg = fmap NonEmptyTable . traverseTable (traverseC (fmap ComposeInner .
     go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
+-- | The class of 'DBType's that support the @max@ aggregation function.
+--
+-- If you have a custom type that you know supports @max@, you can use
+-- @DeriveAnyClass@ to derive a default implementation that calls @max@.
 class DBMax a where
+  -- | Produce an aggregation for @Expr a@ using the @max@ function.
   max :: Expr a -> Aggregate (Expr a)
   max (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrMax a []
 
@@ -1934,6 +1965,7 @@ instance DBMax a => DBMax (Maybe a) where
   max expr = retype <$> max (retype @a expr)
 
 
+-- | Apply an aggregation to all rows returned by a 'Query'.
 aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
 aggregate = mapOpaleye $ Opaleye.aggregate aggregator
   where
@@ -2003,6 +2035,8 @@ traverseAggrExpr f = \case
     pure other
 
 
+-- | A @ListTable@ value contains zero or more instances of @a@. You construct
+-- @ListTable@s with 'many' or 'listAgg'.
 newtype ListTable a = ListTable (Columns a (ComposeInner Expr []))
 
 
@@ -2046,10 +2080,18 @@ instance Table Expr a => Monoid (ListTable a) where
       MkC Dict -> MkC $ ComposeInner $ monolit []
 
 
+-- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
+-- rows, this function will produce a 'Query' that returns one row containing
+-- the empty @ListTable@. If the supplied @Query@ does return rows, @many@ will
+-- return exactly one row, with a @ListTable@ collecting all returned rows.
+-- 
+-- @many@ is analogous to 'Control.Applicative.many' from @Control.Applicative@.
 many :: Table Expr exprs => Query exprs -> Query (ListTable exprs)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 
 
+-- | A @NonEmptyTable@ value contains one or more instances of @a@. You construct
+-- @NonEmptyTable@s with 'some' or 'nonEmptyAgg'.
 newtype NonEmptyTable a = NonEmptyTable (Columns a (ComposeInner Expr NonEmpty))
 
 
@@ -2092,6 +2134,13 @@ instance Table Expr a => Semigroup (NonEmptyTable a) where
     NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
+-- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
+-- 0 rows, this function will produce a 'Query' that is empty - that is, will
+-- produce zero @NonEmptyTable@s. If the supplied @Query@ does return rows,
+-- @some@ will return exactly one row, with a @NonEmptyTable@ collecting all
+-- returned rows.
+--
+-- @some@ is analogous to 'Control.Applicative.some' from @Control.Applicative@.
 some :: Table Expr exprs => Query exprs -> Query (NonEmptyTable exprs)
 some = aggregate . fmap nonEmptyAgg
 
