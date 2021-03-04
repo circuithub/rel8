@@ -166,7 +166,6 @@ import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Foldable ( Foldable( toList, foldl' ) )
 import Data.Foldable ( fold )
-import Data.Functor ( (<&>) )
 import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Identity ( Identity( runIdentity ) )
 import Data.Int ( Int32, Int64 )
@@ -802,7 +801,6 @@ need to be aware of the type family when defining your table types.
 -}
 type family Column (context :: Type -> Type) (a :: Type) :: Type where
   Column Identity a      = a
-  Column (Compose f g) a = f (Column g a) -- TODO: Can we drop this and just use a Column (Compose f g) a?
   Column f a             = f a
 
 
@@ -820,12 +818,6 @@ mapC f (MkC x) = MkC $ f x
 -- | Effectfully map from one column to another.
 traverseC :: Applicative m => (Column f x -> m (Column g y)) -> C f x -> m (C g y)
 traverseC f (MkC x) = MkC <$> f x
-
-
--- | If a column contains an effectful operation, sequence that operation into a
---  new column.
-sequenceC :: (Column f a ~ m (Column g y), Functor m) => C f a -> m (C g y)
-sequenceC (MkC x) = MkC <$> x
 
 
 -- | Zip two columns together under an effectful context.
@@ -1030,10 +1022,10 @@ type family ResultType (a :: Type) :: Type where
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t DBType) => Serializable (s expr) (t identity) where
   rowParser :: forall f. Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t identity))
-  rowParser inject = getCompose $ htraverse sequenceC $ htabulate (f . hfield (hdicts @t @DBType))
+  rowParser inject = getCompose $ htraverse (traverseC getComposeOuter) $ hmap f (hdicts @t @DBType)
     where
-      f :: forall a. C (Dict DBType) a -> C (Compose (Compose RowParser f) Identity) a
-      f (MkC Dict) = MkC $ Compose $ fieldWith $ inject $ decode $ typeInformation @a
+      f :: forall a. C (Dict DBType) a -> C (ComposeOuter (Compose RowParser f) Identity) a
+      f (MkC Dict) = MkC $ ComposeOuter $ Compose $ fieldWith $ inject $ decode $ typeInformation @a
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -1319,9 +1311,9 @@ zipTablesWithM
   => (forall a. C f a -> C g a -> m (C h a)) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
-    htraverse sequenceC $
-      htabulate @_ @(Compose m h) $
-        MkC . fmap toColumn . liftA2 f (hfield x) (hfield y)
+    htraverse (traverseC getComposeOuter) $
+      htabulate @_ @(ComposeOuter m h) $
+        MkC . ComposeOuter . fmap toColumn . liftA2 f (hfield x) (hfield y)
 
 
 traverseTable
@@ -1490,11 +1482,11 @@ writer into_ =
       -> f ()
     go f xs =
       void $
-        htraverse @(Columns schema) @(Compose f Expr) @Expr sequenceC $
-          htabulate @(Columns schema) @(Compose f Expr) \i ->
+        htraverse @(Columns schema) @_ @Expr (traverseC getComposeOuter) $
+          htabulate @(Columns schema) @(ComposeOuter f Expr) \i ->
             case hfield (toColumns (tableColumns into_)) i of
               MkC ColumnSchema{ columnName } ->
-                MkC $
+                MkC $ ComposeOuter $
                   column columnName <$
                   f ( toPrimExpr . toColumn . flip hfield i . toColumns <$> xs
                     , columnName
@@ -1975,16 +1967,6 @@ aggregate :: AggregateTable aggregates exprs
 aggregate = mapOpaleye $ Opaleye.aggregate aggregators
 
 
-newtype ComposeColumn f g a = ComposeColumn
-  { getComposeColumn :: Column f (g a)
-  }
-
-
-traverseComposeColumn :: forall f g t m x. Applicative m => (forall a. C f a -> m (C g a)) -> C (ComposeColumn f t) x -> m (C (ComposeColumn g t) x)
-traverseComposeColumn f (MkC (ComposeColumn a)) = f (MkC @f @(t x) a) <&> \case
-  MkC b -> MkC (ComposeColumn b)
-
-
 class c (f a) => ComposeConstraint c f a
 instance c (f a) => ComposeConstraint c f a
 
@@ -1993,7 +1975,7 @@ data HComposeField f t a where
   HComposeField :: HField t a -> HComposeField f t (f a)
 
 
-newtype HComposeTable g t f = HComposeTable (t (ComposeColumn f g))
+newtype HComposeTable g t f = HComposeTable (t (ComposeInner f g))
 
 
 instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
@@ -2001,17 +1983,17 @@ instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) =
   type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
   hfield (HComposeTable columns) (HComposeField field) =
-    mapC getComposeColumn (hfield columns field)
+    mapC getComposeInner (hfield columns field)
 
-  htabulate f = HComposeTable (htabulate (mapC ComposeColumn . f . HComposeField))
+  htabulate f = HComposeTable (htabulate (mapC ComposeInner . f . HComposeField))
 
-  htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeColumn f) t
+  htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
 
   hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Dict c)
-  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeColumn Dict) (hdicts @_ @(ComposeConstraint c f))
+  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
 
 
-newtype ListTable f a = ListTable (Columns a (ComposeColumn f []))
+newtype ListTable f a = ListTable (Columns a (ComposeInner f []))
 
 
 instance (HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr a) => Table f (ListTable f a) where
@@ -2038,7 +2020,7 @@ instance
 
   lit (map lit -> xs) = ListTable $ htabulate $ \field ->
     case hfield dbtypes field of
-      MkC Dict -> MkC $ ComposeColumn $ listOf $
+      MkC Dict -> MkC $ ComposeInner $ listOf $
         map (\x -> toColumn (hfield (toColumns x) field)) xs
     where
       dbtypes :: Columns a (Dict DBType)
@@ -2053,10 +2035,10 @@ instance
 
 
 many :: Table Expr exprs => exprs -> ListTable Aggregate exprs
-many = ListTable . mapTable (mapC (ComposeColumn . arrayAgg))
+many = ListTable . mapTable (mapC (ComposeInner . arrayAgg))
 
 
-newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeColumn f NonEmpty))
+newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeInner f NonEmpty))
 
 
 instance (HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table Expr a) => Table f (NonEmptyTable f a) where
@@ -2089,7 +2071,7 @@ instance
 
   lit (fmap lit -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield dbtypes field of
-      MkC Dict -> MkC $ ComposeColumn $ nonEmptyOf $
+      MkC Dict -> MkC $ ComposeInner $ nonEmptyOf $
         fmap (\x -> toColumn (hfield (toColumns x) field)) xs
     where
       dbtypes :: Columns a (Dict DBType)
@@ -2104,7 +2086,7 @@ instance
 
 
 some :: Table Expr exprs => exprs -> NonEmptyTable Aggregate exprs
-some = NonEmptyTable . mapTable (mapC (ComposeColumn . arrayAgg1))
+some = NonEmptyTable . mapTable (mapC (ComposeInner . arrayAgg1))
 
 
 {-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
@@ -2187,3 +2169,20 @@ instance (Columns a ~ Columns b) => Congruent a b
 -- @a@ contains 'ColumnSchema's and @b@ contains 'Expr's.
 class (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
 instance (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
+
+
+newtype ComposeInner f g a = ComposeInner
+  { getComposeInner :: Column f (g a)
+  }
+
+
+traverseComposeInner :: forall f g t m a. Applicative m
+  => (forall x. C f x -> m (C g x))
+  -> C (ComposeInner f t) a -> m (C (ComposeInner g t) a)
+traverseComposeInner f (MkC (ComposeInner a)) =
+  mapC ComposeInner <$> f (MkC @_ @(t a) a)
+
+
+newtype ComposeOuter f g a = ComposeOuter
+  { getComposeOuter :: f (Column g a)
+  }
