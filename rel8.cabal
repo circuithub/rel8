@@ -33,6 +33,7 @@ library
   exposed-modules:
     Rel8
     Rel8.Text
+    Rel8.Time
   other-modules:
     Rel8.Optimize
 

@@ -56,7 +56,9 @@ module Rel8
 
     -- * Expressions
   , Expr
+  , unsafeCastExpr
   , unsafeCoerceExpr
+  , unsafeLiteral
   , binaryOperator
 
     -- ** @null@
@@ -458,9 +460,20 @@ columnToExpr :: Opaleye.Column b -> Expr a
 columnToExpr (Opaleye.Column a) = Expr a
 
 
+-- | Cast an @Expr@ from one type to another.
+unsafeCastExpr :: String -> Expr a -> Expr b
+unsafeCastExpr t (Expr x) = Expr $ Opaleye.CastExpr t x
+
+
 -- | Unsafely treat an 'Expr' that returns @a@s as returning @b@s.
 unsafeCoerceExpr :: Expr a -> Expr b
 unsafeCoerceExpr (Expr x) = Expr x
+
+
+-- | Construct a SQL expression from some literal text. The provided literal
+-- will be interpolated exactly as specified with no escaping.
+unsafeLiteral :: forall a. String -> Expr a
+unsafeLiteral = columnToExpr @a @a . Opaleye.Column . Opaleye.ConstExpr . Opaleye.OtherLit
 
 
 -- | Construct an expression by applying an infix binary operator to two
