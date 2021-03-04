@@ -101,7 +101,11 @@ module Rel8
 
     -- ** Combining 'Query's
   , union
-  , exists
+  , unionAll
+  , intersect
+  , intersectAll
+  , except
+  , exceptAll
 
     -- ** Optional 'Query's
   , optional
@@ -109,6 +113,7 @@ module Rel8
   , maybeTable
   , noTable
   , catMaybeTable
+  , exists
 
     -- ** Aggregation
   , Aggregate
@@ -1661,9 +1666,7 @@ data Update target returning where
     -> Update target returning
 
 
--- | Exists checks if a query returns at least one row.
---
--- @exists q@ is the same as the SQL expression @EXISTS ( q )@
+-- | Checks if a query returns at least one row.
 exists :: Query a -> Query (Expr Bool)
 exists = fmap (maybeTable (lit False) (const (lit True))) .
   optional . mapOpaleye Opaleye.restrictExists
@@ -1703,20 +1706,74 @@ optional = mapOpaleye $ Opaleye.laterally (Opaleye.QueryArr . go)
         join = Opaleye.Join Opaleye.LeftJoin (toPrimExpr $ lit True) [] bindings left right
 
 
--- | Combine the results of two queries of the same type.
+-- | Combine the results of two queries of the same type, collapsing
+-- duplicates.
 --
 -- @union a b@ is the same as the SQL statement @x UNION b@.
 union :: Table Expr a => Query a -> Query a -> Query a
-union = union_forAll
-
-
-union_forAll
-  :: forall a
-   . Table Expr a
-  => Query a -> Query a -> Query a
-union_forAll l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
+union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
-    binaryspec :: Opaleye.Binaryspec a a
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+
+
+-- | Combine the results of two queries of the same type, retaining duplicates.
+--
+-- @unionAll a b@ is the same as the SQL statement @x UNION ALL b@.
+unionAll :: Table Expr a => Query a -> Query a -> Query a
+unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
+  where
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+
+
+-- | Find the intersection of two queries, collapsing duplicates.
+--
+-- @intersect a b@ is the same as the SQL statement @x INTERSECT b@.
+intersect :: Table Expr a => Query a -> Query a -> Query a
+intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l) (toOpaleye r)
+  where
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+
+
+-- | Find the intersection of two queries, retaining duplicates.
+--
+-- @intersectAll a b@ is the same as the SQL statement @x INTERSECT ALL b@.
+intersectAll :: Table Expr a => Query a -> Query a -> Query a
+intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
+  where
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+
+
+-- | Find the difference of two queries, collapsing duplicates
+--
+-- @except a b@ is the same as the SQL statement @x INTERSECT b@.
+except :: Table Expr a => Query a -> Query a -> Query a
+except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOpaleye r)
+  where
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
+    binaryspec =
+      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
+        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+
+
+-- | Find the difference of two queries, retaining duplicates.
+--
+-- @exceptAll a b@ is the same as the SQL statement @x EXCEPT ALL b@.
+exceptAll :: Table Expr a => Query a -> Query a -> Query a
+exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
+  where
+    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
