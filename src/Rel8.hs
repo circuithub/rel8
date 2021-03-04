@@ -1875,8 +1875,15 @@ showQuery = fold . selectQuery
 
 
 data Aggregate a = Aggregate
-    (Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct))
-    Opaleye.PrimExpr
+  (Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct))
+  Opaleye.PrimExpr
+
+
+makeAggregator :: ()
+  => (forall f. Applicative f => (forall x. Aggregate x -> f (Expr x)) -> a -> f b)
+  -> Opaleye.Aggregator a b
+makeAggregator make =
+  Opaleye.Aggregator $ Opaleye.PackMap $ \f -> make (\(Aggregate a e) -> fromPrimExpr <$> f (a, e))
 
 
 instance (DBType a, aggregate ~ Aggregate) => Table aggregate (Aggregate a) where
@@ -1895,9 +1902,7 @@ class AggregateTable aggregates exprs | aggregates -> exprs, exprs -> aggregates
     , Congruent exprs aggregates
     )
     => Opaleye.Aggregator aggregates exprs
-  aggregators = Opaleye.Aggregator $
-    Opaleye.PackMap $ \f ->
-      traverseTable $ \(MkC (Aggregate a e)) -> MkC . Expr <$> f (a, e)
+  aggregators = makeAggregator \f -> traverseTable (traverseC f)
 
   default groupBy ::
     ( Table Aggregate aggregates
@@ -1922,17 +1927,20 @@ instance HigherKindedTable t => AggregateTable (t Aggregate) (t Expr)
 
 
 instance AggregateTable (Aggregate a) (Expr a) where
-  aggregators = Opaleye.Aggregator $ Opaleye.PackMap $
-    \f (Aggregate a e) -> fromPrimExpr <$> f (a, e)
+  aggregators = makeAggregator id
   groupBy = Aggregate Nothing . toPrimExpr
 
 
-instance (Table Expr a, HConstrainTable (Columns a) (ComposeConstraint DBType [])) =>
-  AggregateTable (ListTable Aggregate a) (ListTable Expr a)
+instance Table Expr a => AggregateTable (ListTable Aggregate a) (ListTable Expr a) where
+  aggregators = makeAggregator \f (ListTable as) ->
+    ListTable <$> htraverse (traverseComposeInner (traverseC f)) as
+  groupBy (ListTable a) = ListTable (hmap (mapComposeInner (mapC groupBy)) a)
 
 
-instance (Table Expr a, HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)) =>
-  AggregateTable (NonEmptyTable Aggregate a) (NonEmptyTable Expr a)
+instance Table Expr a => AggregateTable (NonEmptyTable Aggregate a) (NonEmptyTable Expr a) where
+  aggregators = makeAggregator \f (NonEmptyTable as) ->
+    NonEmptyTable <$> htraverse (traverseComposeInner (traverseC f)) as
+  groupBy (NonEmptyTable a) = NonEmptyTable (hmap (mapComposeInner (mapC groupBy)) a)
 
 
 listAgg :: Table Expr exprs => exprs -> ListTable Aggregate exprs
@@ -2013,7 +2021,7 @@ instance
 
 instance (expr ~ Expr, Table expr a) => Semigroup (ListTable expr a) where
   ListTable a <> ListTable b =
-    ListTable (hzipWith (zipCWith (zipComposeInnerWith (binaryOperator "||"))) a b)
+    ListTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
 instance (expr ~ Expr, Table expr a) => Monoid (ListTable expr a) where
@@ -2022,7 +2030,7 @@ instance (expr ~ Expr, Table expr a) => Monoid (ListTable expr a) where
       MkC Dict -> MkC $ ComposeInner $ monolit []
 
 
-many :: (Table Expr exprs, HConstrainTable (Columns exprs) (ComposeConstraint DBType []))
+many :: (Table Expr exprs, Table Expr (ListTable Expr exprs))
   => Query exprs -> Query (ListTable Expr exprs)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 
@@ -2074,10 +2082,10 @@ instance
 
 instance (expr ~ Expr, Table expr a) => Semigroup (NonEmptyTable expr a) where
   NonEmptyTable a <> NonEmptyTable b =
-    NonEmptyTable (hzipWith (zipCWith (zipComposeInnerWith (binaryOperator "||"))) a b)
+    NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
-some :: (Table Expr exprs, HConstrainTable (Columns exprs) (ComposeConstraint DBType NonEmpty)) => Query exprs -> Query (NonEmptyTable Expr exprs)
+some :: Table Expr exprs => Query exprs -> Query (NonEmptyTable Expr exprs)
 some = aggregate . fmap nonEmptyAgg
 
 
@@ -2173,6 +2181,13 @@ newtype ComposeInner f g a = ComposeInner
   }
 
 
+mapComposeInner :: forall f g t a. ()
+  => (forall x. C f x -> C g x)
+  -> C (ComposeInner f t) a -> C (ComposeInner g t) a
+mapComposeInner f (MkC (ComposeInner a)) =
+  mapC ComposeInner $ f (MkC @_ @(t a) a)
+
+
 traverseComposeInner :: forall f g t m a. Applicative m
   => (forall x. C f x -> m (C g x))
   -> C (ComposeInner f t) a -> m (C (ComposeInner g t) a)
@@ -2180,10 +2195,11 @@ traverseComposeInner f (MkC (ComposeInner a)) =
   mapC ComposeInner <$> f (MkC @_ @(t a) a)
 
 
-zipComposeInnerWith :: ()
-  => (Column f (g a) -> Column h (i b) -> Column j (k c))
-  -> ComposeInner f g a -> ComposeInner h i b -> ComposeInner j k c
-zipComposeInnerWith f (ComposeInner a) (ComposeInner b) = ComposeInner (f a b)
+zipComposeInnerWith :: forall f g h t a. ()
+  => (forall x. C f x -> C g x -> C h x)
+  -> C (ComposeInner f t) a -> C (ComposeInner g t) a -> C (ComposeInner h t) a
+zipComposeInnerWith f (MkC (ComposeInner a)) (MkC (ComposeInner b)) =
+  mapC ComposeInner $ f (MkC @_ @(t a) a) (MkC @_ @(t a) b)
 
 
 newtype ComposeOuter f g a = ComposeOuter
