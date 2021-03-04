@@ -1877,6 +1877,7 @@ newtype Aggregate a = Aggregate a
 instance Functor Aggregate where
   fmap f (Aggregate a) = Aggregate $ f a
 
+
 instance Applicative Aggregate where
   pure = Aggregate
   Aggregate f <*> Aggregate a = Aggregate $ f a
@@ -1887,17 +1888,17 @@ groupBy = pure
 
 
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
-listAgg = Aggregate . ListTable . mapTable (mapC (ComposeInner . go))
+listAgg = fmap ListTable . traverseTable (traverseC (fmap ComposeInner . go))
   where
-    go :: Expr a -> Expr [a]
-    go (Expr a) = Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+    go :: Expr a -> Aggregate (Expr [a])
+    go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
-nonEmptyAgg = Aggregate . NonEmptyTable . mapTable (mapC (ComposeInner . go))
+nonEmptyAgg = fmap NonEmptyTable . traverseTable (traverseC (fmap ComposeInner . go))
   where
-    go :: Expr a -> Expr (NonEmpty a)
-    go (Expr a) = Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+    go :: Expr a -> Aggregate (Expr (NonEmpty a))
+    go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
 class DBMax a where
@@ -2184,13 +2185,6 @@ instance c (f a) => ComposeConstraint c f a
 newtype ComposeInner f g a = ComposeInner
   { getComposeInner :: Column f (g a)
   }
-
-
-mapComposeInner :: forall f g t a. ()
-  => (forall x. C f x -> C g x)
-  -> C (ComposeInner f t) a -> C (ComposeInner g t) a
-mapComposeInner f (MkC (ComposeInner a)) =
-  mapC ComposeInner $ f (MkC @_ @(t a) a)
 
 
 traverseComposeInner :: forall f g t m a. Applicative m
