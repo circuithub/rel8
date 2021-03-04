@@ -75,6 +75,7 @@ module Rel8
   , (||.)
   , or_
   , not_
+  , in_
   , ifThenElse_
   , EqTable(..)
 
@@ -567,6 +568,12 @@ or_ = foldl' (||.) (lit False)
 -- | The SQL @NOT@ operator.
 not_ :: Expr Bool -> Expr Bool
 not_ (Expr a) = Expr $ Opaleye.UnExpr Opaleye.OpNot a
+
+
+-- | Like the SQL @IN@ operator, but implemented by folding over a list with
+-- '==.' and '||.'.
+in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
+in_ x = foldl' (\b y -> b ||. x ==. y) (lit False)
 
 
 {-| Branch two expressions based on a predicate. Similar to @if ... then ...
