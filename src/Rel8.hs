@@ -1558,9 +1558,10 @@ data Returning schema a where
     -> Returning schema [a]
 
 
+-- | @OnConflict@ allows you to add an @ON CONFLICT@ clause to an @INSERT@ statement.
 data OnConflict
-  = Abort
-  | DoNothing
+  = Abort     -- ^ @ON CONFLICT ABORT@
+  | DoNothing -- ^ @ON CONFLICT DO NOTHING@
 
 
 selectQuery :: forall a . Table Expr a => Query a -> Maybe String
@@ -1571,6 +1572,7 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
         (x, y, z) -> Opaleye.formatAndShowSQL (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
 
 
+-- | Run a @DELETE@ statement.
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from = deleteFrom, deleteWhere, returning } =
   liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
@@ -1596,16 +1598,21 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
         }
 
 
+-- | The constituent parts of a @DELETE@ statement.
 data Delete from return where
   Delete
     :: Selects from row
     => { from :: TableSchema from
+         -- ^ Which table to delete from.
        , deleteWhere :: row -> Expr Bool
+         -- ^ Which rows should be selected for deletion.
        , returning :: Returning from return
+         -- ^ What to return from the @DELETE@ statement.
        }
     -> Delete from return
 
 
+-- | Run an @UPDATE@ statement.
 update :: MonadIO m => Connection -> Update target returning -> m returning
 update connection Update{ target, set, updateWhere, returning } =
   liftIO $ Opaleye.runUpdate_ connection (go target set updateWhere returning)
@@ -1639,13 +1646,18 @@ update connection Update{ target, set, updateWhere, returning } =
         }
 
 
+-- | The constituent parts of an @UPDATE@ statement.
 data Update target returning where
   Update
     :: Selects target row
     => { target :: TableSchema target
+         -- ^ Which table to update.
        , set :: row -> row
+         -- ^ How to update each selected row.
        , updateWhere :: row -> Expr Bool
+         -- ^ Which rows to select for update.
        , returning :: Returning target returning
+         -- ^ What to return from the @UPDATE@ statement.
        }
     -> Update target returning
 
