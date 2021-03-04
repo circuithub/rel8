@@ -1002,7 +1002,6 @@ the Haskell decoding of rows containing @sql@ SQL expressions.
 class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
-  -- TODO Don't use Applicative f, instead supply a htraverse function. We _don't_ want access to 'pure'
   rowParser :: forall f. Applicative f
     => (forall x. Typeable x => FieldParser x -> FieldParser (f x))
     -> RowParser (f haskell)
