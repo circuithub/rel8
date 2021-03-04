@@ -1860,6 +1860,12 @@ showQuery :: Table Expr a => Query a -> String
 showQuery = fold . selectQuery
 
 
+{-| An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
+unpack an @Aggregate@ back to @a@ by running it with 'aggregate'. As
+@Aggregate@ is an 'Applicative' functor, you can combine @Aggregate@s using the
+normal @Applicative@ combinators, or by working in @do@ notation with
+@ApplicativeDo@.
+-}
 newtype Aggregate a = Aggregate a
 
 
@@ -1872,10 +1878,30 @@ instance Applicative Aggregate where
   Aggregate f <*> Aggregate a = Aggregate $ f a
 
 
+{-| Aggregate a value by grouping by it. @groupBy@ is just a synonym for
+'pure', but sometimes being explicit can help the readability of your code.
+-}
 groupBy :: a -> Aggregate a
 groupBy = pure
 
 
+{-| Aggregate rows into a single row containing an array of all aggregated
+rows. This can be used to associate multiple rows with a single row, without
+changing the over cardinality of the query. This allows you to essentially
+return a tree-like structure from queries.
+
+For example, if we have a table of orders and each orders contains multiple
+items, we could aggregate the table of orders, pairing each order with its
+items:
+
+@
+ordersWithItems :: Query (Order Expr, ListTable (Item Expr))
+ordersWithItems = do
+  order <- each orderSchema
+  items <- aggregate $ listAgg <$> itemsFromOrder order
+  return (order, items)
+@
+-}
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (traverseC (fmap ComposeInner . go))
   where
@@ -1883,6 +1909,7 @@ listAgg = fmap ListTable . traverseTable (traverseC (fmap ComposeInner . go))
     go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
+-- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = fmap NonEmptyTable . traverseTable (traverseC (fmap ComposeInner . go))
   where
