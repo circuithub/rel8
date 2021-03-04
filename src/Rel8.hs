@@ -79,6 +79,9 @@ module Rel8
   , ifThenElse_
   , EqTable(..)
 
+    -- ** Ordering
+  , DBOrd(..)
+
     -- ** Functions
   , Function
   , function
@@ -2383,3 +2386,27 @@ instance (HigherKindedTable t, forall a. DBType a => DBType (f a)) => HigherKind
 
   hdbtype :: HComposeTable f t (Dict DBType)
   hdbtype = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) hdbtype
+
+
+class DBEq a => DBOrd (a :: Type) where
+  -- | The PostgreSQL @<@ operator.
+  (<.) :: Expr a -> Expr a -> Expr Bool
+  a <. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..< exprToColumn b)
+
+  -- | The PostgreSQL @<=@ operator.
+  (<=.) :: Expr a -> Expr a -> Expr Bool
+  a <=. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..<= exprToColumn b)
+
+  -- | The PostgreSQL @>@ operator.
+  (>.) :: Expr a -> Expr a -> Expr Bool
+  a >. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..> exprToColumn b)
+
+  -- | The PostgreSQL @>@ operator.
+  (>=.) :: Expr a -> Expr a -> Expr Bool
+  a >=. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..>= exprToColumn b)
+
+
+instance DBOrd Bool where
+instance DBOrd Int32 where
+instance DBOrd Int64 where
+instance DBOrd Text where

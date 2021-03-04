@@ -52,8 +52,8 @@ test-suite tests
     , postgresql-simple ^>= 0.6.2
     , rel8
     , scientific
-    , tasty             ^>= 1.2.3
-    , tasty-hedgehog    ^>= 1.0.0.2
+    , tasty
+    , tasty-hedgehog
     , text
     , time
     , tmp-postgres      ^>= 1.34.1.0
