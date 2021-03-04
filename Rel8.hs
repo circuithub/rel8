@@ -26,9 +26,7 @@ module Rel8
   , HasDefault(..)
   , BaseTable(tableName, tableSchema)
   , Table
-  , TableC
-  , TableType(..)
-  , ExprType
+  , ExprFor
   , HigherKindedTable
 
     -- * Querying Tables

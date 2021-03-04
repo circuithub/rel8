@@ -41,7 +41,7 @@ instance DBAvg Int16 Scientific
 -- | The class of data types that can be aggregated under the @sum@ operation.
 -- This type class contains two parameters, as @sum@ can be a type-changing
 -- operation in PostgreSQL.
-class (DBType a, Expr a ~ ExprType a) => DBSum a res | a -> res where
+class DBType a => DBSum a res | a -> res where
   -- | Corresponds to @sum@.
   sum :: Expr a -> Aggregate res
   sum (Expr a) = Aggregate (Just (O.AggrSum, [], O.AggrAll)) a
