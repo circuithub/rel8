@@ -196,7 +196,9 @@ import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive ( CI )
 
 -- opaleye
-import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit )
+
+-- opaleye
+import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit, PGInt8 )
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
@@ -427,6 +429,33 @@ class DBType a => DBEq (a :: Type) where
 
 -- | Typed SQL expressions
 newtype Expr (a :: Type) = Expr { toPrimExpr :: Opaleye.PrimExpr }
+
+
+-- | It is assumed that any Haskell types that have a 'Num' instance also have
+-- the corresponding operations in the database. Hence, Num a => Num (Expr a).
+-- *However*, if this is not the case, you should `newtype` the Haskell type
+-- and avoid providing a 'Num' instance, or you may write be able to write
+-- ill-typed queries!
+instance (DBType a, Num a) => Num (Expr a) where
+  a + b = columnToExpr (Opaleye.binOp (Opaleye.:+) (exprToColumn a) (exprToColumn b))
+  a * b = columnToExpr (Opaleye.binOp (Opaleye.:*) (exprToColumn a) (exprToColumn b))
+  abs = function "abs"
+  signum = columnToExpr @Opaleye.PGInt8 . signum . exprToColumn
+  fromInteger = lit . fromInteger
+  negate = columnToExpr @Opaleye.PGInt8 . negate . exprToColumn
+
+
+instance (DBType a, Fractional a) => Fractional (Expr a) where
+  a / b = columnToExpr (Opaleye.binOp (Opaleye.:/) (exprToColumn a) (exprToColumn b))
+  fromRational = lit . fromRational
+
+
+exprToColumn :: Expr a -> Opaleye.Column b
+exprToColumn (Expr a) = Opaleye.Column a
+
+
+columnToExpr :: Opaleye.Column b -> Expr a
+columnToExpr (Opaleye.Column a) = Expr a
 
 
 -- | Unsafely treat an 'Expr' that returns @a@s as returning @b@s.
