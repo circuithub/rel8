@@ -86,8 +86,8 @@ module Rel8
   , showQuery
 
     -- ** Selecting rows
-  , each
   , Selects
+  , each
   , values
 
     -- ** Filtering
@@ -99,11 +99,15 @@ module Rel8
   , limit
   , offset
 
-    -- ** Combining 'Query's
+    -- ** @UNION@
   , union
   , unionAll
+
+    -- ** @INTERSECT@
   , intersect
   , intersectAll
+
+    -- ** @EXCEPT@
   , except
   , exceptAll
 
@@ -1402,17 +1406,8 @@ instance Monad Query where
 
 
 -- | Run a @SELECT@ query, returning all rows.
-select
-  :: ( Serializable row haskell, MonadIO m )
-  => Connection -> Query row -> m [ haskell ]
-select = select_forAll
-
-
-select_forAll
-  :: forall row haskell m
-   . ( Serializable row haskell, MonadIO m )
-  => Connection -> Query row -> m [ haskell ]
-select_forAll conn query =
+select :: (Serializable row haskell, MonadIO m) => Connection -> Query row -> m [haskell]
+select conn query =
   maybe
     ( return [] )
     ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
@@ -1676,20 +1671,16 @@ exists = fmap (maybeTable (lit False) (const (lit True))) .
 --
 -- This is equivalent to @FROM table@.
 each :: Selects schema row => TableSchema schema -> Query row
-each = each_forAll
-
-
-each_forAll
-  :: forall schema row
-   . Selects schema row
-  => TableSchema schema -> Query row
-each_forAll schema = liftOpaleye $ Opaleye.selectTableExplicit unpackspec (toOpaleyeTable schema noWriter view)
+each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
   where
-    noWriter :: Opaleye.Writer () row
-    noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
+    f :: forall schema row.  Selects schema row => TableSchema schema -> Opaleye.Table () row
+    f schema = toOpaleyeTable schema noWriter view
+      where
+        noWriter :: Opaleye.Writer () row
+        noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
 
-    view :: Opaleye.View row
-    view = Opaleye.View $ mapTable (mapC (column . columnName)) (tableColumns schema)
+        view :: Opaleye.View row
+        view = Opaleye.View $ mapTable (mapC (column . columnName)) (tableColumns schema)
 
 
 -- | Select all rows from another table that match a given predicate. If the
@@ -1783,13 +1774,9 @@ exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l)
 --
 -- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
 distinct :: Table Expr a => Query a -> Query a
-distinct = distinct_forAll
-
-
-distinct_forAll :: forall a. Table Expr a => Query a -> Query a
-distinct_forAll = mapOpaleye (Opaleye.distinctExplicit distinctspec)
+distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
   where
-    distinctspec :: Opaleye.Distinctspec a a
+    distinctspec :: Table Expr a => Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
         traverseTable (traverseC \x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
