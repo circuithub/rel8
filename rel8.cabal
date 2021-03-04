@@ -14,12 +14,9 @@ library
     , base ^>=4.12 || ^>= 4.13 || ^>= 4.14
     , bytestring
     , case-insensitive
-    , containers
     , contravariant
     , opaleye ^>= 0.7.1.0
     , postgresql-simple
-    , product-profunctors
-    , profunctors
     , scientific
     , text
     , time
