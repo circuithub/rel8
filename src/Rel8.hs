@@ -2110,9 +2110,9 @@ newtype Order a = Order (Opaleye.Order a)
   deriving newtype (Contravariant, Divisible, Decidable, Semigroup, Monoid)
 
 
-{-| Sort a table in ascending order.
+{-| Sort a column in ascending order.
 -}
-asc :: Table Expr a => Order a
+asc :: DBType a => Order (Expr a)
 asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
     f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
@@ -2121,13 +2121,13 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp 
       { orderDirection = Opaleye.OpAsc
-        , orderNulls = Opaleye.NullsLast 
+      , orderNulls = Opaleye.NullsLast 
       }
 
 
-{-| Sort a table in descending order.
+{-| Sort a column in descending order.
 -}
-desc :: Table Expr a => Order a
+desc :: DBType a => Order (Expr a)
 desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
     f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
@@ -2136,7 +2136,7 @@ desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp 
       { orderDirection = Opaleye.OpDesc
-        , orderNulls = Opaleye.NullsFirst 
+      , orderNulls = Opaleye.NullsFirst 
       }
 
 
