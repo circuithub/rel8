@@ -7,7 +7,6 @@ license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
 build-type:          Simple
-extra-source-files:  CHANGELOG.md
 
 library
   build-depends:
@@ -22,7 +21,6 @@ library
     , product-profunctors
     , profunctors
     , scientific
-    , semigroupoids
     , text
     , time
     , uuid
