@@ -637,7 +637,7 @@ data MyType f = MyType { fieldA :: Column f T }
 @
 
 -}
-class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type) where
+class HigherKindedTable (t :: (Type -> Type) -> Type) where
   type HField t = (field :: Type -> Type) | field -> t
   type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
@@ -645,6 +645,7 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
   htabulate :: forall f. (forall x. HField t x -> C f x) -> t f
   htraverse :: forall f g m. Applicative m => (forall x. C f x -> m (C g x)) -> t f -> m (t g)
   hdicts :: forall c. HConstrainTable t c => t (Dict c)
+  hdbtype :: t (Dict DBType)
 
   type HField t = GenericHField t
   type HConstrainTable t c = HConstrainTable (Columns (WithShape IsColumn (Rep (t IsColumn)) (Rep (t IsColumn) ()))) c
@@ -706,6 +707,17 @@ class HConstrainTable t DBType => HigherKindedTable (t :: (Type -> Type) -> Type
       forgetShape @(Dict c) @(Rep (t IsColumn)) $
         fromColumns $
           hdicts @(Columns (WithShape (Dict c) (Rep (t IsColumn)) (Rep (t (Dict c)) ()))) @c
+
+  default hdbtype ::
+    ( Generic (t (Dict DBType))
+    , Table (Dict DBType) (WithShape (Dict DBType) (Rep (t IsColumn)) (Rep (t (Dict DBType)) ()))
+    )
+    => t (Dict DBType)
+  hdbtype =
+    to @_ @() $
+      forgetShape @(Dict DBType) @(Rep (t IsColumn)) $
+        fromColumns $
+          hdbtype @(Columns (WithShape (Dict DBType) (Rep (t IsColumn)) (Rep (t (Dict DBType)) ())))
 
 
 hmap :: HigherKindedTable t => (forall x. C f x -> C g x) -> t f -> t g
@@ -933,9 +945,11 @@ instance (HigherKindedTable x, HigherKindedTable y) => HigherKindedTable (HPair 
 
   htabulate f = HPair (htabulate (f . HPairFst)) (htabulate (f . HPairSnd))
 
+  htraverse f (HPair x y) = HPair <$> htraverse f x <*> htraverse f y
+
   hdicts = HPair hdicts hdicts
 
-  htraverse f (HPair x y) = HPair <$> htraverse f x <*> htraverse f y
+  hdbtype = HPair hdbtype hdbtype
 
 
 instance (Table f a, Table f b) => Table f (a, b) where
@@ -961,6 +975,7 @@ instance DBType a => HigherKindedTable (HIdentity a) where
   hfield (HIdentity a) HIdentityField = MkC a
   htabulate f = HIdentity $ toColumn $ f HIdentityField
   hdicts = HIdentity Dict
+  hdbtype = HIdentity Dict
 
   htraverse :: forall f g m. Applicative m => (forall x. C f x -> m (C g x)) -> HIdentity a f -> m (HIdentity a g)
   htraverse f (HIdentity a) = HIdentity . toColumn @g <$> f (MkC a :: C f a)
@@ -991,16 +1006,16 @@ instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)           => Exp
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t, HConstrainTable t DBType) => Serializable (s expr) (t identity) where
+instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Serializable (s expr) (t identity) where
   rowParser :: forall f. Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t identity))
-  rowParser inject = getCompose $ htraverse (traverseC getComposeOuter) $ hmap f (hdicts @t @DBType)
+  rowParser inject = getCompose $ htraverse (traverseC getComposeOuter) $ hmap f hdbtype
     where
       f :: forall a. C (Dict DBType) a -> C (ComposeOuter (Compose RowParser f) Identity) a
       f (MkC Dict) = MkC $ ComposeOuter $ Compose $ fieldWith $ inject $ decode $ typeInformation @a
 
   lit t =
     fromColumns $ htabulate \i ->
-      case (hfield (hdicts @t @DBType) i, hfield t i) of
+      case (hfield (hdbtype @t) i, hfield t i) of
         (MkC Dict, MkC x) -> MkC $ monolit x
 
 
@@ -1105,7 +1120,7 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
     f :: forall x. HField (Columns a) x -> C Expr x
     f i =
-      case hfield (hdicts @(Columns a) @DBType) i of
+      case hfield (hdbtype @(Columns a)) i of
         MkC Dict -> MkC $ unsafeCoerceExpr (monolit (Nothing :: Maybe x))
 
 
@@ -1742,7 +1757,7 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
           fmap fromColumns $
             htraverse (traverseC (traversePrimExpr f)) $
               htabulate @(Columns expr) @Expr \i ->
-                case hfield (hdicts @(Columns expr) @DBType) i of
+                case hfield (hdbtype @(Columns expr)) i of
                   MkC Dict -> MkC $ fromPrimExpr $ nullExpr i
             where
               nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
@@ -1964,18 +1979,14 @@ traverseAggrExpr f = \case
 newtype ListTable a = ListTable (Columns a (ComposeInner Expr []))
 
 
-instance (f ~ Expr, HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr a) => Table f (ListTable a) where
+instance (f ~ Expr, Table f a) => Table f (ListTable a) where
   type Columns (ListTable a) = HComposeTable [] (Columns a)
 
   toColumns (ListTable a) = HComposeTable a
   fromColumns (HComposeTable a) = ListTable a
 
 
-instance
-  ( Serializable a b
-  , HConstrainTable (Columns a) (ComposeConstraint DBType [])
-  ) => Serializable (ListTable a) [b]
- where
+instance Serializable a b => Serializable (ListTable a) [b] where
 
   rowParser inject = fmap getZipList . getCompose <$> rowParser @a \fieldParser x y ->
     Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
@@ -1985,13 +1996,10 @@ instance
 
 
   lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
-    case hfield dbtypes field of
+    case hfield hdbtype field of
       MkC Dict -> MkC $ ComposeInner $ listOf $
         map (\x -> toColumn (hfield (toColumns x) field)) xs
     where
-      dbtypes :: Columns a (Dict DBType)
-      dbtypes = hdicts
-
       listOf :: forall x. DBType x => [Expr x] -> Expr [x]
       listOf as = fromPrimExpr $
         Opaleye.CastExpr array $
@@ -2007,30 +2015,25 @@ instance Table Expr a => Semigroup (ListTable a) where
 
 instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ htabulate $ \field ->
-    case hfield (hdicts @_ @DBType) field of
+    case hfield hdbtype field of
       MkC Dict -> MkC $ ComposeInner $ monolit []
 
 
-many :: (Table Expr exprs, Table Expr (ListTable exprs))
-  => Query exprs -> Query (ListTable exprs)
+many :: Table Expr exprs => Query exprs -> Query (ListTable exprs)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 
 
 newtype NonEmptyTable a = NonEmptyTable (Columns a (ComposeInner Expr NonEmpty))
 
 
-instance (f ~ Expr, HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table Expr a) => Table f (NonEmptyTable a) where
+instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
   type Columns (NonEmptyTable a) = HComposeTable NonEmpty (Columns a)
 
   toColumns (NonEmptyTable a) = HComposeTable a
   fromColumns (HComposeTable a) = NonEmptyTable a
 
 
-instance
-  ( Serializable a b
-  , HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)
-  ) => Serializable (NonEmptyTable a) (NonEmpty b)
- where
+instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
 
   rowParser inject = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
     Compose . fmap pgArrayToZipList <$> inject (pgNonEmptyFieldParser fieldParser) x y
@@ -2045,13 +2048,10 @@ instance
           _ -> pure list
 
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
-    case hfield dbtypes field of
+    case hfield hdbtype field of
       MkC Dict -> MkC $ ComposeInner $ nonEmptyOf $
         fmap (\x -> toColumn (hfield (toColumns x) field)) xs
     where
-      dbtypes :: Columns a (Dict DBType)
-      dbtypes = hdicts
-
       nonEmptyOf :: forall x. DBType x => NonEmpty (Expr x) -> Expr (NonEmpty x)
       nonEmptyOf as = fromPrimExpr $
         Opaleye.CastExpr array $
@@ -2065,7 +2065,7 @@ instance Table Expr a => Semigroup (NonEmptyTable a) where
     NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
-some :: (Table Expr exprs, Table Expr (NonEmptyTable exprs)) => Query exprs -> Query (NonEmptyTable exprs)
+some :: Table Expr exprs => Query exprs -> Query (NonEmptyTable exprs)
 some = aggregate . fmap nonEmptyAgg
 
 
@@ -2187,7 +2187,7 @@ data HComposeField f t a where
 newtype HComposeTable g t f = HComposeTable (t (ComposeInner f g))
 
 
-instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) => HigherKindedTable (HComposeTable f t) where
+instance (HigherKindedTable t, forall a. DBType a => DBType (f a)) => HigherKindedTable (HComposeTable f t) where
   type HField (HComposeTable f t) = HComposeField f t
   type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
@@ -2200,3 +2200,6 @@ instance (HConstrainTable t (ComposeConstraint DBType f), HigherKindedTable t) =
 
   hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Dict c)
   hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
+
+  hdbtype :: HComposeTable f t (Dict DBType)
+  hdbtype = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) hdbtype
