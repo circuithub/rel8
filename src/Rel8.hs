@@ -112,7 +112,6 @@ module Rel8
 
     -- * Aggregates
   , Aggregate
-  , AggregateTable
   , aggregate
   , listAgg
   , nonEmptyAgg
@@ -250,9 +249,6 @@ import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.Types ( PGArray( PGArray, fromPGArray ) )
 
--- product-profunctors
-import Data.Profunctor.Product ( (***!) )
-
 -- rel8
 import qualified Rel8.Optimize
 
@@ -273,6 +269,7 @@ import Data.Functor.Contravariant (Contravariant)
 import Data.Functor.Contravariant.Divisible (Divisible, Decidable)
 import Data.Functor.Const (Const(Const), getConst)
 import Data.Bifunctor (first)
+import Data.Monoid (getAny, Any(Any))
 
 
 {-| Haskell types that can be represented as expressions in a database. There
@@ -1003,8 +1000,8 @@ type family ExprType (a :: Type) :: Type where
   ExprType (Maybe (t Identity)) = MaybeTable (t Expr)
   ExprType (Maybe (a, b)) = MaybeTable (ExprType (a, b))
   ExprType (Maybe a) = Expr (Maybe a)
-  ExprType [a] = ListTable Expr (ExprType a)
-  ExprType (NonEmpty a) = NonEmptyTable Expr (ExprType a)
+  ExprType [a] = ListTable (ExprType a)
+  ExprType (NonEmpty a) = NonEmptyTable (ExprType a)
   ExprType a = Expr a
 
 
@@ -1014,8 +1011,8 @@ type family ResultType (a :: Type) :: Type where
   ResultType (t Expr) = t Identity
   ResultType (Expr a) = a
   ResultType (MaybeTable a) = Maybe (ResultType a)
-  ResultType (ListTable Expr a) = [ResultType a]
-  ResultType (NonEmptyTable Expr a) = NonEmpty (ResultType a)
+  ResultType (ListTable a) = [ResultType a]
+  ResultType (NonEmptyTable a) = NonEmpty (ResultType a)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1874,92 +1871,38 @@ showQuery :: Table Expr a => Query a -> String
 showQuery = fold . selectQuery
 
 
-data Aggregate a = Aggregate
-  (Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct))
-  Opaleye.PrimExpr
+newtype Aggregate a = Aggregate a
 
 
-makeAggregator :: ()
-  => (forall f. Applicative f => (forall x. Aggregate x -> f (Expr x)) -> a -> f b)
-  -> Opaleye.Aggregator a b
-makeAggregator make =
-  Opaleye.Aggregator $ Opaleye.PackMap $ \f -> make (\(Aggregate a e) -> fromPrimExpr <$> f (a, e))
+instance Functor Aggregate where
+  fmap f (Aggregate a) = Aggregate $ f a
+
+instance Applicative Aggregate where
+  pure = Aggregate
+  Aggregate f <*> Aggregate a = Aggregate $ f a
 
 
-instance (DBType a, aggregate ~ Aggregate) => Table aggregate (Aggregate a) where
-  type Columns (Aggregate a) = HIdentity a
-  toColumns = HIdentity
-  fromColumns = unHIdentity
+groupBy :: a -> Aggregate a
+groupBy = pure
 
 
-class AggregateTable aggregates exprs | aggregates -> exprs, exprs -> aggregates where
-  aggregators :: Opaleye.Aggregator aggregates exprs
-  groupBy :: exprs -> aggregates
-
-  default aggregators ::
-    ( Table Aggregate aggregates
-    , Table Expr exprs
-    , Congruent exprs aggregates
-    )
-    => Opaleye.Aggregator aggregates exprs
-  aggregators = makeAggregator \f -> traverseTable (traverseC f)
-
-  default groupBy ::
-    ( Table Aggregate aggregates
-    , Table Expr exprs
-    , Congruent exprs aggregates
-    )
-    => exprs -> aggregates
-  groupBy = mapTable (mapC groupBy)
-
-
-instance
-  ( AggregateTable aggregates1 exprs1
-  , AggregateTable aggregates2 exprs2
-  )
-  => AggregateTable (aggregates1, aggregates2) (exprs1, exprs2)
- where
-  aggregators = aggregators ***! aggregators
-  groupBy = groupBy ***! groupBy
-
-
-instance HigherKindedTable t => AggregateTable (t Aggregate) (t Expr)
-
-
-instance AggregateTable (Aggregate a) (Expr a) where
-  aggregators = makeAggregator id
-  groupBy = Aggregate Nothing . toPrimExpr
-
-
-instance Table Expr a => AggregateTable (ListTable Aggregate a) (ListTable Expr a) where
-  aggregators = makeAggregator \f (ListTable as) ->
-    ListTable <$> htraverse (traverseComposeInner (traverseC f)) as
-  groupBy (ListTable a) = ListTable (hmap (mapComposeInner (mapC groupBy)) a)
-
-
-instance Table Expr a => AggregateTable (NonEmptyTable Aggregate a) (NonEmptyTable Expr a) where
-  aggregators = makeAggregator \f (NonEmptyTable as) ->
-    NonEmptyTable <$> htraverse (traverseComposeInner (traverseC f)) as
-  groupBy (NonEmptyTable a) = NonEmptyTable (hmap (mapComposeInner (mapC groupBy)) a)
-
-
-listAgg :: Table Expr exprs => exprs -> ListTable Aggregate exprs
-listAgg = ListTable . mapTable (mapC (ComposeInner . go))
+listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
+listAgg = Aggregate . ListTable . mapTable (mapC (ComposeInner . go))
   where
-    go :: Expr a -> Aggregate [a]
-    go (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+    go :: Expr a -> Expr [a]
+    go (Expr a) = Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
-nonEmptyAgg :: Table Expr exprs => exprs -> NonEmptyTable Aggregate exprs
-nonEmptyAgg = NonEmptyTable . mapTable (mapC (ComposeInner . go))
+nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg = Aggregate . NonEmptyTable . mapTable (mapC (ComposeInner . go))
   where
-    go :: Expr a -> Aggregate (NonEmpty a)
-    go (Expr a) = Aggregate (Just (Opaleye.AggrArr, [], Opaleye.AggrAll)) a
+    go :: Expr a -> Expr (NonEmpty a)
+    go (Expr a) = Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
 class DBMax a where
-  max :: Expr a -> Aggregate a
-  max (Expr a) = Aggregate (Just (Opaleye.AggrMax, [], Opaleye.AggrAll)) a
+  max :: Expr a -> Aggregate (Expr a)
+  max (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrMax a []
 
 
 instance DBMax Int64
@@ -1971,29 +1914,92 @@ instance DBMax Text
 
 
 instance DBMax a => DBMax (Maybe a) where
-  max expr = case max (retype @a expr) of
-    Aggregate a e -> Aggregate a e
+  max expr = retype <$> max (retype @a expr)
 
 
-aggregate :: AggregateTable aggregates exprs => Query aggregates -> Query exprs
-aggregate = mapOpaleye $ Opaleye.aggregate aggregators
+aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
+aggregate = mapOpaleye $ Opaleye.aggregate aggregator
+  where
+    aggregator :: Opaleye.Aggregator (Aggregate a) a
+    aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
+      fromColumns <$> htraverse (g f) (toColumns x)
+
+    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> C Expr x -> m (C Expr x)
+    g f (MkC (Expr x)) | hasAggrExpr x = MkC . Expr <$> traverseAggrExpr f' x
+                       | otherwise     = MkC . Expr <$> f (Nothing, x)
+      where f' (a, b, c, d) = f (Just (a, b, c), d)
 
 
-newtype ListTable f a = ListTable (Columns a (ComposeInner f []))
+hasAggrExpr :: Opaleye.PrimExpr -> Bool
+hasAggrExpr = getAny . getConst . traverseAggrExpr (\_ -> Const (Any True))
 
 
-instance (HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr a) => Table f (ListTable f a) where
-  type Columns (ListTable f a) = HComposeTable [] (Columns a)
+traverseAggrExpr :: Applicative f => ((Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct, Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Opaleye.PrimExpr -> f Opaleye.PrimExpr
+traverseAggrExpr f = \case
+  Opaleye.AggrExpr a b c d -> 
+    f (b, d, a, c)
+
+  Opaleye.CompositeExpr primExpr x -> 
+    Opaleye.CompositeExpr <$> traverseAggrExpr f primExpr <*> pure x
+
+  Opaleye.BinExpr x primExpr1 primExpr2 -> 
+    Opaleye.BinExpr x <$> traverseAggrExpr f primExpr1 <*> traverseAggrExpr f primExpr2
+
+  Opaleye.UnExpr x primExpr -> 
+    Opaleye.UnExpr x <$> traverseAggrExpr f primExpr
+
+  Opaleye.CaseExpr cases def -> 
+    Opaleye.CaseExpr <$> traverse (traverseBoth (traverseAggrExpr f)) cases <*> traverseAggrExpr f def
+    where traverseBoth g (x, y) = (,) <$> g x <*> g y
+
+  Opaleye.ListExpr elems -> 
+    Opaleye.ListExpr <$> traverse (traverseAggrExpr f) elems
+
+  Opaleye.ParamExpr p primExpr -> 
+    Opaleye.ParamExpr p <$> traverseAggrExpr f primExpr
+
+  Opaleye.FunExpr name params -> 
+    Opaleye.FunExpr name <$> traverse (traverseAggrExpr f) params
+
+  Opaleye.CastExpr t primExpr -> 
+    Opaleye.CastExpr t <$> traverseAggrExpr f primExpr
+
+  Opaleye.AttrExpr attr -> 
+    pure $ Opaleye.AttrExpr attr
+
+  Opaleye.ArrayExpr elems ->
+    Opaleye.ArrayExpr <$> traverse (traverseAggrExpr f) elems
+
+  Opaleye.RangeExpr a b c ->
+    Opaleye.RangeExpr a <$> traverseBoundExpr (traverseAggrExpr f) b <*> traverseBoundExpr (traverseAggrExpr f) c
+    where
+      traverseBoundExpr g = \case
+        Opaleye.Inclusive primExpr -> Opaleye.Inclusive <$> g primExpr
+        Opaleye.Exclusive primExpr -> Opaleye.Exclusive <$> g primExpr
+        other                      -> pure other
+
+  Opaleye.ArrayIndex x i -> 
+    Opaleye.ArrayIndex <$> traverseAggrExpr f x <*> traverseAggrExpr f i
+
+  other ->
+    -- All other constructors that don't contain any PrimExpr's.
+    pure other
+
+
+newtype ListTable a = ListTable (Columns a (ComposeInner Expr []))
+
+
+instance (f ~ Expr, HConstrainTable (Columns a) (ComposeConstraint DBType []), Table Expr a) => Table f (ListTable a) where
+  type Columns (ListTable a) = HComposeTable [] (Columns a)
 
   toColumns (ListTable a) = HComposeTable a
   fromColumns (HComposeTable a) = ListTable a
 
 
 instance
-  ( expr ~ Expr
-  , Serializable a b
+  ( Serializable a b
   , HConstrainTable (Columns a) (ComposeConstraint DBType [])
-  ) => Serializable (ListTable expr a) [b]
+  ) => Serializable (ListTable a) [b]
  where
 
   rowParser inject = fmap getZipList . getCompose <$> rowParser @a \fieldParser x y ->
@@ -2019,37 +2025,36 @@ instance
           array = typeName (typeInformation @[x])
 
 
-instance (expr ~ Expr, Table expr a) => Semigroup (ListTable expr a) where
+instance Table Expr a => Semigroup (ListTable a) where
   ListTable a <> ListTable b =
     ListTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
-instance (expr ~ Expr, Table expr a) => Monoid (ListTable expr a) where
+instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ htabulate $ \field ->
     case hfield (hdicts @_ @DBType) field of
       MkC Dict -> MkC $ ComposeInner $ monolit []
 
 
-many :: (Table Expr exprs, Table Expr (ListTable Expr exprs))
-  => Query exprs -> Query (ListTable Expr exprs)
+many :: (Table Expr exprs, Table Expr (ListTable exprs))
+  => Query exprs -> Query (ListTable exprs)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 
 
-newtype NonEmptyTable f a = NonEmptyTable (Columns a (ComposeInner f NonEmpty))
+newtype NonEmptyTable a = NonEmptyTable (Columns a (ComposeInner Expr NonEmpty))
 
 
-instance (HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table Expr a) => Table f (NonEmptyTable f a) where
-  type Columns (NonEmptyTable f a) = HComposeTable NonEmpty (Columns a)
+instance (f ~ Expr, HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty), Table Expr a) => Table f (NonEmptyTable a) where
+  type Columns (NonEmptyTable a) = HComposeTable NonEmpty (Columns a)
 
   toColumns (NonEmptyTable a) = HComposeTable a
   fromColumns (HComposeTable a) = NonEmptyTable a
 
 
 instance
-  ( expr ~ Expr
-  , Serializable a b
+  ( Serializable a b
   , HConstrainTable (Columns a) (ComposeConstraint DBType NonEmpty)
-  ) => Serializable (NonEmptyTable expr a) (NonEmpty b)
+  ) => Serializable (NonEmptyTable a) (NonEmpty b)
  where
 
   rowParser inject = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
@@ -2080,12 +2085,12 @@ instance
           array = typeName (typeInformation @(NonEmpty x))
 
 
-instance (expr ~ Expr, Table expr a) => Semigroup (NonEmptyTable expr a) where
+instance Table Expr a => Semigroup (NonEmptyTable a) where
   NonEmptyTable a <> NonEmptyTable b =
     NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
 
 
-some :: Table Expr exprs => Query exprs -> Query (NonEmptyTable Expr exprs)
+some :: (Table Expr exprs, Table Expr (NonEmptyTable exprs)) => Query exprs -> Query (NonEmptyTable exprs)
 some = aggregate . fmap nonEmptyAgg
 
 
