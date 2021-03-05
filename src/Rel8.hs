@@ -44,18 +44,22 @@ module Rel8
     -- $guideInsert
 
     -- * Database types
+    -- ** @DBType@
     DBType(..)
 
-    -- ** Deriving-via helpers
+    -- *** Deriving-via helpers
+    -- **** @JSONEncoded@
   , JSONEncoded(..)
+
+    -- **** @ReadShow@
   , ReadShow(..)
 
-    -- ** @DatabaseType@
+    -- *** @DatabaseType@
   , DatabaseType(..)
   , mapDatabaseType
   , parseDatabaseType
 
-    -- ** Database types with equality
+    -- ** @DBEq@
   , DBEq(..)
 
     -- * Tables and higher-kinded tables
@@ -79,6 +83,7 @@ module Rel8
   , binaryOperator
 
     -- ** @null@
+  , nullExpr
   , null_
   , isNull
   , liftNull
@@ -191,7 +196,7 @@ import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
 -- base
-import Control.Applicative ( ZipList(..), liftA2 )
+import Control.Applicative ( ZipList(..), liftA2, liftA3 )
 import qualified Control.Applicative
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
@@ -527,10 +532,7 @@ Generalized newtype deriving can be used when you want use a @newtype@ around a
 database type for clarity and accuracy in your Haskell code. A common example is
 to @newtype@ row id types:
 
-@
-newtype UserId = UserId { toInt32 :: Int32 }
-  deriving (DBType)
-@
+>>> newtype UserId = UserId { toInt32 :: Int32 } deriving newtype (DBType)
 
 You can now write queries using @UserId@ instead of @Int32@, which may help
 avoid making bad joins. However, when SQL is generated, it will be as if you
@@ -547,14 +549,24 @@ classes.
 
 The declaration:
 
-@
+>>> import Data.Aeson
+>>> :set -XDerivingVia
+
+>>> :{
 data Pet = Pet { petName :: String, petAge :: Int }
   deriving (Generic, ToJSON, FromJSON)
   deriving DBType via JSONEncoded Pet
-@
+:}
 
 will allow you to store @Pet@ values in a single SQL column (stored as @json@
-values).
+values):
+
+>>> import Data.String (fromString)
+>>> import Data.Aeson (Value, encode)
+>>> import Database.PostgreSQL.Simple (query_, fromOnly)
+>>> :set -XTypeApplications
+>>> fmap (Data.Aeson.encode @Value . fromOnly) <$> query_ c (fromString $ showQuery $ pure $ lit Pet{ petName = "Yoshi", petAge = 4 })
+["{\"petAge\":4,\"petName\":\"Yoshi\"}"]
 -}
 newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
 
@@ -568,6 +580,25 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
 
 -- | A deriving-via helper type for column types that store a Haskell value
 -- using a Haskell's 'Read' and 'Show' type classes.
+--
+-- The declaration:
+-- 
+-- >>> :set -XDerivingVia
+-- 
+-- >>> :{
+-- data Color = Red | Green | Blue
+--   deriving (Read, Show)
+--   deriving DBType via ReadShow Color
+-- :}
+-- 
+-- will allow you to store @Color@ values in a single SQL column (stored as
+-- @text@):
+-- 
+-- >>> :set -XTypeApplications
+-- >>> import Data.Text (Text)
+-- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
+-- >>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
+-- ["Red"]
 newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
@@ -591,7 +622,10 @@ monolit = fromPrimExpr . encode (typeInformation @a)
 
 {-| Simultaneously map over how a type is both encoded and decoded, while
 retaining the name of the type. This operation is useful if you want to
-essentially @newtype@ another 'DatabaseType'. 
+essentially @newtype@ another 'DatabaseType'.
+
+The mapping is required to be total. If you have a partial mapping, see
+'parseDatabaseType'.
 -}
 mapDatabaseType :: (a -> b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
@@ -606,6 +640,28 @@ mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseTyp
 This can be used if the data stored in the database should only be subset of a
 given 'DatabaseType'. The parser is applied when deserializing rows returned -
 the encoder assumes that the input data is already in the appropriate form.
+
+One example where this may be useful is with a database that stores data in
+some legacy encoding:
+
+>>> import Data.Text (Text)
+>>> import Database.PostgreSQL.Simple (query_, fromOnly)
+
+>>> data Color = Red | Green | Blue
+>>> :{
+instance DBType Color where
+  typeInformation = parseDatabaseType parseLegacy toLegacy typeInformation
+    where
+      parseLegacy :: Text -> Either String Color
+      parseLegacy "red"   = Right Red
+      parseLegacy "green" = Right Green
+      parseLegacy _       = Left "Unexpected Color"
+      toLegacy Red   = "red"
+      toLegacy Green = "green"
+:}
+
+>>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
+["red"]
 -}
 parseDatabaseType :: Typeable b => (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 parseDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
@@ -627,10 +683,7 @@ The example given for @DBType@ added a @UserId@ @newtype@, but without a @DBEq@
 instance won't actually be able to use that in joins or where-clauses, because
 it lacks equality. We can add this by changing our @newtype@ definition to:
 
-@
-newtype UserId = UserId { toInt32 :: Int32 }
-  deriving (DBType, DBEq)
-@
+>>> newtype UserId = UserId { toInt32 :: Int32 } deriving newtype (DBType, DBEq)
 
 This will re-use the equality logic for @Int32@, which is to just use the @=@
 operator.
@@ -642,11 +695,11 @@ equality to your type, assuming that @=@ is sufficient on @DBType@ encoded
 values. Extending the example from 'Rel8.ReadShow''s 'Rel8.DBType' instance, we
 could add equality to @Color@ by writing:
 
-@
+>>> :{
 data Color = Red | Green | Blue | Purple | Gold
   deriving (Generic, Show, Read, DBEq)
   deriving DBType via ReadShow Color
-@
+:}
 
 This means @Color@s will be treated as the literal strings @"Red"@, @"Green"@,
 etc, in the database, and they can be compared for equality by just using @=@.
@@ -710,13 +763,30 @@ binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op
 
 
 -- | Like 'maybe', but to eliminate @null@.
+--
+-- >>> select c $ pure $ null_ 0 id (nullExpr :: Expr (Maybe Int32))
+-- [0]
+--
+-- >>> select c $ pure $ null_ 0 id (lit (Just 42) :: Expr (Maybe Int32))
+-- [42]
 null_ :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 null_ whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
 
 
 -- | Like 'isNothing', but for @null@.
+--
+-- >>> select c $ pure $ isNull (nullExpr :: Expr (Maybe Int32))
+-- [True]
+--
+-- >>> select c $ pure $ isNull (lit (Just 42) :: Expr (Maybe Int32))
+-- [False]
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+
+
+-- | Corresponds to SQL @null@.
+nullExpr :: DBType a => Expr (Maybe a)
+nullExpr = lit Nothing
 
 
 {-| Lift an expression that's not null to a type that might be @null@. This is
@@ -744,6 +814,14 @@ operator on possibly @null@ expressions.
 
 Similar to @mapNull@, it is assumed that this binary operator will return
 @null@ if either of its operands are @null@.
+
+>>> select c $ pure $ liftOpNull (&&.) (lit (Just True)) (lit (Just False))
+[Just False]
+
+>>> select c $ pure $ liftOpNull (&&.) nullExpr (lit (Just False))
+[Nothing]
+
+This function can be thought of like 'liftA2'.
 -}
 liftOpNull :: (Expr a -> Expr b -> Expr c) -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 liftOpNull f a b = retype (f (retype a) (retype b))
@@ -751,7 +829,21 @@ liftOpNull f a b = retype (f (retype a) (retype b))
 
 {-| Filter a 'Query' that might return @null@ to a 'Query' without any @null@s.
 
-Corresponds to 'catMaybes'.
+Corresponds to 'Data.Maybe.catMaybes'.
+
+>>> select c $ pure (nullExpr :: Expr (Maybe Bool))
+[Nothing]
+
+>>> select c $ catMaybe (nullExpr :: Expr (Maybe Bool))
+[]
+
+>>> select c $ catMaybe (lit (Just True))
+[True]
+
+Notice how in the last example a @Bool@ is returned (rather than @Maybe Bool@):
+
+>>> :t catMaybe (lit (Just True))
+catMaybe (lit (Just True)) :: Query (Expr Bool)
 -}
 catMaybe :: Expr (Maybe a) -> Query (Expr a)
 catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
@@ -760,6 +852,18 @@ catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
 
 
 -- | The SQL @AND@ operator.
+--
+-- >>> :set -XBlockArguments
+-- >>> :{
+-- mapM_ print =<< select c do
+--   x <- values [lit True, lit False]
+--   y <- values [lit True, lit False]
+--   return (x, y, x &&. y)
+-- :}
+-- (True,True,True)
+-- (True,False,False)
+-- (False,True,False)
+-- (False,False,False)
 infixr 3 &&.
 
 
@@ -769,13 +873,29 @@ Expr a &&. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpAnd a b
 
 {-| Fold @AND@ over a collection of expressions.
  
-@and_ mempty = lit True@
+>>> select c $ pure $ and_ [ lit True ==. lit False, lit False, lit True ]
+[False]
+ 
+>>> select c $ pure $ and_ []
+[True]
 -}
 and_ :: Foldable f => f (Expr Bool) -> Expr Bool
 and_ = foldl' (&&.) (lit True)
 
 
 -- | The SQL @OR@ operator.
+--
+-- >>> :set -XBlockArguments
+-- >>> :{
+-- mapM_ print =<< select c do
+--   x <- values [lit True, lit False]
+--   y <- values [lit True, lit False]
+--   return (x, y, x ||. y)
+-- :}
+-- (True,True,True)
+-- (True,False,True)
+-- (False,True,True)
+-- (False,False,False)
 infixr 2 ||.
 
 
@@ -784,26 +904,57 @@ Expr a ||. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpOr a b
 
 
 {-| Fold @OR@ over a collection of expressions.
+
+>>> select c $ pure $ or_ [ lit True ==. lit False, lit False, lit True ]
+[True]
  
-@or_ mempty = lit False@
+>>> select c $ pure $ or_ []
+[False]
 -}
 or_ :: Foldable f => f (Expr Bool) -> Expr Bool
 or_ = foldl' (||.) (lit False)
 
 
 -- | The SQL @NOT@ operator.
+--
+-- >>> select c $ pure $ not_ $ lit True
+-- [False]
+--
+-- >>> select c $ pure $ not_ $ lit False
+-- [True]
 not_ :: Expr Bool -> Expr Bool
 not_ (Expr a) = Expr $ Opaleye.UnExpr Opaleye.OpNot a
 
 
 -- | Like the SQL @IN@ operator, but implemented by folding over a list with
 -- '==.' and '||.'.
+--
+-- >>> select c $ return $ lit (5 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [True]
+--
+-- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [False]
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
 in_ x = foldl' (\b y -> b ||. x ==. y) (lit False)
 
 
 {-| Branch two expressions based on a predicate. Similar to @if ... then ...
-else@ in Haskell (and implemented using @CASE@ in SQL).
+else@ in Haskell (and implemented using @CASE@ in SQL). 
+
+>>> select c (return (ifThenElse_ (lit True) (lit "True!") (lit "False!") :: Expr Text))
+["True!"]
+
+Note that unlike SQL, this function can be used to return multiple columns:
+
+>>> import Data.Text (pack)
+>>> :{
+select c $ pure $
+  ifThenElse_ 
+    (lit False) 
+    (lit (pack "A", pack "B")) 
+    (lit (pack "C", pack "D"))
+:}
+[("C","D")]
 -}
 ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
 ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
@@ -813,20 +964,6 @@ ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
 -- compared for equality as a whole.
 class Table Expr a => EqTable a where
   -- | Compare two tables or expressions for equality.
-  --
-  -- This operator is overloaded (much like Haskell's 'Eq' type class) to allow
-  -- you to compare expressions:
-  --
-  -- >>> :t exprA
-  -- Expr m Int
-  --
-  -- >>> :t exprA ==. exprA
-  -- Expr m Bool
-  --
-  -- But you can also compare composite structures:
-  --
-  -- >>> :t ( exprA, exprA ) ==. ( exprA, exprA )
-  -- Expr m Bool
   (==.) :: a -> a -> Expr Bool
 
 
@@ -848,14 +985,25 @@ instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
 {-| Construct an n-ary function that produces an 'Expr' that when called runs a
 SQL function.
 
-For example, if we have a SQL function @foo(x, y, z)@, we can represent this
-in Rel8 with:
+For example, here's how we can wrap PostgreSQL's @factorial@ function:
 
-@
-foo :: Expr m Int32 -> Expr m Int32 -> Expr m Bool -> Expr m Text
-foo = dbFunction "foo"
-@
+>>> :{
+factorial :: Expr Int64 -> Expr Data.Scientific.Scientific
+factorial = function "factorial"
+:}
 
+>>> select c $ pure $ factorial 5
+[120.0]
+
+The same approach works for any number of arguments:
+
+>>> :{
+power :: Expr Float -> Expr Float -> Expr Float
+power = function "power"
+:}
+
+>>> select c $ pure $ power 9 3
+[729.0]
 -}
 function :: Function args result => String -> args -> result
 function = applyArgument . Opaleye.FunExpr
@@ -863,13 +1011,16 @@ function = applyArgument . Opaleye.FunExpr
 
 {-| Construct a function call for functions with no arguments.
 
-As an example, we can call the database function @now()@ by using
+For example, we can call the database function @pi()@ by using
 @nullaryFunction@:
 
-@
-now :: Expr m UTCTime
-now = nullaryFunction "now"
-@
+>>> :{
+sqlPi :: Expr Float
+sqlPi = nullaryFunction "pi"
+:}
+
+>>> select c $ pure $ sqlPi
+[3.1415927]
 
 -}
 nullaryFunction :: String -> Expr a
@@ -1039,21 +1190,19 @@ the schema of the columns within this table.
 
 For each selectable table in your database, you should provide a @TableSchema@
 in order to interact with the table via Rel8. For a table storing a list of
-Haskell packages (as defined in the example for 'Rel8.Column.Column'), we would
-write:
+projects (as defined in the introduction):
 
-@
-haskellPackage :: TableSchema ( HaskellPackage 'Rel8.ColumnSchema.ColumnSchema' )
-haskellPackage =
-  TableSchema
-    { tableName = "haskell_package"
-    , tableSchema = Nothing -- Assumes that haskell_package is reachable from your connections search_path
-    , tableColumns =
-        HaskellPackage { packageName = "name"
-                       , packageAuthor = "author"
-                       }
-    }
-@
+>>> :{
+projectSchema :: TableSchema (Project ColumnSchema)
+projectSchema = TableSchema
+  { tableName = "project"
+  , tableSchema = Nothing -- Assumes that the 'project' table is reachable from your connection's search_path
+  , tableColumns = Project 
+      { projectAuthorId = "author_id"
+      , projectName = "name"
+      }
+  }
+:}
 -}
 data TableSchema (schema :: Type) = TableSchema
   { tableName :: String
@@ -1075,24 +1224,24 @@ data and rows decoded to Haskell.
 To understand why this type family is special, let's consider a simple
 higher-kinded data type of Haskell packages:
 
-@
-data HaskellPackage f = HaskellPackage
-  { packageName   :: Column f String
-  , packageAuthor :: Column f String
+>>> :{
+data Package f = Package
+  { packageName   :: Column f Text
+  , packageAuthor :: Column f Text
   }
-@
+:}
 
-In queries, @f@ will be some type of 'Expr', and @Column Expr a@
-reduces to just @Expr a@:
+In queries, @f@ will be some type of 'Expr', and @Column Expr a@ reduces to
+just @Expr a@:
 
->>> :t packageName (package :: Package Expr)
-Expr String
+>>> :t packageName (undefined :: Package Expr)
+packageName (undefined :: Package Expr) :: Expr Text
 
-When we 'select' queries of this type, @f@ will be instantiated as
-@Identity@, at which point all wrapping entire disappears:
+When we 'select' queries of this type, @f@ will be instantiated as @Identity@,
+at which point all wrapping entire disappears:
 
->>> :t packageName (package :: Package Identity)
-String
+>>> :t packageName (undefined :: Package Identity)
+packageName (undefined :: Package Identity) :: Text
 
 In @rel8@ we try hard to always know what @f@ is, which means holes should
 mention precise types, rather than the @Column@ type family. You should only
@@ -1392,6 +1541,12 @@ instance (Table f a, Table f b) => Table f (a, b) where
   fromColumns (HPair x y) = (fromColumns x, fromColumns y)
 
 
+instance (Table f a, Table f b, Table f c) => Table f (a, b, c) where
+  type Columns (a, b, c) = HPair (Columns a) (HPair (Columns b) (Columns c))
+  toColumns (a, b, c) = HPair (toColumns a) $ HPair (toColumns b) (toColumns c)
+  fromColumns (HPair x (HPair y z)) = (fromColumns x, fromColumns y, fromColumns z)
+
+
 {-| A single-column higher-kinded table. This is primarily useful for
 facilitating generic-deriving of higher kinded tables.
 -}
@@ -1447,6 +1602,7 @@ instance (ExprFor a b, Table Expr a)                                            
 instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)                 => ExprFor a                [b]
 instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)         => ExprFor a                (NonEmpty b)
 instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                             => ExprFor a                (b1, b2)
+instance (a ~ (a1, a2, a3), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3)          => ExprFor a                (b1, b2, b3)
 instance (HigherKindedTable t, a ~ t (Context Expr), identity ~ Context Identity) => ExprFor a                (t identity)
 instance (GHigherKindedTable t, a ~ t Expr, identity ~ Identity)                  => ExprFor a                (t identity)
 
@@ -1481,9 +1637,12 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
   rowParser inject = liftA2 (,) <$> rowParser @a1 inject <*> rowParser @a2 inject
-
   lit (a, b) = (lit a, lit b)
 
+
+instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3) => Serializable (a1, a2, a3) (b1, b2, b3) where
+  rowParser inject = liftA3 (,,) <$> rowParser @a1 inject <*> rowParser @a2 inject <*> rowParser @a3 inject
+  lit (a, b, c) = (lit a, lit b, lit c)
 
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   rowParser inject = do
@@ -2124,6 +2283,9 @@ optional = mapOpaleye $ Opaleye.laterally (Opaleye.QueryArr . go)
 
 -- | Combine the results of two queries of the same type, collapsing
 -- duplicates.  @union a b@ is the same as the SQL statement @x UNION b@.
+--
+-- >>> select c $ values [lit True, lit True, lit False] `union` values [lit True]
+-- [False,True]
 union :: Table Expr a => Query a -> Query a -> Query a
 union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2340,35 +2502,19 @@ instance DBEq a => EqTable (Expr a) where
 enable the @OverloadedStrings@ language extension and write literal Haskell
 strings:
 
-@
-\{\-\# LANGUAGE OverloadedStrings -\}
-tableSchema :: TableSchema (HaskellPackage ColumnSchema)
-tableSchema =
-  TableSchema
-    { ...
-    , tableColumns =
-        HaskallPackage
-          { packageName = "name" -- Here "name" :: ColumnSchema due to OverloadedStrings
-          }
-    }
-@
+>>> :{
+-- You would usually just inline this in your TableSchema definition.
+authorColumns :: Author ColumnSchema
+authorColumns = Author
+  { authorName = "name" 
+  , authorId = "author_id" 
+  , authorUrl = "url" 
+  }
+:}
 
-If you want to programatically create @ColumnSchema@'s, you can use
-'Data.String.fromString':
+If you want to programatically create @ColumnSchema@'s, you can use 'Data.String.fromString':
 
-@
-commonPrefix :: String
-commonPrefix = "prefix_"
-
-tableSchema :: TableSchema (HaskellPackage ColumnSchema)
-tableSchema =
-  TableSchema
-    { ...
-    , tableColumns =
-        HaskallPackage
-          { packageName = fromString ( prefix ++ "name" )
-          }
-    }
+>>> fromString ("hello" ++ "_" ++ "world") :: ColumnSchema Bool
 @
 
 -}
