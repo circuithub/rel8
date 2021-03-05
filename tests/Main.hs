@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DisambiguateRecordFields #-}
@@ -87,6 +88,7 @@ tests =
     , testDelete getTestDatabase
     , testSelectNestedPairs getTestDatabase
     , testSelectArray getTestDatabase
+    , testNestedMaybeTable getTestDatabase
     ]
 
   where
@@ -125,7 +127,7 @@ data TestTable f = TestTable
   , testTableColumn2 :: Rel8.Column f Bool
   }
   deriving stock Generic
-  deriving anyclass Rel8.HigherKindedTable
+  deriving anyclass Rel8.GHigherKindedTable
 
 
 deriving stock instance Eq (TestTable Identity)
@@ -133,7 +135,7 @@ deriving stock instance Ord (TestTable Identity)
 deriving stock instance Show (TestTable Identity)
 
 
-testTableSchema :: Rel8.TableSchema ( TestTable Rel8.ColumnSchema )
+testTableSchema :: Rel8.TableSchema (TestTable Rel8.ColumnSchema)
 testTableSchema =
   Rel8.TableSchema
     { tableName = "test_table"
@@ -377,7 +379,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.ExprFor (Rel8.Expr a) a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.DBType a, Rel8.ExprFor (Rel8.Expr a) a, Show a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
@@ -394,7 +396,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     maybeEq _ Nothing Just{} = False
     maybeEq f (Just x) (Just y) = f x y
 
-    t :: forall a b. (Show a, Rel8.ExprFor (Rel8.Expr a) a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b. (Rel8.DBType a, Show a, Rel8.ExprFor (Rel8.Expr a) a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -524,7 +526,7 @@ data TwoTestTables f =
     , testTable2 :: TestTable f
     }
   deriving stock Generic 
-  deriving anyclass Rel8.HigherKindedTable
+  deriving anyclass Rel8.GHigherKindedTable
 
 
 deriving stock instance Eq (TwoTestTables Identity)
@@ -654,7 +656,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
-  deriving anyclass Rel8.HigherKindedTable
+  deriving anyclass Rel8.GHigherKindedTable
 
 deriving stock instance Eq (HKNestedPair Identity)
 deriving stock instance Ord (HKNestedPair Identity)
@@ -681,3 +683,29 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
       Rel8.listAgg <$> Rel8.values (map Rel8.lit rows)
 
     selected === [foldMap pure rows]
+
+
+data NestedMaybeTable f = NestedMaybeTable
+  { nmt1 :: Rel8.Column f Bool
+  , nmt2 :: Rel8.HMaybe f (TestTable f)
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.GHigherKindedTable
+
+
+deriving stock instance Eq (NestedMaybeTable Identity)
+deriving stock instance Ord (NestedMaybeTable Identity)
+deriving stock instance Show (NestedMaybeTable Identity)
+
+
+testNestedMaybeTable :: IO TmpPostgres.DB -> TestTree
+testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other tables" \transaction -> do
+  let example = NestedMaybeTable { nmt1 = True, nmt2 = Just (TestTable "Hi" True) }
+
+  transaction \connection -> do
+    selected <- Rel8.select connection do
+      x <- Rel8.values [Rel8.lit example]
+      pure $ Rel8.maybeTable (Rel8.lit False) (\_ -> Rel8.lit True) (nmt2 x)
+
+    selected === [True]
+
