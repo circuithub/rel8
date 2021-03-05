@@ -2123,9 +2123,7 @@ optional = mapOpaleye $ Opaleye.laterally (Opaleye.QueryArr . go)
 
 
 -- | Combine the results of two queries of the same type, collapsing
--- duplicates.
---
--- @union a b@ is the same as the SQL statement @x UNION b@.
+-- duplicates.  @union a b@ is the same as the SQL statement @x UNION b@.
 union :: Table Expr a => Query a -> Query a -> Query a
 union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2136,8 +2134,10 @@ union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpal
 
 
 -- | Combine the results of two queries of the same type, retaining duplicates.
---
 -- @unionAll a b@ is the same as the SQL statement @x UNION ALL b@.
+--
+-- >>> select c $ values [lit True, lit True, lit False] `unionAll` values [lit True]
+-- [True,True,False,True]
 unionAll :: Table Expr a => Query a -> Query a -> Query a
 unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2147,9 +2147,11 @@ unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
--- | Find the intersection of two queries, collapsing duplicates.
+-- | Find the intersection of two queries, collapsing duplicates.  @intersect a
+-- b@ is the same as the SQL statement @x INTERSECT b@.
 --
--- @intersect a b@ is the same as the SQL statement @x INTERSECT b@.
+-- >>> select c $ values [lit True, lit True, lit False] `intersect` values [lit True]
+-- [True]
 intersect :: Table Expr a => Query a -> Query a -> Query a
 intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2159,9 +2161,11 @@ intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l)
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
--- | Find the intersection of two queries, retaining duplicates.
+-- | Find the intersection of two queries, retaining duplicates.  @intersectAll
+-- a b@ is the same as the SQL statement @x INTERSECT ALL b@.
 --
--- @intersectAll a b@ is the same as the SQL statement @x INTERSECT ALL b@.
+-- >>> select c $ values [lit True, lit True, lit False] `intersectAll` values [lit True, lit True]
+-- [True,True]
 intersectAll :: Table Expr a => Query a -> Query a -> Query a
 intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2171,9 +2175,11 @@ intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpal
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
--- | Find the difference of two queries, collapsing duplicates
+-- | Find the difference of two queries, collapsing duplicates @except a b@ is
+-- the same as the SQL statement @x INTERSECT b@.
 --
--- @except a b@ is the same as the SQL statement @x INTERSECT b@.
+-- >>> select c $ values [lit True, lit False, lit False] `except` values [lit True]
+-- [False]
 except :: Table Expr a => Query a -> Query a -> Query a
 except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2183,9 +2189,11 @@ except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOp
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
--- | Find the difference of two queries, retaining duplicates.
+-- | Find the difference of two queries, retaining duplicates.  @exceptAll a b@
+-- is the same as the SQL statement @x EXCEPT ALL b@.
 --
--- @exceptAll a b@ is the same as the SQL statement @x EXCEPT ALL b@.
+-- >>> select c $ values [lit True, lit False, lit False] `exceptAll` values [lit True]
+-- [False,False]
 exceptAll :: Table Expr a => Query a -> Query a -> Query a
 exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
   where
@@ -2195,9 +2203,11 @@ exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l)
         zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
--- | Select all distinct rows from a query, removing duplicates.
+-- | Select all distinct rows from a query, removing duplicates.  @distinct q@
+-- is equivalent to the SQL statement @SELECT DISTINCT q@.
 --
--- @distinct q@ is equivalent to the SQL statement @SELECT DISTINCT q@
+-- >>> select c $ distinct $ values [ lit True, lit True, lit False ]
+-- [False,True]
 distinct :: Table Expr a => Query a -> Query a
 distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
   where
@@ -2285,13 +2295,9 @@ catMaybeTable MaybeTable{ nullTag, table } = do
 --
 -- Typically @values@ will be used with 'lit':
 --
--- @
--- example :: Query Bool
--- example = values [ lit True, lit False ]
--- @
---
--- When selected, 'example' will produce a query that returns two rows - one
--- for @True@ and one for @False@.
+-- >>> mapM_ Data.Text.IO.putStrLn =<< select c (values [ lit "Hello", lit "World!" ])
+-- Hello
+-- World!
 values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
   where
@@ -2316,13 +2322,8 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
 -- 'Control.Monad.guard', but as the predicate is separate from the argument,
 -- it is easy to use in a pipeline of 'Query' transformations.
 --
--- @
--- data User f = User { ... , userIsDeleted :: Column f Bool }
--- userSchema :: TableSchema (User ColumnSchema)
---
--- notDeletedUsers :: User Expr -> Query (User Expr)
--- notDeletedUsers = filter (not_ . userIsDeleted) =<< each userSchema
--- @
+-- >>> select c $ values [ lit x | x <- [ 1..5 :: Int32 ] ] >>= filter (>. 3)
+-- [4,5]
 filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = do
   where_ $ f a
