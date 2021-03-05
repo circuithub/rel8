@@ -2091,9 +2091,10 @@ exists = fmap (maybeTable (lit False) (const (lit True))) .
   optional . mapOpaleye Opaleye.restrictExists
 
 
--- | Select each row from a table definition.
+-- | Select each row from a table definition. This is equivalent to @FROM table@.
 --
--- This is equivalent to @FROM table@.
+-- >>> select c (each projectSchema)
+-- [Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"}]
 each :: Selects schema row => TableSchema schema -> Query row
 each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
   where
@@ -2206,23 +2207,33 @@ distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
         traverseTable (traverseC \x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
 
 
--- | @limit n@ select at most @n@ rows from a query.
+-- | @limit n@ select at most @n@ rows from a query.  @limit n@ is equivalent to the SQL @LIMIT n@.
 --
--- @limit n@ is equivalent to the SQL @LIMIT n@.
+-- >>> select c $ limit 3 $ values [ lit x | x <- [ 1..5 :: Int32 ] ]
+-- [1,2,3]
 limit :: Natural -> Query a -> Query a
 limit n = mapOpaleye $ Opaleye.limit (fromIntegral n)
 
 
--- | @offset n@ drops the first @n@ rows from a query.
+-- | @offset n@ drops the first @n@ rows from a query. @offset n@ is equivalent
+-- to the SQL @OFFSET n@.
 --
--- @offset n@ is equivalent to the SQL @OFFSET n@.
+-- >>> select c $ offset 3 $ values [ lit x | x <- [ 1..5 :: Int32 ] ]
+-- [4,5]
 offset :: Natural -> Query a -> Query a
 offset n = mapOpaleye $ Opaleye.offset (fromIntegral n)
 
 
--- | Drop any rows that don't match a predicate.
+-- | Drop any rows that don't match a predicate.  @where_ expr@ is equivalent
+-- to the SQL @WHERE expr@.
 --
--- @where_ expr@ is equivalent to the SQL @WHERE expr@.
+-- >>> :{
+-- select c $ do
+--   x <- values [ lit x | x <- [ 1..5 :: Int32 ] ]
+--   where_ $ x >. lit 2
+--   return x
+-- :}
+-- [3,4,5]
 where_ :: Expr Bool -> Query ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \((), left, t) ->
@@ -2233,6 +2244,35 @@ where_ x =
 --
 -- This operation can be used to "undo" the effect of 'optional', which
 -- operationally is like turning a @LEFT JOIN@ back into a full @JOIN@.
+-- You can think of this as analogous to 'Data.Maybe.catMaybes'.
+--
+-- To see this in action, first consider the following 'optional' query:
+--
+-- >>> :{
+-- select c $ do
+--   author <- each authorSchema
+--   maybeRel8 <- optional $ 
+--     each projectSchema 
+--       >>= filter (\p -> projectAuthorId p ==. authorId author)
+--       >>= filter (\p -> projectName p ==. "rel8")
+--   return (authorName author, projectName <$> maybeRel8)
+-- :}
+-- [("Ollie",Just "rel8"),("Bryan O'Sullivan",Nothing)]
+--
+-- Here @optional@ is acting as a @LEFT JOIN@. We can turn this into a proper
+-- join by using @catMaybeTable@ to filter out rows where the join failed:
+--
+-- >>> :{
+-- select c $ do
+--   author <- each authorSchema
+--   maybeRel8 <- optional $ 
+--     each projectSchema 
+--       >>= filter (\p -> projectAuthorId p ==. authorId author)
+--       >>= filter (\p -> projectName p ==. "rel8")
+--   rel8 <- catMaybeTable maybeRel8
+--   return (authorName author, projectName rel8)
+-- :}
+-- [("Ollie","rel8")]
 catMaybeTable :: MaybeTable a -> Query a
 catMaybeTable MaybeTable{ nullTag, table } = do
   where_ $ not_ $ isNull nullTag
