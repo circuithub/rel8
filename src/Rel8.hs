@@ -28,8 +28,22 @@
 {-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
 
+{-# options -Wno-deprecations #-}
+
 module Rel8
-  ( -- * Database types
+  ( -- * Getting Started
+    -- $setup
+
+    -- ** Writing Queries
+    -- $guideQueries
+
+    -- ** Joins
+    -- $guideQueries
+
+    -- ** Inserting Data
+    -- $guideInsert
+
+    -- * Database types
     DBType(..)
 
     -- ** Deriving-via helpers
@@ -198,6 +212,7 @@ import Text.Read ( readEither )
 
 -- bytestring
 import qualified Data.ByteString
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy
 
 -- case-insensitive
@@ -291,6 +306,212 @@ import Data.Functor.Const (Const(Const), getConst)
 import Data.Bifunctor (first)
 import Data.Monoid (getAny, Any(Any))
 
+{- $setup
+In this section, we'll take a look at how Rel8 can be used to work with a
+simple schema for Haskell packages. We'll take a look at idiomatic usage of
+Rel8, defining custom tables and types, and writing some simple queries with
+this schema. 
+
+Before we look at any Haskell code, let's take a look at the schema we'll work
+with.
+
+> # \d author
+>   Column   |  Type   | Nullable 
+> -----------+---------+----------
+>  author_id | integer | not null 
+>  name      | text    | not null
+>  url       | text    |        
+
+> # \d project
+>   Column   |  Type   | Nullable 
+> -----------+---------+----------
+>  author_id | integer | not null 
+>  name      | text    | not null
+
+Our schema consists of two tables - @author@ and @project@. An @author@ has
+zero+ projects, a name and (maybe) an associated website. Each project has an
+author and a name.
+
+Now that we've seen our schema, we can begin writing a mapping in Rel8. The
+idiomatic way to map a table is to use a record that is parameterised by a
+particular interpretation functor, and to define each field with 'Column'. For
+this type to be usable with Rel8 we need it to be an instance of
+'GHigherKindedTable', which can be derived with a combination of
+@DeriveAnyClass@ and @DeriveGeneric@.
+
+Following these steps, we have:
+
+> data Author f = Author
+>   { authorId :: Column f Int64
+>   , name     :: Column f Text
+>   , url      :: Column f (Maybe Text)
+>   } deriving (Generic, GHigherKindedTable)
+
+However, cautious readers might notice a problem with this - in particular,
+with the type of the @authorId@ field. While @Int64@ is correct, it's not the
+best type. If we had other identifier types in our project, it would be too
+easy to accidentally mix them up and create nonsensical joins. Instead, it's a
+good idea to a create a @newtype@ for each identifier type, allowing them to be
+distinct. 
+
+Rel8 makes this easy - we can just use @GeneralizedNewtypeDeriving@:
+
+> newtype AuthorId = AuthorId { toInt64 :: Int64 } deriving (DBType)
+
+Now we can write our final schema mapping:
+
+>>> :set -XGeneralizedNewtypeDeriving -XDeriveAnyClass -XDerivingStrategies -XDeriveGeneric -XStandaloneDeriving -XTypeFamilies
+
+>>> :{
+newtype AuthorId = AuthorId { toInt64 :: Int64 } deriving newtype (DBEq, DBType, Eq, Show)
+:}
+
+>>> :{
+data Author f = Author
+  { authorId   :: Column f AuthorId
+  , authorName :: Column f Text
+  , authorUrl  :: Column f (Maybe Text)
+  } 
+  deriving stock Generic
+  deriving anyclass GHigherKindedTable
+:}
+
+>>> deriving stock instance f ~ Identity => Show (Author f)
+
+>>> :{
+data Project f = Project
+  { projectAuthorId :: Column f AuthorId
+  , projectName     :: Column f Text
+  } 
+  deriving stock Generic
+  deriving anyclass GHigherKindedTable
+:}
+
+>>> deriving stock instance f ~ Identity => Show (Project f)
+
+These data types describe the structural mapping of the tables, but we also
+need to specify a 'TableSchema'. A @TableSchema@ contains the name of the table
+and the name of all columns in the table, which will ultimately allow us to
+@SELECT@ and @INSERT@ rows for these tables.
+
+As an aside, you might be wondering why this information isn't in the
+definitions of @Author@ and @Project@ above. Rel8 decouples @TableSchema@ from
+the data types themselves, as not all tables you define will necessarily have a
+schema. For example, Rel8 allows you to define helper types to simplify the
+types of queries - these tables only exist at query time, but there is no
+corresponding base table. We'll see more on this idea later!
+
+To define a @TableSchema@, we just need to fill construct appropriate
+@TableSchema@ values. When it comes to the @tableColumns@ field, we just use
+our data types above, and set each field to the name of the column that it maps
+to:
+
+>>> :set -XOverloadedStrings
+
+>>> :{
+authorSchema :: TableSchema (Author ColumnSchema)
+authorSchema = TableSchema
+  { tableName = "author"
+  , tableSchema = Nothing
+  , tableColumns = Author
+      { authorId = "author_id"
+      , authorName = "name"
+      , authorUrl = "url"
+      }
+  }
+:}
+
+>>> :{
+projectSchema :: TableSchema (Project ColumnSchema)
+projectSchema = TableSchema
+  { tableName = "project"
+  , tableSchema = Nothing
+  , tableColumns = Project
+      { projectAuthorId = "author_id"
+      , projectName = "name"
+      }
+  }
+:}
+
+With these table definitions, we can now start writing some queries!
+
+>>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . C8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
+
+-}
+
+{- $guideQueries
+
+First, we'll take a look at @SELECT@ statements - usually the bulk of most
+database heavy applications.
+
+In Rel8, @SELECT@ statements are built using the 'Query' monad. You can think
+of this monad like the ordinary @[]@ (List) monad - but this isn't required
+knowledge. 
+
+To start, we'll look at one of the simplest queries possible - a basic @SELECT
+FROM@ statement. To select rows from a table, we use 'each', and supply a
+@TableSchema@. To select all projects, we can write:
+
+>>> :t each projectSchema
+each projectSchema :: Query (Project Expr)
+
+Notice that @each@ gives us a @Query@ that yields @Project Expr@ rows. To see
+what this means, let's have a look at a single field of a @Project Expr@:
+
+>>> let aProjectExpr = undefined :: Project Expr
+>>> :t projectAuthorId aProjectExpr
+projectAuthorId aProjectExpr :: Expr AuthorId
+
+We defined @projectAuthorId@ as @Column f AuthorId@, but here @f@ is @Expr@,
+and @Column Expr AuthorId@ reduces to @Expr AuthorId@. We'll see more about
+@Expr@ soon, but you can think of @Expr a@ as "SQL expressions of type @a@".
+
+To execute this @Query@, we pass it off to 'select':
+
+>>> :t select c (each projectSchema)
+select c (each projectSchema) :: MonadIO m => m [Project Identity]
+
+When we @select@ things containing @Expr@s, Rel8 builds a new response table
+with the @Identity@ interpretation. This means you'll get back plain Haskell
+values. Studying @projectAuthorId@ again, we have:
+
+>>> let aProjectIdentity = undefined :: Project Identity
+>>> :t projectAuthorId aProjectIdentity
+projectAuthorId aProjectIdentity :: AuthorId
+
+Here @Column Identity AuthorId@ reduces to just @AuthorId@, with no wrappping
+type at all.
+
+Putting this all together, we can run our first query:
+
+>>> select c (each projectSchema)
+[Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"}]
+
+Cool!
+
+-}
+
+{- $guideJoins
+
+A very common operation in relational databases is to take the @JOIN@ of
+multiple tables. Rel8 doesn't have a specific join operation, but we can
+recover the functionality of a join by selecting all rows of two tables, and
+then using 'where_' to filter them:
+
+>>> :{
+projectsAndAuthors :: Query (Project Expr, Author Expr)
+projectsAndAuthors = do
+  project <- each projectSchema
+  author  <- each authorSchema
+  where_ $ projectAuthorId project ==. authorId author
+  return (project, author)
+:}
+
+>>> Data.Foldable.traverse_ print =<< select c projectsAndAuthors
+(Project {projectAuthorId = 1, projectName = "rel8"},Author {authorId = 1, authorName = "Ollie", authorUrl = Just "https://ocharles.org.uk"})
+(Project {projectAuthorId = 2, projectName = "aeson"},Author {authorId = 2, authorName = "Bryan O'Sullivan", authorUrl = Nothing})
+
+-}
 
 {-| Haskell types that can be represented as expressions in a database. There
 should be an instance of @DBType@ for all column types in your database schema
@@ -2498,8 +2719,8 @@ instance (Columns a ~ Columns b) => Congruent a b
 
 -- | We say that @Table a@ "selects" @Table b@ if @a@ and @b@ are 'Congruent',
 -- @a@ contains 'ColumnSchema's and @b@ contains 'Expr's.
-class (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
-instance (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs
+class (Congruent schema exprs, Table Expr exprs, Table ColumnSchema schema) => Selects schema exprs | schema -> exprs
+instance (GHigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) => Selects (s columnSchema) (t expr)
 
 
 -- Compose things

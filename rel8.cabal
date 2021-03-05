@@ -6,7 +6,13 @@ license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
-build-type:          Simple
+build-type:          Custom
+
+custom-setup
+ setup-depends:
+   base >= 4 && <5,
+   Cabal,
+   cabal-doctest >= 1 && <1.1
 
 library
   build-depends:
@@ -62,5 +68,21 @@ test-suite tests
     Main.hs
   hs-source-dirs:
     tests
+  default-language:
+    Haskell2010
+
+
+test-suite doctests
+  type:
+    exitcode-stdio-1.0
+  build-depends:
+      base
+    , base-compat
+    , doctest
+    , tmp-postgres
+    , bytestring
+    , postgresql-simple
+  main-is:
+    Doctest.hs
   default-language:
     Haskell2010
