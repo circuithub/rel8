@@ -54,7 +54,6 @@ module Rel8
 
     -- ** Table schemas
   , Column
-  , OuterJoin
   , TableSchema(..)
   , ColumnSchema
 
@@ -119,8 +118,7 @@ module Rel8
   , exceptAll
 
     -- ** Optional 'Query's
-  , optional
-  , MaybeTable
+  , MaybeTable, HMaybe, optional
   , maybeTable
   , noTable
   , catMaybeTable
@@ -135,8 +133,8 @@ module Rel8
   , DBMax (max)
 
     -- *** List aggregation
-  , ListTable, many
-  , NonEmptyTable, some
+  , ListTable, HList, many
+  , NonEmptyTable, HNonEmpty, some
 
     -- ** Ordering
   , orderBy
@@ -881,12 +879,6 @@ type family Column (context :: (Type -> Type)) (a :: Type) :: Type where
   Column f a        = f a
 
 
-type family OuterJoin (context :: Type -> Type) (t :: (Type -> Type) -> Type) :: Type where
-  OuterJoin Identity t = Maybe (t Identity)
-  OuterJoin Expr t     = MaybeTable (t Expr)
-  OuterJoin f t        = HMaybeTable (GRep t) (Context f)
-
-
 -- | The @C@ newtype simply wraps 'Column', but this allows us to work around
 -- injectivity problems of functions that return type family applications.
 newtype C f x = MkC { toColumn :: Column f x }
@@ -1014,6 +1006,7 @@ instance (GHigherKindedTableImpl context f, GHigherKindedTableImpl context g) =>
   type GColumns (f :*: g) = HPair (GColumns f) (GColumns g)
   ghigherKindedTo (x :*: y) = HPair (ghigherKindedTo @context @f x) (ghigherKindedTo @context @g y)
   ghigherKindedFrom (HPair x y) = ghigherKindedFrom @context @f x :*: ghigherKindedFrom @context @g y
+
 
 instance Table context a => GHigherKindedTableImpl context (K1 i a) where
   type GColumns (K1 i a) = Columns a
@@ -1224,14 +1217,14 @@ their to be multiple expression types. Usually this is not the case, but for
 @ExprFor a' a@), or just @Expr (Maybe a)@ (if @a@ is a single column).
 -}
 class Table Expr expr => ExprFor expr haskell
-instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                                => ExprFor a                b
-instance DBType a                                                                   => ExprFor (Expr (Maybe a)) (Maybe a)
-instance (ExprFor a b, Table Expr a)                                                => ExprFor (MaybeTable a)   (Maybe b)
-instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)                   => ExprFor a                [b]
-instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)           => ExprFor a                (NonEmpty b)
-instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                               => ExprFor a                (b1, b2)
-instance (HigherKindedTable t, a ~ t (Context Expr), identity ~ (Context Identity)) => ExprFor a                (t identity)
-instance (GHigherKindedTable t, a ~ t Expr, identity ~ Identity)                    => ExprFor a                (t identity)
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                              => ExprFor a                b
+instance DBType a                                                                 => ExprFor (Expr (Maybe a)) (Maybe a)
+instance (ExprFor a b, Table Expr a)                                              => ExprFor (MaybeTable a)   (Maybe b)
+instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)                 => ExprFor a                [b]
+instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)         => ExprFor a                (NonEmpty b)
+instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                             => ExprFor a                (b1, b2)
+instance (HigherKindedTable t, a ~ t (Context Expr), identity ~ Context Identity) => ExprFor a                (t identity)
+instance (GHigherKindedTable t, a ~ t Expr, identity ~ Identity)                  => ExprFor a                (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1339,6 +1332,12 @@ instance Table Expr a => Table Expr (MaybeTable a) where
 
   toColumns (MaybeTable x y) = HMaybeTable (HIdentity x) (toColumns y)
   fromColumns (HMaybeTable (HIdentity x) y) = MaybeTable x (fromColumns y)
+
+
+type family HMaybe (context :: Type -> Type) (a :: Type) :: Type where
+  HMaybe Identity a = Maybe a
+  HMaybe Expr a     = MaybeTable a
+  HMaybe f a        = HMaybeTable (Columns a) (Context f)
 
 
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
@@ -2341,6 +2340,12 @@ instance Table Expr a => Monoid (ListTable a) where
       MkC Dict -> MkC $ ComposeInner $ monolit []
 
 
+type family HList (context :: Type -> Type) (a :: Type) :: Type where
+  HList Identity a = [a]
+  HList Expr a     = ListTable a
+  HList f a        = HComposeTable [] (Columns a) (Context f)
+
+
 -- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
 -- rows, this function will produce a 'Query' that returns one row containing
 -- the empty @ListTable@. If the supplied @Query@ does return rows, @many@ will
@@ -2393,6 +2398,12 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
 instance Table Expr a => Semigroup (NonEmptyTable a) where
   NonEmptyTable a <> NonEmptyTable b =
     NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
+
+
+type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
+  HNonEmpty Identity a = NonEmpty a
+  HNonEmpty Expr a     = NonEmptyTable a
+  HNonEmpty f a        = HComposeTable NonEmpty (Columns a) (Context f)
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -2539,10 +2550,3 @@ instance (HigherKindedTable t, forall a. DBType a => DBType (f a)) => HigherKind
 
   hdbtype :: HComposeTable f t (Context (Dict DBType))
   hdbtype = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) hdbtype
-
-
-data Tab f = Tab
-  { foo :: Column f Bool
-  , bar :: Column f Int64
-  }
-  deriving (Generic, GHigherKindedTable)

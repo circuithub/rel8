@@ -687,7 +687,7 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
 
 data NestedMaybeTable f = NestedMaybeTable
   { nmt1 :: Rel8.Column f Bool
-  , nmt2 :: Rel8.OuterJoin f TestTable
+  , nmt2 :: Rel8.HMaybe f (TestTable f)
   }
   deriving stock Generic
   deriving anyclass Rel8.GHigherKindedTable
