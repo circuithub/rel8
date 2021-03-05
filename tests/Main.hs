@@ -44,7 +44,6 @@ import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
 import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
-import Rel8 ( At(..) )
 import qualified Hedgehog.Range as Range
 import qualified Rel8
 import Test.Tasty
@@ -131,12 +130,12 @@ data TestTable f = TestTable
   deriving anyclass Rel8.GHigherKindedTable
 
 
-deriving stock instance Eq (TestTable ('At Identity))
-deriving stock instance Ord (TestTable ('At Identity))
-deriving stock instance Show (TestTable ('At Identity))
+deriving stock instance Eq (TestTable Identity)
+deriving stock instance Ord (TestTable Identity)
+deriving stock instance Show (TestTable Identity)
 
 
-testTableSchema :: Rel8.TableSchema ( TestTable ('At Rel8.ColumnSchema) )
+testTableSchema :: Rel8.TableSchema (TestTable Rel8.ColumnSchema)
 testTableSchema =
   Rel8.TableSchema
     { tableName = "test_table"
@@ -530,9 +529,9 @@ data TwoTestTables f =
   deriving anyclass Rel8.GHigherKindedTable
 
 
-deriving stock instance Eq (TwoTestTables ('At Identity))
-deriving stock instance Ord (TwoTestTables ('At Identity))
-deriving stock instance Show (TwoTestTables ('At Identity))
+deriving stock instance Eq (TwoTestTables Identity)
+deriving stock instance Ord (TwoTestTables Identity)
+deriving stock instance Show (TwoTestTables Identity)
 
 
 testNestedTables :: IO TmpPostgres.DB -> TestTree
@@ -565,7 +564,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
       (as, []) -> selected === (Nothing <$ as)
       (as, bs) -> sort selected === sort (Just <$> liftA2 (,) as bs)
   where
-    genRows :: PropertyT IO [TestTable ('At Identity)]
+    genRows :: PropertyT IO [TestTable Identity]
     genRows = forAll do
       Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
 
@@ -577,7 +576,7 @@ rollingBack connection m =
     m `finally` liftIO (rollback connection)
 
 
-genTestTable :: Gen (TestTable ('At Identity))
+genTestTable :: Gen (TestTable Identity)
 genTestTable = do
   testTableColumn1 <- Gen.text (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
@@ -659,9 +658,9 @@ newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
   deriving anyclass Rel8.GHigherKindedTable
 
-deriving stock instance Eq (HKNestedPair ('At Identity))
-deriving stock instance Ord (HKNestedPair ('At Identity))
-deriving stock instance Show (HKNestedPair ('At Identity))
+deriving stock instance Eq (HKNestedPair Identity)
+deriving stock instance Ord (HKNestedPair Identity)
+deriving stock instance Show (HKNestedPair Identity)
 
 
 testSelectNestedPairs :: IO TmpPostgres.DB -> TestTree
@@ -694,9 +693,9 @@ data NestedMaybeTable f = NestedMaybeTable
   deriving anyclass Rel8.GHigherKindedTable
 
 
-deriving stock instance Eq (NestedMaybeTable ('At Identity))
-deriving stock instance Ord (NestedMaybeTable ('At Identity))
-deriving stock instance Show (NestedMaybeTable ('At Identity))
+deriving stock instance Eq (NestedMaybeTable Identity)
+deriving stock instance Ord (NestedMaybeTable Identity)
+deriving stock instance Show (NestedMaybeTable Identity)
 
 
 testNestedMaybeTable :: IO TmpPostgres.DB -> TestTree
