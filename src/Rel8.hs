@@ -2804,19 +2804,27 @@ some = aggregate . fmap nonEmptyAgg
 {-| An ordering expression for @a@. Primitive orderings are defined with 'asc'
 and 'desc', and you can combine @Order@ via its various instances.
 
-A common pattern is to use '<>' to combine multiple orderings in sequence, and '>$<' (from 'Contravariant') to select individual columns. For example, to sort a @Query@ on two columns, we could do:
+A common pattern is to use '<>' to combine multiple orderings in sequence, and
+'>$<' (from 'Contravariant') to select individual columns. For example, to sort
+a @Query@ on two columns, we could do:
 
-@
-orderExample :: Query (Expr Int, Expr Bool) -> Query (Expr Int, Expr Bool)
-orderExample = orderBy (fst >$< asc <> snd >$< desc)
-@
+>>> import Data.Functor.Contravariant ((>$<))
+>>> :{
+select c $ orderBy (mconcat [fst >$< asc, snd >$< desc]) $ do
+  x <- values [ lit x | x <- [1..3 :: Int32 ] ]
+  y <- values [ lit x | x <- [1..3 :: Int32 ] ]
+  return (x, y)
+:}
+[(1,3),(1,2),(1,1),(2,3),(2,2),(2,1),(3,3),(3,2),(3,1)]
 -}
 newtype Order a = Order (Opaleye.Order a)
   deriving newtype (Contravariant, Divisible, Decidable, Semigroup, Monoid)
 
 
-{-| Sort a column in ascending order.
--}
+-- | Sort a column in ascending order.
+--
+-- >>> select c $ orderBy asc $ values [ lit x | x <- [1..5 :: Int32] ]
+-- [1,2,3,4,5]
 asc :: DBType a => Order (Expr a)
 asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
@@ -2830,8 +2838,10 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
       }
 
 
-{-| Sort a column in descending order.
--}
+-- | Sort a column in descending order.
+--
+-- >>> select c $ orderBy desc $ values [ lit x | x <- [1..5 :: Int32] ]
+-- [5,4,3,2,1]
 desc :: DBType a => Order (Expr a)
 desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
@@ -2845,8 +2855,11 @@ desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
       }
 
 
-{-| Transform an ordering so that @null@ values appear first.
--}
+-- | Transform an ordering so that @null@ values appear first. This corresponds
+-- to @NULLS FIRST@ in SQL.
+--
+-- >>> select c $ orderBy (nullsFirst desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
+-- [Nothing,Nothing,Just 5,Just 4,Just 3,Just 2,Just 1]
 nullsFirst :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
 nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
   where
@@ -2854,8 +2867,11 @@ nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . 
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsFirst }
 
 
-{-| Transform an ordering so that @null@ values appear first.
--}
+-- | Transform an ordering so that @null@ values appear first. This corresponds
+-- to @NULLS LAST@ in SQL.
+--
+-- >>> select c $ orderBy (nullsLast desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
+-- [Just 5,Just 4,Just 3,Just 2,Just 1,Nothing,Nothing]
 nullsLast :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
 nullsLast (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
   where
@@ -2863,8 +2879,9 @@ nullsLast (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsLast }
 
 
-{-| Order the rows returned by a 'Query' according to a particular 'Order'.
--}
+-- | Order the rows returned by a 'Query' according to a particular 'Order'.
+--
+-- For an example of using this, see the documentation for 'Order'.
 orderBy :: Order a -> Query a -> Query a
 orderBy (Order o) = liftOpaleye . Opaleye.laterally (Opaleye.orderBy o) . toOpaleye
 
