@@ -1998,6 +1998,21 @@ unpackspec =
 
 
 -- | Run an @INSERT@ statement
+--
+-- >>> :set -XDuplicateRecordFields
+-- >>> Database.PostgreSQL.Simple.Transaction.begin c
+--
+-- >>> :{
+-- insert c Insert
+--   { into = authorSchema
+--   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 3, authorUrl = "https://haskellforall.com" } ]
+--   , onConflict = Abort
+--   , returning = NumberOfRowsAffected
+--   }
+-- :}
+-- 1
+--
+-- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 insert :: MonadIO m => Connection -> Insert result -> m result
 insert connection Insert{ into, rows, onConflict, returning } =
   liftIO
@@ -2066,7 +2081,7 @@ writer into_ =
 opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
 opaleyeReturning returning =
   case returning of
-    NumberOfRowsInserted ->
+    NumberOfRowsAffected ->
       Opaleye.Count
 
     Projection f ->
@@ -2101,7 +2116,7 @@ data Insert :: Type -> Type where
 -- statement completes.
 data Returning schema a where
   -- | Just return the number of rows inserted.
-  NumberOfRowsInserted :: Returning schema Int64
+  NumberOfRowsAffected :: Returning schema Int64
 
   -- | Return a projection of the rows inserted. This can be useful if your
   -- insert statement increments sequences by using default values.
@@ -2129,6 +2144,27 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 
 
 -- | Run a @DELETE@ statement.
+--
+-- >>> :set -XDuplicateRecordFields
+-- >>> Database.PostgreSQL.Simple.Transaction.begin c
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+--
+-- >>> :{
+-- delete c Delete
+--   { from = projectSchema
+--   , deleteWhere = \p -> projectName p ==. lit "rel8"
+--   , returning = Projection projectName
+--   }
+-- :}
+-- ["rel8"]
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+--
+-- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from = deleteFrom, deleteWhere, returning } =
   liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
@@ -2169,6 +2205,29 @@ data Delete from return where
 
 
 -- | Run an @UPDATE@ statement.
+--
+-- >>> :set -XDuplicateRecordFields
+-- >>> Database.PostgreSQL.Simple.Transaction.begin c
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+--
+-- >>> :{
+-- update c Update
+--   { target = projectSchema
+--   , set = \p -> p { projectName = "Rel8!" }
+--   , updateWhere = \p -> projectName p ==. lit "rel8"
+--   , returning = NumberOfRowsAffected
+--   }
+-- :}
+-- 1
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 1, projectName = "Rel8!"}
+--
+-- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 update :: MonadIO m => Connection -> Update target returning -> m returning
 update connection Update{ target, set, updateWhere, returning } =
   liftIO $ Opaleye.runUpdate_ connection (go target set updateWhere returning)
