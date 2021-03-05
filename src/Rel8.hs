@@ -202,7 +202,7 @@ import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Foldable ( fold, foldl', toList )
 import Data.Functor.Compose ( Compose(..) )
-import Data.Functor.Identity ( Identity( runIdentity ) )
+import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 import Data.Int ( Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
@@ -1097,9 +1097,9 @@ class HigherKindedTable (t :: KContext -> Type) where
   type HField t = (field :: Type -> Type) | field -> t
   type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
-  hfield :: t (Context f) -> HField t x -> C f x
-  htabulate :: forall f. (forall x. HField t x -> C f x) -> t (Context f)
-  htraverse :: forall f g m. Applicative m => (forall x. C f x -> m (C g x)) -> t (Context f) -> m (t (Context g))
+  hfield :: t (Context f) -> HField t x -> f x
+  htabulate :: forall f. (forall x. HField t x -> f x) -> t (Context f)
+  htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> t (Context f) -> m (t (Context g))
   hdicts :: forall c. HConstrainTable t c => t (Context (Dict c))
   hdbtype :: t (Context (Dict DBType))
 
@@ -1115,7 +1115,7 @@ class HigherKindedTable (t :: KContext -> Type) where
        , HigherKindedTable (Columns (WithShape IsColumn (Rep (t (Context IsColumn))) (Rep (t (Context f)) ())))
        , Table f (WithShape f (Rep (t (Context IsColumn))) (Rep (t (Context f)) ()))
        )
-    => t (Context f) -> HField t x -> C f x
+    => t (Context f) -> HField t x -> f x
   hfield x (GenericHField i) =
     hfield (toColumns (WithShape @f @(Rep (t (Context IsColumn))) (GHC.Generics.from @_ @() x))) i
 
@@ -1128,7 +1128,7 @@ class HigherKindedTable (t :: KContext -> Type) where
        , HigherKindedTable (Columns (WithShape IsColumn (Rep (t (Context IsColumn))) (Rep (t (Context f)) ())))
        , Table f (WithShape f (Rep (t (Context IsColumn))) (Rep (t (Context f)) ()))
        )
-    => (forall a. HField t a -> C f a) -> t (Context f)
+    => (forall a. HField t a -> f a) -> t (Context f)
   htabulate f =
     to @_ @() $ forgetShape @f @(Rep (t (Context IsColumn))) $ fromColumns $ htabulate (f . GenericHField)
 
@@ -1143,7 +1143,7 @@ class HigherKindedTable (t :: KContext -> Type) where
        , Table g (WithShape g (Rep (t (Context IsColumn))) (Rep (t (Context g)) ()))
        , Congruent (WithShape g (Rep (t (Context IsColumn))) (Rep (t (Context g)) ())) (WithShape IsColumn (Rep (t (Context IsColumn))) (Rep (t (Context f)) ()))
        )
-    => (forall a. C f a -> m (C g a)) -> t (Context f) -> m (t (Context g))
+    => (forall a. f a -> m (g a)) -> t (Context f) -> m (t (Context g))
   htraverse f x =
     fmap (to @_ @() . forgetShape @g @(Rep (t (Context IsColumn))) . fromColumns)
       $ htraverse f
@@ -1176,11 +1176,11 @@ class HigherKindedTable (t :: KContext -> Type) where
           hdbtype @(Columns (WithShape (Dict DBType) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict DBType))) ())))
 
 
-hmap :: HigherKindedTable t => (forall x. C f x -> C g x) -> t (Context f) -> t (Context g)
+hmap :: HigherKindedTable t => (forall x. f x -> g x) -> t (Context f) -> t (Context g)
 hmap f t = htabulate $ f <$> hfield t
 
 
-hzipWith :: HigherKindedTable t => (forall x. C f x -> C g x -> C h x) -> t (Context f) -> t (Context g) -> t (Context h)
+hzipWith :: HigherKindedTable t => (forall x. f x -> g x -> h x) -> t (Context f) -> t (Context g) -> t (Context h)
 hzipWith f t u = htabulate $ f <$> hfield t <*> hfield u
 
 
@@ -1250,32 +1250,6 @@ need to be aware of the type family when defining your table types.
 type family Column (context :: (Type -> Type)) (a :: Type) :: Type where
   Column Identity a = a
   Column f a        = f a
-
-
--- | The @C@ newtype simply wraps 'Column', but this allows us to work around
--- injectivity problems of functions that return type family applications.
-newtype C f x = MkC { toColumn :: Column f x }
-
-
--- | Lift functions that map between 'Column's to functions that map between
--- 'C's.
-mapC :: (Column f x -> Column g y) -> C f x -> C g y
-mapC f (MkC x) = MkC $ f x
-
-
--- | Effectfully map from one column to another.
-traverseC :: Applicative m => (Column f x -> m (Column g y)) -> C f x -> m (C g y)
-traverseC f (MkC x) = MkC <$> f x
-
-
--- | Zip two columns together.
-zipCWith :: (Column f x -> Column g y -> Column h z) -> C f x -> C g y -> C h z
-zipCWith f (MkC x) (MkC y) = MkC (f x y)
-
-
--- | Zip two columns together under an effectful context.
-zipCWithM :: Applicative m => (Column f x -> Column g y -> m (Column h z)) -> C f x -> C g y -> m (C h z)
-zipCWithM f (MkC x) (MkC y) = MkC <$> f x y
 
 
 class HigherKindedTable (GRep t) => GHigherKindedTable (t :: (Type -> Type) -> Type) where
@@ -1491,7 +1465,7 @@ instance (Table f a, IsColumnApplication shape ~ 'False) => K1Helper 'False f sh
   fromColumnsHelper = fromColumns
 
 
-instance (DBType a, g ~ Column f a) => K1Helper 'True f (IsColumn a) g where
+instance (DBType a, g ~ f a) => K1Helper 'True f (IsColumn a) g where
   type K1Columns 'True (IsColumn a) g = HIdentity a
   toColumnsHelper = HIdentity
   fromColumnsHelper = unHIdentity
@@ -1551,7 +1525,7 @@ instance (Table f a, Table f b, Table f c) => Table f (a, b, c) where
 facilitating generic-deriving of higher kinded tables.
 -}
 data HIdentity a context where
-  HIdentity :: { unHIdentity :: Column f a } -> HIdentity a (Context f)
+  HIdentity :: { unHIdentity :: f a } -> HIdentity a (Context f)
 
 
 data HIdentityField x y where
@@ -1562,13 +1536,13 @@ instance DBType a => HigherKindedTable (HIdentity a) where
   type HConstrainTable (HIdentity a) c = (c a)
   type HField (HIdentity a) = HIdentityField a
 
-  hfield (HIdentity a) HIdentityField = MkC a
-  htabulate f = HIdentity $ toColumn $ f HIdentityField
+  hfield (HIdentity a) HIdentityField = a
+  htabulate f = HIdentity $ f HIdentityField
   hdicts = HIdentity Dict
   hdbtype = HIdentity Dict
 
-  htraverse :: forall f g m. Applicative m => (forall x. C f x -> m (C g x)) -> HIdentity a (Context f) -> m (HIdentity a (Context g))
-  htraverse f (HIdentity a) = HIdentity . toColumn @g <$> f (MkC a :: C f a)
+  htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> HIdentity a (Context f) -> m (HIdentity a (Context g))
+  htraverse f (HIdentity a) = HIdentity <$> f (a :: f a)
 
 
 {-| @Serializable@ witnesses the one-to-one correspondence between the type
@@ -1611,15 +1585,15 @@ instance (GHigherKindedTable t, a ~ t Expr, identity ~ Identity)                
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HigherKindedTable t) => Serializable (s expr) (t identity) where
   rowParser :: forall f. Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t identity))
-  rowParser inject = getCompose $ htraverse (traverseC getComposeOuter) $ hmap f hdbtype
+  rowParser inject = getCompose $ htraverse getCompose $ hmap f hdbtype
     where
-      f :: forall a. C (Dict DBType) a -> C (ComposeOuter (Compose RowParser f) Identity) a
-      f (MkC Dict) = MkC $ ComposeOuter $ Compose $ fieldWith $ inject $ decode $ typeInformation @a
+      f :: forall a. Dict DBType a -> Compose (Compose RowParser f) Identity a
+      f Dict = Compose $ Compose $ fmap (fmap Identity) $ fieldWith $ inject $ decode $ typeInformation @a
 
   lit t =
     fromColumns $ htabulate \i ->
       case (hfield (hdbtype @t) i, hfield t i) of
-        (MkC Dict, MkC x) -> MkC $ monolit x
+        (Dict, Identity x) -> monolit x
 
 
 instance (s ~ t, expr ~ Expr, identity ~ Identity, GHigherKindedTable t) => Serializable (s expr) (t identity) where
@@ -1735,10 +1709,10 @@ maybeTable def f MaybeTable{ nullTag, table } =
 noTable :: forall a. Table Expr a => MaybeTable a
 noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
-    f :: forall x. HField (Columns a) x -> C Expr x
+    f :: forall x. HField (Columns a) x -> Expr x
     f i =
       case hfield (hdbtype @(Columns a)) i of
-        MkC Dict -> MkC $ unsafeCoerceExpr (monolit (Nothing :: Maybe x))
+        Dict -> unsafeCoerceExpr (monolit (Nothing :: Maybe x))
 
 
 instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
@@ -1873,10 +1847,10 @@ instance DBType a => DBType (NonEmpty a) where
 
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
-  fromColumns $ htabulate @(Columns a) \x -> MkC $ fromPrimExpr $
+  fromColumns $ htabulate @(Columns a) \x -> fromPrimExpr $
     Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr $ toColumn $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
-        ( toPrimExpr $ toColumn $ hfield (toColumns def) x )
+        [ ( toPrimExpr bool, toPrimExpr $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr $ hfield (toColumns def) x )
 
 
 retype :: forall b a. Expr a -> Expr b
@@ -1903,24 +1877,24 @@ instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
 
 mapTable
   :: (Congruent s t, Table f s, Table g t)
-  => (forall x. C f x -> C g x) -> s -> t
+  => (forall x. f x -> g x) -> s -> t
 mapTable f = fromColumns . runIdentity . htraverse (pure . f) . toColumns
 
 
 zipTablesWithM
   :: forall x y z f g h m
    . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
-  => (forall a. C f a -> C g a -> m (C h a)) -> x -> y -> m z
+  => (forall a. f a -> g a -> m (h a)) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
-    htraverse (traverseC getComposeOuter) $
-      htabulate @_ @(ComposeOuter m h) $
-        MkC . ComposeOuter . fmap toColumn . liftA2 f (hfield x) (hfield y)
+    htraverse getCompose $
+      htabulate @_ @(Compose m h) $
+        Compose . liftA2 f (hfield x) (hfield y)
 
 
 traverseTable
   :: (Congruent x y, Table f x, Table g y, Applicative m)
-  => (forall a. C f a -> m (C g a)) -> x -> m y
+  => (forall a. f a -> m (g a)) -> x -> m y
 traverseTable f = fmap fromColumns . htraverse f . toColumns
 
 
@@ -2020,7 +1994,7 @@ queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowP
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    fmap fromColumns . htraverse (traverseC (traversePrimExpr f)) . toColumns
+    fmap fromColumns . htraverse (traversePrimExpr f) . toColumns
 
 
 -- | Run an @INSERT@ statement
@@ -2075,13 +2049,13 @@ writer into_ =
       -> f ()
     go f xs =
       void $
-        htraverse @(Columns schema) @_ @Expr (traverseC getComposeOuter) $
-          htabulate @(Columns schema) @(ComposeOuter f Expr) \i ->
+        htraverse @(Columns schema) @_ @Expr getCompose $
+          htabulate @(Columns schema) @(Compose f Expr) \i ->
             case hfield (toColumns (tableColumns into_)) i of
-              MkC ColumnSchema{ columnName } ->
-                MkC $ ComposeOuter $
+              ColumnSchema{ columnName } ->
+                Compose $
                   column columnName <$
-                  f ( toPrimExpr . toColumn . flip hfield i . toColumns <$> xs
+                  f ( toPrimExpr . flip hfield i . toColumns <$> xs
                     , columnName
                     )
 
@@ -2098,7 +2072,7 @@ opaleyeReturning returning =
     Projection f ->
       Opaleye.ReturningExplicit
         queryRunner
-        ( f . mapTable ( mapC ( column . columnName ) ) )
+        ( f . mapTable ( column . columnName ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -2175,7 +2149,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . deleteWhere_
-              . mapTable (mapC (column . columnName))
+              . mapTable (column . columnName)
         , dReturning = opaleyeReturning returning_
         }
 
@@ -2221,10 +2195,10 @@ update connection Update{ target, set, updateWhere, returning } =
             Opaleye.Column
               . toPrimExpr
               . updateWhere_
-              . mapTable (mapC (column . columnName))
+              . mapTable (column . columnName)
 
         , uUpdateWith =
-            set_ . mapTable (mapC (column . columnName))
+            set_ . mapTable (column . columnName)
         }
 
 
@@ -2264,7 +2238,7 @@ each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
         noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
 
         view :: Opaleye.View row
-        view = Opaleye.View $ mapTable (mapC (column . columnName)) (tableColumns schema)
+        view = Opaleye.View $ mapTable (column . columnName) (tableColumns schema)
 
 
 -- | Select all rows from another table that match a given predicate. If the
@@ -2292,7 +2266,7 @@ union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpal
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Combine the results of two queries of the same type, retaining duplicates.
@@ -2306,7 +2280,7 @@ unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the intersection of two queries, collapsing duplicates.  @intersect a
@@ -2320,7 +2294,7 @@ intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l)
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the intersection of two queries, retaining duplicates.  @intersectAll
@@ -2334,7 +2308,7 @@ intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpal
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the difference of two queries, collapsing duplicates @except a b@ is
@@ -2348,7 +2322,7 @@ except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOp
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the difference of two queries, retaining duplicates.  @exceptAll a b@
@@ -2362,7 +2336,7 @@ exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l)
     binaryspec :: Table Expr a => Opaleye.Binaryspec a a
     binaryspec =
       Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (zipCWithM \x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
+        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Select all distinct rows from a query, removing duplicates.  @distinct q@
@@ -2376,7 +2350,7 @@ distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
     distinctspec :: Table Expr a => Opaleye.Distinctspec a a
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
-        traverseTable (traverseC \x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
+        traverseTable (\x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
 
 
 -- | @limit n@ select at most @n@ rows from a query.  @limit n@ is equivalent to the SQL @LIMIT n@.
@@ -2468,10 +2442,10 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
         packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
         packmap = Opaleye.PackMap \f () ->
           fmap fromColumns $
-            htraverse (traverseC (traversePrimExpr f)) $
+            htraverse (traversePrimExpr f) $
               htabulate @(Columns expr) @Expr \i ->
                 case hfield (hdbtype @(Columns expr)) i of
-                  MkC Dict -> MkC $ fromPrimExpr $ nullExpr i
+                  Dict -> fromPrimExpr $ nullExpr i
             where
               nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
               nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
@@ -2600,7 +2574,7 @@ ordersWithItems = do
 @
 -}
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
-listAgg = fmap ListTable . traverseTable (traverseC (fmap ComposeInner . go))
+listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
     go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
@@ -2608,7 +2582,7 @@ listAgg = fmap ListTable . traverseTable (traverseC (fmap ComposeInner . go))
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
-nonEmptyAgg = fmap NonEmptyTable . traverseTable (traverseC (fmap ComposeInner . go))
+nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr (NonEmpty a))
     go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
@@ -2644,9 +2618,9 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
     aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
       fromColumns <$> htraverse (g f) (toColumns x)
 
-    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> C Expr x -> m (C Expr x)
-    g f (MkC (Expr x)) | hasAggrExpr x = MkC . Expr <$> traverseAggrExpr f' x
-                       | otherwise     = MkC . Expr <$> f (Nothing, x)
+    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Expr x -> m (Expr x)
+    g f (Expr x) | hasAggrExpr x = Expr <$> traverseAggrExpr f' x
+                 | otherwise     = Expr <$> f (Nothing, x)
       where f' (a, b, c, d) = f (Just (a, b, c), d)
 
 
@@ -2729,8 +2703,8 @@ instance Serializable a b => Serializable (ListTable a) [b] where
 
   lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      MkC Dict -> MkC $ ComposeInner $ listOf $
-        map (\x -> toColumn (hfield (toColumns x) field)) xs
+      Dict -> ComposeInner $ listOf $
+        map (\x -> hfield (toColumns x) field) xs
     where
       listOf :: forall x. DBType x => [Expr x] -> Expr [x]
       listOf as = fromPrimExpr $
@@ -2742,13 +2716,13 @@ instance Serializable a b => Serializable (ListTable a) [b] where
 
 instance Table Expr a => Semigroup (ListTable a) where
   ListTable a <> ListTable b =
-    ListTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
+    ListTable (hzipWith (zipComposeInnerWith (binaryOperator "||")) a b)
 
 
 instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      MkC Dict -> MkC $ ComposeInner $ monolit []
+      Dict -> ComposeInner $ monolit []
 
 
 type family HList (context :: Type -> Type) (a :: Type) :: Type where
@@ -2795,8 +2769,8 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
 
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      MkC Dict -> MkC $ ComposeInner $ nonEmptyOf $
-        fmap (\x -> toColumn (hfield (toColumns x) field)) xs
+      Dict -> ComposeInner $ nonEmptyOf $
+        fmap (\x -> hfield (toColumns x) field) xs
     where
       nonEmptyOf :: forall x. DBType x => NonEmpty (Expr x) -> Expr (NonEmpty x)
       nonEmptyOf as = fromPrimExpr $
@@ -2808,7 +2782,7 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where
   NonEmptyTable a <> NonEmptyTable b =
-    NonEmptyTable (hzipWith (zipComposeInnerWith (zipCWith (binaryOperator "||"))) a b)
+    NonEmptyTable (hzipWith (zipComposeInnerWith (binaryOperator "||")) a b)
 
 
 type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
@@ -2847,8 +2821,8 @@ newtype Order a = Order (Opaleye.Order a)
 asc :: DBType a => Order (Expr a)
 asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
-    f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
-    f (MkC (Expr primExpr)) = Const [(orderOp, primExpr)]
+    f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)
+    f (Expr primExpr) = Const [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp 
@@ -2862,8 +2836,8 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
 desc :: DBType a => Order (Expr a)
 desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
-    f :: forall x. C Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (C Expr x)
-    f (MkC (Expr primExpr)) = Const [(orderOp, primExpr)]
+    f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)
+    f (Expr primExpr) = Const [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp 
@@ -2916,26 +2890,21 @@ instance c (f a) => ComposeConstraint c f a
 
 
 data ComposeInner context g a where
-  ComposeInner :: { getComposeInner :: Column f (g a) } -> ComposeInner (Context f) g a
+  ComposeInner :: { getComposeInner :: f (g a) } -> ComposeInner (Context f) g a
 
 
 traverseComposeInner :: forall f g t m a. Applicative m
-  => (forall x. C f x -> m (C g x))
-  -> C (ComposeInner (Context f) t) a -> m (C (ComposeInner (Context g) t) a)
-traverseComposeInner f (MkC (ComposeInner a)) =
-  mapC ComposeInner <$> f (MkC @_ @(t a) a)
+  => (forall x. f x -> m (g x))
+  -> ComposeInner (Context f) t a -> m (ComposeInner (Context g) t a)
+traverseComposeInner f (ComposeInner a) =
+  ComposeInner <$> f a
 
 
 zipComposeInnerWith :: forall f g h t a. ()
-  => (forall x. C f x -> C g x -> C h x)
-  -> C (ComposeInner (Context f) t) a -> C (ComposeInner (Context g) t) a -> C (ComposeInner (Context h) t) a
-zipComposeInnerWith f (MkC (ComposeInner a)) (MkC (ComposeInner b)) =
-  mapC ComposeInner $ f (MkC @_ @(t a) a) (MkC @_ @(t a) b)
-
-
-newtype ComposeOuter f g a = ComposeOuter
-  { getComposeOuter :: f (Column g a)
-  }
+  => (forall x. f x -> g x -> h x)
+  -> ComposeInner (Context f) t a -> ComposeInner (Context g) t a -> ComposeInner (Context h) t a
+zipComposeInnerWith f (ComposeInner a) (ComposeInner b) =
+  ComposeInner $ f a b
 
 
 data HComposeField f t a where
@@ -2950,17 +2919,17 @@ instance (HigherKindedTable t, forall a. DBType a => DBType (f a)) => HigherKind
   type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
   hfield (HComposeTable columns) (HComposeField field) =
-    mapC getComposeInner (hfield columns field)
+    getComposeInner (hfield columns field)
 
-  htabulate f = HComposeTable (htabulate (mapC ComposeInner . f . HComposeField))
+  htabulate f = HComposeTable (htabulate (ComposeInner . f . HComposeField))
 
   htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
 
   hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Context (Dict c))
-  hdicts = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
+  hdicts = HComposeTable $ hmap (\Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
 
   hdbtype :: HComposeTable f t (Context (Dict DBType))
-  hdbtype = HComposeTable $ hmap (mapC \Dict -> ComposeInner Dict) hdbtype
+  hdbtype = HComposeTable $ hmap (\Dict -> ComposeInner Dict) hdbtype
 
 
 class DBEq a => DBOrd (a :: Type) where
