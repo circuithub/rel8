@@ -21,11 +21,14 @@ library
     , bytestring
     , case-insensitive
     , contravariant
+    , libpq
     , opaleye ^>= 0.7.1.0
     , postgresql-simple
     , scientific
     , text
     , time
+    , transformers
+    , attoparsec
     , uuid
   default-language:
     Haskell2010

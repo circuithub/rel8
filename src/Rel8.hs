@@ -16,6 +16,7 @@
 {-# language InstanceSigs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language OverloadedStrings #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language RoleAnnotations #-}
@@ -140,7 +141,9 @@ module Rel8
   , exceptAll
 
     -- ** Optional 'Query's
-  , MaybeTable, HMaybe, optional
+  , MaybeTable
+  , HMaybe
+  , optional
   , maybeTable
   , noTable
   , catMaybeTable
@@ -152,11 +155,15 @@ module Rel8
   , listAgg
   , nonEmptyAgg
   , groupBy
-  , DBMax (max)
+  , DBMax( max )
 
     -- *** List aggregation
-  , ListTable, HList, many
-  , NonEmptyTable, HNonEmpty, some
+  , ListTable
+  , HList
+  , many
+  , NonEmptyTable
+  , HNonEmpty
+  , some
 
     -- ** Ordering
   , orderBy
@@ -192,21 +199,28 @@ module Rel8
   ) where
 
 -- aeson
-import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
+import Data.Aeson ( FromJSON, ToJSON, Value( Number, Bool, Null, Array, String ), decode, decodeStrict, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
+-- attoparsec
+import Data.Attoparsec.ByteString.Char8 hiding ( Result )
+
 -- base
-import Control.Applicative ( ZipList(..), liftA2, liftA3 )
-import qualified Control.Applicative
+
+-- base
+import Control.Applicative ( ZipList(..), liftA2, liftA3, Alternative ((<|>)) )
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
+import Data.Bifunctor ( first )
 import Data.Foldable ( fold, foldl', toList )
 import Data.Functor.Compose ( Compose(..) )
+import Data.Functor.Const ( Const( Const ), getConst )
+import Data.Functor.Contravariant ( Contravariant )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 import Data.Int ( Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.Monoid ( Any( Any ), getAny )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
@@ -216,17 +230,15 @@ import Prelude hiding ( filter, max )
 import Text.Read ( readEither )
 
 -- bytestring
-import qualified Data.ByteString
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.ByteString.Lazy
+import Data.ByteString ( ByteString )
+import Data.ByteString.Lazy ( fromStrict )
+import qualified Data.ByteString.Lazy 
 
--- case-insensitive
-import Data.CaseInsensitive ( CI )
-
--- opaleye
+-- contravariant
+import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
 
 -- opaleye
-import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit, PGInt8 )
+import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), PGInt8, Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit )
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
@@ -236,8 +248,8 @@ import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
-import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
+import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
@@ -253,23 +265,11 @@ import qualified Opaleye.Order as Opaleye
 import Opaleye.PGTypes
   ( IsSqlType(..)
   , pgBool
-  , pgCiLazyText
-  , pgCiStrictText
-  , pgDay
-  , pgDouble
   , pgInt4
   , pgInt8
-  , pgLazyByteString
-  , pgLazyText
-  , pgLocalTime
   , pgNumeric
-  , pgStrictByteString
   , pgStrictText
-  , pgTimeOfDay
-  , pgUTCTime
-  , pgUUID
-  , pgValueJSON
-  , pgZonedTime
+  , pgValueJSON, pgUTCTime, pgDay, pgLocalTime, pgTimeOfDay, pgZonedTime, pgUUID, pgStrictByteString, pgDouble
   )
 import qualified Opaleye.Table as Opaleye
 
@@ -277,17 +277,13 @@ import qualified Opaleye.Table as Opaleye
 import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import Database.PostgreSQL.Simple.FromField
-  ( FieldParser
-  , FromField
+  ( Conversion
   , ResultError( Incompatible )
-  , fromField
-  , optionalField
-  , pgArrayFieldParser
   , returnError
   )
 import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
 import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple.Types ( PGArray( PGArray, fromPGArray ) )
+import Database.PostgreSQL.Simple.Internal ( RowParser( RP ) )
 
 -- rel8
 import qualified Rel8.Optimize
@@ -298,18 +294,20 @@ import Data.Scientific ( Scientific )
 -- text
 import Data.Text ( Text )
 import qualified Data.Text as Text
+import Data.Text.Encoding ( decodeUtf8, encodeUtf8 )
+
+-- transformers
+import Control.Monad.Trans.Class ( lift )
+import Data.Time (UTCTime, Day, LocalTime, ZonedTime, TimeOfDay)
+import Database.PostgreSQL.Simple.Time (parseUTCTime, parseDay, parseLocalTime, parseTimeOfDay, parseZonedTime)
+import Data.UUID (UUID)
+import qualified Data.UUID as UUID
 import qualified Data.Text.Lazy
+import Database.PQ (unescapeBytea)
+import System.IO.Unsafe (unsafeDupablePerformIO)
+import qualified Data.CaseInsensitive as CI
+import Data.CaseInsensitive (CI)
 
--- time
-import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, ZonedTime )
-
--- uuid
-import Data.UUID ( UUID )
-import Data.Functor.Contravariant (Contravariant)
-import Data.Functor.Contravariant.Divisible (Divisible, Decidable)
-import Data.Functor.Const (Const(Const), getConst)
-import Data.Bifunctor (first)
-import Data.Monoid (getAny, Any(Any))
 
 {- $setup
 In this section, we'll take a look at how Rel8 can be used to work with a
@@ -440,7 +438,7 @@ projectSchema = TableSchema
 
 With these table definitions, we can now start writing some queries!
 
->>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . C8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
+>>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
 
 -}
 
@@ -609,10 +607,73 @@ which is used to accurately type literals.
 data DatabaseType (a :: Type) = DatabaseType
   { encode :: a -> Opaleye.PrimExpr
     -- ^ How to encode a single Haskell value as a SQL expression.
-  , decode :: FieldParser a
-    -- ^ How to deserialize a single result back to Haskell.
   , typeName :: String
     -- ^ The name of the SQL type.
+  , decoder :: Decoder a
+    -- ^ How to deserialize a single result back to Haskell.
+  }
+
+
+-- | A @Decoder@ describes how to parse PostgreSQL results back to Haskell
+-- values. A @Decoder@ specifies two routines - a method to decode from
+-- PostgreSQL's text representation, and a method to decode from PostgreSQL's
+-- @to_json@ function.
+data Decoder a = Decoder
+  { decodeBytes :: Maybe ByteString -> Conversion a
+    -- ^ How to decode from the text representation. This is used for the
+    -- majority of queries.
+  , decodeJSON :: Value -> Conversion a
+    -- ^ How to decode values that have been passed through @to_json@. This is
+    -- used for aggregate tables like 'ListTable' and 'NonEmptyTable'.
+  }
+
+
+instance Functor Decoder where
+  fmap f Decoder{ decodeBytes, decodeJSON } = Decoder
+    { decodeBytes = fmap f <$> decodeBytes
+    , decodeJSON = fmap f <$> decodeJSON
+    }
+
+
+-- | Enrich a 'DatabaseType' with the ability to parse @null@.
+acceptNull :: Decoder a -> Decoder (Maybe a)
+acceptNull Decoder{ decodeJSON, decodeBytes } = Decoder
+  { decodeJSON = \case
+      Data.Aeson.Null -> pure Nothing
+      otherJSON       -> Just <$> decodeJSON otherJSON
+  , decodeBytes = \case
+      Nothing -> pure Nothing
+      bytes   -> Just <$> decodeBytes bytes
+  }
+
+
+-- | Apply a parser to a decoder.
+parseDecoder :: Typeable b => (a -> Either String b) -> Decoder a -> Decoder b
+parseDecoder f Decoder{ decodeBytes, decodeJSON } = Decoder
+  { decodeBytes = \x -> decodeBytes x >>= either (returnError Incompatible (error "TODO")) return . f
+  , decodeJSON = \x -> decodeJSON x >>= either (returnError Incompatible (error "TODO")) return . f
+  }
+
+
+attoparsecDecoder :: Parser a -> Decoder a
+attoparsecDecoder parser = Decoder
+  { decodeBytes = \case
+      Just bytes ->
+        case parseOnly parser bytes of
+          Right ok -> pure ok
+  , decodeJSON = \case
+      Data.Aeson.String s ->
+        case parseOnly parser (encodeUtf8 s) of
+          Right ok -> pure ok
+  }
+
+
+bytestringDecoder :: Decoder ByteString
+bytestringDecoder = Decoder
+  { decodeBytes = \case
+      Just bytes -> pure bytes
+  , decodeJSON = \case
+      Data.Aeson.String s -> pure $ encodeUtf8 s
   }
 
 
@@ -628,9 +689,9 @@ The mapping is required to be total. If you have a partial mapping, see
 'parseDatabaseType'.
 -}
 mapDatabaseType :: (a -> b) -> (b -> a) -> DatabaseType a -> DatabaseType b
-mapDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
+mapDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = encode . bToA
-  , decode = \x y -> aToB <$> decode x y
+  , decoder = aToB <$> decoder
   , typeName
   }
 
@@ -664,9 +725,9 @@ instance DBType Color where
 ["red"]
 -}
 parseDatabaseType :: Typeable b => (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
-parseDatabaseType aToB bToA DatabaseType{ encode, decode, typeName } = DatabaseType
+parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = encode . bToA
-  , decode = \x y -> decode x y >>= either (returnError Incompatible x) return . aToB
+  , decoder = parseDecoder aToB decoder
   , typeName
   }
 
@@ -1259,82 +1320,88 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
   toExprs :: t Expr -> GRep t (Context Expr)
   fromExprs :: GRep t (Context Expr) -> t Expr
 
-  default toExprs 
+  default toExprs
     :: ( GColumns (Rep (t Expr)) ~ GRep t
        , HigherKindedTableImpl Expr (Rep (t Expr))
        , Generic (t Expr)
-       ) 
+       )
     => t Expr -> GRep t (Context Expr)
   toExprs = ghigherKindedTo @Expr @(Rep (t Expr)) . GHC.Generics.from @_ @()
 
-  default fromExprs 
+  default fromExprs
     :: ( GColumns (Rep (t Expr)) ~ GRep t
        , HigherKindedTableImpl Expr (Rep (t Expr))
        , Generic (t Expr)
-       ) 
+       )
     => GRep t (Context Expr) -> t Expr
   fromExprs = to @_ @() . ghigherKindedFrom @Expr @(Rep (t Expr))
 
   toColumnSchemas :: t ColumnSchema -> GRep t (Context ColumnSchema)
   fromColumnSchemas :: GRep t (Context ColumnSchema) -> t ColumnSchema
 
-  default toColumnSchemas 
+  default toColumnSchemas
     :: ( GColumns (Rep (t ColumnSchema)) ~ GRep t
        , HigherKindedTableImpl ColumnSchema (Rep (t ColumnSchema))
        , Generic (t ColumnSchema)
-       ) 
+       )
     => t ColumnSchema -> GRep t (Context ColumnSchema)
   toColumnSchemas = ghigherKindedTo @ColumnSchema @(Rep (t ColumnSchema)) . GHC.Generics.from @_ @()
 
-  default fromColumnSchemas 
+  default fromColumnSchemas
     :: ( GColumns (Rep (t ColumnSchema)) ~ GRep t
        , HigherKindedTableImpl ColumnSchema (Rep (t ColumnSchema))
        , Generic (t ColumnSchema)
-       ) 
+       )
     => GRep t (Context ColumnSchema) -> t ColumnSchema
   fromColumnSchemas = to @_ @() . ghigherKindedFrom @ColumnSchema @(Rep (t ColumnSchema))
 
   glit :: t Identity -> t Expr
-  default glit 
+  default glit
     :: ( Generic (t Identity)
        , Generic (t Expr)
        , GSerializable (Rep (t Expr)) (Rep (t Identity))
-       ) 
+       )
     => t Identity -> t Expr
   glit = to @_ @() . glitImpl @(Rep (t Expr)) @(Rep (t Identity)) . GHC.Generics.from @_ @()
 
-  growParser :: Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t Identity))
+  growParser :: Applicative f
+    => (forall a. Decoder a -> x -> Conversion (f a))
+    -> GRep t (Context (Const x))
+    -> Conversion (f (t Identity))
   default growParser
     :: ( Generic (t Identity)
        , GSerializable (Rep (t Expr)) (Rep (t Identity))
        , Applicative f
-       ) 
-    => (forall a. Typeable a => FieldParser a -> FieldParser (f a))
-    -> RowParser (f (t Identity))
-  growParser f = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f
+       , GColumns (Rep (t Expr)) ~ GRep t
+       )
+    => (forall a. Decoder a -> x -> Conversion (f a))
+    -> GRep t (Context (Const x))
+    -> Conversion (f (t Identity))
+  growParser f xs = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f xs
 
 
 class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
   glitImpl :: haskell x -> expr x
 
-  growParserImpl :: forall f x. Applicative f
-    => (forall a. Typeable a => FieldParser a -> FieldParser (f a))
-    -> RowParser (f (haskell x))
+  growParserImpl :: Applicative f
+    => (forall a. Decoder a -> t -> Conversion (f a))
+    -> GColumns expr (Context (Const t))
+    -> Conversion (f (haskell x))
 
 
 instance GSerializable f f' => GSerializable (M1 i c f) (M1 i' c' f') where
   glitImpl = M1 . glitImpl @f @f' . unM1
-  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f
+  growParserImpl f xs = fmap M1 <$> growParserImpl @f @f' f xs
 
 
 instance (GSerializable f f', GSerializable g g') => GSerializable (f :*: g) (f' :*: g') where
   glitImpl (x :*: y) = glitImpl @f @f' x :*: glitImpl @g @g' y
-  growParserImpl f = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f) (growParserImpl @g @g' f)
+  growParserImpl f (HPair x y) = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f x) (growParserImpl @g @g' f y)
 
 
 instance Serializable expr haskell => GSerializable (K1 i expr) (K1 i haskell) where
   glitImpl = K1 . lit . unK1
-  growParserImpl f = fmap K1 <$> rowParser @expr @haskell f
+  growParserImpl f xs = fmap K1 <$> rowParser @expr @haskell f xs
 
 
 class HigherKindedTableImpl (context :: Type -> Type) (rep :: Type -> Type) where
@@ -1375,6 +1442,7 @@ instance (x ~ f, HigherKindedTable t, Helper f t) => Table f (t x) where
 instance HigherKindedTable t => Helper Expr t where
   helperTo = toExprs
   helperFrom = fromExprs
+
 
 instance HigherKindedTable t => Helper ColumnSchema t where
   helperTo = toColumnSchemas
@@ -1552,9 +1620,10 @@ the Haskell decoding of rows containing @sql@ SQL expressions.
 class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
-  rowParser :: forall f. Applicative f
-    => (forall x. Typeable x => FieldParser x -> FieldParser (f x))
-    -> RowParser (f haskell)
+  rowParser :: forall f a. Applicative f
+    => (forall x. Decoder x -> a -> Conversion (f x))
+    -> Columns expr (Context (Const a))
+    -> Conversion (f haskell)
 
 
 {-| @ExprFor expr haskell@ witnesses that @expr@ is the "expression
@@ -1570,6 +1639,8 @@ their to be multiple expression types. Usually this is not the case, but for
 @ExprFor a' a@), or just @Expr (Maybe a)@ (if @a@ is a single column).
 -}
 class Table Expr expr => ExprFor expr haskell
+
+
 instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                              => ExprFor a                b
 instance DBType a                                                                 => ExprFor (Expr (Maybe a)) (Maybe a)
 instance (ExprFor a b, Table Expr a)                                              => ExprFor (MaybeTable a)   (Maybe b)
@@ -1577,18 +1648,22 @@ instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)               
 instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)         => ExprFor a                (NonEmpty b)
 instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                             => ExprFor a                (b1, b2)
 instance (a ~ (a1, a2, a3), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3)          => ExprFor a                (b1, b2, b3)
-instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity) => ExprFor a                (t identity)
-instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                  => ExprFor a                (t identity)
+instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity)            => ExprFor a                (t identity)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                   => ExprFor a                (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => Serializable (s expr) (t identity) where
-  rowParser :: forall f. Applicative f => (forall a. Typeable a => FieldParser a -> FieldParser (f a)) -> RowParser (f (t identity))
-  rowParser inject = getCompose $ htraverse getCompose $ hmap f hdbtype
+  rowParser :: forall f a. Applicative f
+    => (forall x. Decoder x -> a -> Conversion (f x))
+    -> Columns (s expr) (Context (Const a))
+    -> Conversion (f (t identity))
+  rowParser parseColumn columns = getCompose $ htraverse (fmap pure) $ htabulate f
     where
-      f :: forall a. Dict DBType a -> Compose (Compose RowParser f) Identity a
-      f Dict = Compose $ Compose $ fmap (fmap Identity) $ fieldWith $ inject $ decode $ typeInformation @a
+      f :: forall x. HField t x -> Compose Conversion f x
+      f i = case (hfield columns i, hfield hdbtype i) of
+        (Const a, Dict) -> Compose $ parseColumn (decoder (typeInformation @x)) a
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -1598,11 +1673,11 @@ instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => 
 
 instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Serializable (s expr) (t identity) where
   lit = glit
-  rowParser f = growParser f
+  rowParser = growParser
 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
-  rowParser inject = fieldWith $ inject $ decode typeInformation
+  rowParser parseColumn (HIdentity (Const x)) = parseColumn (decoder typeInformation) x
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
@@ -1610,28 +1685,30 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
-  rowParser inject = liftA2 (,) <$> rowParser @a1 inject <*> rowParser @a2 inject
+  rowParser parseColumn (HPair x y) = liftA2 (liftA2 (,)) (rowParser @a1 parseColumn x) (rowParser @a2 parseColumn y)
+
   lit (a, b) = (lit a, lit b)
 
 
 instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3) => Serializable (a1, a2, a3) (b1, b2, b3) where
-  rowParser inject = liftA3 (,,) <$> rowParser @a1 inject <*> rowParser @a2 inject <*> rowParser @a3 inject
+  rowParser parseColumn (HPair x (HPair y z)) = liftA3 (,,) <$> rowParser @a1 parseColumn x <*> rowParser @a2 parseColumn y <*> rowParser @a3 parseColumn z
   lit (a, b, c) = (lit a, lit b, lit c)
 
+
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
-  rowParser inject = do
-    tags <- fieldWith $ inject $ decode typeInformation
-    rows <- rowParser @a \fieldParser x y -> Compose <$> inject (fallback fieldParser) x y
+  rowParser :: forall f t. Applicative f
+    => (forall x. Decoder x -> t -> Conversion (f x))
+    -> Columns (MaybeTable a) (Context (Const t))
+    -> Conversion (f (Maybe b))
+  rowParser parseColumn (HMaybeTable (HIdentity (Const tag)) columns) = do
+    tags <- parseColumn (decoder typeInformation) tag
+    rows <- rowParser @a (\x y -> Compose <$> parseColumn (acceptNull x) y) columns
     return $ liftA2 f tags (getCompose rows)
     where
       f :: Maybe Bool -> Maybe b -> Maybe b
       f (Just True)  (Just row) = Just row
       f (Just True)  Nothing    = error "TODO"
       f _            _          = Nothing
-
-      fallback :: forall x. FieldParser x -> FieldParser (Maybe x)
-      fallback fieldParser x (Just y) = Just <$> fieldParser x (Just y)
-      fallback fieldParser x Nothing = Control.Applicative.optional (fieldParser x Nothing)
 
   lit = \case
     Nothing -> noTable
@@ -1721,121 +1798,193 @@ instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
   fromColumns = unHIdentity
 
 
-fromOpaleye :: forall a b. (FromField a, IsSqlType b) => (a -> Opaleye.Column b) -> DatabaseType a
-fromOpaleye f =
+fromOpaleye :: forall a b. IsSqlType b
+  => (a -> Opaleye.Column b)
+  -> Decoder a
+  -> DatabaseType a
+fromOpaleye f decoder =
   DatabaseType
     { encode = \x -> case f x of Opaleye.Column e -> e
-    , decode = fromField
+    , decoder
     , typeName = showSqlType (Proxy @b)
     }
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
-  typeInformation = fromOpaleye pgBool
+  typeInformation = fromOpaleye pgBool Decoder
+    { decodeBytes = \case
+        Just "t" -> pure True
+        Just "f" -> pure False
+
+    , decodeJSON = \case
+        Data.Aeson.Bool x -> pure x
+    }
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4
+  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 Decoder
+    { decodeBytes = \case
+        Just bytes ->
+          case parseOnly (signed decimal) bytes of
+            Right ok -> pure ok
+
+    , decodeJSON = \case
+        Data.Aeson.Number n -> pure $ round n
+    }
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
-  typeInformation = fromOpaleye pgInt8
+  typeInformation = fromOpaleye pgInt8 Decoder
+    { decodeBytes = \case
+        Just bytes ->
+          case parseOnly (signed decimal) bytes of
+            Right ok -> pure ok
+
+    , decodeJSON = \case
+        Data.Aeson.Number n -> pure $ round n
+    }
 
 
 instance DBType Float where
   typeInformation = DatabaseType
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decode = \x y -> fromRational <$> fromField x y
+    , decoder = Decoder{ decodeBytes, decodeJSON }
     , typeName = "float4"
     }
+    where
+      decodeBytes = \case
+        Just bytes ->
+          case parseOnly (realToFrac <$> rational) bytes of
+            Right ok -> pure ok
+
+      decodeJSON = \case
+        Data.Aeson.Number n -> pure $ realToFrac n
 
 
 instance DBType UTCTime where
-  typeInformation = fromOpaleye pgUTCTime
+  typeInformation = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
-  typeInformation = fromOpaleye pgStrictText
+  typeInformation = fromOpaleye pgStrictText Decoder
+    { decodeBytes = \case
+        Just bytes -> pure $ decodeUtf8 bytes -- TODO Error checking
+
+    , decodeJSON = \case
+        Data.Aeson.String s -> pure s
+    }
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Data.Text.Lazy.Text where
-  typeInformation = fromOpaleye pgLazyText
+  typeInformation = mapDatabaseType Data.Text.Lazy.fromStrict Data.Text.Lazy.toStrict typeInformation
 
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
-instance DBType a => DBType ( Maybe a ) where
+instance DBType a => DBType (Maybe a) where
   typeInformation = DatabaseType
     { encode = maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
-    , decode = optionalField decode
+    , decoder = acceptNull decoder
     , typeName
     }
     where
-      DatabaseType{ encode, decode, typeName } = typeInformation
+      DatabaseType{ encode, typeName, decoder } = typeInformation
 
 
 -- | Corresponds to the @json@ PostgreSQL type.
 instance DBType Value where
-  typeInformation = fromOpaleye pgValueJSON
+  typeInformation = fromOpaleye pgValueJSON Decoder
+    { decodeBytes = \case
+        Just bytes ->
+          case decode $ fromStrict bytes of
+            Just ok -> pure ok
+
+    , decodeJSON = pure
+    }
 
 
 instance DBType Data.ByteString.Lazy.ByteString where
-  typeInformation = fromOpaleye pgLazyByteString
+  typeInformation = mapDatabaseType Data.ByteString.Lazy.fromStrict Data.ByteString.Lazy.toStrict typeInformation
 
 
 instance DBType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString
+  typeInformation = fromOpaleye pgStrictByteString $ parseDecoder (toEither . unsafeDupablePerformIO . unescapeBytea) bytestringDecoder
+    where
+      toEither = maybe (Left "Could not decode ByteString") Right
 
 
 instance DBType Scientific where
-  typeInformation = fromOpaleye pgNumeric
+  typeInformation = fromOpaleye pgNumeric Decoder
+    { decodeBytes = \case
+        Just bytes ->
+          case parseOnly rational bytes of
+            Right ok -> pure ok
+
+    , decodeJSON = \case
+        Data.Aeson.Number n -> pure n
+    }
 
 
 instance DBType Double where
-  typeInformation = fromOpaleye pgDouble
+  typeInformation = fromOpaleye pgDouble Decoder{ decodeBytes, decodeJSON }
+    where
+      decodeBytes = \case
+        Just bytes ->
+          case parseOnly parser bytes of
+            Right ok -> pure ok
+
+      decodeJSON = \case
+        Data.Aeson.Number n -> pure $ realToFrac n
+
+      parser =   
+            (string "NaN"       *> pure ( 0 / 0))
+        <|> (string "Infinity"  *> pure ( 1 / 0))
+        <|> (string "-Infinity" *> pure (-1 / 0))
+        <|> double
 
 
 instance DBType UUID where
-  typeInformation = fromOpaleye pgUUID
+  typeInformation = fromOpaleye pgUUID $ parseDecoder (toEither . UUID.fromASCIIBytes) bytestringDecoder
+    where
+      toEither = maybe (Left "Could not parse UUID") Right
 
 
 instance DBType Day where
-  typeInformation = fromOpaleye pgDay
+  typeInformation = fromOpaleye pgDay $ parseDecoder parseDay bytestringDecoder
 
 
 instance DBType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime
+  typeInformation = fromOpaleye pgLocalTime $ parseDecoder parseLocalTime bytestringDecoder
 
 
 instance DBType ZonedTime where
-  typeInformation = fromOpaleye pgZonedTime
+  typeInformation = fromOpaleye pgZonedTime $ parseDecoder parseZonedTime bytestringDecoder
 
 
 instance DBType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay
+  typeInformation = fromOpaleye pgTimeOfDay $ parseDecoder parseTimeOfDay bytestringDecoder
 
 
 instance DBType (CI Text) where
-  typeInformation = fromOpaleye pgCiStrictText
+  typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
 
 
 instance DBType (CI Data.Text.Lazy.Text) where
-  typeInformation = fromOpaleye pgCiLazyText
+  typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
 
 
 instance DBType a => DBType [a] where
   typeInformation = DatabaseType
     { encode = Opaleye.ArrayExpr . map encode
-    , decode = fmap (fmap fromPGArray) <$> pgArrayFieldParser decode
     , typeName = typeName <> "[]"
     }
     where
-      DatabaseType{ encode, decode, typeName } = typeInformation
+      DatabaseType{ encode, typeName } = typeInformation
 
 
 instance DBType a => DBType (NonEmpty a) where
@@ -1988,7 +2137,18 @@ queryRunner
   :: forall row haskell
    . Serializable row haskell
   => Opaleye.FromFields row haskell
-queryRunner = Opaleye.QueryRunner (void unpackspec) (const (runIdentity <$> rowParser @row (\f x y -> pure <$> f x y))) (const 1)
+queryRunner = Opaleye.QueryRunner (void unpackspec) (const parser) (const 1)
+  where
+  parser :: RowParser haskell
+  parser = do
+    unparsed <- htraverse (\_ -> getField) $ htabulate \_ -> Const ()
+    RP $ lift $ lift $ runIdentity <$> rowParser @row useFieldParser unparsed
+
+  getField :: RowParser (Const (Maybe ByteString) x)
+  getField = fieldWith \_ -> pure . Const
+
+  useFieldParser :: Decoder x -> Maybe ByteString -> Conversion (Identity x)
+  useFieldParser = fmap (fmap pure) <$> decodeBytes
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -2005,7 +2165,7 @@ unpackspec =
 -- >>> :{
 -- insert c Insert
 --   { into = authorSchema
---   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 3, authorUrl = "https://haskellforall.com" } ]
+--   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 3, authorUrl = Just "https://haskellforall.com" } ]
 --   , onConflict = Abort
 --   , returning = NumberOfRowsAffected
 --   }
@@ -2173,7 +2333,7 @@ delete c Delete{ from = deleteFrom, deleteWhere, returning } =
 
     go
       :: forall schema r row
-       . Selects schema row 
+       . Selects schema row
       => TableSchema schema
       -> (row -> Expr Bool)
       -> Returning schema r
@@ -2565,6 +2725,7 @@ instance (DBType a, f ~ ColumnSchema) => Table f (ColumnSchema a) where
   toColumns = HIdentity
   fromColumns = unHIdentity
 
+
 toOpaleyeTable
   :: TableSchema schema
   -> Opaleye.Writer write view
@@ -2635,7 +2796,11 @@ listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
-    go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+    go (pgtoJSON -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "json_agg") a []
+
+
+pgtoJSON :: Expr a -> Expr Value
+pgtoJSON = function "to_json"
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
@@ -2688,35 +2853,35 @@ hasAggrExpr = getAny . getConst . traverseAggrExpr (\_ -> Const (Any True))
 
 traverseAggrExpr :: Applicative f => ((Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct, Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Opaleye.PrimExpr -> f Opaleye.PrimExpr
 traverseAggrExpr f = \case
-  Opaleye.AggrExpr a b c d -> 
+  Opaleye.AggrExpr a b c d ->
     f (b, d, a, c)
 
-  Opaleye.CompositeExpr primExpr x -> 
+  Opaleye.CompositeExpr primExpr x ->
     Opaleye.CompositeExpr <$> traverseAggrExpr f primExpr <*> pure x
 
-  Opaleye.BinExpr x primExpr1 primExpr2 -> 
+  Opaleye.BinExpr x primExpr1 primExpr2 ->
     Opaleye.BinExpr x <$> traverseAggrExpr f primExpr1 <*> traverseAggrExpr f primExpr2
 
-  Opaleye.UnExpr x primExpr -> 
+  Opaleye.UnExpr x primExpr ->
     Opaleye.UnExpr x <$> traverseAggrExpr f primExpr
 
-  Opaleye.CaseExpr cases def -> 
+  Opaleye.CaseExpr cases def ->
     Opaleye.CaseExpr <$> traverse (traverseBoth (traverseAggrExpr f)) cases <*> traverseAggrExpr f def
     where traverseBoth g (x, y) = (,) <$> g x <*> g y
 
-  Opaleye.ListExpr elems -> 
+  Opaleye.ListExpr elems ->
     Opaleye.ListExpr <$> traverse (traverseAggrExpr f) elems
 
-  Opaleye.ParamExpr p primExpr -> 
+  Opaleye.ParamExpr p primExpr ->
     Opaleye.ParamExpr p <$> traverseAggrExpr f primExpr
 
-  Opaleye.FunExpr name params -> 
+  Opaleye.FunExpr name params ->
     Opaleye.FunExpr name <$> traverse (traverseAggrExpr f) params
 
-  Opaleye.CastExpr t primExpr -> 
+  Opaleye.CastExpr t primExpr ->
     Opaleye.CastExpr t <$> traverseAggrExpr f primExpr
 
-  Opaleye.AttrExpr attr -> 
+  Opaleye.AttrExpr attr ->
     pure $ Opaleye.AttrExpr attr
 
   Opaleye.ArrayExpr elems ->
@@ -2730,7 +2895,7 @@ traverseAggrExpr f = \case
         Opaleye.Exclusive primExpr -> Opaleye.Exclusive <$> g primExpr
         other                      -> pure other
 
-  Opaleye.ArrayIndex x i -> 
+  Opaleye.ArrayIndex x i ->
     Opaleye.ArrayIndex <$> traverseAggrExpr f x <*> traverseAggrExpr f i
 
   other ->
@@ -2751,12 +2916,25 @@ instance (f ~ Expr, Table f a) => Table f (ListTable a) where
 
 
 instance Serializable a b => Serializable (ListTable a) [b] where
-
-  rowParser inject = fmap getZipList . getCompose <$> rowParser @a \fieldParser x y ->
-    Compose . fmap pgArrayToZipList <$> inject (pgArrayFieldParser fieldParser) x y
+  rowParser parseColumn xs = fmap getZipList . getCompose <$> rowParser @a (\x y -> Compose <$> parseColumn (listOf x) y) (f xs)
     where
-      pgArrayToZipList :: forall x. PGArray x -> ZipList x
-      pgArrayToZipList (PGArray a) = ZipList a
+    listOf :: Decoder x -> Decoder (ZipList x)
+    listOf Decoder{ decodeJSON } = Decoder
+      { decodeJSON = go
+      , decodeBytes = \case
+          Nothing    -> error "TODO"
+          Just bytes ->
+            case decodeStrict bytes of
+              Just x -> go x
+      }
+      where
+        go (Data.Aeson.Array xs) = traverse decodeJSON (ZipList (toList xs))
+
+    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
+    f (HComposeTable ys) = hmap g ys
+      where
+        g :: ComposeInner (Context (Const t)) [] x -> Const t x
+        g (ComposeInner (Const x)) = Const x
 
 
   lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
@@ -2812,19 +2990,6 @@ instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
 
 
 instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
-
-  rowParser inject = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a \fieldParser x y ->
-    Compose . fmap pgArrayToZipList <$> inject (pgNonEmptyFieldParser fieldParser) x y
-    where
-      pgArrayToZipList :: forall x. PGArray x -> ZipList x
-      pgArrayToZipList (PGArray a) = ZipList a
-
-      pgNonEmptyFieldParser parser x y = do
-        list <- pgArrayFieldParser parser x y
-        case list of
-          PGArray [] -> returnError Incompatible x "Serializable.NonEmptyTable.rowParser: empty list"
-          _ -> pure list
-
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield hdbtype field of
       Dict -> ComposeInner $ nonEmptyOf $
@@ -2891,9 +3056,9 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
     f (Expr primExpr) = Const [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
-    orderOp = Opaleye.OrderOp 
+    orderOp = Opaleye.OrderOp
       { orderDirection = Opaleye.OpAsc
-      , orderNulls = Opaleye.NullsLast 
+      , orderNulls = Opaleye.NullsLast
       }
 
 
@@ -2908,9 +3073,9 @@ desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
     f (Expr primExpr) = Const [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
-    orderOp = Opaleye.OrderOp 
+    orderOp = Opaleye.OrderOp
       { orderDirection = Opaleye.OpDesc
-      , orderNulls = Opaleye.NullsFirst 
+      , orderNulls = Opaleye.NullsFirst
       }
 
 

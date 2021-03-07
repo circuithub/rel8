@@ -127,7 +127,7 @@ data TestTable f = TestTable
   , testTableColumn2 :: Rel8.Column f Bool
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.HigherKindedTable
 
 
 deriving stock instance Eq (TestTable Identity)
@@ -158,7 +158,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
           { into = testTableSchema
           , rows = map Rel8.lit rows
           , onConflict = Rel8.DoNothing
-          , returning = Rel8.NumberOfRowsInserted
+          , returning = Rel8.NumberOfRowsAffected
           }
 
     selected <- Rel8.select connection do
@@ -526,7 +526,7 @@ data TwoTestTables f =
     , testTable2 :: TestTable f
     }
   deriving stock Generic 
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.HigherKindedTable
 
 
 deriving stock instance Eq (TwoTestTables Identity)
@@ -593,7 +593,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
         { into = testTableSchema
         , rows = map Rel8.lit $ Map.keys rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
     void $ Rel8.update connection
@@ -614,7 +614,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
               r
               updates
         , updateWhere = \_ -> Rel8.lit True
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
     selected <- Rel8.select connection do
@@ -637,7 +637,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
         { into = testTableSchema
         , rows = map Rel8.lit rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
     deleted <-
@@ -656,7 +656,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.HigherKindedTable
 
 deriving stock instance Eq (HKNestedPair Identity)
 deriving stock instance Ord (HKNestedPair Identity)
@@ -690,7 +690,7 @@ data NestedMaybeTable f = NestedMaybeTable
   , nmt2 :: Rel8.HMaybe f (TestTable f)
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.HigherKindedTable
 
 
 deriving stock instance Eq (NestedMaybeTable Identity)
