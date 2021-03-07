@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
+{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language DeriveAnyClass #-}
@@ -214,7 +215,7 @@ import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Contravariant ( Contravariant )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 import Data.Int ( Int32, Int64 )
-import Data.Kind ( Type )
+import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
 import Data.Monoid ( Any( Any ), getAny )
 import Data.Proxy ( Proxy( Proxy ) )
@@ -1140,6 +1141,7 @@ data MyType f = MyType { fieldA :: Column f T }
 -}
 class HTable (t :: KContext -> Type) where
   type HField t = (field :: Type -> Type) | field -> t
+  type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
   hfield :: t (Context f) -> HField t x -> f x
   htabulate :: forall f. (forall x. HField t x -> f x) -> t (Context f)
@@ -1147,6 +1149,7 @@ class HTable (t :: KContext -> Type) where
   hdbtype :: t (Context DatabaseType)
 
   type HField t = GenericHField t
+  type HConstrainTable t c = HConstrainTable (Columns (WithShape IsColumn (Rep (t (Context IsColumn))) (Rep (t (Context IsColumn)) ()))) c
 
   default hfield
     :: forall f x
@@ -1529,6 +1532,7 @@ data HPairField x y a where
 
 
 instance (HTable x, HTable y) => HTable (HPair x y) where
+  type HConstrainTable (HPair x y) c = (HConstrainTable x c, HConstrainTable y c)
   type HField (HPair x y) = HPairField x y
 
   hfield (HPair l r) = \case
@@ -1566,6 +1570,7 @@ data HIdentityField x y where
 
 
 instance DBType a => HTable (HIdentity a) where
+  type HConstrainTable (HIdentity a) c = (c a)
   type HField (HIdentity a) = HIdentityField a
 
   hfield (HIdentity a) HIdentityField = a
@@ -3096,6 +3101,10 @@ instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) 
 
 
 -- Compose things
+class c (f a) => ComposeConstraint c f a
+instance c (f a) => ComposeConstraint c f a
+
+
 data ComposeInner context g a where
   ComposeInner :: { getComposeInner :: f (g a) } -> ComposeInner (Context f) g a
 
@@ -3123,6 +3132,7 @@ newtype HComposeTable g t (f :: KContext) = HComposeTable (t (Context (ComposeIn
 
 instance (HTable t, DBFunctor f) => HTable (HComposeTable f t) where
   type HField (HComposeTable f t) = HComposeField f t
+  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
   hfield (HComposeTable columns) (HComposeField field) =
     getComposeInner (hfield columns field)
