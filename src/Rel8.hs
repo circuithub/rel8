@@ -1,6 +1,5 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
-{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language DeriveAnyClass #-}
@@ -17,7 +16,6 @@
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
@@ -216,7 +214,7 @@ import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Contravariant ( Contravariant )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 import Data.Int ( Int32, Int64 )
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
 import Data.Monoid ( Any( Any ), getAny )
 import Data.Proxy ( Proxy( Proxy ) )
@@ -647,10 +645,10 @@ acceptNull Decoder{ decodeJSON, decodeBytes } = Decoder
 
 
 -- | Apply a parser to a decoder.
-parseDecoder :: Typeable b => (a -> Either String b) -> Decoder a -> Decoder b
+parseDecoder :: (a -> Either String b) -> Decoder a -> Decoder b
 parseDecoder f Decoder{ decodeBytes, decodeJSON } = Decoder
-  { decodeBytes = \x -> decodeBytes x >>= either (returnError Incompatible (error "TODO")) return . f
-  , decodeJSON = \x -> decodeJSON x >>= either (returnError Incompatible (error "TODO")) return . f
+  { decodeBytes = \x -> decodeBytes x >>= either (error "TODO") return . f
+  , decodeJSON = \x -> decodeJSON x >>= either (error "TODO") return . f
   }
 
 
@@ -663,8 +661,8 @@ bytestringDecoder = Decoder
   }
 
 
-monolit :: forall a. DBType a => a -> Expr a
-monolit = fromPrimExpr . encode (typeInformation @a)
+monolit :: DatabaseType a -> a -> Expr a
+monolit databaseType = fromPrimExpr . encode databaseType
 
 
 {-| Simultaneously map over how a type is both encoded and decoded, while
@@ -710,7 +708,7 @@ instance DBType Color where
 >>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
 ["red"]
 -}
-parseDatabaseType :: Typeable b => (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
+parseDatabaseType :: (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = encode . bToA
   , decoder = parseDecoder aToB decoder
@@ -1142,16 +1140,13 @@ data MyType f = MyType { fieldA :: Column f T }
 -}
 class HTable (t :: KContext -> Type) where
   type HField t = (field :: Type -> Type) | field -> t
-  type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
   hfield :: t (Context f) -> HField t x -> f x
   htabulate :: forall f. (forall x. HField t x -> f x) -> t (Context f)
   htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> t (Context f) -> m (t (Context g))
-  hdicts :: forall c. HConstrainTable t c => t (Context (Dict c))
-  hdbtype :: t (Context (Dict DBType))
+  hdbtype :: t (Context DatabaseType)
 
   type HField t = GenericHField t
-  type HConstrainTable t c = HConstrainTable (Columns (WithShape IsColumn (Rep (t (Context IsColumn))) (Rep (t (Context IsColumn)) ()))) c
 
   default hfield
     :: forall f x
@@ -1198,29 +1193,16 @@ class HTable (t :: KContext -> Type) where
       $ WithShape @f @(Rep (t (Context IsColumn)))
       $ GHC.Generics.from @_ @() x
 
-  default hdicts
-    :: forall c
-     . ( Generic (t (Context (Dict c)))
-       , Table (Dict c) (WithShape (Dict c) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict c))) ()))
-       , HConstrainTable (Columns (WithShape (Dict c) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict c))) ()))) c
-       )
-    => t (Context (Dict c))
-  hdicts =
-    to @_ @() $
-      forgetShape @(Dict c) @(Rep (t (Context IsColumn))) $
-        fromColumns $
-          hdicts @(Columns (WithShape (Dict c) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict c))) ()))) @c
-
   default hdbtype ::
-    ( Generic (t (Context (Dict DBType)))
-    , Table (Dict DBType) (WithShape (Dict DBType) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict DBType))) ()))
+    ( Generic (t (Context DatabaseType))
+    , Table DatabaseType (WithShape DatabaseType (Rep (t (Context IsColumn))) (Rep (t (Context DatabaseType)) ()))
     )
-    => t (Context (Dict DBType))
+    => t (Context DatabaseType)
   hdbtype =
     to @_ @() $
-      forgetShape @(Dict DBType) @(Rep (t (Context IsColumn))) $
+      forgetShape @DatabaseType @(Rep (t (Context IsColumn))) $
         fromColumns $
-          hdbtype @(Columns (WithShape (Dict DBType) (Rep (t (Context IsColumn))) (Rep (t (Context (Dict DBType))) ())))
+          hdbtype @(Columns (WithShape DatabaseType (Rep (t (Context IsColumn))) (Rep (t (Context DatabaseType)) ())))
 
 
 hmap :: HTable t => (forall x. f x -> g x) -> t (Context f) -> t (Context g)
@@ -1547,7 +1529,6 @@ data HPairField x y a where
 
 
 instance (HTable x, HTable y) => HTable (HPair x y) where
-  type HConstrainTable (HPair x y) c = (HConstrainTable x c, HConstrainTable y c)
   type HField (HPair x y) = HPairField x y
 
   hfield (HPair l r) = \case
@@ -1557,8 +1538,6 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
   htabulate f = HPair (htabulate (f . HPairFst)) (htabulate (f . HPairSnd))
 
   htraverse f (HPair x y) = HPair <$> htraverse f x <*> htraverse f y
-
-  hdicts = HPair hdicts hdicts
 
   hdbtype = HPair hdbtype hdbtype
 
@@ -1587,13 +1566,11 @@ data HIdentityField x y where
 
 
 instance DBType a => HTable (HIdentity a) where
-  type HConstrainTable (HIdentity a) c = (c a)
   type HField (HIdentity a) = HIdentityField a
 
   hfield (HIdentity a) HIdentityField = a
   htabulate f = HIdentity $ f HIdentityField
-  hdicts = HIdentity Dict
-  hdbtype = HIdentity Dict
+  hdbtype = HIdentity typeInformation
 
   htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> HIdentity a (Context f) -> m (HIdentity a (Context g))
   htraverse f (HIdentity a) = HIdentity <$> f (a :: f a)
@@ -1649,12 +1626,12 @@ instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => 
     where
       f :: forall x. HField t x -> Compose Conversion f x
       f i = case (hfield columns i, hfield hdbtype i) of
-        (Const a, Dict) -> Compose $ parseColumn (decoder (typeInformation @x)) a
+        (Const a, databaseType) -> Compose $ parseColumn (decoder databaseType) a
 
   lit t =
     fromColumns $ htabulate \i ->
       case (hfield (hdbtype @t) i, hfield t i) of
-        (Dict, Identity x) -> monolit x
+        (databaseType, Identity x) -> monolit databaseType x
 
 
 instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Serializable (s expr) (t identity) where
@@ -1705,7 +1682,7 @@ type role Expr representational
 
 
 instance (IsString a, DBType a) => IsString (Expr a) where
-  fromString = monolit . fromString
+  fromString = monolit (typeInformation @a) . fromString
 
 
 {-| @MaybeTable t@ is the table @t@, but as the result of an outer join. If the
@@ -1775,7 +1752,7 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
     f :: forall x. HField (Columns a) x -> Expr x
     f i =
       case hfield (hdbtype @(Columns a)) i of
-        Dict -> unsafeCoerceExpr (monolit (Nothing :: Maybe x))
+        databaseType -> unsafeCoerceExpr (monolit (nullDatabaseType databaseType) (Nothing :: Maybe x))
 
 
 instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
@@ -1873,13 +1850,15 @@ instance DBType Data.Text.Lazy.Text where
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
 -- @Maybe@s, as SQL doesn't distinguish @Just Nothing@ from @Nothing@.
 instance DBType a => DBType (Maybe a) where
-  typeInformation = DatabaseType
-    { encode = maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
-    , decoder = acceptNull decoder
-    , typeName
-    }
-    where
-      DatabaseType{ encode, typeName, decoder } = typeInformation
+  typeInformation = nullDatabaseType typeInformation
+
+
+nullDatabaseType :: DatabaseType a -> DatabaseType (Maybe a)
+nullDatabaseType DatabaseType{ encode, typeName, decoder } = DatabaseType
+  { encode = maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
+  , decoder = acceptNull decoder
+  , typeName
+  }
 
 
 -- | Corresponds to the @json@ PostgreSQL type.
@@ -1965,19 +1944,11 @@ instance DBType (CI Data.Text.Lazy.Text) where
 
 
 instance DBType a => DBType [a] where
-  typeInformation = DatabaseType
-    { encode = Opaleye.FunExpr "to_jsonb" . pure . Opaleye.FunExpr "array_to_json" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode
-    , typeName = "jsonb"
-    }
-    where
-      DatabaseType{ encode, typeName } = typeInformation
+  typeInformation = liftDatabaseType typeInformation
 
 
 instance DBType a => DBType (NonEmpty a) where
-  typeInformation = parseDatabaseType nonEmptyEither toList typeInformation
-    where
-      nonEmptyEither =
-        maybe (Left "DBType.NonEmpty.decode: empty list") Right . nonEmpty
+  typeInformation = liftDatabaseType typeInformation
 
 
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
@@ -2650,12 +2621,10 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
             htraverse (traversePrimExpr f) $
               htabulate @(Columns expr) @Expr \i ->
                 case hfield (hdbtype @(Columns expr)) i of
-                  Dict -> fromPrimExpr $ nullExpr i
+                  databaseType -> fromPrimExpr $ nullExpr databaseType
             where
-              nullExpr :: forall a w. DBType a => HField w a -> Opaleye.PrimExpr
-              nullExpr _ = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
-                where
-                  DatabaseType{ typeName } = typeInformation @a
+              nullExpr :: DatabaseType a -> Opaleye.PrimExpr
+              nullExpr DatabaseType{ typeName } = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
 
 
 -- | @filter f x@ will be a zero-row query when @f x@ is @False@, and will
@@ -2724,10 +2693,6 @@ toOpaleyeTable TableSchema{ tableName, tableSchema } writer_ view =
 
     withoutSchema = Opaleye.Table tableName tableFields
     withSchema s = Opaleye.TableWithSchema s tableName tableFields
-
-
-data Dict c a where
-  Dict :: c a => Dict c a
 
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@
@@ -2925,15 +2890,15 @@ instance Serializable a b => Serializable (ListTable a) [b] where
 
   lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      Dict -> ComposeInner $ listOf $
+      databaseType -> ComposeInner $ listOfExprs databaseType $
         map (\x -> hfield (toColumns x) field) xs
     where
-      listOf :: forall x. DBType x => [Expr x] -> Expr [x]
-      listOf as = fromPrimExpr $
+      listOfExprs :: DatabaseType x -> [Expr x] -> Expr [x]
+      listOfExprs databaseType as = fromPrimExpr $
         Opaleye.CastExpr array $
         Opaleye.ArrayExpr (map toPrimExpr as)
         where
-          array = typeName (typeInformation @[x])
+          array = typeName (liftDatabaseType @[] databaseType)
 
 
 instance Table Expr a => Semigroup (ListTable a) where
@@ -2944,7 +2909,7 @@ instance Table Expr a => Semigroup (ListTable a) where
 instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      Dict -> ComposeInner $ monolit []
+      databaseType -> ComposeInner $ monolit (liftDatabaseType databaseType) []
 
 
 type family HList (context :: Type -> Type) (a :: Type) :: Type where
@@ -2998,15 +2963,15 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
 
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield hdbtype field of
-      Dict -> ComposeInner $ nonEmptyOf $
+      databaseType -> ComposeInner $ nonEmptyOf databaseType $
         fmap (\x -> hfield (toColumns x) field) xs
     where
-      nonEmptyOf :: forall x. DBType x => NonEmpty (Expr x) -> Expr (NonEmpty x)
-      nonEmptyOf as = fromPrimExpr $
+      nonEmptyOf :: DatabaseType x -> NonEmpty (Expr x) -> Expr (NonEmpty x)
+      nonEmptyOf databaseType as = fromPrimExpr $
         Opaleye.CastExpr array $
         Opaleye.ArrayExpr (map toPrimExpr (toList as))
         where
-          array = typeName (typeInformation @(NonEmpty x))
+          array = typeName (liftDatabaseType @NonEmpty databaseType)
 
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where
@@ -3131,10 +3096,6 @@ instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) 
 
 
 -- Compose things
-class c (f a) => ComposeConstraint c f a
-instance c (f a) => ComposeConstraint c f a
-
-
 data ComposeInner context g a where
   ComposeInner :: { getComposeInner :: f (g a) } -> ComposeInner (Context f) g a
 
@@ -3160,9 +3121,8 @@ data HComposeField f t a where
 newtype HComposeTable g t (f :: KContext) = HComposeTable (t (Context (ComposeInner f g)))
 
 
-instance (HTable t, forall a. DBType a => DBType (f a)) => HTable (HComposeTable f t) where
+instance (HTable t, DBFunctor f) => HTable (HComposeTable f t) where
   type HField (HComposeTable f t) = HComposeField f t
-  type HConstrainTable (HComposeTable f t) c = HConstrainTable t (ComposeConstraint c f)
 
   hfield (HComposeTable columns) (HComposeField field) =
     getComposeInner (hfield columns field)
@@ -3171,11 +3131,28 @@ instance (HTable t, forall a. DBType a => DBType (f a)) => HTable (HComposeTable
 
   htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
 
-  hdicts :: forall c. HConstrainTable t (ComposeConstraint c f) => HComposeTable f t (Context (Dict c))
-  hdicts = HComposeTable $ hmap (\Dict -> ComposeInner Dict) (hdicts @_ @(ComposeConstraint c f))
+  hdbtype :: HComposeTable f t (Context DatabaseType)
+  hdbtype = HComposeTable $ hmap (ComposeInner . liftDatabaseType) hdbtype
 
-  hdbtype :: HComposeTable f t (Context (Dict DBType))
-  hdbtype = HComposeTable $ hmap (\Dict -> ComposeInner Dict) hdbtype
+
+class DBFunctor f where
+  liftDatabaseType :: DatabaseType a -> DatabaseType (f a)
+
+
+instance DBFunctor [] where
+  liftDatabaseType DatabaseType{ encode, typeName } = DatabaseType
+    { encode = Opaleye.FunExpr "to_jsonb" . pure . Opaleye.FunExpr "array_to_json" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode
+    , typeName = "jsonb"
+    }
+
+
+
+instance DBFunctor NonEmpty where
+  liftDatabaseType = parseDatabaseType nonEmptyEither toList . liftDatabaseType
+    where
+      nonEmptyEither =
+        maybe (Left "DBType.NonEmpty.decode: empty list") Right . nonEmpty
+
 
 
 class DBEq a => DBOrd (a :: Type) where
