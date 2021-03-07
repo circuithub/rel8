@@ -65,7 +65,7 @@ module Rel8
     -- * Tables and higher-kinded tables
   , Table(..)
   , HTable
-  , HigherKindedTable(..)
+  , HigherKindedTable
   , Congruent
   , KContext
   , Context
@@ -439,6 +439,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 -- With these table definitions, we can now start writing some queries!
 --
 -- >>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
+-- >>> Database.PostgreSQL.Simple.Transaction.begin c
 
 -- $guideQueries
 -- 
@@ -2097,7 +2098,6 @@ unpackspec =
 -- | Run an @INSERT@ statement
 --
 -- >>> :set -XDuplicateRecordFields
--- >>> Database.PostgreSQL.Simple.Transaction.begin c
 --
 -- >>> :{
 -- insert c Insert
@@ -2108,8 +2108,6 @@ unpackspec =
 --   }
 -- :}
 -- 1
---
--- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 insert :: MonadIO m => Connection -> Insert result -> m result
 insert connection Insert{ into, rows, onConflict, returning } =
   liftIO
@@ -2244,7 +2242,6 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 -- | Run a @DELETE@ statement.
 --
 -- >>> :set -XDuplicateRecordFields
--- >>> Database.PostgreSQL.Simple.Transaction.begin c
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 1, projectName = "rel8"}
@@ -2261,8 +2258,6 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
---
--- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from = deleteFrom, deleteWhere, returning } =
   liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
@@ -2305,7 +2300,6 @@ data Delete from return where
 -- | Run an @UPDATE@ statement.
 --
 -- >>> :set -XDuplicateRecordFields
--- >>> Database.PostgreSQL.Simple.Transaction.begin c
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 1, projectName = "rel8"}
@@ -2324,8 +2318,6 @@ data Delete from return where
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
 -- Project {projectAuthorId = 1, projectName = "Rel8!"}
---
--- >>> Database.PostgreSQL.Simple.Transaction.rollback c
 update :: MonadIO m => Connection -> Update target returning -> m returning
 update connection Update{ target, set, updateWhere, returning } =
   liftIO $ Opaleye.runUpdate_ connection (go target set updateWhere returning)
