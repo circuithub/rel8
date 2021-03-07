@@ -38,7 +38,7 @@ module Rel8
     -- $guideQueries
 
     -- ** Joins
-    -- $guideQueries
+    -- $guideJoins
 
     -- ** Inserting Data
     -- $guideInsert
@@ -438,6 +438,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 --
 -- With these table definitions, we can now start writing some queries!
 --
+-- >>> :set -XBlockArguments -XDerivingVia -XTypeApplications -XDuplicateRecordFields
 -- >>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
 -- >>> Database.PostgreSQL.Simple.Transaction.begin c
 
@@ -488,29 +489,113 @@ import qualified Data.List.NonEmpty as NonEmpty
 -- Putting this all together, we can run our first query:
 -- 
 -- >>> select c (each projectSchema)
--- [Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"}]
+-- [Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"},Project {projectAuthorId = 2, projectName = "text"}]
 -- 
 -- Cool!
+--
+-- 'each' is the equivalent of a @SELECT *@ query, but sometimes we're only
+-- interested in a subset of the columns of a table. To restrict the returned
+-- columns, we can specify a projection by using 'Query's @Functor@ instance:
+--
+-- >>> select c $ projectName <$> each projectSchema
+-- ["rel8","aeson","text"]
 
 -- $guideJoins
 -- 
 -- A very common operation in relational databases is to take the @JOIN@ of
 -- multiple tables. Rel8 doesn't have a specific join operation, but we can
 -- recover the functionality of a join by selecting all rows of two tables, and
--- then using 'where_' to filter them:
--- 
+-- then using 'where_' to filter them.
+--
+-- To see why this works, first let's look at taking the product of two tables.
+-- We can do this by simply calling 'each' twice:
+--
 -- >>> :{
--- projectsAndAuthors :: Query (Project Expr, Author Expr)
--- projectsAndAuthors = do
---   project <- each projectSchema
+-- mapM_ print =<< select c do
 --   author  <- each authorSchema
---   where_ $ projectAuthorId project ==. authorId author
---   return (project, author)
+--   project <- each projectSchema
+--   return (projectName project, authorName author)
 -- :}
+-- ("rel8","Ollie")
+-- ("rel8","Bryan O'Sullivan")
+-- ("rel8","Emily Pillmore")
+-- ("aeson","Ollie")
+-- ("aeson","Bryan O'Sullivan")
+-- ("aeson","Emily Pillmore")
+-- ("text","Ollie")
+-- ("text","Bryan O'Sullivan")
+-- ("text","Emily Pillmore")
+--
+-- This isn't quite right, though, as we have ended up pairing up the wrong
+-- projects and authors. To fix this, we can use 'where_' to restrict the
+-- returned rows:
 -- 
--- >>> Data.Foldable.traverse_ print =<< select c projectsAndAuthors
--- (Project {projectAuthorId = 1, projectName = "rel8"},Author {authorId = 1, authorName = "Ollie", authorUrl = Just "https://ocharles.org.uk"})
--- (Project {projectAuthorId = 2, projectName = "aeson"},Author {authorId = 2, authorName = "Bryan O'Sullivan", authorUrl = Nothing})
+-- > select c $ do
+-- >   author  <- each authorSchema
+-- >   project <- each projectSchema
+-- >   where_ $ projectAuthorId project ==. authorId author
+-- >   return (project, author)
+--
+-- Doing this every time you need a join can obscure the meaning of the query
+-- you're writing, so a good practice is to introduce specialised functions for
+-- the particular joins in your database. In our case, this would be:
+--
+-- >>> :{
+-- projectsForAuthor :: Author Expr -> Query (Project Expr)
+-- projectsForAuthor a = each projectSchema >>= filter \p ->
+--   projectAuthorId p ==. authorId a
+-- :}
+--
+-- Now we can simplify our query to just:
+--
+-- >>> :{
+-- mapM_ print =<< select c do
+--   author  <- each authorSchema
+--   project <- projectsForAuthor author
+--   return (projectName project, authorName author)
+-- :}
+-- ("rel8","Ollie")
+-- ("aeson","Bryan O'Sullivan")
+-- ("text","Bryan O'Sullivan")
+--
+-- == @LEFT JOIN@s
+--
+-- Rel8 is also capable of performing @LEFT JOIN@s. To perform @LEFT JOIN@s, we
+-- follow a similar approach, but use the 'optional' query transformer to allow
+-- for the possibility of the join to fail.
+--
+-- In our test database, we can see that there's another author:
+--
+-- >>> select c $ authorName <$> each authorSchema
+-- ["Ollie","Bryan O'Sullivan","Emily Pillmore"]
+--
+-- Emily wasn't returned in our earlier query because - in our database - she
+-- doesn't have any registered projects. We can record this partiality in our
+-- original query by simply wrapping the @projectsForAuthor@ call with
+-- 'optional':
+--
+-- >>> :{
+-- mapM_ print =<< select c do
+--   author <- each authorSchema
+--   mproject <- optional (projectsForAuthor author)
+--   return (authorName author, projectName <$> mproject)
+-- :}
+-- ("Ollie",Just "rel8")
+-- ("Bryan O'Sullivan",Just "aeson")
+-- ("Bryan O'Sullivan",Just "text")
+-- ("Emily Pillmore",Nothing)
+--
+-- TODO
+--
+-- >>> :{
+-- mapM_ print =<< select c do
+--   author   <- each authorSchema
+--   projects <- many $ projectName <$> projectsForAuthor author
+--   return (authorName author, projects)
+-- :}
+-- ("Ollie",["rel8"])
+-- ("Bryan O'Sullivan",["aeson","text"])
+-- ("Emily Pillmore",[])
 
 -- | Haskell types that can be represented as expressions in a database. There
 -- should be an instance of @DBType@ for all column types in your database
@@ -544,7 +629,6 @@ class Typeable a => DBType (a :: Type) where
 -- The declaration:
 -- 
 -- >>> import Data.Aeson
--- >>> :set -XDerivingVia
 -- 
 -- >>> :{
 -- data Pet = Pet { petName :: String, petAge :: Int }
@@ -558,7 +642,6 @@ class Typeable a => DBType (a :: Type) where
 -- >>> import Data.String (fromString)
 -- >>> import Data.Aeson (Value, encode)
 -- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
--- >>> :set -XTypeApplications
 -- >>> fmap (Data.Aeson.encode @Value . fromOnly) <$> query_ c (fromString $ showQuery $ pure $ lit Pet{ petName = "Yoshi", petAge = 4 })
 -- ["{\"petAge\":4,\"petName\":\"Yoshi\"}"]
 newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
@@ -576,8 +659,6 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
 --
 -- The declaration:
 -- 
--- >>> :set -XDerivingVia
--- 
 -- >>> :{
 -- data Color = Red | Green | Blue
 --   deriving (Read, Show)
@@ -587,7 +668,6 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
 -- will allow you to store @Color@ values in a single SQL column (stored as
 -- @text@):
 -- 
--- >>> :set -XTypeApplications
 -- >>> import Data.Text (Text)
 -- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
 -- >>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
@@ -893,7 +973,6 @@ catMaybe e = catMaybeTable $ MaybeTable nullTag (unsafeCoerceExpr e)
 
 -- | The SQL @AND@ operator.
 --
--- >>> :set -XBlockArguments
 -- >>> :{
 -- mapM_ print =<< select c do
 --   x <- values [lit True, lit False]
@@ -924,7 +1003,6 @@ and_ = foldl' (&&.) (lit True)
 
 -- | The SQL @OR@ operator.
 --
--- >>> :set -XBlockArguments
 -- >>> :{
 -- mapM_ print =<< select c do
 --   x <- values [lit True, lit False]
@@ -2097,12 +2175,10 @@ unpackspec =
 
 -- | Run an @INSERT@ statement
 --
--- >>> :set -XDuplicateRecordFields
---
 -- >>> :{
 -- insert c Insert
 --   { into = authorSchema
---   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 3, authorUrl = Just "https://haskellforall.com" } ]
+--   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 4, authorUrl = Just "https://haskellforall.com" } ]
 --   , onConflict = Abort
 --   , returning = NumberOfRowsAffected
 --   }
@@ -2241,11 +2317,10 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 
 -- | Run a @DELETE@ statement.
 --
--- >>> :set -XDuplicateRecordFields
---
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 1, projectName = "rel8"}
 -- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 --
 -- >>> :{
 -- delete c Delete
@@ -2258,6 +2333,7 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
 delete c Delete{ from = deleteFrom, deleteWhere, returning } =
   liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
@@ -2299,11 +2375,10 @@ data Delete from return where
 
 -- | Run an @UPDATE@ statement.
 --
--- >>> :set -XDuplicateRecordFields
---
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 1, projectName = "rel8"}
 -- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 --
 -- >>> :{
 -- update c Update
@@ -2317,6 +2392,7 @@ data Delete from return where
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 -- Project {projectAuthorId = 1, projectName = "Rel8!"}
 update :: MonadIO m => Connection -> Update target returning -> m returning
 update connection Update{ target, set, updateWhere, returning } =
@@ -2376,8 +2452,10 @@ exists = fmap (maybeTable (lit False) (const (lit True))) .
 -- | Select each row from a table definition. This is equivalent to @FROM
 -- table@.
 --
--- >>> select c (each projectSchema)
--- [Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"}]
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 each :: Selects schema row => TableSchema schema -> Query row
 each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
   where
@@ -2554,7 +2632,7 @@ where_ x =
 --       >>= filter (\p -> projectName p ==. "rel8")
 --   return (authorName author, projectName <$> maybeRel8)
 -- :}
--- [("Ollie",Just "rel8"),("Bryan O'Sullivan",Nothing)]
+-- [("Ollie",Just "rel8"),("Bryan O'Sullivan",Nothing),("Emily Pillmore",Nothing)]
 --
 -- Here @optional@ is acting as a @LEFT JOIN@. We can turn this into a proper
 -- join by using @catMaybeTable@ to filter out rows where the join failed:
