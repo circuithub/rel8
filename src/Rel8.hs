@@ -206,8 +206,6 @@ import Data.Aeson.Types ( parseEither )
 import Data.Attoparsec.ByteString.Char8 hiding ( Result )
 
 -- base
-
--- base
 import Control.Applicative ( ZipList(..), liftA2, liftA3, Alternative ((<|>)) )
 import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO(..) )
@@ -307,6 +305,7 @@ import Database.PQ (unescapeBytea)
 import System.IO.Unsafe (unsafeDupablePerformIO)
 import qualified Data.CaseInsensitive as CI
 import Data.CaseInsensitive (CI)
+import qualified Data.List.NonEmpty as NonEmpty
 
 
 {- $setup
@@ -652,19 +651,6 @@ parseDecoder :: Typeable b => (a -> Either String b) -> Decoder a -> Decoder b
 parseDecoder f Decoder{ decodeBytes, decodeJSON } = Decoder
   { decodeBytes = \x -> decodeBytes x >>= either (returnError Incompatible (error "TODO")) return . f
   , decodeJSON = \x -> decodeJSON x >>= either (returnError Incompatible (error "TODO")) return . f
-  }
-
-
-attoparsecDecoder :: Parser a -> Decoder a
-attoparsecDecoder parser = Decoder
-  { decodeBytes = \case
-      Just bytes ->
-        case parseOnly parser bytes of
-          Right ok -> pure ok
-  , decodeJSON = \case
-      Data.Aeson.String s ->
-        case parseOnly parser (encodeUtf8 s) of
-          Right ok -> pure ok
   }
 
 
@@ -1980,8 +1966,8 @@ instance DBType (CI Data.Text.Lazy.Text) where
 
 instance DBType a => DBType [a] where
   typeInformation = DatabaseType
-    { encode = Opaleye.ArrayExpr . map encode
-    , typeName = typeName <> "[]"
+    { encode = Opaleye.FunExpr "to_jsonb" . pure . Opaleye.FunExpr "array_to_json" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode
+    , typeName = "jsonb"
     }
     where
       DatabaseType{ encode, typeName } = typeInformation
@@ -2796,11 +2782,11 @@ listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
-    go (pgtoJSON -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "json_agg") a []
+    go (pgtoJSONB -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "jsonb_agg") a []
 
 
-pgtoJSON :: Expr a -> Expr Value
-pgtoJSON = function "to_json"
+pgtoJSONB :: Expr a -> Expr Value
+pgtoJSONB = function "to_jsonb"
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
@@ -2808,7 +2794,7 @@ nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr (NonEmpty a))
-    go (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+    go (pgtoJSONB -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "jsonb_agg") a []
 
 
 -- | The class of 'DBType's that support the @max@ aggregation function.
@@ -2990,6 +2976,26 @@ instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
 
 
 instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
+  rowParser parseColumn xs = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a (\x y -> Compose <$> parseColumn (listOf x) y) (f xs)
+    where
+    listOf :: Decoder x -> Decoder (ZipList x)
+    listOf Decoder{ decodeJSON } = Decoder
+      { decodeJSON = go
+      , decodeBytes = \case
+          Nothing    -> error "TODO"
+          Just bytes ->
+            case decodeStrict bytes of
+              Just x -> go x
+      }
+      where
+        go (Data.Aeson.Array xs) = traverse decodeJSON (ZipList (toList xs))
+
+    f :: HComposeTable NonEmpty (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
+    f (HComposeTable ys) = hmap g ys
+      where
+        g :: ComposeInner (Context (Const t)) NonEmpty x -> Const t x
+        g (ComposeInner (Const x)) = Const x
+
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield hdbtype field of
       Dict -> ComposeInner $ nonEmptyOf $
