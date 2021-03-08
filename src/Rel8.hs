@@ -40,8 +40,8 @@ module Rel8
     -- ** Joins
     -- $guideJoins
 
-    -- ** Inserting Data
-    -- $guideInsert
+    -- ** Aggregation
+    -- $guideAggregation
 
     -- * Database types
     -- ** @DBType@
@@ -584,8 +584,13 @@ import qualified Data.List.NonEmpty as NonEmpty
 -- ("Bryan O'Sullivan",Just "aeson")
 -- ("Bryan O'Sullivan",Just "text")
 -- ("Emily Pillmore",Nothing)
+
+-- $guideAggregation
 --
--- TODO
+-- Another common operation in SQL is to aggregate data. Aggregations are
+-- operations like @sum@ and @count@, and Rel8 also supports this. To perform
+-- an aggregation, we can use the 'aggregate' function, which takes a 'Query'
+-- of aggregated expressions, and runs the aggregation.
 --
 -- >>> :{
 -- mapM_ print =<< select c do
