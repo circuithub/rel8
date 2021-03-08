@@ -206,7 +206,7 @@ import Data.Attoparsec.ByteString.Char8 hiding ( Result )
 
 -- base
 import Control.Applicative ( ZipList(..), liftA2, liftA3, Alternative ((<|>)) )
-import Control.Monad ( void )
+import Control.Monad ( void, (<=<) )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Bifunctor ( first )
 import Data.Foldable ( fold, foldl', toList )
@@ -305,6 +305,15 @@ import System.IO.Unsafe (unsafeDupablePerformIO)
 import qualified Data.CaseInsensitive as CI
 import Data.CaseInsensitive (CI)
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Hasql.Decoders as Hasql
+import qualified Hasql.Connection as Hasql
+import qualified Hasql.Session as Hasql
+import qualified Hasql.Statement as Hasql
+import qualified Hasql.Encoders as Hasql (noParams)
+import Data.Distributive (distribute, Distributive)
+import Control.Exception (throwIO)
+import Data.Text (pack)
+import Data.Traversable (for)
 
 
 -- $setup
@@ -747,33 +756,61 @@ data Decoder a = Decoder
   , decodeJSON :: Value -> Conversion a
     -- ^ How to decode values that have been passed through @to_json@. This is
     -- used for aggregate tables like 'ListTable' and 'NonEmptyTable'.
+  , hasqlDecoder :: HasqlDecoder a
   }
 
 
+data HasqlDecoder a where
+  DecodeNotNull :: Hasql.Value a -> HasqlDecoder a
+  DecodeNull :: Hasql.Value x -> (Maybe x -> Either String a) -> HasqlDecoder a
+
+
+nullDecoder :: Hasql.Value a -> HasqlDecoder (Maybe a)
+nullDecoder v = DecodeNull v pure
+
+
+notNullDecoder :: Hasql.Value a -> HasqlDecoder a
+notNullDecoder = DecodeNotNull
+
+
+instance Functor HasqlDecoder where
+  fmap f (DecodeNotNull v) = DecodeNotNull (fmap f v)
+  fmap f (DecodeNull v g) = DecodeNull v (fmap f . g)
+
+
 instance Functor Decoder where
-  fmap f Decoder{ decodeBytes, decodeJSON } = Decoder
+  fmap f Decoder{ decodeBytes, decodeJSON, hasqlDecoder } = Decoder
     { decodeBytes = fmap f <$> decodeBytes
     , decodeJSON = fmap f <$> decodeJSON
+    , hasqlDecoder = f <$> hasqlDecoder
     }
 
 
 -- | Enrich a 'DatabaseType' with the ability to parse @null@.
 acceptNull :: Decoder a -> Decoder (Maybe a)
-acceptNull Decoder{ decodeJSON, decodeBytes } = Decoder
+acceptNull Decoder{ decodeJSON, decodeBytes, hasqlDecoder } = Decoder
   { decodeJSON = \case
       Data.Aeson.Null -> pure Nothing
       otherJSON       -> Just <$> decodeJSON otherJSON
   , decodeBytes = \case
       Nothing -> pure Nothing
       bytes   -> Just <$> decodeBytes bytes
+  , hasqlDecoder = case hasqlDecoder of
+      DecodeNotNull v -> nullDecoder v
+      DecodeNull v f  -> DecodeNull v \case
+        Nothing -> Right Nothing
+        Just x  -> fmap Just $ f $ Just x
   }
 
 
 -- | Apply a parser to a decoder.
 parseDecoder :: (a -> Either String b) -> Decoder a -> Decoder b
-parseDecoder f Decoder{ decodeBytes, decodeJSON } = Decoder
+parseDecoder f Decoder{ decodeBytes, decodeJSON, hasqlDecoder } = Decoder
   { decodeBytes = \x -> decodeBytes x >>= either (error "TODO") return . f
   , decodeJSON = \x -> decodeJSON x >>= either (error "TODO") return . f
+  , hasqlDecoder = case hasqlDecoder of
+      DecodeNotNull v -> DecodeNotNull $ Hasql.refine (first pack . f) v
+      DecodeNull v g -> DecodeNull v (f <=< g)
   }
 
 
@@ -783,6 +820,7 @@ bytestringDecoder = Decoder
       Just bytes -> pure bytes
   , decodeJSON = \case
       Data.Aeson.String s -> pure $ encodeUtf8 s
+  , hasqlDecoder = notNullDecoder Hasql.bytea
   }
 
 
@@ -1699,6 +1737,10 @@ class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | exp
     -> Columns expr (Context (Const a))
     -> Conversion (f haskell)
 
+  hasqlRowParser :: forall f. (Applicative f, Distributive f, Traversable f)
+    => (forall x. Hasql.Value x -> Hasql.Row (f x))
+    -> Hasql.Row (f haskell)
+
 
 -- | @ExprFor expr haskell@ witnesses that @expr@ is the "expression
 -- representation" of the Haskell type @haskell@. You can think of this as the
@@ -1752,6 +1794,14 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Seria
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser parseColumn (HIdentity (Const x)) = parseColumn (decoder typeInformation) x
 
+  hasqlRowParser getValue = 
+    case hasqlDecoder (decoder (typeInformation @a)) of
+      DecodeNotNull v -> getValue v
+
+      DecodeNull v f -> do
+        hmm <- getValue (Hasql.nullable v)
+        for (distribute hmm) (either fail pure . f)
+
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
       DatabaseType{ encode, typeName } = typeInformation
@@ -1760,11 +1810,18 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
   rowParser parseColumn (HPair x y) = liftA2 (liftA2 (,)) (rowParser @a1 parseColumn x) (rowParser @a2 parseColumn y)
 
+  hasqlRowParser liftValue =
+    liftA2 (liftA2 (,)) (hasqlRowParser @a2 liftValue) (hasqlRowParser @a2 liftValue)
+
   lit (a, b) = (lit a, lit b)
 
 
 instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3) => Serializable (a1, a2, a3) (b1, b2, b3) where
   rowParser parseColumn (HPair x (HPair y z)) = liftA3 (,,) <$> rowParser @a1 parseColumn x <*> rowParser @a2 parseColumn y <*> rowParser @a3 parseColumn z
+
+  hasqlRowParser liftValue =
+    liftA3 (liftA3 (,,)) (hasqlRowParser @a1 liftValue) (hasqlRowParser @a2 liftValue) (hasqlRowParser @a3 liftValue)
+
   lit (a, b, c) = (lit a, lit b, lit c)
 
 
@@ -1786,6 +1843,11 @@ instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   lit = \case
     Nothing -> noTable
     Just x  -> pure $ lit x
+
+  hasqlRowParser liftValue = do
+    tags <- Hasql.column $ Hasql.nullable $ liftValue Hasql.bool
+    rows <- hasqlRowParser @a _
+    _
 
 
 type role Expr representational
@@ -1890,6 +1952,8 @@ instance DBType Bool where
 
     , decodeJSON = \case
         Data.Aeson.Bool x -> pure x
+
+    , hasqlDecoder = notNullDecoder Hasql.bool
     }
 
 
@@ -1903,6 +1967,8 @@ instance DBType Int32 where
 
     , decodeJSON = \case
         Data.Aeson.Number n -> pure $ round n
+
+    , hasqlDecoder = fromIntegral <$> notNullDecoder Hasql.int4 -- TODO
     }
 
 
@@ -1916,13 +1982,15 @@ instance DBType Int64 where
 
     , decodeJSON = \case
         Data.Aeson.Number n -> pure $ round n
+
+    , hasqlDecoder = notNullDecoder Hasql.int8
     }
 
 
 instance DBType Float where
   typeInformation = DatabaseType
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decoder = Decoder{ decodeBytes, decodeJSON }
+    , decoder = Decoder{ decodeBytes, decodeJSON, hasqlDecoder = notNullDecoder Hasql.float4 }
     , typeName = "float4"
     }
     where
@@ -1936,7 +2004,8 @@ instance DBType Float where
 
 
 instance DBType UTCTime where
-  typeInformation = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
+  typeInformation = DatabaseType{ encode, decoder = decoder { hasqlDecoder = notNullDecoder Hasql.timestamptz }, typeName } -- TODO
+    where DatabaseType{ encode, decoder, typeName } = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
@@ -1947,6 +2016,8 @@ instance DBType Text where
 
     , decodeJSON = \case
         Data.Aeson.String s -> pure s
+    
+    , hasqlDecoder = notNullDecoder Hasql.text
     }
 
 
@@ -2176,12 +2247,14 @@ instance Monad Query where
 
 
 -- | Run a @SELECT@ query, returning all rows.
-select :: (Serializable row haskell, MonadIO m) => Connection -> Query row -> m [haskell]
-select conn query =
-  maybe
-    ( return [] )
-    ( liftIO . Database.PostgreSQL.Simple.queryWith_ ( queryParser query ) conn . fromString )
-    ( selectQuery query )
+select :: forall row haskell m. (Serializable row haskell, MonadIO m) => Hasql.Connection -> Query row -> m [haskell]
+select conn query = liftIO case selectQuery query of
+  Nothing -> return []
+  Just q ->
+    Hasql.run session conn >>= either throwIO return
+    where
+      session = Hasql.statement () statement
+      statement = Hasql.Statement (encodeUtf8 (pack q)) Hasql.noParams (fmap runIdentity <$> Hasql.rowList (hasqlRowParser @row (fmap Identity))) False
 
 
 queryParser
