@@ -24,8 +24,10 @@ main = do
 
       execute_ conn "insert into author ( name, url ) values ( 'Ollie', 'https://ocharles.org.uk' )"
       execute_ conn "insert into author ( name, url ) values ( 'Bryan O''Sullivan', null )"
+      execute_ conn "insert into author ( name, url ) values ( 'Emily Pillmore', 'https://cohomolo.gy' )"
       execute_ conn "insert into project ( author_id, name ) values ( 1, 'rel8' )"
       execute_ conn "insert into project ( author_id, name ) values ( 2, 'aeson' )"
+      execute_ conn "insert into project ( author_id, name ) values ( 2, 'text' )"
 
     doctest args
   

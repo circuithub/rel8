@@ -590,13 +590,56 @@ import qualified Data.List.NonEmpty as NonEmpty
 -- Another common operation in SQL is to aggregate data. Aggregations are
 -- operations like @sum@ and @count@, and Rel8 also supports this. To perform
 -- an aggregation, we can use the 'aggregate' function, which takes a 'Query'
--- of aggregated expressions, and runs the aggregation.
+-- of aggregated expressions, runs the aggregation, and returns you back result
+-- rows.
+--
+-- To start, let's look at a simple aggregation that tells us how many projects
+-- exist:
+--
+-- TODO
+--
+-- Rel8 is also capable of aggregating multiple rows into a single row by
+-- concatenating all rows as a list. This aggregation allows us to break free
+-- of the row-orientated nature of SQL and write queries that return tree-like
+-- structures. Earlier we saw an example of returning authors with their
+-- projects, but the query didn't do a great job of describing the relationship
+-- between an author and their projects.
+--
+-- Let's look again at a query that returns authors and their projects, and
+-- focus on the type of that query:
+--
+-- >>> :{
+-- projectsForAuthor a = each projectSchema >>= filter \p ->
+--   projectAuthorId p ==. authorId a
+-- :}
+--
+-- >>> :{
+-- let authorsAndProjects = do
+--       author  <- each authorSchema
+--       project <- projectsForAuthor author
+--       return (author, project)
+-- :}
+--
+-- >>> :t select c authorsAndProjects
+-- select c authorsAndProjects 
+--   :: MonadIO m => m [(Author Identity, Project Identity)]
+--
+-- Our query gives us a single list of pairs of authors and projects. However,
+-- with our domain knowledge of the schema, this isn't a great type - what we'd
+-- rather have is a list of pairs of authors and /lists/ of projects:
+--
+-- > [(Author Identity, [Project Identity])]
+--
+-- This would be a much better type! Rel8 can produce a query with this type by
+-- simply wrapping the call to @projectsForAuthor@ with either 'some' or
+-- 'many'. Here we'll use 'many', which allows for the possibility of an author
+-- to have no projects:
 --
 -- >>> :{
 -- mapM_ print =<< select c do
---   author   <- each authorSchema
---   projects <- many $ projectName <$> projectsForAuthor author
---   return (authorName author, projects)
+--   author       <- each authorSchema
+--   projectNames <- many $ projectName <$> projectsForAuthor author
+--   return (authorName author, projectNames)
 -- :}
 -- ("Ollie",["rel8"])
 -- ("Bryan O'Sullivan",["aeson","text"])
@@ -3234,3 +3277,4 @@ instance DBOrd Bool where
 instance DBOrd Int32 where
 instance DBOrd Int64 where
 instance DBOrd Text where
+
