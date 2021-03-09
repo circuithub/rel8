@@ -198,14 +198,11 @@ module Rel8
   ) where
 
 -- aeson
-import Data.Aeson ( FromJSON, ToJSON, Value( Number, Bool, Null, Array, String ), decode, decodeStrict, parseJSON, toJSON )
+import Data.Aeson ( FromJSON, ToJSON, Value, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
 
--- attoparsec
-import Data.Attoparsec.ByteString.Char8 hiding ( Result )
-
 -- base
-import Control.Applicative ( ZipList(..), liftA2, liftA3, Alternative ((<|>)) )
+import Control.Applicative ( ZipList(..), liftA2, liftA3 )
 import Control.Monad ( void, (<=<) )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Bifunctor ( first )
@@ -251,7 +248,6 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.RunQuery as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
@@ -266,20 +262,12 @@ import Opaleye.PGTypes
   , pgInt8
   , pgNumeric
   , pgStrictText
-  , pgValueJSON, pgUTCTime, pgDay, pgLocalTime, pgTimeOfDay, pgZonedTime, pgUUID, pgStrictByteString, pgDouble
+  , pgValueJSON, pgUTCTime, pgDay, pgLocalTime, pgTimeOfDay, pgUUID, pgStrictByteString, pgDouble
   )
 import qualified Opaleye.Table as Opaleye
 
 -- postgresql-simple
 import Database.PostgreSQL.Simple ( Connection )
-import Database.PostgreSQL.Simple.FromField
-  ( Conversion
-  , ResultError( Incompatible )
-  , returnError
-  )
-import Database.PostgreSQL.Simple.FromRow ( RowParser, fieldWith )
-import qualified Database.PostgreSQL.Simple.FromRow as Database.PostgreSQL.Simple
-import Database.PostgreSQL.Simple.Internal ( RowParser( RP ) )
 
 -- rel8
 import qualified Rel8.Optimize
@@ -290,17 +278,13 @@ import Data.Scientific ( Scientific )
 -- text
 import Data.Text ( Text )
 import qualified Data.Text as Text
-import Data.Text.Encoding ( decodeUtf8, encodeUtf8 )
+import Data.Text.Encoding ( encodeUtf8 )
 
 -- transformers
-import Control.Monad.Trans.Class ( lift )
-import Data.Time (UTCTime, Day, LocalTime, ZonedTime, TimeOfDay)
-import Database.PostgreSQL.Simple.Time (parseUTCTime, parseDay, parseLocalTime, parseTimeOfDay, parseZonedTime)
+import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
+import Database.PostgreSQL.Simple.Time (parseUTCTime)
 import Data.UUID (UUID)
-import qualified Data.UUID as UUID
 import qualified Data.Text.Lazy
-import Database.PQ (unescapeBytea)
-import System.IO.Unsafe (unsafeDupablePerformIO)
 import qualified Data.CaseInsensitive as CI
 import Data.CaseInsensitive (CI)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -309,7 +293,6 @@ import qualified Hasql.Connection as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 import qualified Hasql.Encoders as Hasql (noParams)
--- import Data.Distributive (distribute, Distributive)
 import Control.Exception (throwIO)
 import Data.Text (pack)
 
@@ -738,23 +721,8 @@ data DatabaseType (a :: Type) = DatabaseType
     -- ^ How to encode a single Haskell value as a SQL expression.
   , typeName :: String
     -- ^ The name of the SQL type.
-  , decoder :: Decoder a
+  , decoder :: HasqlDecoder a
     -- ^ How to deserialize a single result back to Haskell.
-  }
-
-
--- | A @Decoder@ describes how to parse PostgreSQL results back to Haskell
--- values. A @Decoder@ specifies two routines - a method to decode from
--- PostgreSQL's text representation, and a method to decode from PostgreSQL's
--- @to_json@ function.
-data Decoder a = Decoder
-  { decodeBytes :: Maybe ByteString -> Conversion a
-    -- ^ How to decode from the text representation. This is used for the
-    -- majority of queries.
-  , decodeJSON :: Value -> Conversion a
-    -- ^ How to decode values that have been passed through @to_json@. This is
-    -- used for aggregate tables like 'ListTable' and 'NonEmptyTable'.
-  , hasqlDecoder :: HasqlDecoder a
   }
 
 
@@ -776,33 +744,9 @@ instance Functor HasqlDecoder where
   fmap f (DecodeNull v g) = DecodeNull v (fmap f . g)
 
 
-instance Functor Decoder where
-  fmap f Decoder{ decodeBytes, decodeJSON, hasqlDecoder } = Decoder
-    { decodeBytes = fmap f <$> decodeBytes
-    , decodeJSON = fmap f <$> decodeJSON
-    , hasqlDecoder = f <$> hasqlDecoder
-    }
-
-
 -- | Enrich a 'DatabaseType' with the ability to parse @null@.
-acceptNull :: Decoder a -> Decoder (Maybe a)
-acceptNull Decoder{ decodeJSON, decodeBytes, hasqlDecoder } = Decoder
-  { decodeJSON = \case
-      Data.Aeson.Null -> pure Nothing
-      otherJSON       -> Just <$> decodeJSON otherJSON
-  , decodeBytes = \case
-      Nothing -> pure Nothing
-      bytes   -> Just <$> decodeBytes bytes
-  , hasqlDecoder = case hasqlDecoder of
-      DecodeNotNull v -> nullDecoder v
-      DecodeNull v f  -> DecodeNull v \case
-        Nothing -> Right Nothing
-        Just x  -> fmap Just $ f $ Just x
-  }
-
-
-nullHasqlDecoder :: HasqlDecoder a -> HasqlDecoder (Maybe a)
-nullHasqlDecoder = \case
+acceptNull :: HasqlDecoder a -> HasqlDecoder (Maybe a)
+acceptNull = \case
   DecodeNotNull v -> nullDecoder v
   DecodeNull v f  -> DecodeNull v \case
     Nothing -> Right Nothing
@@ -810,24 +754,14 @@ nullHasqlDecoder = \case
 
 
 -- | Apply a parser to a decoder.
-parseDecoder :: (a -> Either String b) -> Decoder a -> Decoder b
-parseDecoder f Decoder{ decodeBytes, decodeJSON, hasqlDecoder } = Decoder
-  { decodeBytes = \x -> decodeBytes x >>= either (error "TODO") return . f
-  , decodeJSON = \x -> decodeJSON x >>= either (error "TODO") return . f
-  , hasqlDecoder = case hasqlDecoder of
-      DecodeNotNull v -> DecodeNotNull $ Hasql.refine (first pack . f) v
-      DecodeNull v g -> DecodeNull v (f <=< g)
-  }
+parseDecoder :: (a -> Either String b) -> HasqlDecoder a -> HasqlDecoder b
+parseDecoder f = \case
+  DecodeNotNull v -> DecodeNotNull $ Hasql.refine (first pack . f) v
+  DecodeNull v g -> DecodeNull v (f <=< g)
 
 
-bytestringDecoder :: Decoder ByteString
-bytestringDecoder = Decoder
-  { decodeBytes = \case
-      Just bytes -> pure bytes
-  , decodeJSON = \case
-      Data.Aeson.String s -> pure $ encodeUtf8 s
-  , hasqlDecoder = notNullDecoder Hasql.bytea
-  }
+bytestringDecoder :: HasqlDecoder ByteString
+bytestringDecoder = notNullDecoder Hasql.bytea
 
 
 monolit :: DatabaseType a -> a -> Expr a
@@ -1177,12 +1111,14 @@ class Table Expr a => EqTable a where
 -- | The @Function@ type class is an implementation detail that allows
 -- @function@ to be polymorphic in the number of arguments it consumes.
 class Function arg res where
-  -- We do need 'applyArgument', but if we don't specify this and let GHC infer
-  -- the minimal contract, it leaks out into documentation.
-  {-# minimal #-}
-
   -- | Build a function of multiple arguments.
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
+  applyArgument = 
+    -- We do need 'applyArgument', but if we don't specify this and let GHC
+    -- infer the minimal contract, it leaks out into documentation. This is a
+    -- private class, so we don't want to document anything more than its
+    -- existance.
+    undefined
 
 
 instance arg ~ Expr a => Function arg (Expr res) where
@@ -1491,44 +1427,41 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
     => t Identity -> t Expr
   glit = to @_ @() . glitImpl @(Rep (t Expr)) @(Rep (t Identity)) . GHC.Generics.from @_ @()
 
-  growParser :: Applicative f
-    => (forall a. Decoder a -> x -> Conversion (f a))
-    -> GRep t (Context (Const x))
-    -> Conversion (f (t Identity))
+  growParser :: (Applicative f, Traversable f)
+    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    -> Hasql.Row (f (t Identity))
   default growParser
     :: ( Generic (t Identity)
        , GSerializable (Rep (t Expr)) (Rep (t Identity))
        , Applicative f
-       , GColumns (Rep (t Expr)) ~ GRep t
+       , Traversable f
        )
-    => (forall a. Decoder a -> x -> Conversion (f a))
-    -> GRep t (Context (Const x))
-    -> Conversion (f (t Identity))
-  growParser f xs = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f xs
+    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    -> Hasql.Row (f (t Identity))
+  growParser f = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f
 
 
 class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
   glitImpl :: haskell x -> expr x
 
-  growParserImpl :: Applicative f
-    => (forall a. Decoder a -> t -> Conversion (f a))
-    -> GColumns expr (Context (Const t))
-    -> Conversion (f (haskell x))
+  growParserImpl :: (Applicative f, Traversable f)
+    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    -> Hasql.Row (f (haskell x))
 
 
 instance GSerializable f f' => GSerializable (M1 i c f) (M1 i' c' f') where
   glitImpl = M1 . glitImpl @f @f' . unM1
-  growParserImpl f xs = fmap M1 <$> growParserImpl @f @f' f xs
+  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f 
 
 
 instance (GSerializable f f', GSerializable g g') => GSerializable (f :*: g) (f' :*: g') where
   glitImpl (x :*: y) = glitImpl @f @f' x :*: glitImpl @g @g' y
-  growParserImpl f (HPair x y) = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f x) (growParserImpl @g @g' f y)
+  growParserImpl f = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f) (growParserImpl @g @g' f)
 
 
 instance Serializable expr haskell => GSerializable (K1 i expr) (K1 i haskell) where
   glitImpl = K1 . lit . unK1
-  growParserImpl f xs = fmap K1 <$> rowParser @expr @haskell f xs
+  growParserImpl f = fmap K1 <$> rowParser @expr @haskell f
 
 
 class HigherKindedTableImpl (context :: Type -> Type) (rep :: Type -> Type) where
@@ -1747,12 +1680,7 @@ runHasqlDecoder = \case
 class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
-  rowParser :: forall f a. Applicative f
-    => (forall x. Decoder x -> a -> Conversion (f x))
-    -> Columns expr (Context (Const a))
-    -> Conversion (f haskell)
-
-  hasqlRowParser :: forall f. (Applicative f, Traversable f)
+  rowParser :: forall f. (Applicative f, Traversable f)
     => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
     -> Hasql.Row (f haskell)
 
@@ -1785,15 +1713,14 @@ instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => Serializable (s expr) (t identity) where
-  rowParser :: forall f a. Applicative f
-    => (forall x. Decoder x -> a -> Conversion (f x))
-    -> Columns (s expr) (Context (Const a))
-    -> Conversion (f (t identity))
-  rowParser parseColumn columns = getCompose $ htraverse (fmap pure) $ htabulate f
+  rowParser :: forall f. (Applicative f, Traversable f)
+    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
+    -> Hasql.Row (f (t identity))
+  rowParser liftDecoder = getCompose $ htraverse (fmap pure) $ htabulate f
     where
-      f :: forall x. HField t x -> Compose Conversion f x
-      f i = case (hfield columns i, hfield hdbtype i) of
-        (Const a, databaseType) -> Compose $ parseColumn (decoder databaseType) a
+      f :: forall x. HField t x -> Compose Hasql.Row f x
+      f i = case hfield hdbtype i of
+        databaseType -> Compose $ runHasqlDecoder $ liftDecoder $ decoder databaseType
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -1807,16 +1734,8 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Seria
 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
-  rowParser parseColumn (HIdentity (Const x)) = parseColumn (decoder typeInformation) x
-
-  hasqlRowParser liftDecoder = 
-    runHasqlDecoder (liftDecoder (hasqlDecoder (decoder (typeInformation @a))))
-    -- case hasqlDecoder (decoder (typeInformation @a)) of
-    --   DecodeNotNull v -> getValue v
-
-    --   DecodeNull v f -> do
-    --     hmm <- getValue (Hasql.nullable v)
-    --     for (distribute hmm) (either fail pure . f)
+  rowParser liftDecoder = 
+    runHasqlDecoder (liftDecoder (decoder (typeInformation @a)))
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
@@ -1824,31 +1743,26 @@ instance (DBType a, a ~ b) => Serializable (Expr a) b where
 
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where
-  rowParser parseColumn (HPair x y) = liftA2 (liftA2 (,)) (rowParser @a1 parseColumn x) (rowParser @a2 parseColumn y)
-
-  hasqlRowParser liftValue =
-    liftA2 (liftA2 (,)) (hasqlRowParser @a1 liftValue) (hasqlRowParser @a2 liftValue)
+  rowParser liftValue =
+    liftA2 (liftA2 (,)) (rowParser @a1 liftValue) (rowParser @a2 liftValue)
 
   lit (a, b) = (lit a, lit b)
 
 
 instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3) => Serializable (a1, a2, a3) (b1, b2, b3) where
-  rowParser parseColumn (HPair x (HPair y z)) = liftA3 (,,) <$> rowParser @a1 parseColumn x <*> rowParser @a2 parseColumn y <*> rowParser @a3 parseColumn z
-
-  hasqlRowParser liftValue =
-    liftA3 (liftA3 (,,)) (hasqlRowParser @a1 liftValue) (hasqlRowParser @a2 liftValue) (hasqlRowParser @a3 liftValue)
+  rowParser liftValue =
+    liftA3 (liftA3 (,,)) (rowParser @a1 liftValue) (rowParser @a2 liftValue) (rowParser @a3 liftValue)
 
   lit (a, b, c) = (lit a, lit b, lit c)
 
 
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
-  rowParser :: forall f t. Applicative f
-    => (forall x. Decoder x -> t -> Conversion (f x))
-    -> Columns (MaybeTable a) (Context (Const t))
-    -> Conversion (f (Maybe b))
-  rowParser parseColumn (HMaybeTable (HIdentity (Const tag)) columns) = do
-    tags <- parseColumn (decoder typeInformation) tag
-    rows <- rowParser @a (\x y -> Compose <$> parseColumn (acceptNull x) y) columns
+  rowParser :: forall f. (Applicative f, Traversable f)
+    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
+    -> Hasql.Row (f (Maybe b))
+  rowParser liftHasqlDecoder = do
+    tags <- runHasqlDecoder (liftHasqlDecoder (decoder (typeInformation @(Maybe Bool))))
+    rows <- rowParser @a (fmap Compose . liftHasqlDecoder . acceptNull)
     return $ liftA2 f tags (getCompose rows)
     where
       f :: Maybe Bool -> Maybe b -> Maybe b
@@ -1859,16 +1773,6 @@ instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   lit = \case
     Nothing -> noTable
     Just x  -> pure $ lit x
-
-  hasqlRowParser liftHasqlDecoder = do
-    tags <- runHasqlDecoder (liftHasqlDecoder (hasqlDecoder (decoder (typeInformation @(Maybe Bool)))))
-    rows <- hasqlRowParser @a (fmap Compose . liftHasqlDecoder . nullHasqlDecoder)
-    return $ liftA2 f tags (getCompose rows)
-    where
-      f :: Maybe Bool -> Maybe b -> Maybe b
-      f (Just True)  (Just row) = Just row
-      f (Just True)  Nothing    = error "TODO"
-      f _            _          = Nothing
 
 
 type role Expr representational
@@ -1954,7 +1858,7 @@ instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
 
 fromOpaleye :: forall a b. IsSqlType b
   => (a -> Opaleye.Column b)
-  -> Decoder a
+  -> HasqlDecoder a
   -> DatabaseType a
 fromOpaleye f decoder =
   DatabaseType
@@ -1966,80 +1870,35 @@ fromOpaleye f decoder =
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
-  typeInformation = fromOpaleye pgBool Decoder
-    { decodeBytes = \case
-        Just "t" -> pure True
-        Just "f" -> pure False
-
-    , decodeJSON = \case
-        Data.Aeson.Bool x -> pure x
-
-    , hasqlDecoder = notNullDecoder Hasql.bool
-    }
+  typeInformation = fromOpaleye pgBool $ notNullDecoder Hasql.bool
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 Decoder
-    { decodeBytes = \case
-        Just bytes ->
-          case parseOnly (signed decimal) bytes of
-            Right ok -> pure ok
-
-    , decodeJSON = \case
-        Data.Aeson.Number n -> pure $ round n
-
-    , hasqlDecoder = fromIntegral <$> notNullDecoder Hasql.int4 -- TODO
-    }
+  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> notNullDecoder Hasql.int4 -- TODO
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
-  typeInformation = fromOpaleye pgInt8 Decoder
-    { decodeBytes = \case
-        Just bytes ->
-          case parseOnly (signed decimal) bytes of
-            Right ok -> pure ok
-
-    , decodeJSON = \case
-        Data.Aeson.Number n -> pure $ round n
-
-    , hasqlDecoder = notNullDecoder Hasql.int8
-    }
+  typeInformation = fromOpaleye pgInt8 $ notNullDecoder Hasql.int8
 
 
 instance DBType Float where
   typeInformation = DatabaseType
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decoder = Decoder{ decodeBytes, decodeJSON, hasqlDecoder = notNullDecoder Hasql.float4 }
+    , decoder = notNullDecoder Hasql.float4
     , typeName = "float4"
     }
-    where
-      decodeBytes = \case
-        Just bytes ->
-          case parseOnly (realToFrac <$> rational) bytes of
-            Right ok -> pure ok
-
-      decodeJSON = \case
-        Data.Aeson.Number n -> pure $ realToFrac n
 
 
 instance DBType UTCTime where
-  typeInformation = DatabaseType{ encode, decoder = decoder { hasqlDecoder = notNullDecoder Hasql.timestamptz }, typeName } -- TODO
-    where DatabaseType{ encode, decoder, typeName } = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
+  typeInformation = DatabaseType{ encode, decoder = notNullDecoder Hasql.timestamptz, typeName } -- TODO
+    where DatabaseType{ encode, typeName } = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
-  typeInformation = fromOpaleye pgStrictText Decoder
-    { decodeBytes = \case
-        Just bytes -> pure $ decodeUtf8 bytes -- TODO Error checking
-
-    , decodeJSON = \case
-        Data.Aeson.String s -> pure s
-    
-    , hasqlDecoder = notNullDecoder Hasql.text
-    }
+  typeInformation = fromOpaleye pgStrictText $ notNullDecoder Hasql.text
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
@@ -2063,76 +1922,36 @@ nullDatabaseType DatabaseType{ encode, typeName, decoder } = DatabaseType
 
 -- | Corresponds to the @json@ PostgreSQL type.
 instance DBType Value where
-  typeInformation = fromOpaleye pgValueJSON Decoder
-    { decodeBytes = \case
-        Just bytes ->
-          case decode $ fromStrict bytes of
-            Just ok -> pure ok
-
-    , decodeJSON = pure
-    }
-
+  typeInformation = fromOpaleye pgValueJSON $ DecodeNotNull Hasql.json
 
 instance DBType Data.ByteString.Lazy.ByteString where
   typeInformation = mapDatabaseType Data.ByteString.Lazy.fromStrict Data.ByteString.Lazy.toStrict typeInformation
 
 
 instance DBType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString $ parseDecoder (toEither . unsafeDupablePerformIO . unescapeBytea) bytestringDecoder
-    where
-      toEither = maybe (Left "Could not decode ByteString") Right
+  typeInformation = fromOpaleye pgStrictByteString $ DecodeNotNull Hasql.bytea
 
 
 instance DBType Scientific where
-  typeInformation = fromOpaleye pgNumeric Decoder
-    { decodeBytes = \case
-        Just bytes ->
-          case parseOnly rational bytes of
-            Right ok -> pure ok
-
-    , decodeJSON = \case
-        Data.Aeson.Number n -> pure n
-    }
-
+  typeInformation = fromOpaleye pgNumeric $ DecodeNotNull Hasql.numeric
 
 instance DBType Double where
-  typeInformation = fromOpaleye pgDouble Decoder{ decodeBytes, decodeJSON }
-    where
-      decodeBytes = \case
-        Just bytes ->
-          case parseOnly parser bytes of
-            Right ok -> pure ok
-
-      decodeJSON = \case
-        Data.Aeson.Number n -> pure $ realToFrac n
-
-      parser =   
-            (string "NaN"       *> pure ( 0 / 0))
-        <|> (string "Infinity"  *> pure ( 1 / 0))
-        <|> (string "-Infinity" *> pure (-1 / 0))
-        <|> double
-
+  typeInformation = fromOpaleye pgDouble $ DecodeNotNull Hasql.float8
 
 instance DBType UUID where
-  typeInformation = fromOpaleye pgUUID $ parseDecoder (toEither . UUID.fromASCIIBytes) bytestringDecoder
-    where
-      toEither = maybe (Left "Could not parse UUID") Right
+  typeInformation = fromOpaleye pgUUID $ DecodeNotNull Hasql.uuid
 
 
 instance DBType Day where
-  typeInformation = fromOpaleye pgDay $ parseDecoder parseDay bytestringDecoder
+  typeInformation = fromOpaleye pgDay $ DecodeNotNull Hasql.date
 
 
 instance DBType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime $ parseDecoder parseLocalTime bytestringDecoder
-
-
-instance DBType ZonedTime where
-  typeInformation = fromOpaleye pgZonedTime $ parseDecoder parseZonedTime bytestringDecoder
+  typeInformation = fromOpaleye pgLocalTime $ DecodeNotNull Hasql.timestamp
 
 
 instance DBType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay $ parseDecoder parseTimeOfDay bytestringDecoder
+  typeInformation = fromOpaleye pgTimeOfDay $ DecodeNotNull Hasql.time
 
 
 instance DBType (CI Text) where
@@ -2275,38 +2094,7 @@ select conn query = liftIO case selectQuery query of
     Hasql.run session conn >>= either throwIO return
     where
       session = Hasql.statement () statement
-      statement = Hasql.Statement (encodeUtf8 (pack q)) Hasql.noParams (fmap runIdentity <$> Hasql.rowList (hasqlRowParser @row (fmap Identity))) False
-
-
-queryParser
-  :: Serializable sql haskell
-  => Query sql
-  -> Database.PostgreSQL.Simple.RowParser haskell
-queryParser ( Query q ) =
-  Opaleye.prepareRowParser
-    queryRunner
-    ( case Opaleye.runSimpleQueryArrStart q () of
-        ( b, _, _ ) ->
-          b
-    )
-
-
-queryRunner
-  :: forall row haskell
-   . Serializable row haskell
-  => Opaleye.FromFields row haskell
-queryRunner = Opaleye.QueryRunner (void unpackspec) (const parser) (const 1)
-  where
-  parser :: RowParser haskell
-  parser = do
-    unparsed <- htraverse (\_ -> getField) $ htabulate \_ -> Const ()
-    RP $ lift $ lift $ runIdentity <$> rowParser @row useFieldParser unparsed
-
-  getField :: RowParser (Const (Maybe ByteString) x)
-  getField = fieldWith \_ -> pure . Const
-
-  useFieldParser :: Decoder x -> Maybe ByteString -> Conversion (Identity x)
-  useFieldParser = fmap (fmap pure) <$> decodeBytes
+      statement = Hasql.Statement (encodeUtf8 (pack q)) Hasql.noParams (fmap runIdentity <$> Hasql.rowList (rowParser @row (fmap Identity))) False
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -2397,10 +2185,10 @@ opaleyeReturning returning =
     NumberOfRowsAffected ->
       Opaleye.Count
 
-    Projection f ->
-      Opaleye.ReturningExplicit
-        queryRunner
-        ( f . mapTable ( column . columnName ) )
+    -- Projection f ->
+    --   Opaleye.ReturningExplicit
+    --     queryRunner
+    --     ( f . mapTable ( column . columnName ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -2816,10 +2604,11 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
             htraverse (traversePrimExpr f) $
               htabulate @(Columns expr) @Expr \i ->
                 case hfield (hdbtype @(Columns expr)) i of
-                  databaseType -> fromPrimExpr $ nullExpr databaseType
+                  databaseType -> fromPrimExpr $ nullPrimExpr databaseType
             where
-              nullExpr :: DatabaseType a -> Opaleye.PrimExpr
-              nullExpr DatabaseType{ typeName } = Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+              nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
+              nullPrimExpr DatabaseType{ typeName } = 
+                Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
 
 
 -- | @filter f x@ will be a zero-row query when @f x@ is @False@, and will
@@ -2942,10 +2731,6 @@ listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
         Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
-pgtoJSONB :: Expr a -> Expr Value
-pgtoJSONB = function "to_jsonb"
-
-
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
@@ -3059,27 +2844,6 @@ instance (f ~ Expr, Table f a) => Table f (ListTable a) where
 
 
 instance Serializable a b => Serializable (ListTable a) [b] where
-  rowParser parseColumn xs = fmap getZipList . getCompose <$> rowParser @a (\x y -> Compose <$> parseColumn (listOf x) y) (f xs)
-    where
-    listOf :: Decoder x -> Decoder (ZipList x)
-    listOf Decoder{ decodeJSON } = Decoder
-      { decodeJSON = go
-      , decodeBytes = \case
-          Nothing    -> error "TODO"
-          Just bytes ->
-            case decodeStrict bytes of
-              Just x -> go x
-      }
-      where
-        go (Data.Aeson.Array xs) = traverse decodeJSON (ZipList (toList xs))
-
-    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
-    f (HComposeTable ys) = hmap g ys
-      where
-        g :: ComposeInner (Context (Const t)) [] x -> Const t x
-        g (ComposeInner (Const x)) = Const x
-
-
   lit (map (lit @a) -> xs) = ListTable $ htabulate $ \field ->
     case hfield hdbtype field of
       databaseType -> ComposeInner $ listOfExprs databaseType $
@@ -3092,18 +2856,18 @@ instance Serializable a b => Serializable (ListTable a) [b] where
         where
           array = typeName (liftDatabaseType @[] databaseType)
 
-  hasqlRowParser liftHasqlDecoder = fmap getZipList . getCompose <$> hasqlRowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
+  rowParser liftHasqlDecoder = fmap getZipList . getCompose <$> rowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
       DecodeNotNull v -> 
-        DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable $ v
+        DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable v
 
-    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
-    f (HComposeTable ys) = hmap g ys
-      where
-        g :: ComposeInner (Context (Const t)) [] x -> Const t x
-        g (ComposeInner (Const x)) = Const x
+      DecodeNull v f -> DecodeNull v' \case
+        Nothing      -> pure <$> f Nothing
+        Just zipList -> traverse f zipList
+        where
+          v' = fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nullable v
 
 
 instance Table Expr a => Semigroup (ListTable a) where
@@ -3147,26 +2911,6 @@ instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
 
 
 instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
-  rowParser parseColumn xs = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a (\x y -> Compose <$> parseColumn (listOf x) y) (f xs)
-    where
-    listOf :: Decoder x -> Decoder (ZipList x)
-    listOf Decoder{ decodeJSON } = Decoder
-      { decodeJSON = go
-      , decodeBytes = \case
-          Nothing    -> error "TODO"
-          Just bytes ->
-            case decodeStrict bytes of
-              Just x -> go x
-      }
-      where
-        go (Data.Aeson.Array xs) = traverse decodeJSON (ZipList (toList xs))
-
-    f :: HComposeTable NonEmpty (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
-    f (HComposeTable ys) = hmap g ys
-      where
-        g :: ComposeInner (Context (Const t)) NonEmpty x -> Const t x
-        g (ComposeInner (Const x)) = Const x
-
   lit (fmap (lit @a) -> xs) = NonEmptyTable $ htabulate $ \field ->
     case hfield hdbtype field of
       databaseType -> ComposeInner $ nonEmptyOf databaseType $
@@ -3179,17 +2923,17 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
         where
           array = typeName (liftDatabaseType @NonEmpty databaseType)
 
-  hasqlRowParser liftHasqlDecoder = fmap (NonEmpty.fromList . getZipList) . getCompose <$> hasqlRowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
+  rowParser liftHasqlDecoder = fmap (NonEmpty.fromList . getZipList) . getCompose <$> rowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable $ v
+      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable v
 
-    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
-    f (HComposeTable ys) = hmap g ys
-      where
-        g :: ComposeInner (Context (Const t)) [] x -> Const t x
-        g (ComposeInner (Const x)) = Const x
+      DecodeNull v f -> DecodeNull v' \case
+        Nothing      -> pure <$> f Nothing
+        Just zipList -> traverse f zipList
+        where
+          v' = fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nullable v
 
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where
