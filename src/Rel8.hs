@@ -294,39 +294,47 @@ import Control.Exception (throwIO)
 
 -- $setup
 --
--- In this section, we'll take a look at how Rel8 can be used to work with a
--- simple schema for Haskell packages. We'll take a look at idiomatic usage of
--- Rel8, defining custom tables and types, and writing some simple queries with
--- this schema. 
+-- In this section, we'll take a look at using Rel8 to work with a small
+-- database for Haskell packages. We'll take a look at idiomatic usage of Rel8,
+-- mapping tables to Haskell, and then look at writing some simple queries. 
 --
--- Before we look at any Haskell code, let's take a look at the schema we'll
+-- The documentation in this library uses the following language extensions:
+--
+-- >>> :set -XBlockArguments 
+-- >>> :set -XDeriveAnyClass 
+-- >>> :set -XDeriveGeneric 
+-- >>> :set -XDerivingStrategies 
+-- >>> :set -XDerivingVia 
+-- >>> :set -XDuplicateRecordFields
+-- >>> :set -XGeneralizedNewtypeDeriving 
+-- >>> :set -XOverloadedStrings
+-- >>> :set -XStandaloneDeriving 
+-- >>> :set -XTypeApplications 
+-- >>> :set -XTypeFamilies
+--
+-- Before we start writing any Haskell, let's take a look at the schema we'll
 -- work with.
 --
--- > # \d author
--- >   Column   |  Type   | Nullable 
--- > -----------+---------+----------
--- >  author_id | integer | not null 
--- >  name      | text    | not null
--- >  url       | text    |        
+-- > author:                               project:
+-- > 
+-- >   Column   │  Type   │ Nullable         Column   │  Type   │ Nullable 
+-- > ═══════════╪═════════╪══════════      ═══════════╪═════════╪══════════
+-- >  author_id │ integer │ not null        author_id │ integer │ not null 
+-- >  name      │ text    │ not null        name      │ text    │ not null
+-- >  url       │ text    │        
 --
--- > # \d project
--- >   Column   |  Type   | Nullable 
--- > -----------+---------+----------
--- >  author_id | integer | not null 
--- >  name      | text    | not null
---
--- Our schema consists of two tables - @author@ and @project@. An @author@ has
--- zero+ projects, a name and (maybe) an associated website. Each project has
--- an author and a name.
+-- Our schema consists of two tables - @author@ and @project@. A @project@
+-- always has an @author@, but not all @author@s have projects. Each @author@
+-- has a name and (maybe) an associated website, and each project has a name.
 --
 -- Now that we've seen our schema, we can begin writing a mapping in Rel8. The
--- idiomatic way to map a table is to use a record that is parameterised by a
--- particular interpretation functor, and to define each field with 'Column'.
--- For this type to be usable with Rel8 we need it to be an instance of
--- 'HigherKindedTable', which can be derived with a combination of
+-- idiomatic way to map a table is to use a record that is parameterised what
+-- Rel8 calls an /interpretation functor/, and to define each field with
+-- 'Column'.  For this type to be usable with Rel8 we need it to be an instance
+-- of 'HigherKindedTable', which can be derived with a combination of
 -- @DeriveAnyClass@ and @DeriveGeneric@.
 --
--- Following these steps, we have:
+-- Following these steps for @author@, we have:
 --
 -- > data Author f = Author
 -- >   { authorId :: Column f Int64
@@ -334,24 +342,19 @@ import Control.Exception (throwIO)
 -- >   , url      :: Column f (Maybe Text)
 -- >   } deriving (Generic, HigherKindedTable)
 --
--- However, cautious readers might notice a problem with this - in particular,
--- with the type of the @authorId@ field. While @Int64@ is correct, it's not
--- the best type. If we had other identifier types in our project, it would be
--- too easy to accidentally mix them up and create nonsensical joins. Instead,
--- it's a good idea to a create a @newtype@ for each identifier type, allowing
--- them to be distinct. 
---
--- Rel8 makes this easy - we can just use @GeneralizedNewtypeDeriving@:
---
--- > newtype AuthorId = AuthorId { toInt64 :: Int64 } deriving (DBType)
---
--- Now we can write our final schema mapping:
---
--- >>> :set -XGeneralizedNewtypeDeriving -XDeriveAnyClass -XDerivingStrategies -XDeriveGeneric -XStandaloneDeriving -XTypeFamilies
+-- This is a perfectly reasonable definition, but cautious readers might notice
+-- a problem - in particular, with the type of the @authorId@ field.  While
+-- @Int64@ is correct, it's not the best type. If we had other identifier types
+-- in our project, it would be too easy to accidentally mix them up and create
+-- nonsensical joins. As Haskell programmers, we often solve this problem by
+-- creating @newtype@ wrappers, and we can also use this technique with Rel8:
 --
 -- >>> :{
--- newtype AuthorId = AuthorId { toInt64 :: Int64 } deriving newtype (DBEq, DBType, Eq, Show)
+-- newtype AuthorId = AuthorId { toInt64 :: Int64 } 
+--   deriving newtype (DBEq, DBType, Eq, Show)
 -- :}
+--
+-- Now we can write our final schema mapping. First, the @author@ table:
 --
 -- >>> :{
 -- data Author f = Author
@@ -363,7 +366,7 @@ import Control.Exception (throwIO)
 --   deriving anyclass HigherKindedTable
 -- :}
 --
--- >>> deriving stock instance f ~ Identity => Show (Author f)
+-- And similarly, the @project@ table:
 --
 -- >>> :{
 -- data Project f = Project
@@ -374,27 +377,25 @@ import Control.Exception (throwIO)
 --   deriving anyclass HigherKindedTable
 -- :}
 --
+-- To show query results in this documentation, we'll also need @Show@
+-- instances: Unfortunately these definitions look a bit scary, but they are
+-- essentially just @deriving (Show)@:
+--
+-- >>> deriving stock instance f ~ Identity => Show (Author f)
 -- >>> deriving stock instance f ~ Identity => Show (Project f)
 --
 -- These data types describe the structural mapping of the tables, but we also
--- need to specify a 'TableSchema'. A @TableSchema@ contains the name of the
--- table and the name of all columns in the table, which will ultimately allow
--- us to @SELECT@ and @INSERT@ rows for these tables.
---
--- As an aside, you might be wondering why this information isn't in the
--- definitions of @Author@ and @Project@ above. Rel8 decouples @TableSchema@
--- from the data types themselves, as not all tables you define will
--- necessarily have a schema. For example, Rel8 allows you to define helper
--- types to simplify the types of queries - these tables only exist at query
--- time, but there is no corresponding base table. We'll see more on this idea
--- later!
+-- need to specify a 'TableSchema' for each table. A @TableSchema@ contains the
+-- name of the table and the name of all columns in the table, which will
+-- ultimately allow us to @SELECT@ and @INSERT@ rows for these tables.
 --
 -- To define a @TableSchema@, we just need to fill construct appropriate
--- @TableSchema@ values. When it comes to the @tableColumns@ field, we just use
--- our data types above, and set each field to the name of the column that it
--- maps to:
+-- @TableSchema@ values. When it comes to the @tableColumns@ field, we
+-- construct values of our data types above, and set each field to the name of
+-- the column that it maps to:
 --
--- >>> :set -XOverloadedStrings
+-- First, @authorSchema@ describes the column names of the @author@ table when
+-- associated with the @Author@ type:
 --
 -- >>> :{
 -- authorSchema :: TableSchema (Author ColumnSchema)
@@ -409,6 +410,8 @@ import Control.Exception (throwIO)
 --   }
 -- :}
 --
+-- And likewise for @project@ and @Project@:
+--
 -- >>> :{
 -- projectSchema :: TableSchema (Project ColumnSchema)
 -- projectSchema = TableSchema
@@ -421,10 +424,20 @@ import Control.Exception (throwIO)
 --   }
 -- :}
 --
--- With these table definitions, we can now start writing some queries!
+-- Aside: you might be wondering why this information isn't in the definitions
+-- of @Author@ and @Project@ above. Rel8 decouples @TableSchema@ from the data
+-- types themselves, as not all tables you define will necessarily have a
+-- schema. For example, Rel8 allows you to define helper types to simplify the
+-- types of queries - these tables only exist at query time, but there is no
+-- corresponding base table. We'll see more on this idea later!
 --
--- >>> :set -XBlockArguments -XDerivingVia -XTypeApplications -XDuplicateRecordFields
--- >>> Right c <- Hasql.Connection.acquire . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
+-- With these table definitions, we can now start writing some queries! To
+-- actually run a query, we'll need a database connection. Rel8 uses the
+-- @hasql@ library, and for this documentation we'll get the connection string
+-- from the @$TEST_DATABASE_URL@ environment variable.
+--
+-- >>> connectionString <- System.Environment.getEnv "TEST_DATABASE_URL"
+-- >>> Right c <- Hasql.Connection.acquire (Data.ByteString.Char8.pack connectionString)
 -- >>> Control.Monad.void $ Hasql.Session.run (Hasql.Session.sql "BEGIN") c
 
 -- $guideQueries
@@ -437,25 +450,26 @@ import Control.Exception (throwIO)
 -- required knowledge. 
 -- 
 -- To start, we'll look at one of the simplest queries possible - a basic
--- @SELECT FROM@ statement. To select rows from a table, we use 'each', and
--- supply a @TableSchema@. To select all projects, we can write:
+-- @SELECT * FROM@ statement. To select all rows from a table, we use 'each',
+-- and supply a 'TableSchema'. So to select all @project@ rows, we can write:
 -- 
 -- >>> :t each projectSchema
 -- each projectSchema :: Query (Project Expr)
 -- 
 -- Notice that @each@ gives us a @Query@ that yields @Project Expr@ rows. To
--- see what this means, let's have a look at a single field of a @Project
--- Expr@:
+-- see what this means, let's have a look at a single field of a 
+-- @Project Expr@:
 -- 
 -- >>> let aProjectExpr = undefined :: Project Expr
 -- >>> :t projectAuthorId aProjectExpr
 -- projectAuthorId aProjectExpr :: Expr AuthorId
 -- 
--- We defined @projectAuthorId@ as @Column f AuthorId@, but here @f@ is @Expr@,
--- and @Column Expr AuthorId@ reduces to @Expr AuthorId@. We'll see more about
--- @Expr@ soon, but you can think of @Expr a@ as "SQL expressions of type @a@".
+-- Recall we defined @projectAuthorId@ as @Column f AuthorId@. Now we have @f@
+-- is @Expr@, and @Column Expr AuthorId@ reduces to @Expr AuthorId@. We'll see
+-- more about @Expr@ soon, but you can think of @Expr a@ as "SQL expressions of
+-- type @a@".
 -- 
--- To execute this @Query@, we pass it off to 'select':
+-- To execute this @Query@, we pass it to 'select':
 -- 
 -- >>> :t select c (each projectSchema)
 -- select c (each projectSchema) :: MonadIO m => m [Project Identity]
@@ -473,27 +487,31 @@ import Control.Exception (throwIO)
 -- 
 -- Putting this all together, we can run our first query:
 -- 
--- >>> select c (each projectSchema)
--- [Project {projectAuthorId = 1, projectName = "rel8"},Project {projectAuthorId = 2, projectName = "aeson"},Project {projectAuthorId = 2, projectName = "text"}]
+-- >>> select c (each projectSchema) >>= mapM_ print
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 -- 
 -- Cool!
 --
--- 'each' is the equivalent of a @SELECT *@ query, but sometimes we're only
--- interested in a subset of the columns of a table. To restrict the returned
--- columns, we can specify a projection by using 'Query's @Functor@ instance:
+-- We now know that 'each' is the equivalent of a @SELECT *@ query, but
+-- sometimes we're only interested in a subset of the columns of a table. To
+-- restrict the returned columns, we can specify a projection by using 'Query's
+-- @Functor@ instance:
 --
 -- >>> select c $ projectName <$> each projectSchema
 -- ["rel8","aeson","text"]
 
 -- $guideJoins
 -- 
--- A very common operation in relational databases is to take the @JOIN@ of
+-- Another common operation in relational databases is to take the @JOIN@ of
 -- multiple tables. Rel8 doesn't have a specific join operation, but we can
 -- recover the functionality of a join by selecting all rows of two tables, and
 -- then using 'where_' to filter them.
 --
--- To see why this works, first let's look at taking the product of two tables.
--- We can do this by simply calling 'each' twice:
+-- To see how this works, first let's look at taking the product of two tables.
+-- We can do this by simply calling 'each' twice, and then returning a tuple of
+-- their results.
 --
 -- >>> :{
 -- mapM_ print =<< select c do
@@ -513,7 +531,7 @@ import Control.Exception (throwIO)
 --
 -- This isn't quite right, though, as we have ended up pairing up the wrong
 -- projects and authors. To fix this, we can use 'where_' to restrict the
--- returned rows:
+-- returned rows. We could write:
 -- 
 -- > select c $ do
 -- >   author  <- each authorSchema
@@ -521,9 +539,9 @@ import Control.Exception (throwIO)
 -- >   where_ $ projectAuthorId project ==. authorId author
 -- >   return (project, author)
 --
--- Doing this every time you need a join can obscure the meaning of the query
--- you're writing, so a good practice is to introduce specialised functions for
--- the particular joins in your database. In our case, this would be:
+-- but doing this every time you need a join can obscure the meaning of the
+-- query you're writing. A good practice is to introduce specialised functions
+-- for the particular joins in your database. In our case, this would be:
 --
 -- >>> :{
 -- projectsForAuthor :: Author Expr -> Query (Project Expr)
@@ -531,7 +549,7 @@ import Control.Exception (throwIO)
 --   projectAuthorId p ==. authorId a
 -- :}
 --
--- Now we can simplify our query to just:
+-- Our final query is then:
 --
 -- >>> :{
 -- mapM_ print =<< select c do
@@ -546,23 +564,23 @@ import Control.Exception (throwIO)
 -- == @LEFT JOIN@s
 --
 -- Rel8 is also capable of performing @LEFT JOIN@s. To perform @LEFT JOIN@s, we
--- follow a similar approach, but use the 'optional' query transformer to allow
--- for the possibility of the join to fail.
+-- follow the same approach as before, but use the 'optional' query transformer
+-- to allow for the possibility of the join to fail.
 --
--- In our test database, we can see that there's another author:
+-- In our test database, we can see that there's another author who we haven't
+-- seen yet:
 --
 -- >>> select c $ authorName <$> each authorSchema
 -- ["Ollie","Bryan O'Sullivan","Emily Pillmore"]
 --
 -- Emily wasn't returned in our earlier query because - in our database - she
--- doesn't have any registered projects. We can record this partiality in our
--- original query by simply wrapping the @projectsForAuthor@ call with
--- 'optional':
+-- doesn't have any registered projects. We can account for this partiality in
+-- our original query by wrapping the @projectsForAuthor@ call with 'optional':
 --
 -- >>> :{
 -- mapM_ print =<< select c do
---   author <- each authorSchema
---   mproject <- optional (projectsForAuthor author)
+--   author   <- each authorSchema
+--   mproject <- optional $ projectsForAuthor author
 --   return (authorName author, projectName <$> mproject)
 -- :}
 -- ("Ollie",Just "rel8")
@@ -572,26 +590,25 @@ import Control.Exception (throwIO)
 
 -- $guideAggregation
 --
--- Another common operation in SQL is to aggregate data. Aggregations are
--- operations like @sum@ and @count@, and Rel8 also supports this. To perform
--- an aggregation, we can use the 'aggregate' function, which takes a 'Query'
--- of aggregated expressions, runs the aggregation, and returns you back result
--- rows.
+-- Aggregations are operations like @sum@ and @count@ - operations that reduce
+-- multiple rows to single values. To perform aggregations in Rel8, we can use
+-- the 'aggregate' function, which takes a 'Query' of aggregated expressions,
+-- runs the aggregation, and returns aggregated rows.
 --
 -- To start, let's look at a simple aggregation that tells us how many projects
 -- exist:
 --
--- TODO
+-- >>> error "TODO"
 --
 -- Rel8 is also capable of aggregating multiple rows into a single row by
 -- concatenating all rows as a list. This aggregation allows us to break free
 -- of the row-orientated nature of SQL and write queries that return tree-like
 -- structures. Earlier we saw an example of returning authors with their
--- projects, but the query didn't do a great job of describing the relationship
--- between an author and their projects.
+-- projects, but the query didn't do a great job of describing the one-to-many
+-- relationship between authors and their projects.
 --
 -- Let's look again at a query that returns authors and their projects, and
--- focus on the type of that query:
+-- focus on the /type/ of that query. 
 --
 -- >>> :{
 -- projectsForAuthor a = each projectSchema >>= filter \p ->
@@ -603,6 +620,7 @@ import Control.Exception (throwIO)
 --       author  <- each authorSchema
 --       project <- projectsForAuthor author
 --       return (author, project)
+--       where
 -- :}
 --
 -- >>> :t select c authorsAndProjects
@@ -611,7 +629,8 @@ import Control.Exception (throwIO)
 --
 -- Our query gives us a single list of pairs of authors and projects. However,
 -- with our domain knowledge of the schema, this isn't a great type - what we'd
--- rather have is a list of pairs of authors and /lists/ of projects:
+-- rather have is a list of pairs of authors and /lists/ of projects. That is,
+-- what we'd like is:
 --
 -- > [(Author Identity, [Project Identity])]
 --
@@ -629,6 +648,8 @@ import Control.Exception (throwIO)
 -- ("Ollie",["rel8"])
 -- ("Bryan O'Sullivan",["aeson","text"])
 -- ("Emily Pillmore",[])
+
+
 
 -- | Haskell types that can be represented as expressions in a database. There
 -- should be an instance of @DBType@ for all column types in your database
