@@ -22,14 +22,10 @@ library
     , case-insensitive
     , contravariant
     , hasql
-    , libpq
     , opaleye ^>= 0.7.1.0
-    , postgresql-simple
     , scientific
     , text
     , time
-    , transformers
-    , attoparsec
     , uuid
   default-language:
     Haskell2010
@@ -37,7 +33,7 @@ library
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
-    -Wno-missing-local-signatures 
+    -Wno-missing-local-signatures -Wno-implicit-prelude
   hs-source-dirs:
     src
   exposed-modules:
@@ -59,7 +55,6 @@ test-suite tests
     , hedgehog          ^>= 1.0.2
     , lifted-base       ^>= 0.2.3.12
     , monad-control     ^>= 1.0.2.3
-    , postgresql-simple ^>= 0.6.2
     , rel8
     , scientific
     , tasty
@@ -75,6 +70,11 @@ test-suite tests
     tests
   default-language:
     Haskell2010
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-deprecations -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures -Wno-implicit-prelude
 
 
 test-suite doctests
@@ -86,7 +86,6 @@ test-suite doctests
     , doctest
     , tmp-postgres
     , bytestring
-    , postgresql-simple
     , hasql
   main-is:
     Doctest.hs

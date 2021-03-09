@@ -424,8 +424,8 @@ import Control.Exception (throwIO)
 -- With these table definitions, we can now start writing some queries!
 --
 -- >>> :set -XBlockArguments -XDerivingVia -XTypeApplications -XDuplicateRecordFields
--- >>> c <- Database.PostgreSQL.Simple.connectPostgreSQL . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
--- >>> Database.PostgreSQL.Simple.Transaction.begin c
+-- >>> Right c <- Hasql.Connection.acquire . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
+-- >>> Hasql.Session.run (Hasql.Session.sql "BEGIN") c
 
 -- $guideQueries
 -- 
@@ -670,13 +670,7 @@ class Typeable a => DBType (a :: Type) where
 -- :}
 -- 
 -- will allow you to store @Pet@ values in a single SQL column (stored as
--- @json@ values):
--- 
--- >>> import Data.String (fromString)
--- >>> import Data.Aeson (Value, encode)
--- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
--- >>> fmap (Data.Aeson.encode @Value . fromOnly) <$> query_ c (fromString $ showQuery $ pure $ lit Pet{ petName = "Yoshi", petAge = 4 })
--- ["{\"petAge\":4,\"petName\":\"Yoshi\"}"]
+-- @json@ values).
 newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
 
 
@@ -699,12 +693,7 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
 -- :}
 -- 
 -- will allow you to store @Color@ values in a single SQL column (stored as
--- @text@):
--- 
--- >>> import Data.Text (Text)
--- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
--- >>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
--- ["Red"]
+-- @text@).
 newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
@@ -784,7 +773,6 @@ mapDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseTy
 -- some legacy encoding:
 -- 
 -- >>> import Data.Text (Text)
--- >>> import Database.PostgreSQL.Simple (query_, fromOnly)
 -- 
 -- >>> data Color = Red | Green | Blue
 -- >>> :{
@@ -798,9 +786,6 @@ mapDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseTy
 --       toLegacy Red   = "red"
 --       toLegacy Green = "green"
 -- :}
--- 
--- >>> fmap (fromOnly @Text) <$> query_ c (fromString $ showQuery $ pure $ lit Red)
--- ["red"]
 parseDatabaseType :: (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = encode . bToA

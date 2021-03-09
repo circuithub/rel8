@@ -14,8 +14,6 @@
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
-{-# options -Weverything -Wno-prepositive-qualified-module -Wno-unsafe -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-implicit-prelude #-}
-
 module Main (main) where
 
 import Hasql.Connection ( Connection,  acquire, release )
