@@ -10,14 +10,14 @@ import Data.Foldable ( traverse_ )
 import Hasql.Connection ( acquire, release )
 import Hasql.Session ( run, sql )
 import Database.Postgres.Temp ( toConnectionString, with, withConfig, verboseConfig )
-import System.Environment ( setEnv )
+import System.Environment ( setEnv, lookupEnv )
 import System.Environment.Compat ( unsetEnv )
 import Test.DocTest ( doctest )
 
 main :: IO ()
 main = do
-  print args
-  -- unsetEnv "GHC_ENVIRONMENT" -- see 'Notes'; you may not need this
+  nixGhcLibdir <- lookupEnv "NIX_GHC_LIBDIR"
+  unsetEnv "GHC_ENVIRONMENT"
   either throwIO return =<< with \db -> do
     setEnv "TEST_DATABASE_URL" (unpack (toConnectionString db))
     bracket (either (error . show) return =<< acquire (toConnectionString db)) release \conn -> do
@@ -32,7 +32,8 @@ main = do
         sql "insert into project ( author_id, name ) values ( 2, 'aeson' )"
         sql "insert into project ( author_id, name ) values ( 2, 'text' )"
 
-    doctest args
+    doctest (args nixGhcLibdir)
   
   where
-    args = flags ++ pkgs ++ module_sources
+    args nixGhcLibdir = 
+      flags ++ pkgs ++ foldMap (\x -> ["-package-db" <> x <> "/package.conf.d"]) nixGhcLibdir ++ module_sources
