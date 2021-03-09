@@ -226,7 +226,7 @@ import Text.Read ( readEither )
 -- bytestring
 import Data.ByteString ( ByteString )
 import Data.ByteString.Lazy ( fromStrict )
-import qualified Data.ByteString.Lazy 
+import qualified Data.ByteString.Lazy
 
 -- contravariant
 import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
@@ -273,7 +273,7 @@ import qualified Rel8.Optimize
 import Data.Scientific ( Scientific )
 
 -- text
-import Data.Text ( Text )
+import Data.Text ( Text, pack )
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
@@ -290,7 +290,6 @@ import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 import qualified Hasql.Encoders as Hasql (noParams)
 import Control.Exception (throwIO)
-import Data.Text (pack)
 
 
 -- $setup
@@ -1105,7 +1104,7 @@ class Table Expr a => EqTable a where
 class Function arg res where
   -- | Build a function of multiple arguments.
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
-  applyArgument = 
+  applyArgument =
     -- We do need 'applyArgument', but if we don't specify this and let GHC
     -- infer the minimal contract, it leaks out into documentation. This is a
     -- private class, so we don't want to document anything more than its
@@ -1443,7 +1442,7 @@ class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
 
 instance GSerializable f f' => GSerializable (M1 i c f) (M1 i' c' f') where
   glitImpl = M1 . glitImpl @f @f' . unM1
-  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f 
+  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f
 
 
 instance (GSerializable f f', GSerializable g g') => GSerializable (f :*: g) (f' :*: g') where
@@ -1659,7 +1658,7 @@ instance DBType a => HTable (HIdentity a) where
 
 runHasqlDecoder :: HasqlDecoder x -> Hasql.Row x
 runHasqlDecoder = \case
-  DecodeNotNull v -> 
+  DecodeNotNull v ->
     Hasql.column $ Hasql.nonNullable v
 
   DecodeNull v f ->
@@ -1705,14 +1704,11 @@ instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
 instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => Serializable (s expr) (t identity) where
-  rowParser :: forall f. (Applicative f, Traversable f)
-    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
-    -> Hasql.Row (f (t identity))
-  rowParser liftDecoder = getCompose $ htraverse (fmap pure) $ htabulate f
+  rowParser liftDecoder = getCompose $ htraverse (fmap pure) $ htabulate (f liftDecoder)
     where
-      f :: forall x. HField t x -> Compose Hasql.Row f x
-      f i = case hfield hdbtype i of
-        databaseType -> Compose $ runHasqlDecoder $ liftDecoder $ decoder databaseType
+      f :: forall f x. (forall y. HasqlDecoder y -> HasqlDecoder (f y)) -> HField t x -> Compose Hasql.Row f x
+      f liftDecoder_ i = case hfield hdbtype i of
+        databaseType -> Compose $ runHasqlDecoder $ liftDecoder_ $ decoder databaseType
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -1726,7 +1722,7 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Seria
 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
-  rowParser liftDecoder = 
+  rowParser liftDecoder =
     runHasqlDecoder (liftDecoder (decoder (typeInformation @a)))
 
   lit = Expr . Opaleye.CastExpr typeName . encode
@@ -2086,13 +2082,13 @@ select conn query = liftIO case selectQuery query of
     where
       session = Hasql.statement () statement
       statement = Hasql.Statement q params (Hasql.rowList (hasqlRowDecoder @row)) prepare
-      q = encodeUtf8 (pack neQuery) 
-      params = Hasql.noParams 
+      q = encodeUtf8 (pack neQuery)
+      params = Hasql.noParams
       prepare = False
 
 
 hasqlRowDecoder :: forall row haskell. Serializable row haskell => Hasql.Row haskell
-hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity) 
+hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity)
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -2113,33 +2109,33 @@ unpackspec =
 -- :}
 -- 1
 insert :: MonadIO m => Connection -> Insert result -> m result
-insert conn Insert{ into, rows, onConflict, returning } = liftIO 
+insert conn Insert{ into, rows, onConflict, returning } = liftIO
   case (rows, returning) of
-    ([], NumberOfRowsAffected) -> 
+    ([], NumberOfRowsAffected) ->
       return 0
 
-    ([], Projection _) -> 
+    ([], Projection _) ->
       return []
 
     (x:xs, NumberOfRowsAffected) -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeInsertManySql table neRows maybeOnConflict where
-            table = ddlTable into (writer into) 
-            neRows = x :| xs 
+            table = ddlTable into (writer into)
+            neRows = x :| xs
 
     (x:xs, Projection p) -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeInsertManyReturningSql unpackspec table neRows f maybeOnConflict where
-            f  = p . mapTable (column . columnName) 
-            table = ddlTable into (writer into) 
-            neRows = x :| xs 
+            f  = p . mapTable (column . columnName)
+            table = ddlTable into (writer into)
+            neRows = x :| xs
 
           mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
           mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
   where
-    maybeOnConflict = 
+    maybeOnConflict =
       case onConflict of
         DoNothing -> Just Opaleye.DoNothing
         Abort     -> Nothing
@@ -2254,15 +2250,15 @@ delete conn Delete{ from = deleteFrom, deleteWhere, returning } = liftIO
         statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteSql table f where
             f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
-            table = ddlTable deleteFrom (writer deleteFrom) 
+            table = ddlTable deleteFrom (writer deleteFrom)
 
     Projection p -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteReturningSql unpackspec table f g where
             f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
-            table = ddlTable deleteFrom (writer deleteFrom) 
-            g  = p . mapTable (column . columnName) 
+            table = ddlTable deleteFrom (writer deleteFrom)
+            g = p . mapTable (column . columnName)
 
           mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
           mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
@@ -2312,7 +2308,19 @@ update conn Update{ target, set, updateWhere, returning } = liftIO
           q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateSql table g f where
             f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
             g = set . mapTable (column . columnName)
-            table = ddlTable target (writer target) 
+
+    Projection p -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateReturningSql unpackspec table g f h where
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
+            g = set . mapTable (column . columnName)
+            h = p . mapTable (column . columnName)
+
+          mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
+          mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
+  where
+    table = ddlTable target (writer target)
 
 
 -- | The constituent parts of an @UPDATE@ statement.
@@ -2565,7 +2573,7 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
                   databaseType -> fromPrimExpr $ nullPrimExpr databaseType
             where
               nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
-              nullPrimExpr DatabaseType{ typeName } = 
+              nullPrimExpr DatabaseType{ typeName } =
                 Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
 
 
@@ -2684,8 +2692,8 @@ listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
-    go (Expr a) = 
-      Aggregate $ Expr $ 
+    go (Expr a) =
+      Aggregate $ Expr $
         Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
@@ -2818,7 +2826,7 @@ instance Serializable a b => Serializable (ListTable a) [b] where
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v -> 
+      DecodeNotNull v ->
         DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable v
 
       DecodeNull v f -> DecodeNull v' \case
