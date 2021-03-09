@@ -21,6 +21,7 @@ library
     , bytestring
     , case-insensitive
     , contravariant
+    , hasql
     , libpq
     , opaleye ^>= 0.7.1.0
     , postgresql-simple

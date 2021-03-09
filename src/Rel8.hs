@@ -271,7 +271,6 @@ import Opaleye.PGTypes
 import qualified Opaleye.Table as Opaleye
 
 -- postgresql-simple
-import qualified Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple ( Connection )
 import Database.PostgreSQL.Simple.FromField
   ( Conversion
@@ -310,10 +309,9 @@ import qualified Hasql.Connection as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 import qualified Hasql.Encoders as Hasql (noParams)
-import Data.Distributive (distribute, Distributive)
+-- import Data.Distributive (distribute, Distributive)
 import Control.Exception (throwIO)
 import Data.Text (pack)
-import Data.Traversable (for)
 
 
 -- $setup
@@ -801,6 +799,14 @@ acceptNull Decoder{ decodeJSON, decodeBytes, hasqlDecoder } = Decoder
         Nothing -> Right Nothing
         Just x  -> fmap Just $ f $ Just x
   }
+
+
+nullHasqlDecoder :: HasqlDecoder a -> HasqlDecoder (Maybe a)
+nullHasqlDecoder = \case
+  DecodeNotNull v -> nullDecoder v
+  DecodeNull v f  -> DecodeNull v \case
+    Nothing -> Right Nothing
+    Just x  -> fmap Just $ f $ Just x
 
 
 -- | Apply a parser to a decoder.
@@ -1726,6 +1732,15 @@ instance DBType a => HTable (HIdentity a) where
   htraverse f (HIdentity a) = HIdentity <$> f (a :: f a)
 
 
+runHasqlDecoder :: HasqlDecoder x -> Hasql.Row x
+runHasqlDecoder = \case
+  DecodeNotNull v -> 
+    Hasql.column $ Hasql.nonNullable v
+
+  DecodeNull v f ->
+    either fail pure . f =<< Hasql.column (Hasql.nullable v)
+
+
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
 -- @sql@, which contains SQL expressions, and the type @haskell@, which
 -- contains the Haskell decoding of rows containing @sql@ SQL expressions.
@@ -1737,8 +1752,8 @@ class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | exp
     -> Columns expr (Context (Const a))
     -> Conversion (f haskell)
 
-  hasqlRowParser :: forall f. (Applicative f, Distributive f, Traversable f)
-    => (forall x. Hasql.Value x -> Hasql.Row (f x))
+  hasqlRowParser :: forall f. (Applicative f, Traversable f)
+    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
     -> Hasql.Row (f haskell)
 
 
@@ -1794,13 +1809,14 @@ instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Seria
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser parseColumn (HIdentity (Const x)) = parseColumn (decoder typeInformation) x
 
-  hasqlRowParser getValue = 
-    case hasqlDecoder (decoder (typeInformation @a)) of
-      DecodeNotNull v -> getValue v
+  hasqlRowParser liftDecoder = 
+    runHasqlDecoder (liftDecoder (hasqlDecoder (decoder (typeInformation @a))))
+    -- case hasqlDecoder (decoder (typeInformation @a)) of
+    --   DecodeNotNull v -> getValue v
 
-      DecodeNull v f -> do
-        hmm <- getValue (Hasql.nullable v)
-        for (distribute hmm) (either fail pure . f)
+    --   DecodeNull v f -> do
+    --     hmm <- getValue (Hasql.nullable v)
+    --     for (distribute hmm) (either fail pure . f)
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where
@@ -1811,7 +1827,7 @@ instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, 
   rowParser parseColumn (HPair x y) = liftA2 (liftA2 (,)) (rowParser @a1 parseColumn x) (rowParser @a2 parseColumn y)
 
   hasqlRowParser liftValue =
-    liftA2 (liftA2 (,)) (hasqlRowParser @a2 liftValue) (hasqlRowParser @a2 liftValue)
+    liftA2 (liftA2 (,)) (hasqlRowParser @a1 liftValue) (hasqlRowParser @a2 liftValue)
 
   lit (a, b) = (lit a, lit b)
 
@@ -1844,10 +1860,15 @@ instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
     Nothing -> noTable
     Just x  -> pure $ lit x
 
-  hasqlRowParser liftValue = do
-    tags <- Hasql.column $ Hasql.nullable $ liftValue Hasql.bool
-    rows <- hasqlRowParser @a _
-    _
+  hasqlRowParser liftHasqlDecoder = do
+    tags <- runHasqlDecoder (liftHasqlDecoder (hasqlDecoder (decoder (typeInformation @(Maybe Bool)))))
+    rows <- hasqlRowParser @a (fmap Compose . liftHasqlDecoder . nullHasqlDecoder)
+    return $ liftA2 f tags (getCompose rows)
+    where
+      f :: Maybe Bool -> Maybe b -> Maybe b
+      f (Just True)  (Just row) = Just row
+      f (Just True)  Nothing    = error "TODO"
+      f _            _          = Nothing
 
 
 type role Expr representational
@@ -2916,7 +2937,9 @@ listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
-    go (pgtoJSONB -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "jsonb_agg") a []
+    go (function "row" -> Expr a) = 
+      Aggregate $ Expr $ 
+        Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
 pgtoJSONB :: Expr a -> Expr Value
@@ -2928,7 +2951,7 @@ nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr (NonEmpty a))
-    go (pgtoJSONB -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll (Opaleye.AggrOther "jsonb_agg") a []
+    go (function "row" -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
 
 
 -- | The class of 'DBType's that support the @max@ aggregation function.
@@ -3069,6 +3092,18 @@ instance Serializable a b => Serializable (ListTable a) [b] where
         where
           array = typeName (liftDatabaseType @[] databaseType)
 
+  hasqlRowParser liftHasqlDecoder = fmap getZipList . getCompose <$> hasqlRowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
+    where
+    listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
+    listOf = \case
+      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.listArray $ Hasql.nonNullable $ Hasql.composite $ Hasql.field $ Hasql.nonNullable v
+
+    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
+    f (HComposeTable ys) = hmap g ys
+      where
+        g :: ComposeInner (Context (Const t)) [] x -> Const t x
+        g (ComposeInner (Const x)) = Const x
+
 
 instance Table Expr a => Semigroup (ListTable a) where
   ListTable a <> ListTable b =
@@ -3142,6 +3177,18 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
         Opaleye.ArrayExpr (map toPrimExpr (toList as))
         where
           array = typeName (liftDatabaseType @NonEmpty databaseType)
+
+  hasqlRowParser liftHasqlDecoder = fmap (NonEmpty.fromList . getZipList) . getCompose <$> hasqlRowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
+    where
+    listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
+    listOf = \case
+      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.listArray $ Hasql.nonNullable $ Hasql.composite $ Hasql.field $ Hasql.nonNullable v
+
+    f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
+    f (HComposeTable ys) = hmap g ys
+      where
+        g :: ComposeInner (Context (Const t)) [] x -> Const t x
+        g (ComposeInner (Const x)) = Const x
 
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where
@@ -3350,4 +3397,5 @@ instance DBOrd Bool where
 instance DBOrd Int32 where
 instance DBOrd Int64 where
 instance DBOrd Text where
+
 
