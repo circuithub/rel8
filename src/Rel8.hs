@@ -213,7 +213,7 @@ import Data.Functor.Contravariant ( Contravariant )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 import Data.Int ( Int32, Int64 )
 import Data.Kind ( Constraint, Type )
-import Data.List.NonEmpty ( NonEmpty, nonEmpty )
+import Data.List.NonEmpty ( NonEmpty((:|)), nonEmpty )
 import Data.Monoid ( Any( Any ), getAny )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.String ( IsString(..) )
@@ -232,7 +232,7 @@ import qualified Data.ByteString.Lazy
 import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
 
 -- opaleye
-import qualified Opaleye ( Delete(..), Insert(..), OnConflict(..), PGInt8, Update(..), runDelete_, runInsert_, runUpdate_, valuesExplicit )
+import qualified Opaleye ( OnConflict(..), PGInt8, valuesExplicit )
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
@@ -266,9 +266,6 @@ import Opaleye.PGTypes
   )
 import qualified Opaleye.Table as Opaleye
 
--- postgresql-simple
-import Database.PostgreSQL.Simple ( Connection )
-
 -- rel8
 import qualified Rel8.Optimize
 
@@ -282,14 +279,13 @@ import Data.Text.Encoding ( encodeUtf8 )
 
 -- transformers
 import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
-import Database.PostgreSQL.Simple.Time (parseUTCTime)
 import Data.UUID (UUID)
 import qualified Data.Text.Lazy
 import qualified Data.CaseInsensitive as CI
 import Data.CaseInsensitive (CI)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Hasql.Decoders as Hasql
-import qualified Hasql.Connection as Hasql
+import Hasql.Connection (Connection)
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 import qualified Hasql.Encoders as Hasql (noParams)
@@ -758,10 +754,6 @@ parseDecoder :: (a -> Either String b) -> HasqlDecoder a -> HasqlDecoder b
 parseDecoder f = \case
   DecodeNotNull v -> DecodeNotNull $ Hasql.refine (first pack . f) v
   DecodeNull v g -> DecodeNull v (f <=< g)
-
-
-bytestringDecoder :: HasqlDecoder ByteString
-bytestringDecoder = notNullDecoder Hasql.bytea
 
 
 monolit :: DatabaseType a -> a -> Expr a
@@ -1892,8 +1884,7 @@ instance DBType Float where
 
 
 instance DBType UTCTime where
-  typeInformation = DatabaseType{ encode, decoder = notNullDecoder Hasql.timestamptz, typeName } -- TODO
-    where DatabaseType{ encode, typeName } = fromOpaleye pgUTCTime $ parseDecoder parseUTCTime bytestringDecoder
+  typeInformation = fromOpaleye pgUTCTime $ notNullDecoder Hasql.timestamptz
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
@@ -2087,14 +2078,21 @@ instance Monad Query where
 
 
 -- | Run a @SELECT@ query, returning all rows.
-select :: forall row haskell m. (Serializable row haskell, MonadIO m) => Hasql.Connection -> Query row -> m [haskell]
+select :: forall row haskell m. (Serializable row haskell, MonadIO m) => Connection -> Query row -> m [haskell]
 select conn query = liftIO case selectQuery query of
   Nothing -> return []
-  Just q ->
+  Just neQuery ->
     Hasql.run session conn >>= either throwIO return
     where
       session = Hasql.statement () statement
-      statement = Hasql.Statement (encodeUtf8 (pack q)) Hasql.noParams (fmap runIdentity <$> Hasql.rowList (rowParser @row (fmap Identity))) False
+      statement = Hasql.Statement q params (Hasql.rowList (hasqlRowDecoder @row)) prepare
+      q = encodeUtf8 (pack neQuery) 
+      params = Hasql.noParams 
+      prepare = False
+
+
+hasqlRowDecoder :: forall row haskell. Serializable row haskell => Hasql.Row haskell
+hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity) 
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -2115,40 +2113,36 @@ unpackspec =
 -- :}
 -- 1
 insert :: MonadIO m => Connection -> Insert result -> m result
-insert connection Insert{ into, rows, onConflict, returning } =
-  liftIO
-    ( Opaleye.runInsert_
-        connection
-        ( toOpaleyeInsert into rows returning )
-    )
+insert conn Insert{ into, rows, onConflict, returning } = liftIO 
+  case (rows, returning) of
+    ([], NumberOfRowsAffected) -> 
+      return 0
 
+    ([], Projection _) -> 
+      return []
+
+    (x:xs, NumberOfRowsAffected) -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeInsertManySql table neRows maybeOnConflict where
+            table = ddlTable into (writer into) 
+            neRows = x :| xs 
+
+    (x:xs, Projection p) -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeInsertManyReturningSql unpackspec table neRows f maybeOnConflict where
+            f  = p . mapTable (column . columnName) 
+            table = ddlTable into (writer into) 
+            neRows = x :| xs 
+
+          mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
+          mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
   where
-
-    toOpaleyeInsert
-      :: forall schema result value
-       . Selects schema value
-      => TableSchema schema
-      -> [ value ]
-      -> Returning schema result
-      -> Opaleye.Insert result
-    toOpaleyeInsert into_ iRows returning_ =
-      Opaleye.Insert
-        { iTable = ddlTable into_ ( writer into_ )
-        , iRows
-        , iReturning = opaleyeReturning returning_
-        , iOnConflict
-        }
-
-      where
-
-        iOnConflict :: Maybe Opaleye.OnConflict
-        iOnConflict =
-          case onConflict of
-            DoNothing ->
-              Just Opaleye.DoNothing
-
-            Abort ->
-              Nothing
+    maybeOnConflict = 
+      case onConflict of
+        DoNothing -> Just Opaleye.DoNothing
+        Abort     -> Nothing
 
 
 writer
@@ -2177,18 +2171,6 @@ writer into_ =
 
   in
   Opaleye.Writer ( Opaleye.PackMap go )
-
-
-opaleyeReturning :: Returning schema result -> Opaleye.Returning schema result
-opaleyeReturning returning =
-  case returning of
-    NumberOfRowsAffected ->
-      Opaleye.Count
-
-    -- Projection f ->
-    --   Opaleye.ReturningExplicit
-    --     queryRunner
-    --     ( f . mapTable ( column . columnName ) )
 
 
 ddlTable :: TableSchema schema -> Opaleye.Writer value schema -> Opaleye.Table value schema
@@ -2265,28 +2247,25 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
 -- Project {projectAuthorId = 2, projectName = "aeson"}
 -- Project {projectAuthorId = 2, projectName = "text"}
 delete :: MonadIO m => Connection -> Delete from returning -> m returning
-delete c Delete{ from = deleteFrom, deleteWhere, returning } =
-  liftIO $ Opaleye.runDelete_ c $ go deleteFrom deleteWhere returning
+delete conn Delete{ from = deleteFrom, deleteWhere, returning } = liftIO
+  case returning of
+    NumberOfRowsAffected -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteSql table f where
+            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
+            table = ddlTable deleteFrom (writer deleteFrom) 
 
-  where
+    Projection p -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteReturningSql unpackspec table f g where
+            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
+            table = ddlTable deleteFrom (writer deleteFrom) 
+            g  = p . mapTable (column . columnName) 
 
-    go
-      :: forall schema r row
-       . Selects schema row
-      => TableSchema schema
-      -> (row -> Expr Bool)
-      -> Returning schema r
-      -> Opaleye.Delete r
-    go schema deleteWhere_ returning_ =
-      Opaleye.Delete
-        { dTable = ddlTable schema $ Opaleye.Writer $ pure ()
-        , dWhere =
-            Opaleye.Column
-              . toPrimExpr
-              . deleteWhere_
-              . mapTable (column . columnName)
-        , dReturning = opaleyeReturning returning_
-        }
+          mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
+          mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
 
 
 -- | The constituent parts of a @DELETE@ statement.
@@ -2325,36 +2304,15 @@ data Delete from return where
 -- Project {projectAuthorId = 2, projectName = "text"}
 -- Project {projectAuthorId = 1, projectName = "Rel8!"}
 update :: MonadIO m => Connection -> Update target returning -> m returning
-update connection Update{ target, set, updateWhere, returning } =
-  liftIO $ Opaleye.runUpdate_ connection (go target set updateWhere returning)
-
-  where
-
-    go
-      :: forall returning target row
-       . Selects target row
-      => TableSchema target
-      -> (row -> row)
-      -> (row -> Expr Bool)
-      -> Returning target returning
-      -> Opaleye.Update returning
-    go target_ set_ updateWhere_ returning_ =
-      Opaleye.Update
-        { uTable =
-            ddlTable target_ (writer target_)
-
-        , uReturning =
-            opaleyeReturning returning_
-
-        , uWhere =
-            Opaleye.Column
-              . toPrimExpr
-              . updateWhere_
-              . mapTable (column . columnName)
-
-        , uUpdateWith =
-            set_ . mapTable (column . columnName)
-        }
+update conn Update{ target, set, updateWhere, returning } = liftIO
+  case returning of
+    NumberOfRowsAffected -> Hasql.run session conn >>= either throwIO return where
+      session = Hasql.statement () statement where
+        statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
+          q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateSql table g f where
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
+            g = set . mapTable (column . columnName)
+            table = ddlTable target (writer target) 
 
 
 -- | The constituent parts of an @UPDATE@ statement.

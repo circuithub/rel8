@@ -9,7 +9,6 @@
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language QuasiQuotes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
@@ -19,15 +18,16 @@
 
 module Main (main) where
 
+import Hasql.Connection ( Connection,  acquire, release )
+import Hasql.Session ( sql, run )
 import Control.Applicative ( liftA2, liftA3 )
-import Control.Exception.Lifted ( bracket, throwIO, finally )
+import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
+import Control.Monad.Trans.Control ( MonadBaseControl )
 import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive (mk)
 import Data.Foldable ( for_ )
 import Data.Functor.Identity ( Identity )
-import Data.Function ( on )
 import Data.Int ( Int32, Int64 )
 import Data.Bifunctor ( bimap )
 import Data.List ( nub, sort )
@@ -38,8 +38,6 @@ import Data.String ( fromString )
 import qualified Data.Text.Lazy
 import Data.Time
 import qualified Data.UUID
-import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
-import Database.PostgreSQL.Simple.SqlQQ ( sql )
 import qualified Database.Postgres.Temp as TmpPostgres
 import GHC.Generics ( Generic )
 import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
@@ -96,11 +94,10 @@ tests =
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
-      bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> void do
-        execute_ conn [sql|
-          CREATE EXTENSION citext;
-          CREATE TABLE test_table ( column1 text not null, column2 bool not null );
-        |]
+      bracket (either (error . show) return =<< acquire (TmpPostgres.toConnectionString db)) release \conn -> void do
+        flip run conn do
+          sql "CREATE EXTENSION citext"
+          sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
 
       return db
 
@@ -112,14 +109,14 @@ databasePropertyTest
   -> (((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ())
   -> IO TmpPostgres.DB -> TestTree
 databasePropertyTest testName f getTestDatabase =
-  withResource connect close $ \c ->
+  withResource connect release $ \c ->
   testProperty testName $ property do
     connection <- liftIO c
     f \g -> test $ rollingBack connection $ g connection
 
   where
 
-    connect = connectPostgreSQL . TmpPostgres.toConnectionString =<< getTestDatabase
+    connect = either (error . show) return =<< acquire . TmpPostgres.toConnectionString =<< getTestDatabase
 
 
 data TestTable f = TestTable
@@ -274,13 +271,8 @@ testOptional = databasePropertyTest "Rel8.optional" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    void $ liftIO do
-      executeMany connection
-        [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-        [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
-
     selected <- Rel8.select connection do
-      Rel8.optional $ Rel8.each testTableSchema
+      Rel8.optional $ Rel8.values (Rel8.lit <$> rows)
 
     case rows of
       [] -> selected === [Nothing]
@@ -375,28 +367,16 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
-  , dbTypeTestEq ((==) `on` zonedTimeToUTC) "ZonedTime" $ ZonedTime <$> genLocalTime <*> genTimeZone
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.DBType a, Rel8.ExprFor (Rel8.Expr a) a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    dbTypeTestEq f name generator = testGroup name
-      [ databasePropertyTest name (t f generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (maybeEq f) (Gen.maybe generator)) getTestDatabase
-      ]
-
-    maybeEq :: (x -> y -> Bool) -> Maybe x -> Maybe y -> Bool
-    maybeEq _ Nothing Nothing = True
-    maybeEq _ Just{} Nothing = False
-    maybeEq _ Nothing Just{} = False
-    maybeEq f (Just x) (Just y) = f x y
-
-    t :: forall a b. (Rel8.DBType a, Show a, Rel8.ExprFor (Rel8.Expr a) a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b. (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -423,9 +403,6 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genLocalTime = LocalTime <$> genDay <*> genTimeOfDay
 
-    genTimeZone :: Gen TimeZone
-    genTimeZone = hoursToTimeZone <$> Gen.integral (Range.linear (-6) 6)
-
     genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
 
@@ -439,13 +416,13 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest :: (Eq a, Show a, Rel8.ExprFor (Rel8.Expr a) a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a. (Eq a, Show a, Rel8.DBEq a, Rel8.ExprFor (Rel8.Expr a) a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
+    t :: forall a. (Eq a, Show a, Rel8.DBEq a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
@@ -508,12 +485,8 @@ testMaybeTable = databasePropertyTest "maybeTable" \transaction -> evalM do
   (rows, def) <- forAll $ liftA2 (,) (Gen.list (Range.linear 0 10) genTestTable) genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ executeMany connection
-      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
-
     selected <- Rel8.select connection $
-      Rel8.maybeTable (Rel8.lit def) id <$> Rel8.optional (Rel8.each testTableSchema)
+      Rel8.maybeTable (Rel8.lit def) id <$> Rel8.optional (Rel8.values (Rel8.lit <$> rows))
 
     case rows of
       [] -> selected === [def]
@@ -571,9 +544,10 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
-rollingBack connection m =
-  liftBaseOp_ (withTransaction connection) do
-    m `finally` liftIO (rollback connection)
+rollingBack connection =
+  bracket_ 
+    (liftIO (run (sql "BEGIN") connection)) 
+    (liftIO (run (sql "ROLLBACK") connection))
 
 
 genTestTable :: Gen (TestTable Identity)
