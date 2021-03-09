@@ -3096,7 +3096,8 @@ instance Serializable a b => Serializable (ListTable a) [b] where
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.listArray $ Hasql.nonNullable $ Hasql.composite $ Hasql.field $ Hasql.nonNullable v
+      DecodeNotNull v -> 
+        DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable $ v
 
     f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
     f (HComposeTable ys) = hmap g ys
@@ -3182,7 +3183,7 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.listArray $ Hasql.nonNullable $ Hasql.composite $ Hasql.field $ Hasql.nonNullable v
+      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable $ v
 
     f :: HComposeTable [] (Columns a) (Context (Const t)) -> Columns a (Context (Const t))
     f (HComposeTable ys) = hmap g ys
