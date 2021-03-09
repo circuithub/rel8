@@ -2937,9 +2937,9 @@ listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr [a])
-    go (function "row" -> Expr a) = 
+    go (Expr a) = 
       Aggregate $ Expr $ 
-        Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+        Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
 pgtoJSONB :: Expr a -> Expr Value
@@ -2951,7 +2951,7 @@ nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
   where
     go :: Expr a -> Aggregate (Expr (NonEmpty a))
-    go (function "row" -> Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []
+    go (Expr a) = Aggregate $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
 -- | The class of 'DBType's that support the @max@ aggregation function.
