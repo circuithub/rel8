@@ -425,7 +425,7 @@ import Control.Exception (throwIO)
 --
 -- >>> :set -XBlockArguments -XDerivingVia -XTypeApplications -XDuplicateRecordFields
 -- >>> Right c <- Hasql.Connection.acquire . Data.ByteString.Char8.pack =<< System.Environment.getEnv "TEST_DATABASE_URL"
--- >>> Hasql.Session.run (Hasql.Session.sql "BEGIN") c
+-- >>> Control.Monad.void $ Hasql.Session.run (Hasql.Session.sql "BEGIN") c
 
 -- $guideQueries
 -- 
@@ -711,7 +711,7 @@ data DatabaseType (a :: Type) = DatabaseType
 
 
 data HasqlDecoder a where
-  DecodeNotNull :: Hasql.Value a -> HasqlDecoder a
+  DecodeNotNull :: Hasql.Value x -> (x -> a) -> HasqlDecoder a
   DecodeNull :: Hasql.Value x -> (Maybe x -> Either String a) -> HasqlDecoder a
 
 
@@ -720,18 +720,18 @@ nullDecoder v = DecodeNull v pure
 
 
 notNullDecoder :: Hasql.Value a -> HasqlDecoder a
-notNullDecoder = DecodeNotNull
+notNullDecoder v = DecodeNotNull v id
 
 
 instance Functor HasqlDecoder where
-  fmap f (DecodeNotNull v) = DecodeNotNull (fmap f v)
+  fmap f (DecodeNotNull v g) = DecodeNotNull v (f . g)
   fmap f (DecodeNull v g) = DecodeNull v (fmap f . g)
 
 
 -- | Enrich a 'DatabaseType' with the ability to parse @null@.
 acceptNull :: HasqlDecoder a -> HasqlDecoder (Maybe a)
 acceptNull = \case
-  DecodeNotNull v -> nullDecoder v
+  DecodeNotNull v f -> fmap f <$> nullDecoder v
   DecodeNull v f  -> DecodeNull v \case
     Nothing -> Right Nothing
     Just x  -> fmap Just $ f $ Just x
@@ -740,7 +740,7 @@ acceptNull = \case
 -- | Apply a parser to a decoder.
 parseDecoder :: (a -> Either String b) -> HasqlDecoder a -> HasqlDecoder b
 parseDecoder f = \case
-  DecodeNotNull v -> DecodeNotNull $ Hasql.refine (first pack . f) v
+  DecodeNotNull v g -> DecodeNotNull (Hasql.refine (first pack . f . g) v) id
   DecodeNull v g -> DecodeNull v (f <=< g)
 
 
@@ -1121,7 +1121,7 @@ instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
 -- The same approach works for any number of arguments:
 -- 
 -- >>> :{
--- power :: Expr Float -> Expr Float -> Expr Float
+-- power :: Expr Float -> Expr Float -> Expr Double
 -- power = function "power"
 -- :}
 -- 
@@ -1137,12 +1137,12 @@ function = applyArgument . Opaleye.FunExpr
 -- @nullaryFunction@:
 -- 
 -- >>> :{
--- sqlPi :: Expr Float
+-- sqlPi :: Expr Double
 -- sqlPi = nullaryFunction "pi"
 -- :}
 -- 
 -- >>> select c $ pure $ sqlPi
--- [3.1415927]
+-- [3.141592653589793]
 nullaryFunction :: String -> Expr a
 nullaryFunction name = Expr (Opaleye.FunExpr name [])
 
@@ -1643,8 +1643,8 @@ instance DBType a => HTable (HIdentity a) where
 
 runHasqlDecoder :: HasqlDecoder x -> Hasql.Row x
 runHasqlDecoder = \case
-  DecodeNotNull v ->
-    Hasql.column $ Hasql.nonNullable v
+  DecodeNotNull v f ->
+    Hasql.column $ Hasql.nonNullable (f <$> v)
 
   DecodeNull v f ->
     either fail pure . f =<< Hasql.column (Hasql.nullable v)
@@ -1894,36 +1894,36 @@ nullDatabaseType DatabaseType{ encode, typeName, decoder } = DatabaseType
 
 -- | Corresponds to the @json@ PostgreSQL type.
 instance DBType Value where
-  typeInformation = fromOpaleye pgValueJSON $ DecodeNotNull Hasql.json
+  typeInformation = fromOpaleye pgValueJSON $ notNullDecoder Hasql.json
 
 instance DBType Data.ByteString.Lazy.ByteString where
   typeInformation = mapDatabaseType Data.ByteString.Lazy.fromStrict Data.ByteString.Lazy.toStrict typeInformation
 
 
 instance DBType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString $ DecodeNotNull Hasql.bytea
+  typeInformation = fromOpaleye pgStrictByteString $ notNullDecoder Hasql.bytea
 
 
 instance DBType Scientific where
-  typeInformation = fromOpaleye pgNumeric $ DecodeNotNull Hasql.numeric
+  typeInformation = fromOpaleye pgNumeric $ notNullDecoder Hasql.numeric
 
 instance DBType Double where
-  typeInformation = fromOpaleye pgDouble $ DecodeNotNull Hasql.float8
+  typeInformation = fromOpaleye pgDouble $ notNullDecoder Hasql.float8
 
 instance DBType UUID where
-  typeInformation = fromOpaleye pgUUID $ DecodeNotNull Hasql.uuid
+  typeInformation = fromOpaleye pgUUID $ notNullDecoder Hasql.uuid
 
 
 instance DBType Day where
-  typeInformation = fromOpaleye pgDay $ DecodeNotNull Hasql.date
+  typeInformation = fromOpaleye pgDay $ notNullDecoder Hasql.date
 
 
 instance DBType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime $ DecodeNotNull Hasql.timestamp
+  typeInformation = fromOpaleye pgLocalTime $ notNullDecoder Hasql.timestamp
 
 
 instance DBType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay $ DecodeNotNull Hasql.time
+  typeInformation = fromOpaleye pgTimeOfDay $ notNullDecoder Hasql.time
 
 
 instance DBType (CI Text) where
@@ -2811,8 +2811,8 @@ instance Serializable a b => Serializable (ListTable a) [b] where
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v ->
-        DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable v
+      DecodeNotNull v f ->
+        DecodeNotNull (fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
 
       DecodeNull v f -> DecodeNull v' \case
         Nothing      -> pure <$> f Nothing
@@ -2878,7 +2878,7 @@ instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
     where
     listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
     listOf = \case
-      DecodeNotNull v -> DecodeNotNull $ fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable v
+      DecodeNotNull v f -> DecodeNotNull (fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
 
       DecodeNull v f -> DecodeNull v' \case
         Nothing      -> pure <$> f Nothing
@@ -3059,8 +3059,8 @@ class DBFunctor f where
 
 instance DBFunctor [] where
   liftDatabaseType DatabaseType{ encode, typeName } = DatabaseType
-    { encode = Opaleye.FunExpr "to_jsonb" . pure . Opaleye.FunExpr "array_to_json" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode
-    , typeName = "jsonb"
+    { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode
+    , typeName = "record"
     }
 
 
