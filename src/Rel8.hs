@@ -1674,7 +1674,7 @@ runHasqlDecoder = \case
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
 -- @sql@, which contains SQL expressions, and the type @haskell@, which
 -- contains the Haskell decoding of rows containing @sql@ SQL expressions.
-class (ExprFor expr haskell, Table Expr expr) => Serializable expr haskell | expr -> haskell where
+class ExprFor expr haskell => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
   rowParser :: forall f. (Applicative f, Traversable f)
