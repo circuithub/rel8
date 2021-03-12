@@ -2422,6 +2422,18 @@ data Update target returning where
 
 
 -- | Checks if a query returns at least one row.
+--
+-- >>> :{
+-- mapM_ print =<< select c do
+--   author <- each authorSchema
+--   hasProjects <- exists do
+--     project <- each projectSchema
+--     where_ $ authorId author ==. projectAuthorId project
+--   return (authorName author, hasProjects)
+-- :}
+-- ("Ollie",True)
+-- ("Bryan O'Sullivan",True)
+-- ("Emily Pillmore",False)
 exists :: Query a -> Query (Expr Bool)
 exists = fmap (maybeTable (lit False) (const (lit True))) .
   optional . whereExists
