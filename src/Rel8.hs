@@ -1798,11 +1798,14 @@ data MaybeTable t where
   deriving stock Functor
 
 
+-- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
+-- 'traverseMaybeTable'.
 instance Applicative MaybeTable where
   pure = MaybeTable (lit (Just True))
   MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftOpNull (&&.) t t') (f a)
 
 
+-- | Has the same behavior as the @Monad@ instance for @Maybe@. See also: 'bindMaybeTable'.
 instance Monad MaybeTable where
   MaybeTable t a >>= f = case f a of
     MaybeTable t' b -> MaybeTable (liftOpNull (&&.) t t') b
