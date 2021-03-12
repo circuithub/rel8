@@ -145,6 +145,7 @@ module Rel8
   , optional
   , maybeTable
   , noTable
+  , ($?)
   , catMaybeTable
   , exists
 
@@ -1842,6 +1843,17 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
     f i =
       case hfield (hdbtype @(Columns a)) i of
         databaseType -> unsafeCoerceExpr (monolit (nullDatabaseType databaseType) (Nothing :: Maybe x))
+
+
+-- | Project a single expression out of a 'MaybeTable'. You can think of this
+-- operator like the '$' operator, but it also has the ability to return
+-- @null@.
+--
+-- >>> select c $ fmap (fst $?) (optional (values [lit (True, False)]))
+-- [Just True]
+infixl 4 $?
+($?) :: DBType b => (a -> Expr b) -> MaybeTable a -> Expr (Maybe b)
+f $? x = maybeTable nullExpr (liftNull . f) x
 
 
 instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
