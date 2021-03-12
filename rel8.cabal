@@ -89,10 +89,8 @@ library
     Rel8.Table.Lifted
     Rel8.Table.List
     Rel8.Table.Maybe
-    Rel8.Table.Monoid
     Rel8.Table.NonEmpty
     Rel8.Table.Ord
-    Rel8.Table.Semigroup
     Rel8.Table.These
     Rel8.Table.Undefined
 

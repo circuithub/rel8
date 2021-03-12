@@ -32,7 +32,7 @@ data Table f = Table
 
 
 data TablePair f = TablePair
-  { foo :: Column f 'Required 'NonNullable Bool
+  { foo :: Column f 'Optional 'NonNullable Bool
   , bars :: (Column f 'Required 'NonNullable Text, Column f 'Required 'NonNullable Text)
   }
   deriving stock Generic

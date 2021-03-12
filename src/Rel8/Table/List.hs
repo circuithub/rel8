@@ -38,7 +38,15 @@ instance Table a => Table (ListTable a) where
 
 
 instance AltTable ListTable where
-  ListTable as <|>: ListTable bs = ListTable $
+  (<|>:) = (<>)
+
+
+instance AlternativeTable ListTable where
+  emptyTable = mempty
+
+
+instance (Table a, Context a ~ DB) => Semigroup (ListTable a) where
+  ListTable as <> ListTable bs = ListTable $
     happend
       (\nullability info ->
         withKnownNullability nullability $
@@ -47,15 +55,7 @@ instance AltTable ListTable where
       bs
 
 
-instance AlternativeTable ListTable where
-  emptyTable = ListTable $ hempty $ \nullability info ->
+instance (Table a, Context a ~ DB) => Monoid (ListTable a) where
+  mempty = ListTable $ hempty $ \nullability info ->
     withKnownNullability nullability $
     withDBType info mempty
-
-
-instance (Table a, Context a ~ DB) => Semigroup (ListTable a) where
-  (<>) = (<|>:)
-
-
-instance (Table a, Context a ~ DB) => Monoid (ListTable a) where
-  mempty = emptyTable

@@ -36,14 +36,14 @@ instance Table a => Table (NonEmptyTable a) where
 
 
 instance AltTable NonEmptyTable where
-  NonEmptyTable as <|>: NonEmptyTable bs = NonEmptyTable $
+  (<|>:) = (<>)
+
+
+instance (Table a, Context a ~ DB) => Semigroup (NonEmptyTable a) where
+  NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
     happend
       (\nullability info ->
         withKnownNullability nullability $
         withDBType info (<>))
       as
       bs
-
-
-instance (Table a, Context a ~ DB) => Semigroup (NonEmptyTable a) where
-  (<>) = (<|>:)
