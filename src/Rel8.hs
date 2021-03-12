@@ -187,6 +187,7 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
+  , defaultValue
 
     -- ** @DELETE@
   , Delete(..)
@@ -3189,3 +3190,8 @@ instance DBOrd Int64 where
 instance DBOrd Text where
 
 
+-- | Corresponds to the SQL @DEFAULT@ keyword.
+--
+-- Use with care, as Rel8 will not check that @DEFAULT@ can actually be used!
+defaultValue :: Expr a
+defaultValue = Expr Opaleye.DefaultInsertExpr
