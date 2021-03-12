@@ -121,6 +121,8 @@ module Rel8
     -- ** Filtering
   , filter
   , where_
+  , whereExists
+  , whereNotExists
   , distinct
 
     -- ** @LIMIT@/@OFFSET@
@@ -2422,7 +2424,7 @@ data Update target returning where
 -- | Checks if a query returns at least one row.
 exists :: Query a -> Query (Expr Bool)
 exists = fmap (maybeTable (lit False) (const (lit True))) .
-  optional . mapOpaleye Opaleye.restrictExists
+  optional . whereExists
 
 
 -- | Select each row from a table definition. This is equivalent to @FROM
@@ -2589,6 +2591,38 @@ where_ :: Expr Bool -> Query ()
 where_ x =
   liftOpaleye $ Opaleye.QueryArr \((), left, t) ->
     ((), Opaleye.restrict (toPrimExpr x) left, t)
+
+
+-- | Produce the empty query if the given query returns no rows. @whereExists@
+-- is equivalent to @WHERE EXISTS@ in SQL.
+--
+-- >>> :{
+-- select c do
+--   author <- each authorSchema
+--   whereExists do
+--     project <- each projectSchema
+--     where_ $ projectAuthorId project ==. authorId author
+--   return $ authorName author
+-- :}
+-- ["Ollie","Bryan O'Sullivan"]
+whereExists :: Query a -> Query ()
+whereExists = mapOpaleye Opaleye.restrictExists
+
+
+-- | Produce the empty query if the given query returns rows. @whereNotExists@
+-- is equivalent to @WHERE NOT EXISTS@ in SQL.
+--
+-- >>> :{
+-- select c do
+--   author <- each authorSchema
+--   whereNotExists do
+--     project <- each projectSchema
+--     where_ $ projectAuthorId project ==. authorId author
+--   return $ authorName author
+-- :}
+-- ["Emily Pillmore"]
+whereNotExists :: Query a -> Query ()
+whereNotExists = mapOpaleye Opaleye.restrictNotExists
 
 
 -- | Filter out 'MaybeTable's, returning only the tables that are not-null.
