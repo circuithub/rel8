@@ -1652,6 +1652,12 @@ instance (Table f a, Table f b, Table f c) => Table f (a, b, c) where
   fromColumns (HPair x (HPair y z)) = (fromColumns x, fromColumns y, fromColumns z)
 
 
+instance (Table f a, Table f b, Table f c, Table f d) => Table f (a, b, c, d) where
+  type Columns (a, b, c, d) = HPair (HPair (Columns a) (Columns b)) (HPair (Columns c) (Columns d))
+  toColumns (a, b, c, d) = HPair (HPair (toColumns a) (toColumns b)) (HPair (toColumns c) (toColumns d))
+  fromColumns (HPair (HPair a b) (HPair c d)) = (fromColumns a, fromColumns b, fromColumns c, fromColumns d)
+
+
 -- | A single-column higher-kinded table. This is primarily useful for
 -- facilitating generic-deriving of higher kinded tables.
 data HIdentity a context where
@@ -1708,15 +1714,16 @@ class ExprFor expr haskell => Serializable expr haskell | expr -> haskell where
 class Table Expr expr => ExprFor expr haskell
 
 
-instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                              => ExprFor a                b
-instance DBType a                                                                 => ExprFor (Expr (Maybe a)) (Maybe a)
-instance (ExprFor a b, Table Expr a)                                              => ExprFor (MaybeTable a)   (Maybe b)
-instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)                 => ExprFor a                [b]
-instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)         => ExprFor a                (NonEmpty b)
-instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                             => ExprFor a                (b1, b2)
-instance (a ~ (a1, a2, a3), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3)          => ExprFor a                (b1, b2, b3)
-instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity)            => ExprFor a                (t identity)
-instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                   => ExprFor a                (t identity)
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b)                                        => ExprFor a                b
+instance DBType a                                                                           => ExprFor (Expr (Maybe a)) (Maybe a)
+instance (ExprFor a b, Table Expr a)                                                        => ExprFor (MaybeTable a)   (Maybe b)
+instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b)                           => ExprFor a                [b]
+instance (a ~ NonEmptyTable x, Table Expr (NonEmptyTable x), ExprFor x b)                   => ExprFor a                (NonEmpty b)
+instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2)                                       => ExprFor a                (b1, b2)
+instance (a ~ (a1, a2, a3), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3)                    => ExprFor a                (b1, b2, b3)
+instance (a ~ (a1, a2, a3, a4), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3, ExprFor a4 b4) => ExprFor a                (b1, b2, b3, b4)
+instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity)                      => ExprFor a                (t identity)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                             => ExprFor a                (t identity)
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
@@ -1760,6 +1767,13 @@ instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3) => Seriali
     liftA3 (liftA3 (,,)) (rowParser @a1 liftValue) (rowParser @a2 liftValue) (rowParser @a3 liftValue)
 
   lit (a, b, c) = (lit a, lit b, lit c)
+
+
+instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3, Serializable a4 b4) => Serializable (a1, a2, a3, a4) (b1, b2, b3, b4) where
+  rowParser liftValue =
+    (\a b c d -> (,,,) <$> a <*> b <*> c <*> d) <$> rowParser @a1 liftValue <*> rowParser @a2 liftValue <*> rowParser @a3 liftValue <*> rowParser @a4 liftValue
+
+  lit (a, b, c, d) = (lit a, lit b, lit c, lit d)
 
 
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
