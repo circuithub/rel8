@@ -84,7 +84,7 @@ module Rel8
 
     -- ** @null@
   , nullExpr
-  , null_
+  , null
   , isNull
   , liftNull
   , mapNull
@@ -226,7 +226,7 @@ import Data.String ( IsString(..) )
 import Data.Typeable ( Typeable )
 import GHC.Generics ( (:*:)(..), Generic, K1(..), M1(..), Rep, from, to )
 import Numeric.Natural ( Natural )
-import Prelude hiding ( filter, max )
+import Prelude hiding ( filter, max, null )
 import Text.Read ( readEither )
 
 -- bytestring
@@ -915,13 +915,13 @@ binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op
 
 -- | Like 'maybe', but to eliminate @null@.
 --
--- >>> select c $ pure $ null_ 0 id (nullExpr :: Expr (Maybe Int32))
+-- >>> select c $ pure $ null 0 id (nullExpr :: Expr (Maybe Int32))
 -- [0]
 --
--- >>> select c $ pure $ null_ 0 id (lit (Just 42) :: Expr (Maybe Int32))
+-- >>> select c $ pure $ null 0 id (lit (Just 42) :: Expr (Maybe Int32))
 -- [42]
-null_ :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-null_ whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
+null :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+null whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
 
 
 -- | Like 'isNothing', but for @null@.
@@ -1840,7 +1840,7 @@ maybeTable
   :: Table Expr b
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
-  ifThenElse_ (null_ (lit False) id nullTag) (f table) def
+  ifThenElse_ (null (lit False) id nullTag) (f table) def
 
 
 -- | The null table. Like 'Nothing'.
@@ -2122,7 +2122,7 @@ instance DBEq Bool
 
 instance DBEq a => DBEq ( Maybe a ) where
   eqExprs a b =
-    null_ ( isNull b ) ( \a' -> null_ ( lit False ) ( eqExprs a' ) b ) a
+    null ( isNull b ) ( \a' -> null ( lit False ) ( eqExprs a' ) b ) a
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
