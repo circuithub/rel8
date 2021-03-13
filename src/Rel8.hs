@@ -2114,15 +2114,10 @@ traversePrimExpr f =
 
 
 instance DBEq Int32
-
-
 instance DBEq Int64
-
-
 instance DBEq Text
-
-
 instance DBEq Bool
+instance DBEq UTCTime
 
 
 instance DBEq a => DBEq ( Maybe a ) where
@@ -3239,6 +3234,7 @@ instance DBOrd Bool where
 instance DBOrd Int32 where
 instance DBOrd Int64 where
 instance DBOrd Text where
+instance DBOrd UTCTime where
 
 
 -- | Corresponds to the SQL @DEFAULT@ keyword.
