@@ -1,18 +1,27 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+{-# language TypeOperators #-}
+
+{-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Schema.Value
   ( Value( NonNullableValue, NullableValue )
+  , FromValue, ToValue
+  , fromValue, toValue
   )
 where
 
 -- base
 import Control.Applicative ( liftA2 )
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
+import Unsafe.Coerce ( unsafeCoerce )
 
 -- rel8
 import Rel8.Kind.Nullability
@@ -39,3 +48,46 @@ instance (KnownNullability nullability, Monoid a) =>
   mempty = case nullabilitySing @nullability of
     SNonNullable -> NonNullableValue mempty
     SNullable -> NullableValue (Just mempty)
+
+
+type FromValue :: Nullability -> Type -> Type
+type family FromValue nullability a where
+  FromValue 'Nullable a = Maybe a
+  FromValue 'NonNullable a = a
+
+
+type GetNullability :: Type -> Nullability
+type family GetNullability a where
+  GetNullability (Maybe _) = 'Nullable
+  GetNullability _ = 'NonNullable
+
+
+type GetValue :: Nullability -> Type -> Type
+type family GetValue nullability a where
+  GetValue 'Nullable (Maybe a) = a
+  GetValue 'NonNullable a = a
+
+
+type ToValue :: Type -> (Nullability, Type)
+type ToValue a = '(GetNullability a, GetValue (GetNullability a) a)
+
+
+fromValue :: a ~ FromValue nullability value => Value nullability value -> a
+fromValue = \case
+  NonNullableValue a -> a
+  NullableValue a -> a
+
+
+toValue :: forall a nullability value.
+  ( KnownNullability nullability
+  , '(nullability, value) ~ ToValue a
+  )
+  => a -> Value nullability value
+toValue a = case nullabilitySing @nullability of
+  SNullable -> case proof @a of
+    Refl -> NullableValue a
+  SNonNullable -> NonNullableValue a
+
+
+proof :: GetNullability a ~ 'Nullable => a :~: Maybe (GetValue 'Nullable a)
+proof = unsafeCoerce Refl
