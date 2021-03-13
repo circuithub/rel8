@@ -90,6 +90,7 @@ module Rel8
   , mapNull
   , liftOpNull
   , catMaybe
+  , fromNull
 
     -- ** Boolean operations
   , (&&.)
@@ -956,6 +957,10 @@ liftNull = retype
 -- contract can be violated with custom functions.
 mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNull f = retype . f . retype
+
+
+fromNull :: DBType a => Expr a -> Expr (Maybe a) -> Expr a
+fromNull x = null x id
 
 
 -- | Lift a binary operation on non-@null@ expressions to an equivalent binary
