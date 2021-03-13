@@ -2118,6 +2118,8 @@ instance DBEq Int64
 instance DBEq Text
 instance DBEq Bool
 instance DBEq UTCTime
+instance DBEq (CI Text)
+instance DBEq (CI Data.Text.Lazy.Text)
 
 
 instance DBEq a => DBEq ( Maybe a ) where
