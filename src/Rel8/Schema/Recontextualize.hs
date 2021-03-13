@@ -17,6 +17,7 @@ import Prelude ()
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
+import Rel8.Kind.Blueprint ( KnownBlueprint, FromDBType, ToDBType )
 import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Context ( Aggregation, DB )
 import Rel8.Schema.HTable ( HTable )
@@ -41,11 +42,23 @@ class
     , b from -> a
 
 
-instance (KnownNullability nullability, DBType a) =>
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromDBType a
+  , ToDBType blueprint ~ a
+  , DBType a
+  ) =>
   Recontextualize DB Aggregation (Expr nullability a) (Aggregate nullability a)
 
 
-instance (KnownNullability nullability, DBType a) =>
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromDBType a
+  , ToDBType blueprint ~ a
+  , DBType a
+  ) =>
   Recontextualize Aggregation DB (Aggregate nullability a) (Expr nullability a)
 
 

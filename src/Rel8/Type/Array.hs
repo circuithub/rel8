@@ -53,7 +53,6 @@ import Rel8.Kind.Nullability
   , KnownNullability
   , nullabilitySing
   )
-import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Type ( DBType, typeInformation, TypeInformation(..) )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
@@ -395,7 +394,7 @@ instance
 array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
 array TypeInformation {typeName} =
-  Opaleye.FunExpr "ROW" . pure .
+  Opaleye.UnExpr (Opaleye.UnOpOther "ROW") .
   Opaleye.CastExpr (typeName <> "[]") .
   Opaleye.ArrayExpr . toList
 
@@ -421,15 +420,9 @@ arrayTypeInformation emptiability nullability info = TypeInformation
       NullableNonEmpty as -> array info (maybe null encode <$> as)
       NonNullableNonEmpty as -> array info (encode <$> as)
   , typeName = "record"
-  , typeable = case typeable of
-      Dict -> case (emptiability, nullability) of
-        (SEmptiable, SNullable) -> Dict
-        (SNonEmptiable, SNullable) -> Dict
-        (SEmptiable, SNonNullable) -> Dict
-        (SNonEmptiable, SNonNullable) -> Dict
   }
   where
-    TypeInformation {encode, decode, typeable} = info
+    TypeInformation {encode, decode} = info
     row = Hasql.composite . Hasql.field . Hasql.nonNullable
     nonEmptyArray =
       Hasql.refine (maybe (Left message) Right . nonEmpty) . Hasql.listArray
@@ -442,9 +435,12 @@ arrayTypeInformation emptiability nullability info = TypeInformation
   => Expr 'NonNullable (Array emptiability nullability a)
   -> Expr 'NonNullable (Array emptiability nullability a)
   -> Expr 'NonNullable (Array emptiability nullability a)
-Expr a ++. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) (unrow a) (unrow b))
+Expr a ++. Expr b = Expr $
+  Opaleye.UnExpr (Opaleye.UnOpOther "ROW") $
+  Opaleye.BinExpr (Opaleye.:||) (unrow a) (unrow b)
 infixr 5 ++.
 
 
+-- Requires Postgres 13
 unrow :: Opaleye.PrimExpr -> Opaleye.PrimExpr
 unrow a = Opaleye.CompositeExpr a "f1"

@@ -17,6 +17,7 @@ import GHC.Generics ( Generic )
 import Prelude ()
 
 -- rel8
+import Rel8.Kind.Blueprint ( Blueprint( Scalar ) )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( Nullability( Nullable ) )
 import Rel8.Schema.HTable ( HTable )
@@ -28,7 +29,7 @@ import Rel8.Type.Tag ( MaybeTag )
 
 
 data HMaybeTable table context = HMaybeTable
-  { htag :: HIdentity ('Spec 'Required 'Nullable MaybeTag) context
+  { htag :: HIdentity ('Spec 'Required 'Nullable ('Scalar MaybeTag)) context
   , htable :: HNullify table context
   }
   deriving stock Generic

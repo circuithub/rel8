@@ -16,19 +16,19 @@ where
 import Data.Foldable ( fold )
 import Data.Kind ( Constraint )
 import Data.List.NonEmpty ( NonEmpty( (:|) ), (<|) )
-import Data.Typeable ( cast )
-import Prelude hiding ( null, repeat, undefined, zipWith )
+import Prelude hiding ( null )
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr( Expr ), toPrimExpr )
 import Rel8.Expr.Aggregate ( Aggregate(..), groupByExpr )
-import Rel8.Expr.Null ( null, nullify, unsafeSemiunnullify )
+import Rel8.Expr.Bool ( boolExpr )
+import Rel8.Expr.Null ( nullify, unsafeSemiunnullify )
+import Rel8.Kind.Blueprint ( Blueprint( Scalar ) )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
-import Rel8.Kind.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , SNullability( SNullable, SNonNullable )
-  , withKnownNullability
-  )
+import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
@@ -36,10 +36,7 @@ import Rel8.Schema.Context
   , Name( Name )
   , Labels( Labels )
   )
-import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec( SSpec ) )
-import Rel8.Table.Bool ( bool )
-import Rel8.Type ( TypeInformation(..), withDBType )
+import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Monoid ( DBMonoid )
 
@@ -48,87 +45,73 @@ type Nullifiable :: Context -> Constraint
 class Nullifiable context where
   encodeTag :: DBEq a
     => String
-    -> SNullability nullability
-    -> TypeInformation a
     -> Expr nullability a
-    -> context ('Spec 'Required nullability a)
+    -> context ('Spec 'Required nullability ('Scalar a))
 
   decodeTag :: DBMonoid a
     => String
-    -> SNullability nullability
-    -> TypeInformation a
-    -> context ('Spec 'Required nullability a)
+    -> context ('Spec 'Required nullability ('Scalar a))
     -> Expr nullability a
 
   nullifier :: ()
     => String
     -> Expr 'NonNullable Bool
-    -> SSpec ('Spec necessity nullability a)
-    -> context ('Spec necessity nullability a)
-    -> context ('Spec necessity 'Nullable a)
+    -> SSpec ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity 'Nullable blueprint)
 
   unnullifier :: ()
     => String
     -> Expr 'NonNullable Bool
-    -> SSpec ('Spec necessity nullability a)
-    -> context ('Spec necessity 'Nullable a)
-    -> context ('Spec necessity nullability a)
+    -> SSpec ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity 'Nullable blueprint)
+    -> context ('Spec necessity nullability blueprint)
 
 
 instance Nullifiable Aggregation where
-  encodeTag _ nullability _ =
-    withKnownNullability nullability $ Aggregation . groupByExpr
-  decodeTag _ nullability info (Aggregation aggregate) =
-    fold $ undoGroupBy nullability info aggregate
+  encodeTag _ = Aggregation . groupByExpr
+  decodeTag _ (Aggregation aggregate) = fold $ undoGroupBy aggregate
 
   nullifier _ tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {aggregator, inType, inExpr, outExpr} -> Aggregate
+    Aggregate {aggregator, input, output} -> Aggregate
       { aggregator
-      , inNullability = SNullable
-      , inType
-      , inExpr = withDBType inType $ bool null (nullify inExpr) tag
-      , outExpr = nullify . outExpr
+      , input = toPrimExpr $ runTag tag (Expr input)
+      , output = nullify . output
       }
 
   unnullifier _ _ _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {aggregator, inNullability, inType, inExpr, outExpr} ->
+    Aggregate {aggregator, input, output} ->
       Aggregate
-        { aggregator, inNullability, inType, inExpr
-        , outExpr = unsafeSemiunnullify . outExpr
+        { aggregator, input
+        , output = unsafeSemiunnullify . output
         }
 
 
 instance Nullifiable DB where
-  encodeTag _ _ _ = DB
-  decodeTag _ _ _ (DB a) = a
-
-  nullifier _ tag (SSpec _ _ info) (DB a) = DB $ withDBType info $
-    bool null (nullify a) tag
-
-  unnullifier _ tag (SSpec _ _ info) (DB a) = DB $ withDBType info $
-    unsafeSemiunnullify $ bool null a tag
+  encodeTag _ = DB
+  decodeTag _ (DB a) = a
+  nullifier _ tag _ (DB a) = DB $ runTag tag a
+  unnullifier _ tag _ (DB a) = DB $ unsafeSemiunnullify $ runTag tag a
 
 
 instance Nullifiable Insert where
-  encodeTag _ _  _ = RequiredInsert
-  decodeTag _ _ _ (RequiredInsert a) = a
+  encodeTag _ = RequiredInsert
+  decodeTag _ (RequiredInsert a) = a
 
-  nullifier _ tag (SSpec _ _ info) = \case
-    RequiredInsert a -> RequiredInsert $ withDBType info $
-      bool null (nullify a) tag
-    OptionalInsert ma -> OptionalInsert $ withDBType info $
-      (\a -> bool null (nullify a) tag) <$> ma
+  nullifier _ tag _ = \case
+    RequiredInsert a -> RequiredInsert $ runTag tag a
+    OptionalInsert ma -> OptionalInsert $ runTag tag <$> ma
 
-  unnullifier _ tag (SSpec _ _ info) = \case
-    RequiredInsert a -> RequiredInsert $ withDBType info $
-      unsafeSemiunnullify $ bool null a tag
-    OptionalInsert ma -> OptionalInsert $ withDBType info $
-      (\a -> unsafeSemiunnullify $ bool null a tag) <$> ma
+  unnullifier _ tag _ = \case
+    RequiredInsert a -> RequiredInsert $
+      unsafeSemiunnullify $ runTag tag a
+    OptionalInsert ma -> OptionalInsert $
+      unsafeSemiunnullify . runTag tag <$> ma
 
 
 instance Nullifiable Labels where
-  encodeTag tagName _ _ _ = Labels (pure tagName)
-  decodeTag _ _ _ _ = mempty
+  encodeTag tagName _ = Labels (pure tagName)
+  decodeTag _ = mempty
   nullifier tableName _ _ (Labels labels) = Labels (tableName <| labels)
   unnullifier tableName _ _ = \case
     Labels (name :| (label : labels))
@@ -137,8 +120,8 @@ instance Nullifiable Labels where
 
 
 instance Nullifiable Name where
-  encodeTag tagName _ _ _ = Name tagName
-  decodeTag _ _ _ _ = mempty
+  encodeTag tagName _ = Name tagName
+  decodeTag _ _ = mempty
   nullifier _ _ _ (Name name) = Name name
   unnullifier _ _ _ (Name name) = Name name
 
@@ -148,23 +131,13 @@ class (a ~ b, Nullifiable b) => NullifiableEq a b
 instance (a ~ b, Nullifiable b) => NullifiableEq a b
 
 
+runTag :: Expr 'NonNullable Bool -> Expr nullability a -> Expr 'Nullable a
+runTag tag a = boolExpr null (nullify a) tag
+  where
+    null = Expr (Opaleye.ConstExpr Opaleye.NullLit)
+
+
 -- HACK
-undoGroupBy :: ()
-  => SNullability nullability
-  -> TypeInformation a
-  -> Aggregate _nullability _a
-  -> Maybe (Expr nullability a)
-undoGroupBy nullability info aggregate =
-  case aggregate of
-    Aggregate {aggregator, inNullability, inType, inExpr} ->
-      case aggregator of
-        Nothing -> case info of
-          TypeInformation { typeable = Dict } -> case inType of
-            TypeInformation { typeable = Dict } -> case inNullability of
-              SNullable -> case nullability of
-                SNullable -> cast inExpr
-                SNonNullable -> Nothing
-              SNonNullable -> case nullability of
-                SNullable -> Nothing
-                SNonNullable -> cast inExpr
-        Just _ -> Nothing
+undoGroupBy :: Aggregate _nullability _a -> Maybe (Expr nullability a)
+undoGroupBy Aggregate {aggregator = Nothing, input} = Just (Expr input)
+undoGroupBy _ = Nothing

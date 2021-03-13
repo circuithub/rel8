@@ -7,8 +7,8 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Schema.Spec.ConstrainType
-  ( ConstrainType
+module Rel8.Schema.Spec.ConstrainDBType
+  ( ConstrainDBType
   )
 where
 
@@ -17,20 +17,20 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Blueprint ( ToType )
+import Rel8.Kind.Blueprint ( ToDBType )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 
 
-type ConstrainType :: (Type -> Constraint) -> Spec -> Constraint
+type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
 class
   ( forall necessity nullability blueprint a. ()
-     => (spec ~ 'Spec necessity nullability blueprint, a ~ ToType blueprint)
+     => (spec ~ 'Spec necessity nullability blueprint, a ~ ToDBType blueprint)
      => constraint a
   ) =>
-  ConstrainType constraint spec
+  ConstrainDBType constraint spec
 instance
   ( spec ~ 'Spec necessity nullability blueprint
-  , a ~ ToType blueprint
+  , a ~ ToDBType blueprint
   , constraint a
   ) =>
-  ConstrainType constraint spec
+  ConstrainDBType constraint spec

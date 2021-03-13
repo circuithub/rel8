@@ -24,7 +24,7 @@ import Rel8.Schema.HTable ( hfield, hdicts, htabulate, hspecs )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
 import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Schema.Spec.ConstrainType ( ConstrainType )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.List ( ListTable(..) )
@@ -40,12 +40,12 @@ groupBy :: forall exprs aggregates.
   => exprs -> aggregates
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ nullability info -> case hfield dicts field of
+    SSpec _ nullability _ info -> case hfield dicts field of
       Dict -> case hfield exprs field of
         DB expr -> withKnownNullability nullability $ withDBType info $
           Aggregation $ groupByExpr expr
   where
-    dicts = hdicts @(Columns exprs) @(ConstrainType DBEq)
+    dicts = hdicts @(Columns exprs) @(ConstrainDBType DBEq)
 
 
 listAgg :: forall exprs aggregates. ()
@@ -53,7 +53,7 @@ listAgg :: forall exprs aggregates. ()
   => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = ListTable $
   hvectorize
-    (\(SSpec _ nullability info) (Identity (DB a)) ->
+    (\(SSpec _ nullability _ info) (Identity (DB a)) ->
        withKnownNullability nullability $ withDBType info $
        Aggregation $ listAggExpr a)
     (Identity exprs)
@@ -64,7 +64,7 @@ nonEmptyAgg :: forall exprs aggregates. ()
   => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = NonEmptyTable $
   hvectorize
-    (\(SSpec _ nullability info) (Identity (DB a)) ->
+    (\(SSpec _ nullability _ info) (Identity (DB a)) ->
        withKnownNullability nullability $ withDBType info $
        Aggregation $ nonEmptyAggExpr a)
     (Identity exprs)

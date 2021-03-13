@@ -52,6 +52,7 @@ library
     Rel8.Expr.Null
     Rel8.Expr.Ord
 
+    Rel8.Kind.Blueprint
     Rel8.Kind.Emptiability
     Rel8.Kind.Necessity
     Rel8.Kind.Nullability
@@ -80,6 +81,7 @@ library
     Rel8.Schema.Recontextualize
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainContext
+    Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
 
     Rel8.Table

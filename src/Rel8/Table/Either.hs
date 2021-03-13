@@ -25,7 +25,7 @@ import Prelude hiding ( undefined )
 -- rel8
 import Rel8.Expr ( Expr, litExpr )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ), nullabilitySing )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
@@ -46,7 +46,6 @@ import Rel8.Table.Lifted
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
 import Rel8.Table.Undefined ( undefined )
-import Rel8.Type ( typeInformation )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
 -- semigroupoids
@@ -104,7 +103,7 @@ instance Table2 EitherTable where
     }
     where
       htag =
-        HIdentity (encodeTag "isRight" nullabilitySing typeInformation tag)
+        HIdentity (encodeTag "isRight" tag)
 
   fromColumns2 f g HEitherTable {htag = HIdentity htag, hleft, hright} =
     EitherTable
@@ -115,7 +114,7 @@ instance Table2 EitherTable where
           hunnullify (\a -> pure . unnullifier "Right" (isRight tag) a) hright
       }
     where
-      tag = decodeTag "isRight" nullabilitySing typeInformation htag
+      tag = decodeTag "isRight" htag
 
 
 instance Table a => Table1 (EitherTable a) where

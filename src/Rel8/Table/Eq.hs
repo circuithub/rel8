@@ -35,7 +35,7 @@ import Rel8.Schema.HTable
   , hdicts, hspecs
   )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Schema.Spec.ConstrainType ( ConstrainType )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Context, Columns, toColumns )
 import Rel8.Type.Eq ( DBEq )
 
@@ -44,12 +44,12 @@ type EqTable :: Type -> Constraint
 class
   ( Table a
   , Context a ~ DB
-  , HConstrainTable (Columns a) (ConstrainType DBEq)
+  , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 instance
   ( Table a
   , Context a ~ DB
-  , HConstrainTable (Columns a) (ConstrainType DBEq)
+  , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 
 
@@ -59,10 +59,10 @@ instance
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ -> withKnownNullability nullability $
+          SSpec _ nullability _ _ -> withKnownNullability nullability $
             Const [a ==. b]
   where
-    dicts = hdicts @(Columns a) @(ConstrainType DBEq)
+    dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
 infix 4 ==:
 
@@ -73,9 +73,9 @@ infix 4 ==:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ -> withKnownNullability nullability $
+          SSpec _ nullability _ _ -> withKnownNullability nullability $
             Const [a /=. b]
   where
-    dicts = hdicts @(Columns a) @(ConstrainType DBEq)
+    dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
 infix 4 /=:

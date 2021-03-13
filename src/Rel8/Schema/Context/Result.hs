@@ -17,6 +17,7 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.Kind.Blueprint ( Blueprint( Vector ) )
 import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
 import Rel8.Kind.Nullability
   ( Nullability( Nullable, NonNullable )
@@ -34,7 +35,6 @@ import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec ) )
-import Rel8.Type.Array ( Array(..) )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
 
 -- these
@@ -125,66 +125,64 @@ fromHTheseTable HTheseTable {hhere, hthere} =
     _ -> error "fromHTheseTable: mismatch between tags and data"
 
 
-null :: Result ('Spec defaulting 'Nullable a)
+null :: Result ('Spec necessity 'Nullable a)
 null = NullableResult Nothing
 
 
 nullifier :: ()
-  => Result ('Spec defaulting nullability a)
-  -> Result ('Spec defaulting 'Nullable a)
+  => Result ('Spec necessity nullability blueprint)
+  -> Result ('Spec necessity 'Nullable blueprint)
 nullifier result = case result of
   NonNullableResult a -> NullableResult (Just a)
   NullableResult ma -> NullableResult ma
 
 
 unnullifier :: ()
-  => SSpec ('Spec defaulting nullability a)
-  -> Result ('Spec defaulting 'Nullable a)
-  -> Maybe (Result ('Spec defaulting nullability a))
-unnullifier (SSpec _ nullability _) (NullableResult ma) = case nullability of
+  => SSpec ('Spec necessity nullability blueprint)
+  -> Result ('Spec necessity 'Nullable blueprint)
+  -> Maybe (Result ('Spec necessity nullability blueprint))
+unnullifier (SSpec _ nullability _ _) (NullableResult ma) = case nullability of
   SNonNullable -> NonNullableResult <$> ma
   SNullable -> pure (NullableResult ma)
 
 
 vectorizer :: ()
-  => SSpec ('Spec defaulting nullability a)
-  -> [Result ('Spec defaulting nullability a)]
-  -> Result ('Spec defaulting 'NonNullable (Array 'Emptiable nullability a))
-vectorizer (SSpec _ nullability _) results = case nullability of
-  SNullable -> NonNullableResult $ NullableList $
-    map (\(NullableResult a) -> a) results
-  SNonNullable -> NonNullableResult $ NonNullableList $
-    map (\(NonNullableResult a) -> a) results
+  => SSpec ('Spec necessity nullability blueprint)
+  -> [Result ('Spec necessity nullability blueprint)]
+  -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
+vectorizer (SSpec _ nullability _ _) results = case nullability of
+  SNullable -> NonNullableResult $
+    fmap (\(NullableResult a) -> a) results
+  SNonNullable -> NonNullableResult $
+    fmap (\(NonNullableResult a) -> a) results
 
 
 vectorizer1 :: ()
-  => SSpec ('Spec defaulting nullability a)
-  -> NonEmpty (Result ('Spec defaulting nullability a))
-  -> Result ('Spec defaulting 'NonNullable (Array 'NonEmptiable nullability a))
-vectorizer1 (SSpec _ nullability _) results = case nullability of
-  SNullable -> NonNullableResult $ NullableNonEmpty $
+  => SSpec ('Spec necessity nullability blueprint)
+  -> NonEmpty (Result ('Spec necessity nullability blueprint))
+  -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
+vectorizer1 (SSpec _ nullability _ _) results = case nullability of
+  SNullable -> NonNullableResult $
     fmap (\(NullableResult a) -> a) results
-  SNonNullable -> NonNullableResult $ NonNullableNonEmpty $
+  SNonNullable -> NonNullableResult $
     fmap (\(NonNullableResult a) -> a) results
 
 
 unvectorizer :: ()
-  => SSpec ('Spec defaulting nullability a)
-  -> Result ('Spec defaulting 'NonNullable (Array 'Emptiable nullability a))
-  -> [Result ('Spec defaulting nullability a)]
-unvectorizer (SSpec _ nullability _) (NonNullableResult results) = case nullability of
-  SNullable -> NullableResult <$> case results of
-    NullableList as -> as
-  SNonNullable -> NonNullableResult <$> case results of
-    NonNullableList as -> as
+  => SSpec ('Spec necessity nullability blueprint)
+  -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
+  -> [Result ('Spec necessity nullability blueprint)]
+unvectorizer (SSpec _ nullability _ _) (NonNullableResult results) =
+  case nullability of
+    SNullable -> NullableResult <$> results
+    SNonNullable -> NonNullableResult <$> results
 
 
 unvectorizer1 :: ()
-  => SSpec ('Spec defaulting nullability a)
-  -> Result ('Spec defaulting 'NonNullable (Array 'NonEmptiable nullability a))
-  -> NonEmpty (Result ('Spec defaulting nullability a))
-unvectorizer1 (SSpec _ nullability _) (NonNullableResult results) = case nullability of
-  SNullable -> NullableResult <$> case results of
-    NullableNonEmpty as -> as
-  SNonNullable -> NonNullableResult <$> case results of
-    NonNullableNonEmpty as -> as
+  => SSpec ('Spec necessity nullability blueprint)
+  -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
+  -> NonEmpty (Result ('Spec necessity nullability blueprint))
+unvectorizer1 (SSpec _ nullability _ _) (NonNullableResult results) =
+  case nullability of
+    SNullable -> NullableResult <$> results
+    SNonNullable -> NonNullableResult <$> results

@@ -25,6 +25,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
+import Rel8.Kind.Blueprint
 import Rel8.Kind.Emptiability
   ( Emptiability, KnownEmptiability, emptiabilitySing
   )
@@ -42,10 +43,10 @@ import Rel8.Schema.HTable.Functor ( HFunctor, hmap )
 import Rel8.Schema.Spec
   ( Context
   , Spec( Spec )
-  , SSpec( SSpec )
+  , SSpec(..)
   )
 import Rel8.Type ( TypeInformation )
-import Rel8.Type.Array ( Array, arrayTypeInformation )
+import Rel8.Type.Array ( arrayTypeInformation )
 
 -- semialign
 import Data.Zip ( Unzip, Repeat, Zippy(..) )
@@ -63,9 +64,10 @@ instance HFunctor (HVectorize emptiability) where
 type HVectorizeField :: Emptiability -> HKTable -> Context
 data HVectorizeField emptiability table spec where
   HVectorizeField
-    :: HField table ('Spec necessity nullability a)
+    :: HField table ('Spec necessity nullability blueprint)
     -> HVectorizeField emptiability table
-       ('Spec necessity 'NonNullable (Array emptiability nullability a)
+       ('Spec necessity 'NonNullable
+          ('Vector emptiability nullability blueprint)
        )
 
 
@@ -92,10 +94,14 @@ instance (HTable table, KnownEmptiability emptiability) =>
       Dict -> VectorizeSpec Dict
 
   hspecs = HVectorize $ htabulate $ \field -> case hfield hspecs field of
-    SSpec necessity nullability a -> VectorizeSpec
-      ( SSpec necessity SNonNullable
-          (arrayTypeInformation emptiabilitySing nullability a)
-      )
+    SSpec necessity nullability blueprint typeInformation -> VectorizeSpec
+      SSpec
+        { snecessity = necessity
+        , snullability = SNonNullable
+        , sblueprint = SVector emptiabilitySing nullability blueprint
+        , stypeInformation =
+            arrayTypeInformation emptiabilitySing nullability typeInformation
+        }
 
 
 type VectorizingSpec :: Type -> Type
@@ -106,24 +112,28 @@ type VectorizeSpec :: VectorizingSpec Type
 data VectorizeSpec emptiability context spec where
   VectorizeSpec ::
     { getVectorizeSpec :: context
-      ( 'Spec necessity 'NonNullable (Array emptiability nullability a)
+      ( 'Spec necessity 'NonNullable
+          ('Vector emptiability nullability blueprint)
       )
     }
-    -> VectorizeSpec emptiability context ('Spec necessity nullability a)
+    -> VectorizeSpec emptiability context
+         ('Spec necessity nullability blueprint)
 
 
 type VectorizeSpecC :: VectorizingSpec Constraint
 class
-  ( forall necessity nullability a.
-    ( spec ~ 'Spec necessity nullability a => constraint
-      ( 'Spec necessity 'NonNullable (Array emptiability nullability a)
+  ( forall necessity nullability blueprint.
+    ( spec ~ 'Spec necessity nullability blueprint => constraint
+      ( 'Spec necessity 'NonNullable
+          ('Vector emptiability nullability blueprint)
       )
     )
   ) => VectorizeSpecC emptiability constraint spec
 instance
-  ( spec ~ 'Spec necessity nullability a
+  ( spec ~ 'Spec necessity nullability blueprint
   , constraint
-    ( 'Spec necessity 'NonNullable (Array emptiability nullability a)
+    ( 'Spec necessity 'NonNullable
+        ('Vector emptiability nullability blueprint)
     )
   ) => VectorizeSpecC emptiability constraint spec
 
@@ -136,11 +146,12 @@ traverseVectorizeSpec f (VectorizeSpec a) = VectorizeSpec <$> f a
 
 
 hvectorize :: (HTable t, Unzip f)
-  => (forall necessity nullability a. ()
-    => SSpec ('Spec necessity nullability a)
-    -> f (context ('Spec necessity nullability a))
+  => (forall necessity nullability blueprint. ()
+    => SSpec ('Spec necessity nullability blueprint)
+    -> f (context ('Spec necessity nullability blueprint))
     -> context'
-      ( 'Spec necessity 'NonNullable (Array emptiability nullability a)
+      ( 'Spec necessity 'NonNullable
+          ('Vector emptiability nullability blueprint)
       ))
   -> f (t (H context))
   -> HVectorize emptiability t (H context')
@@ -150,10 +161,13 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \field ->
 
 
 hunvectorize :: (HTable t, Repeat f)
-  => (forall necessity nullability a. ()
-    => SSpec ('Spec necessity nullability a)
-    -> context ('Spec necessity 'NonNullable (Array emptiability nullability a))
-    -> f (context' ('Spec necessity nullability a)))
+  => (forall necessity nullability blueprint. ()
+    => SSpec ('Spec necessity nullability blueprint)
+    -> context
+         ( 'Spec necessity 'NonNullable
+             ('Vector emptiability nullability blueprint)
+         )
+    -> f (context' ('Spec necessity nullability blueprint)))
   -> HVectorize emptiability t (H context)
   -> f (t (H context'))
 hunvectorize unvectorizer (HVectorize table) =
@@ -162,27 +176,42 @@ hunvectorize unvectorizer (HVectorize table) =
       VectorizeSpec a -> Zippy (unvectorizer spec a)
 
 
-happend :: HTable t
-  => (forall necessity nullability a. ()
+happend :: HTable t =>
+  ( forall necessity nullability blueprint. ()
     => SNullability nullability
-    -> TypeInformation a
-    -> context ('Spec necessity 'NonNullable (Array emptiability nullability a))
-    -> context ('Spec necessity 'NonNullable (Array emptiability nullability a))
-    -> context ('Spec necessity 'NonNullable (Array emptiability nullability a)))
+    -> TypeInformation (ToDBType blueprint)
+    -> context
+         ( 'Spec necessity 'NonNullable
+             ('Vector emptiability nullability blueprint)
+         )
+     -> context
+         ( 'Spec necessity 'NonNullable
+             ('Vector emptiability nullability blueprint)
+         )
+    -> context
+         ( 'Spec necessity 'NonNullable
+            ( 'Vector emptiability nullability blueprint)
+         )
+  )
   -> HVectorize emptiability t (H context)
   -> HVectorize emptiability t (H context)
   -> HVectorize emptiability t (H context)
 happend append (HVectorize as) (HVectorize bs) = HVectorize $
   htabulate $ \field -> case (hfield as field, hfield bs field) of
     (VectorizeSpec a, VectorizeSpec b) -> case hfield hspecs field of
-      SSpec _ nullability info -> VectorizeSpec $ append nullability info a b
+      SSpec _ nullability _ info -> VectorizeSpec $ append nullability info a b
 
 
-hempty :: HTable t
-  => (forall necessity nullability a. ()
+hempty :: HTable t =>
+  ( forall necessity nullability blueprint. ()
     => SNullability nullability
-    -> TypeInformation a
-    -> context ('Spec necessity 'NonNullable (Array emptiability nullability a)))
+    -> TypeInformation (ToDBType blueprint)
+    -> context
+         ('Spec necessity 'NonNullable
+           ( 'Vector emptiability nullability blueprint
+           )
+         )
+  )
   -> HVectorize emptiability t (H context)
 hempty empty = HVectorize $ htabulate $ \field -> case hfield hspecs field of
-  SSpec _ nullability info -> VectorizeSpec (empty nullability info)
+  SSpec _ nullability _ info -> VectorizeSpec (empty nullability info)

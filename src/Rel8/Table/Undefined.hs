@@ -19,4 +19,4 @@ import Rel8.Type ( withDBType )
 
 undefined :: (Table a, Context a ~ DB) => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
-  SSpec _ _ info -> withDBType info $ DB (unsafeSemiunnullify null)
+  SSpec _ _ _ info -> withDBType info $ DB (unsafeSemiunnullify null)

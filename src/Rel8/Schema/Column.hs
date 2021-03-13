@@ -21,6 +21,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
+import Rel8.Kind.Blueprint ( Blueprint, ToDBType, ToType )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
 import Rel8.Kind.Nullability ( Nullability ( Nullable, NonNullable ) )
 import Rel8.Schema.Context
@@ -44,16 +45,16 @@ import Rel8.Table.These ( TheseTable )
 import Data.These ( These )
 
 
-type IColumn :: Bool -> Context -> Necessity -> Nullability -> Type -> Type
-type family IColumn isSpecialContext context necessity nullability a where
-  IColumn 'False context     necessity  nullability  a = context ('Spec necessity nullability a)
-  IColumn 'True  Result      _necessity 'NonNullable a = a
-  IColumn 'True  Result      _necessity 'Nullable    a = Maybe a
-  IColumn 'True  DB          _necessity nullability  a = Expr nullability a
-  IColumn 'True  Insert      'Required  nullability  a = Expr nullability a
-  IColumn 'True  Insert      'Optional  nullability  a = Maybe (Expr nullability a)
-  IColumn 'True  Aggregation _necessity nullability  a = Aggregate nullability a
-  IColumn 'True  Structure   necessity  nullability  a = Shape1 'Column ('Spec necessity nullability a)
+type IColumn :: Bool -> Context -> Necessity -> Nullability -> Blueprint -> Type
+type family IColumn isSpecialContext context necessity nullability blueprint where
+  IColumn 'False context     necessity  nullability  blueprint = context ('Spec necessity nullability blueprint)
+  IColumn 'True  Result      _necessity 'NonNullable blueprint = ToType blueprint
+  IColumn 'True  Result      _necessity 'Nullable    blueprint = Maybe (ToType blueprint)
+  IColumn 'True  DB          _necessity nullability  blueprint = Expr nullability (ToDBType blueprint)
+  IColumn 'True  Insert      'Required  nullability  blueprint = Expr nullability (ToDBType blueprint)
+  IColumn 'True  Insert      'Optional  nullability  blueprint = Maybe (Expr nullability (ToDBType blueprint))
+  IColumn 'True  Aggregation _necessity nullability  blueprint = Aggregate nullability (ToDBType blueprint)
+  IColumn 'True  Structure   necessity  nullability  blueprint = Shape1 'Column ('Spec necessity nullability blueprint)
 
 
 type IHEither :: Bool -> Context -> Type -> Type -> Type
@@ -96,9 +97,9 @@ type family IHThese isSpecialContext context = these where
   IHThese 'True _ = TheseTable
 
 
-type Column :: Context -> Necessity -> Nullability -> Type -> Type
-type Column context necessity nullability a =
-  IColumn (IsSpecialContext context) context necessity nullability a
+type Column :: Context -> Necessity -> Nullability -> Blueprint -> Type
+type Column context necessity nullability blueprint =
+  IColumn (IsSpecialContext context) context necessity nullability blueprint
 
 
 type HEither :: Context -> Type -> Type -> Type

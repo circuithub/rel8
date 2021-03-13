@@ -24,10 +24,7 @@ import Prelude hiding ( null, repeat, undefined, zipWith )
 -- rel8
 import Rel8.Expr ( Expr, litExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Kind.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , nullabilitySing
-  )
+import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable
@@ -46,7 +43,6 @@ import Rel8.Table.Alternative
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Lifted ( Table1(..) )
 import Rel8.Table.Undefined ( undefined )
-import Rel8.Type ( typeInformation )
 import Rel8.Type.Tag ( MaybeTag( IsJust ) )
 
 -- semigroupoids
@@ -111,7 +107,7 @@ instance Table1 MaybeTable where
     }
     where
       htag =
-        HIdentity (encodeTag "isJust" nullabilitySing typeInformation tag)
+        HIdentity (encodeTag "isJust" tag)
 
   fromColumns1 f HMaybeTable {htag = HIdentity htag, htable} = MaybeTable
     { tag
@@ -119,7 +115,7 @@ instance Table1 MaybeTable where
         hunnullify (\a -> pure . unnullifier "Just" (isNonNull tag) a) htable
     }
     where
-      tag = decodeTag "isJust" nullabilitySing typeInformation htag
+      tag = decodeTag "isJust" htag
 
 
 instance (Table a, Nullifiable (Context a)) => Table (MaybeTable a) where

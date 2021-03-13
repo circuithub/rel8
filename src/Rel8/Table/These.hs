@@ -27,7 +27,7 @@ import Prelude hiding ( undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ), nullabilitySing )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
@@ -48,8 +48,11 @@ import Rel8.Table.Lifted
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
 import Rel8.Table.Maybe
+  ( MaybeTable(..)
+  , maybeTable, justTable, nothingTable
+  , isJustTable
+  )
 import Rel8.Table.Undefined ( undefined )
-import Rel8.Type ( typeInformation )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
@@ -118,14 +121,12 @@ instance Table2 TheseTable where
   toColumns2 f g TheseTable {here, there} = HTheseTable
     { hhere = case here of
         MaybeTable {tag, table} -> HMaybeTable
-          { htag = HIdentity $
-              encodeTag "hasHere" nullabilitySing typeInformation tag
+          { htag = HIdentity $ encodeTag "hasHere" tag
           , htable = hnullify (nullifier "Here" (isNonNull tag)) (f table)
           }
     , hthere = case there of
         MaybeTable {tag, table} -> HMaybeTable
-          { htag = HIdentity $
-              encodeTag "hasThere" nullabilitySing typeInformation tag
+          { htag = HIdentity $ encodeTag "hasThere" tag
           , htable = hnullify (nullifier "There" (isNonNull tag)) (g table)
           }
     }
@@ -140,8 +141,7 @@ instance Table2 TheseTable where
                 htable
           }
           where
-            tag = decodeTag "hasHere" nullabilitySing typeInformation $
-              unHIdentity htag
+            tag = decodeTag "hasHere" $ unHIdentity htag
     , there = case hthere of
         HMaybeTable {htag, htable} -> MaybeTable
           { tag
@@ -151,8 +151,7 @@ instance Table2 TheseTable where
                 htable
           }
           where
-            tag = decodeTag "hasThere" nullabilitySing typeInformation $
-              unHIdentity htag
+            tag = decodeTag "hasThere" $ unHIdentity htag
     }
 
 

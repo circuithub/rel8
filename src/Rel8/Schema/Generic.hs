@@ -241,8 +241,8 @@ type family GColumns structure where
 
 type GRel8able :: Kind.Context -> (Type -> Type) -> (Type -> Type) -> Constraint
 class GRel8able context structure rep where
-  fromGColumns :: GColumns structure (H context) -> rep x
-  toGColumns :: rep x -> GColumns structure (H context)
+  fromGColumns :: GColumns structure (H context) -> rep blueprint
+  toGColumns :: rep blueprint -> GColumns structure (H context)
 
 
 instance GRel8able context structure rep => GRel8able context (M1 i c structure) (M1 i c rep) where
@@ -296,8 +296,8 @@ class
 
 
 instance
-  ( spec ~ 'Spec defaulting nullability x
-  , a ~ Column Aggregation defaulting nullability x
+  ( spec ~ 'Spec necessity nullability blueprint
+  , a ~ Column Aggregation necessity nullability blueprint
   ) => K1Table 'True Aggregation 'True (Shape1 'Column spec) a
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
@@ -305,8 +305,8 @@ instance
 
 
 instance
-  ( spec ~ 'Spec defaulting nullability x
-  , a ~ Column DB defaulting nullability x
+  ( spec ~ 'Spec necessity nullability blueprint
+  , a ~ Column DB necessity nullability blueprint
   ) => K1Table 'True DB 'True (Shape1 'Column spec) a
  where
   fromK1Columns (HIdentity (DB a)) = a
@@ -314,8 +314,8 @@ instance
 
 
 instance
-  ( spec ~ 'Spec necessity nullability x
-  , a ~ Column Insert necessity nullability x
+  ( spec ~ 'Spec necessity nullability blueprint
+  , a ~ Column Insert necessity nullability blueprint
   , KnownNecessity necessity
   ) => K1Table 'True Insert 'True (Shape1 'Column spec) a
  where
@@ -328,8 +328,8 @@ instance
 
 
 instance
-  ( spec ~ 'Spec defaulting nullability x
-  , a ~ Column Result defaulting nullability x
+  ( spec ~ 'Spec necessity nullability blueprint
+  , a ~ Column Result necessity nullability blueprint
   , KnownNullability nullability
   ) => K1Table 'True Result 'True (Shape1 'Column spec) a
  where

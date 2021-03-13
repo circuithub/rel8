@@ -29,6 +29,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
+import Rel8.Kind.Blueprint ( ToDBType, ToType )
 import Rel8.Kind.Necessity
   ( Necessity( Optional, Required )
   , SNecessity( SOptional, SRequired )
@@ -47,21 +48,31 @@ import Rel8.Type.Semigroup ( DBSemigroup )
 
 type Aggregation :: Context
 data Aggregation spec where
-  Aggregation :: Aggregate nullability a -> Aggregation ('Spec necessity nullability a)
+  Aggregation :: ()
+    => Aggregate nullability (ToDBType blueprint)
+    -> Aggregation ('Spec necessity nullability blueprint)
 
 
 type DB :: Context
 data DB spec where
-  DB :: { unDB :: Expr nullability a } -> DB ('Spec necessity nullability a)
+  DB :: ()
+    => { unDB :: Expr nullability (ToDBType blueprint) }
+    -> DB ('Spec necessity nullability blueprint)
 
 
-instance (spec ~ 'Spec necessity nullability a, DBSemigroup a) =>
+instance
+  ( spec ~ 'Spec necessity nullability blueprint
+  , DBSemigroup (ToDBType blueprint)
+  ) =>
   Semigroup (DB spec)
  where
   DB a <> DB b = DB (a <> b)
 
 
-instance (spec ~ 'Spec necessity nullability a, DBMonoid a) =>
+instance
+  ( spec ~ 'Spec necessity nullability blueprint
+  , DBMonoid (ToDBType blueprint)
+  ) =>
   Monoid (DB spec)
  where
   mempty = DB mempty
@@ -70,12 +81,17 @@ instance (spec ~ 'Spec necessity nullability a, DBMonoid a) =>
 type Insert :: Context
 data Insert spec where
   RequiredInsert :: ()
-    => Expr nullability a -> Insert ('Spec 'Required nullability a)
+    => Expr nullability (ToDBType blueprint)
+    -> Insert ('Spec 'Required nullability blueprint)
   OptionalInsert :: ()
-    => Maybe (Expr nullability a) -> Insert ('Spec 'Optional nullability a)
+    => Maybe (Expr nullability (ToDBType blueprint))
+    -> Insert ('Spec 'Optional nullability blueprint)
 
 
-instance (spec ~ 'Spec necessity nullability a, DBSemigroup a) =>
+instance
+  ( spec ~ 'Spec necessity nullability blueprint
+  , DBSemigroup (ToDBType blueprint)
+  ) =>
   Semigroup (Insert spec)
  where
   RequiredInsert a <> RequiredInsert b = RequiredInsert (a <> b)
@@ -83,9 +99,9 @@ instance (spec ~ 'Spec necessity nullability a, DBSemigroup a) =>
 
 
 instance
-  ( spec ~ 'Spec necessity nullability a
+  ( spec ~ 'Spec necessity nullability blueprint
   , KnownNecessity necessity
-  , DBMonoid a
+  , DBMonoid (ToDBType blueprint)
   ) => Monoid (Insert spec)
  where
   mempty = case necessitySing @necessity of
@@ -105,11 +121,18 @@ newtype Labels spec = Labels (NonEmpty String)
 
 type Result :: Context
 data Result spec where
-  NonNullableResult :: a -> Result ('Spec necessity 'NonNullable a)
-  NullableResult :: Maybe a -> Result ('Spec necessity 'Nullable a)
+  NonNullableResult :: ()
+    => ToType blueprint
+    -> Result ('Spec necessity 'NonNullable blueprint)
+  NullableResult :: ()
+    => Maybe (ToType blueprint)
+    -> Result ('Spec necessity 'Nullable blueprint)
 
 
-instance (spec ~ 'Spec necessity nullability a, Semigroup a) =>
+instance
+  ( spec ~ 'Spec necessity nullability blueprint
+  , Semigroup (ToType blueprint)
+  ) =>
   Semigroup (Result spec)
  where
   NonNullableResult a <> NonNullableResult b = NonNullableResult (a <> b)
@@ -117,9 +140,9 @@ instance (spec ~ 'Spec necessity nullability a, Semigroup a) =>
 
 
 instance
-  ( spec ~ 'Spec necessity nullability a
+  ( spec ~ 'Spec necessity nullability blueprint
   , KnownNullability nullability
-  , Monoid a
+  , Monoid (ToType blueprint)
   ) => Monoid (Result spec)
  where
   mempty = case nullabilitySing @nullability of

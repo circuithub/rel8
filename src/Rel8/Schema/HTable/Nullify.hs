@@ -49,8 +49,8 @@ instance HFunctor HNullify where
 type HNullifyField :: HKTable -> Context
 data HNullifyField table spec where
   HNullifyField
-    :: HField table ('Spec necessity nullability a)
-    -> HNullifyField table ('Spec necessity 'Nullable a)
+    :: HField table ('Spec necessity nullability blueprint)
+    -> HNullifyField table ('Spec necessity 'Nullable blueprint)
 
 
 instance HTable table => HTable (HNullify table) where
@@ -72,7 +72,8 @@ instance HTable table => HTable (HNullify table) where
       Dict -> NullifySpec Dict
 
   hspecs = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec necessity _ dict -> NullifySpec (SSpec necessity SNullable dict)
+    SSpec necessity  _ blueprint info ->
+      NullifySpec (SSpec necessity SNullable blueprint info)
 
 
 type NullifyingSpec :: Type -> Type
@@ -82,20 +83,20 @@ type NullifyingSpec r = (Spec -> r) -> Spec -> r
 type NullifySpec :: NullifyingSpec Type
 data NullifySpec context spec where
   NullifySpec
-    :: { getNullifySpec :: context ('Spec necessity 'Nullable a) }
-    -> NullifySpec context ('Spec necessity nullability a)
+    :: { getNullifySpec :: context ('Spec necessity 'Nullable blueprint) }
+    -> NullifySpec context ('Spec necessity nullability blueprint)
 
 
 type NullifySpecC :: NullifyingSpec Constraint
 class
-  ( forall necessity nullability a.
-    ( spec ~ 'Spec necessity nullability a =>
-       constraint ('Spec necessity 'Nullable a)
+  ( forall necessity nullability blueprint.
+    ( spec ~ 'Spec necessity nullability blueprint =>
+       constraint ('Spec necessity 'Nullable blueprint)
     )
   ) => NullifySpecC constraint spec
 instance
-  ( spec ~ 'Spec necessity nullability a
-  , constraint ('Spec necessity 'Nullable a)
+  ( spec ~ 'Spec necessity nullability blueprint
+  , constraint ('Spec necessity 'Nullable blueprint)
   ) => NullifySpecC constraint spec
 
 
@@ -106,18 +107,18 @@ traverseNullifySpec f (NullifySpec a) = NullifySpec <$> f a
 
 
 hnulls :: HTable t
-  => (forall necessity a. ()
-    => context ('Spec necessity 'Nullable a))
+  => (forall necessity blueprint. ()
+    => context ('Spec necessity 'Nullable blueprint))
   -> HNullify t (H context)
 hnulls null = HNullify $ htabulate $ \field -> case hfield hspecs field of
   SSpec {} -> NullifySpec null
 
 
 hnullify :: HTable t
-  => (forall necessity nullability a. ()
-    => SSpec ('Spec necessity nullability a)
-    -> context ('Spec necessity nullability a)
-    -> context ('Spec necessity 'Nullable a))
+  => (forall necessity nullability blueprint. ()
+    => SSpec ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity 'Nullable blueprint))
   -> t (H context)
   -> HNullify t (H context)
 hnullify nullifier a = HNullify $ htabulate $ \field ->
@@ -126,10 +127,10 @@ hnullify nullifier a = HNullify $ htabulate $ \field ->
 
 
 hunnullify :: (HTable t, Applicative m)
-  => (forall necessity nullability a. ()
-    => SSpec ('Spec necessity nullability a)
-    -> context ('Spec necessity 'Nullable a)
-    -> m (context ('Spec necessity nullability a)))
+  => (forall necessity nullability blueprint. ()
+    => SSpec ('Spec necessity nullability blueprint)
+    -> context ('Spec necessity 'Nullable blueprint)
+    -> m (context ('Spec necessity nullability blueprint)))
   -> HNullify t (H context)
   -> m (t (H context))
 hunnullify unnullifier (HNullify as) =

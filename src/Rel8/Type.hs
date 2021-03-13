@@ -24,7 +24,6 @@ import qualified Data.Aeson as Aeson
 import Data.Bifunctor ( first )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
-import Data.Typeable ( Typeable )
 import Prelude
 import Unsafe.Coerce ( unsafeCoerce )
 
@@ -43,9 +42,6 @@ import qualified Hasql.Decoders as Hasql
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
-
--- rel8
-import Rel8.Schema.Dict ( Dict( Dict ) )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -73,17 +69,16 @@ data TypeInformation (a :: Type) = TypeInformation
   { encode :: a -> Opaleye.PrimExpr
   , decode :: Hasql.Value a
   , typeName :: String
-  , typeable :: Dict Typeable a
   }
 
 
-mapTypeInformation :: forall a b. Typeable b
+mapTypeInformation :: ()
   => (a -> b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
 mapTypeInformation = parseTypeInformation . fmap pure
 
 
-parseTypeInformation :: forall a b. Typeable b
+parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
 parseTypeInformation to from TypeInformation {encode, decode, typeName} =
@@ -91,7 +86,6 @@ parseTypeInformation to from TypeInformation {encode, decode, typeName} =
     { encode = encode . from
     , decode = Hasql.refine (first Text.pack . to) decode
     , typeName
-    , typeable = Dict
     }
 
 
@@ -105,7 +99,6 @@ instance DBType Bool where
     { encode = Opaleye.ConstExpr . Opaleye.BoolLit
     , decode = Hasql.bool
     , typeName = "bool"
-    , typeable = Dict
     }
 
 
@@ -114,7 +107,6 @@ instance DBType Char where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
     , decode = Hasql.char
     , typeName = "char"
-    , typeable = Dict
     }
 
 
@@ -123,7 +115,6 @@ instance DBType Int16 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int2
     , typeName = "int2"
-    , typeable = Dict
     }
 
 
@@ -132,7 +123,6 @@ instance DBType Int32 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int4
     , typeName = "int4"
-    , typeable = Dict
     }
 
 
@@ -141,7 +131,6 @@ instance DBType Int64 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int8
     , typeName = "int8"
-    , typeable = Dict
     }
 
 
@@ -150,7 +139,6 @@ instance DBType Float where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
     , decode = Hasql.float4
     , typeName = "float4"
-    , typeable = Dict
     }
 
 
@@ -159,7 +147,6 @@ instance DBType Double where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
     , decode = Hasql.float8
     , typeName = "float8"
-    , typeable = Dict
     }
 
 
@@ -168,7 +155,6 @@ instance DBType Scientific where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit
     , decode = Hasql.numeric
     , typeName = "numeric"
-    , typeable = Dict
     }
 
 
@@ -179,7 +165,6 @@ instance DBType UTCTime where
         formatTime defaultTimeLocale "'%FT%T%QZ'"
     , decode = Hasql.timestamptz
     , typeName = "timestamptz"
-    , typeable = Dict
     }
 
 
@@ -190,7 +175,6 @@ instance DBType Day where
         formatTime defaultTimeLocale "'%F'"
     , decode = Hasql.date
     , typeName = "date"
-    , typeable = Dict
     }
 
 
@@ -201,7 +185,6 @@ instance DBType LocalTime where
         formatTime defaultTimeLocale "'%FT%T%Q'"
     , decode = Hasql.timestamp
     , typeName = "timestamp"
-    , typeable = Dict
     }
 
 
@@ -212,7 +195,6 @@ instance DBType TimeOfDay where
         formatTime defaultTimeLocale "'%T%Q'"
     , decode = Hasql.time
     , typeName = "time"
-    , typeable = Dict
     }
 
 
@@ -223,7 +205,6 @@ instance DBType DiffTime where
         formatTime defaultTimeLocale "'%-6Es'"
     , decode = Hasql.interval
     , typeName = "interval"
-    , typeable = Dict
     }
 
 
@@ -237,7 +218,6 @@ instance DBType Text where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
     , decode = Hasql.text
     , typeName = "text"
-    , typeable = Dict
     }
 
 
@@ -263,7 +243,6 @@ instance DBType ByteString where
     { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
     , decode = Hasql.bytea
     , typeName = "bytea"
-    , typeable = Dict
     }
 
 
@@ -278,7 +257,6 @@ instance DBType UUID where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
     , decode = Hasql.uuid
     , typeName = "uuid"
-    , typeable = Dict
     }
 
 
@@ -290,7 +268,6 @@ instance DBType Value where
         Lazy.unpack . Lazy.decodeUtf8 . Aeson.encode
     , decode = Hasql.jsonb
     , typeName = "jsonb"
-    , typeable = Dict
     }
 
 

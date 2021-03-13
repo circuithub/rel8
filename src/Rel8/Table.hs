@@ -21,6 +21,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
+import Rel8.Kind.Blueprint ( KnownBlueprint, FromDBType, ToDBType )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Context ( Aggregation( Aggregation ), DB( DB ) )
@@ -61,24 +62,34 @@ instance KnownSpec spec => Table (context spec) where
   fromColumns = unHIdentity
 
 
--- HACK
-instance (KnownNullability nullability, DBType a) =>
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromDBType a
+  , ToDBType blueprint ~ a
+  , DBType a
+  ) =>
   Table (Aggregate nullability a)
  where
   type Columns (Aggregate nullability a) =
-    HIdentity ('Spec 'Required nullability a)
+    HIdentity ('Spec 'Required nullability (FromDBType a))
   type Context (Aggregate nullability a) = Aggregation
 
   toColumns a = HIdentity (Aggregation a)
   fromColumns (HIdentity (Aggregation a)) = a
 
 
--- HACK
-instance (KnownNullability nullability, DBType a) =>
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromDBType a
+  , ToDBType blueprint ~ a
+  , DBType a
+  ) =>
   Table (Expr nullability a)
  where
   type Columns (Expr nullability a) =
-    HIdentity ('Spec 'Required nullability a)
+    HIdentity ('Spec 'Required nullability (FromDBType a))
   type Context (Expr nullability a) = DB
 
   toColumns a = HIdentity (DB a)
