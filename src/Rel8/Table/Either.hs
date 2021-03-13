@@ -2,6 +2,8 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -33,6 +35,7 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Compatible
@@ -131,6 +134,15 @@ instance (Table a, Table b, Compatible a b, Nullifiable (Context a)) =>
 
   toColumns = toColumns2 toColumns toColumns
   fromColumns = fromColumns2 fromColumns fromColumns
+
+
+instance
+  ( Nullifiable from
+  , Nullifiable to
+  , Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  ) =>
+  Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
 
 
 isLeftTable :: EitherTable a b -> Expr 'NonNullable Bool

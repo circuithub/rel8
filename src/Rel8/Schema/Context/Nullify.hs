@@ -82,8 +82,8 @@ instance Nullifiable Aggregation where
     fold $ undoGroupBy nullability info aggregate
 
   nullifier _ tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {operation, inType, inExpr, outExpr} -> Aggregate
-      { operation
+    Aggregate {aggregator, inType, inExpr, outExpr} -> Aggregate
+      { aggregator
       , inNullability = SNullable
       , inType
       , inExpr = withDBType inType $ bool null (nullify inExpr) tag
@@ -91,9 +91,9 @@ instance Nullifiable Aggregation where
       }
 
   unnullifier _ _ _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {operation, inNullability, inType, inExpr, outExpr} ->
+    Aggregate {aggregator, inNullability, inType, inExpr, outExpr} ->
       Aggregate
-        { operation, inNullability, inType, inExpr
+        { aggregator, inNullability, inType, inExpr
         , outExpr = unsafeSemiunnullify . outExpr
         }
 
@@ -156,8 +156,8 @@ undoGroupBy :: ()
   -> Maybe (Expr nullability a)
 undoGroupBy nullability info aggregate =
   case aggregate of
-    Aggregate {operation, inNullability, inType, inExpr} ->
-      case operation of
+    Aggregate {aggregator, inNullability, inType, inExpr} ->
+      case aggregator of
         Nothing -> case info of
           TypeInformation { typeable = Dict } -> case inType of
             TypeInformation { typeable = Dict } -> case inNullability of

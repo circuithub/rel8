@@ -139,11 +139,11 @@ hvectorize :: (HTable t, Unzip f)
   => (forall necessity nullability a. ()
     => SSpec ('Spec necessity nullability a)
     -> f (context ('Spec necessity nullability a))
-    -> context
+    -> context'
       ( 'Spec necessity 'NonNullable (Array emptiability nullability a)
       ))
   -> f (t (H context))
-  -> HVectorize emptiability t (H context)
+  -> HVectorize emptiability t (H context')
 hvectorize vectorizer as = HVectorize $ htabulate $ \field ->
   case hfield hspecs field of
     spec@SSpec {} -> VectorizeSpec (vectorizer spec (fmap (`hfield` field) as))
@@ -153,9 +153,9 @@ hunvectorize :: (HTable t, Repeat f)
   => (forall necessity nullability a. ()
     => SSpec ('Spec necessity nullability a)
     -> context ('Spec necessity 'NonNullable (Array emptiability nullability a))
-    -> f (context ('Spec necessity nullability a)))
+    -> f (context' ('Spec necessity nullability a)))
   -> HVectorize emptiability t (H context)
-  -> f (t (H context))
+  -> f (t (H context'))
 hunvectorize unvectorizer (HVectorize table) =
   getZippy $ htabulateA $ \field -> case hfield hspecs field of
     spec -> case hfield table field of

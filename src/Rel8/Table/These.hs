@@ -2,6 +2,8 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
@@ -36,6 +38,7 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
+import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Compatible
@@ -108,24 +111,6 @@ instance
     }
 
 
-instance (Table a, Table b, Compatible a b, Nullifiable (Context a)) =>
-  Table (TheseTable a b)
- where
-  type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
-  type Context (TheseTable a b) = Context a
-
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
-
-
-instance Table a => Table1 (TheseTable a) where
-  type Columns1 (TheseTable a) = HTheseTable (Columns a)
-  type ConstrainContext1 (TheseTable a) = NullifiableEq (Context a)
-
-  toColumns1 = toColumns2 toColumns
-  fromColumns1 = fromColumns2 fromColumns
-
-
 instance Table2 TheseTable where
   type Columns2 TheseTable = HTheseTable
   type ConstrainContext2 TheseTable = Nullifiable
@@ -169,6 +154,33 @@ instance Table2 TheseTable where
             tag = decodeTag "hasThere" nullabilitySing typeInformation $
               unHIdentity htag
     }
+
+
+instance Table a => Table1 (TheseTable a) where
+  type Columns1 (TheseTable a) = HTheseTable (Columns a)
+  type ConstrainContext1 (TheseTable a) = NullifiableEq (Context a)
+
+  toColumns1 = toColumns2 toColumns
+  fromColumns1 = fromColumns2 fromColumns
+
+
+instance (Table a, Table b, Compatible a b, Nullifiable (Context a)) =>
+  Table (TheseTable a b)
+ where
+  type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
+  type Context (TheseTable a b) = Context a
+
+  toColumns = toColumns2 toColumns toColumns
+  fromColumns = fromColumns2 fromColumns fromColumns
+
+
+instance
+  ( Nullifiable from
+  , Nullifiable to
+  , Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  ) =>
+  Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
 
 
 isThisTable :: TheseTable a b -> Expr 'NonNullable Bool

@@ -2,6 +2,8 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -35,6 +37,7 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -98,7 +101,6 @@ instance (Table a, Context a ~ DB, Semigroup a) => Monoid (MaybeTable a) where
   mempty = nothingTable
 
 
-
 instance Table1 MaybeTable where
   type Columns1 MaybeTable = HMaybeTable
   type ConstrainContext1 MaybeTable = Nullifiable
@@ -125,6 +127,10 @@ instance (Table a, Nullifiable (Context a)) => Table (MaybeTable a) where
   type Context (MaybeTable a) = Context a
   toColumns = toColumns1 toColumns
   fromColumns = fromColumns1 fromColumns
+
+
+instance (Nullifiable from, Nullifiable to, Recontextualize from to a b) =>
+  Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
 isNothingTable :: MaybeTable a -> Expr 'NonNullable Bool

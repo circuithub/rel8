@@ -77,11 +77,13 @@ library
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Trio
     Rel8.Schema.HTable.Vectorize
+    Rel8.Schema.Recontextualize
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainType
 
     Rel8.Table
+    Rel8.Table.Aggregate
     Rel8.Table.Alternative
     Rel8.Table.Bool
     Rel8.Table.Either
