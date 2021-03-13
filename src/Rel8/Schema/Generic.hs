@@ -44,7 +44,7 @@ import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
   , Insert( RequiredInsert, OptionalInsert )
-  , Result( NullableResult, NonNullableResult )
+  , Result( Result )
   , IsSpecialContext
   )
 import Rel8.Schema.Context.Nullify ( Nullifiable )
@@ -72,6 +72,7 @@ import Rel8.Schema.Structure
   ( IsStructure, Shape(..), Shape1, Shape2
   , Structure
   )
+import Rel8.Schema.Value ( Value( NullableValue, NonNullableValue ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.Lifted
@@ -333,12 +334,12 @@ instance
   , KnownNullability nullability
   ) => K1Table 'True Result 'True (Shape1 'Column spec) a
  where
-  fromK1Columns (HIdentity result) = case result of
-    NullableResult ma -> ma
-    NonNullableResult a -> a
-  toK1Columns a = HIdentity $ case nullabilitySing @nullability of
-    SNullable -> NullableResult a
-    SNonNullable -> NonNullableResult a
+  fromK1Columns (HIdentity (Result value)) = case value of
+    NullableValue ma -> ma
+    NonNullableValue a -> a
+  toK1Columns a = HIdentity $ Result $ case nullabilitySing @nullability of
+    SNullable -> NullableValue a
+    SNonNullable -> NonNullableValue a
 
 
 instance

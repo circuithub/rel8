@@ -15,7 +15,7 @@ module Rel8.Schema.Context
   , Insert( RequiredInsert, OptionalInsert )
   , Name( Name )
   , Labels( Labels )
-  , Result( NonNullableResult, NullableResult )
+  , Result( Result )
   , IsSpecialContext
   )
 where
@@ -35,13 +35,10 @@ import Rel8.Kind.Necessity
   , SNecessity( SOptional, SRequired )
   , KnownNecessity, necessitySing
   )
-import Rel8.Kind.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , SNullability( SNullable, SNonNullable )
-  , KnownNullability, nullabilitySing
-  )
+import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Spec ( Context, Spec( Spec ) )
 import Rel8.Schema.Structure ( Structure )
+import Rel8.Schema.Value ( Value )
 import Rel8.Type.Monoid ( DBMonoid )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -121,12 +118,9 @@ newtype Labels spec = Labels (NonEmpty String)
 
 type Result :: Context
 data Result spec where
-  NonNullableResult :: ()
-    => ToType blueprint
-    -> Result ('Spec necessity 'NonNullable blueprint)
-  NullableResult :: ()
-    => Maybe (ToType blueprint)
-    -> Result ('Spec necessity 'Nullable blueprint)
+  Result :: ()
+    => Value nullability (ToType blueprint)
+    -> Result ('Spec necessity nullability blueprint)
 
 
 instance
@@ -135,8 +129,7 @@ instance
   ) =>
   Semigroup (Result spec)
  where
-  NonNullableResult a <> NonNullableResult b = NonNullableResult (a <> b)
-  NullableResult ma <> NullableResult mb = NullableResult (liftA2 (<>) ma mb)
+  Result a <> Result b = Result (a <> b)
 
 
 instance
@@ -145,9 +138,7 @@ instance
   , Monoid (ToType blueprint)
   ) => Monoid (Result spec)
  where
-  mempty = case nullabilitySing @nullability of
-    SNonNullable -> NonNullableResult mempty
-    SNullable -> NullableResult (Just mempty)
+  mempty = Result mempty
 
 
 type IsSpecialContext :: Context -> Bool

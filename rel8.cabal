@@ -83,6 +83,7 @@ library
     Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
+    Rel8.Schema.Value
 
     Rel8.Table
     Rel8.Table.Aggregate

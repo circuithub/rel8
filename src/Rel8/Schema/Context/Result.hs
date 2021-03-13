@@ -23,7 +23,7 @@ import Rel8.Kind.Nullability
   ( Nullability( Nullable, NonNullable )
   , SNullability( SNonNullable, SNullable )
   )
-import Rel8.Schema.Context ( Result( NullableResult, NonNullableResult ) )
+import Rel8.Schema.Context ( Result( Result ) )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
@@ -35,6 +35,7 @@ import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec ) )
+import Rel8.Schema.Value ( Value( NullableValue, NonNullableValue ) )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
 
 -- these
@@ -48,12 +49,12 @@ toHEitherTable :: (HTable t, HTable u)
 toHEitherTable = either hleft hright
   where
     hleft table = HEitherTable
-      { htag = HIdentity (NonNullableResult IsLeft)
+      { htag = HIdentity (Result (NonNullableValue IsLeft))
       , hleft = hnullify (const nullifier) table
       , hright = hnulls null
       }
     hright table = HEitherTable
-      { htag = HIdentity (NonNullableResult IsRight)
+      { htag = HIdentity (Result (NonNullableValue IsRight))
       , hleft = hnulls null
       , hright = hnullify (const nullifier) table
       }
@@ -63,7 +64,7 @@ fromHEitherTable :: (HTable t, HTable u)
   => HEitherTable t u (H Result)
   -> Either (t (H Result)) (u (H Result))
 fromHEitherTable HEitherTable {htag, hleft, hright} = case htag of
-  HIdentity (NonNullableResult tag) -> case tag of
+  HIdentity (Result (NonNullableValue tag)) -> case tag of
     IsLeft -> maybe err Left $ hunnullify unnullifier hleft
     IsRight -> maybe err Right $ hunnullify unnullifier hright
   where
@@ -82,18 +83,18 @@ toHMaybeTable :: HTable t => Maybe (t (H Result)) -> HMaybeTable t (H Result)
 toHMaybeTable = maybe hnothing hjust
   where
     hnothing = HMaybeTable
-      { htag = HIdentity (NullableResult Nothing)
+      { htag = HIdentity (Result (NullableValue Nothing))
       , htable = hnulls null
       }
     hjust table = HMaybeTable
-      { htag = HIdentity (NullableResult (Just IsJust))
+      { htag = HIdentity (Result (NullableValue (Just IsJust)))
       , htable = hnullify (const nullifier) table
       }
 
 
 fromHMaybeTable :: HTable t => HMaybeTable t (H Result) -> Maybe (t (H Result))
 fromHMaybeTable HMaybeTable {htag, htable} = case htag of
-  HIdentity (NullableResult tag) ->
+  HIdentity (Result (NullableValue tag)) ->
     tag *> hunnullify unnullifier htable
 
 
@@ -126,24 +127,25 @@ fromHTheseTable HTheseTable {hhere, hthere} =
 
 
 null :: Result ('Spec necessity 'Nullable a)
-null = NullableResult Nothing
+null = Result $ NullableValue Nothing
 
 
 nullifier :: ()
   => Result ('Spec necessity nullability blueprint)
   -> Result ('Spec necessity 'Nullable blueprint)
-nullifier result = case result of
-  NonNullableResult a -> NullableResult (Just a)
-  NullableResult ma -> NullableResult ma
+nullifier (Result result) = Result $ case result of
+  NonNullableValue a -> NullableValue (Just a)
+  NullableValue ma -> NullableValue ma
 
 
 unnullifier :: ()
   => SSpec ('Spec necessity nullability blueprint)
   -> Result ('Spec necessity 'Nullable blueprint)
   -> Maybe (Result ('Spec necessity nullability blueprint))
-unnullifier (SSpec _ nullability _ _) (NullableResult ma) = case nullability of
-  SNonNullable -> NonNullableResult <$> ma
-  SNullable -> pure (NullableResult ma)
+unnullifier (SSpec _ nullability _ _) (Result (NullableValue ma)) =
+  case nullability of
+    SNonNullable -> Result . NonNullableValue <$> ma
+    SNullable -> pure (Result (NullableValue ma))
 
 
 vectorizer :: ()
@@ -151,10 +153,10 @@ vectorizer :: ()
   -> [Result ('Spec necessity nullability blueprint)]
   -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
 vectorizer (SSpec _ nullability _ _) results = case nullability of
-  SNullable -> NonNullableResult $
-    fmap (\(NullableResult a) -> a) results
-  SNonNullable -> NonNullableResult $
-    fmap (\(NonNullableResult a) -> a) results
+  SNullable -> Result $ NonNullableValue $
+    fmap (\(Result (NullableValue a)) -> a) results
+  SNonNullable -> Result $ NonNullableValue $
+    fmap (\(Result (NonNullableValue a)) -> a) results
 
 
 vectorizer1 :: ()
@@ -162,27 +164,27 @@ vectorizer1 :: ()
   -> NonEmpty (Result ('Spec necessity nullability blueprint))
   -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
 vectorizer1 (SSpec _ nullability _ _) results = case nullability of
-  SNullable -> NonNullableResult $
-    fmap (\(NullableResult a) -> a) results
-  SNonNullable -> NonNullableResult $
-    fmap (\(NonNullableResult a) -> a) results
+  SNullable -> Result $ NonNullableValue $
+    fmap (\(Result (NullableValue a)) -> a) results
+  SNonNullable -> Result $ NonNullableValue $
+    fmap (\(Result (NonNullableValue a)) -> a) results
 
 
 unvectorizer :: ()
   => SSpec ('Spec necessity nullability blueprint)
   -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
   -> [Result ('Spec necessity nullability blueprint)]
-unvectorizer (SSpec _ nullability _ _) (NonNullableResult results) =
+unvectorizer (SSpec _ nullability _ _) (Result (NonNullableValue results)) =
   case nullability of
-    SNullable -> NullableResult <$> results
-    SNonNullable -> NonNullableResult <$> results
+    SNullable -> Result . NullableValue <$> results
+    SNonNullable -> Result . NonNullableValue <$> results
 
 
 unvectorizer1 :: ()
   => SSpec ('Spec necessity nullability blueprint)
   -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
   -> NonEmpty (Result ('Spec necessity nullability blueprint))
-unvectorizer1 (SSpec _ nullability _ _) (NonNullableResult results) =
+unvectorizer1 (SSpec _ nullability _ _) (Result (NonNullableValue results)) =
   case nullability of
-    SNullable -> NullableResult <$> results
-    SNonNullable -> NonNullableResult <$> results
+    SNullable -> Result . NullableValue <$> results
+    SNonNullable -> Result . NonNullableValue <$> results

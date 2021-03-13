@@ -21,10 +21,18 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
-import Rel8.Kind.Blueprint ( KnownBlueprint, FromDBType, ToDBType )
+import Rel8.Kind.Blueprint
+  ( KnownBlueprint
+  , FromDBType, ToDBType
+  , FromType, ToType
+  )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( KnownNullability )
-import Rel8.Schema.Context ( Aggregation( Aggregation ), DB( DB ) )
+import Rel8.Schema.Context
+  ( Aggregation( Aggregation )
+  , DB( DB )
+  , Result( Result )
+  )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
@@ -32,6 +40,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
+import Rel8.Schema.Value ( Value )
 import Rel8.Type ( DBType )
 
 
@@ -94,6 +103,23 @@ instance
 
   toColumns a = HIdentity (DB a)
   fromColumns (HIdentity (DB a)) = a
+
+
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromType a
+  , ToType blueprint ~ a
+  , DBType (ToDBType blueprint)
+  ) =>
+  Table (Value nullability a)
+ where
+  type Columns (Value nullability a) =
+    HIdentity ('Spec 'Required nullability (FromType a))
+  type Context (Value nullability a) = Result
+
+  toColumns a = HIdentity (Result a)
+  fromColumns (HIdentity (Result a)) = a
 
 
 instance (Table a, Table b, Compatible a b) => Table (a, b) where

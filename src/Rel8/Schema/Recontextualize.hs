@@ -17,13 +17,18 @@ import Prelude ()
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( Aggregate )
-import Rel8.Kind.Blueprint ( KnownBlueprint, FromDBType, ToDBType )
+import Rel8.Kind.Blueprint
+  ( KnownBlueprint
+  , FromDBType, ToDBType
+  , FromType, ToType
+  )
 import Rel8.Kind.Nullability ( KnownNullability )
-import Rel8.Schema.Context ( Aggregation, DB )
+import Rel8.Schema.Context ( Aggregation, DB, Result )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.Spec ( KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
+import Rel8.Schema.Value ( Value )
 import Rel8.Table ( Table, Context, Congruent )
 import Rel8.Type ( DBType )
 
@@ -49,7 +54,19 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize DB Aggregation (Expr nullability a) (Aggregate nullability a)
+  Recontextualize Aggregation DB (Aggregate nullability a) (Expr nullability a)
+
+
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromType a
+  , blueprint ~ FromDBType dbType
+  , ToType blueprint ~ a
+  , ToDBType blueprint ~ dbType
+  , DBType dbType
+  ) =>
+  Recontextualize Aggregation Result (Aggregate nullability dbType) (Value nullability a)
 
 
 instance
@@ -59,7 +76,43 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize Aggregation DB (Aggregate nullability a) (Expr nullability a)
+  Recontextualize DB Aggregation (Expr nullability a) (Aggregate nullability a)
+
+
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromType a
+  , blueprint ~ FromDBType dbType
+  , ToType blueprint ~ a
+  , ToDBType blueprint ~ dbType
+  , DBType dbType
+  ) =>
+  Recontextualize DB Result (Expr nullability dbType) (Value nullability a)
+
+
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromType a
+  , blueprint ~ FromDBType dbType
+  , ToType blueprint ~ a
+  , ToDBType blueprint ~ dbType
+  , DBType dbType
+  ) =>
+  Recontextualize Result Aggregation (Value nullability a) (Aggregate nullability dbType)
+
+
+instance
+  ( KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromType a
+  , blueprint ~ FromDBType dbType
+  , ToType blueprint ~ a
+  , ToDBType blueprint ~ dbType
+  , DBType dbType
+  ) =>
+  Recontextualize Result DB (Value nullability a) (Expr nullability dbType)
 
 
 instance KnownSpec spec => Recontextualize from to (from spec) (to spec)
