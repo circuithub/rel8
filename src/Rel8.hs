@@ -147,6 +147,7 @@ module Rel8
   , HMaybe
   , optional
   , maybeTable
+  , isNothingTable
   , noTable
   , ($?)
   , catMaybeTable
@@ -1846,6 +1847,10 @@ maybeTable
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
   ifThenElse_ (null (lit False) id nullTag) (f table) def
+
+
+isNothingTable :: MaybeTable a -> Expr Bool
+isNothingTable = maybeTable (lit True) (const (lit False))
 
 
 -- | The null table. Like 'Nothing'.
