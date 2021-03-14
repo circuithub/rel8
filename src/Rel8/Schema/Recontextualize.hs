@@ -163,3 +163,20 @@ instance
   , Recontextualize from to a2 b2
   , Recontextualize from to a3 b3
   ) => Recontextualize from to (a1, a2, a3) (b1, b2, b3)
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , Recontextualize from to a3 b3
+  , Recontextualize from to a4 b4
+  ) => Recontextualize from to (a1, a2, a3, a4) (b1, b2, b3, b4)
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , Recontextualize from to a3 b3
+  , Recontextualize from to a4 b4
+  , Recontextualize from to a5 b5
+  ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)

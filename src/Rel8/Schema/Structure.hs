@@ -48,4 +48,6 @@ type family IsStructure a where
   IsStructure (Shape2 _ _ _) = 'True
   IsStructure (_, _) = 'True
   IsStructure (_, _, _) = 'True
+  IsStructure (_, _, _, _) = 'True
+  IsStructure (_, _, _, _, _) = 'True
   IsStructure _ = 'False

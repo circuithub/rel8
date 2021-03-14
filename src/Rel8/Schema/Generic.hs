@@ -63,6 +63,8 @@ import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
+import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
+import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Recontextualize ( Recontextualize )
@@ -283,6 +285,8 @@ type family K1Columns structure where
   K1Columns (Shape2 'These a b) = HTheseTable (K1Columns a) (K1Columns b)
   K1Columns (a, b) = HPair (K1Columns a) (K1Columns b)
   K1Columns (a, b, c) = HTrio (K1Columns a) (K1Columns b) (K1Columns c)
+  K1Columns (a, b, c, d) = HQuartet (K1Columns a) (K1Columns b) (K1Columns c) (K1Columns d)
+  K1Columns (a, b, c, d, e) = HQuintet (K1Columns a) (K1Columns b) (K1Columns c) (K1Columns d) (K1Columns e)
   K1Columns a = Columns a
 
 
@@ -733,6 +737,53 @@ instance
     { hfst = toK1Columns @_ @_ @_ @structure1 a
     , hsnd = toK1Columns @_ @_ @_ @structure2 b
     , htrd = toK1Columns @_ @_ @_ @structure3 c
+    }
+
+
+instance
+  ( K1Table isSpecialContext context (IsStructure structure1) structure1 a1
+  , K1Table isSpecialContext context (IsStructure structure2) structure2 a2
+  , K1Table isSpecialContext context (IsStructure structure3) structure3 a3
+  , K1Table isSpecialContext context (IsStructure structure3) structure4 a4
+  , a ~ (a1, a2, a3, a4)
+  ) => K1Table isSpecialContext context 'True (structure1, structure2, structure3, structure4) a
+ where
+  fromK1Columns (HQuartet a b c d) =
+    ( fromK1Columns @_ @_ @_ @structure1 a
+    , fromK1Columns @_ @_ @_ @structure2 b
+    , fromK1Columns @_ @_ @_ @structure3 c
+    , fromK1Columns @_ @_ @_ @structure4 d
+    )
+  toK1Columns (a, b, c, d) = HQuartet
+    { hfst = toK1Columns @_ @_ @_ @structure1 a
+    , hsnd = toK1Columns @_ @_ @_ @structure2 b
+    , htrd = toK1Columns @_ @_ @_ @structure3 c
+    , hfrt = toK1Columns @_ @_ @_ @structure4 d
+    }
+
+
+instance
+  ( K1Table isSpecialContext context (IsStructure structure1) structure1 a1
+  , K1Table isSpecialContext context (IsStructure structure2) structure2 a2
+  , K1Table isSpecialContext context (IsStructure structure3) structure3 a3
+  , K1Table isSpecialContext context (IsStructure structure3) structure4 a4
+  , K1Table isSpecialContext context (IsStructure structure3) structure5 a5
+  , a ~ (a1, a2, a3, a4, a5)
+  ) => K1Table isSpecialContext context 'True (structure1, structure2, structure3, structure4, structure5) a
+ where
+  fromK1Columns (HQuintet a b c d e) =
+    ( fromK1Columns @_ @_ @_ @structure1 a
+    , fromK1Columns @_ @_ @_ @structure2 b
+    , fromK1Columns @_ @_ @_ @structure3 c
+    , fromK1Columns @_ @_ @_ @structure4 d
+    , fromK1Columns @_ @_ @_ @structure5 e
+    )
+  toK1Columns (a, b, c, d, e) = HQuintet
+    { hfst = toK1Columns @_ @_ @_ @structure1 a
+    , hsnd = toK1Columns @_ @_ @_ @structure2 b
+    , htrd = toK1Columns @_ @_ @_ @structure3 c
+    , hfrt = toK1Columns @_ @_ @_ @structure4 d
+    , hfft = toK1Columns @_ @_ @_ @structure5 e
     }
 
 

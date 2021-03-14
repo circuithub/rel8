@@ -41,7 +41,7 @@ import Rel8.Schema.Value
   , FromValue, ToValue
   , toValue
   )
-import Rel8.Type
+import Rel8.Type ( DBType, TypeInformation(..), cast, typeInformation )
 
 
 litExpr :: forall value nullability dbType a blueprint.

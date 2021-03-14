@@ -27,30 +27,49 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Kind.Blueprint
-import Rel8.Kind.Emptiability
+  ( Blueprint( Scalar )
+  , KnownBlueprint
+  , FromDBType, ToDBType
+  , FromType, ToType
+  )
+import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
 import Rel8.Kind.Nullability
+  ( Nullability( Nullable, NonNullable )
+  , KnownNullability
+  )
 import Rel8.Schema.Context ( DB(..), Result(..) )
 import Rel8.Schema.Context.Result
-import Rel8.Schema.Generic
+  ( fromHEitherTable, toHEitherTable
+  , fromHListTable, toHListTable
+  , fromHMaybeTable, toHMaybeTable
+  , fromHNonEmptyTable, toHNonEmptyTable
+  , fromHTheseTable, toHTheseTable
+  )
+import Rel8.Schema.Generic ( Rel8able )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Identity
-import Rel8.Schema.HTable.Pair
-import Rel8.Schema.HTable.Trio
+import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
+import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
+import Rel8.Schema.HTable.Pair ( HPair(..) )
+import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Value
+  ( Value( NullableValue, NonNullableValue )
+  , FromValue, ToValue
+  )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
-import Rel8.Table.Either
-import Rel8.Table.List
-import Rel8.Table.Maybe
-import Rel8.Table.NonEmpty
-import Rel8.Table.These
-import Rel8.Type
-import Rel8.Type.Array
+import Rel8.Table.Either ( EitherTable )
+import Rel8.Table.List ( ListTable )
+import Rel8.Table.Maybe ( MaybeTable )
+import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.These ( TheseTable )
+import Rel8.Type ( DBType )
+import Rel8.Type.Array ( Array )
 
 -- these
 import Data.These ( These )
@@ -188,6 +207,53 @@ instance
     { hfst = toResults @exprs1 a
     , hsnd = toResults @exprs2 b
     , htrd = toResults @exprs3 c
+    }
+
+
+instance
+  ( quartet ~ (exprs1, exprs2, exprs3, exprs4)
+  , Serializable exprs1 a
+  , Serializable exprs2 b
+  , Serializable exprs3 c
+  , Serializable exprs4 d
+  ) => Serializable quartet (a, b, c, d)
+ where
+  fromResults (HQuartet a b c d) =
+    ( fromResults @exprs1 a
+    , fromResults @exprs2 b
+    , fromResults @exprs3 c
+    , fromResults @exprs4 d
+    )
+  toResults (a, b, c, d) = HQuartet
+    { hfst = toResults @exprs1 a
+    , hsnd = toResults @exprs2 b
+    , htrd = toResults @exprs3 c
+    , hfrt = toResults @exprs4 d
+    }
+
+
+instance
+  ( quintet ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
+  , Serializable exprs1 a
+  , Serializable exprs2 b
+  , Serializable exprs3 c
+  , Serializable exprs4 d
+  , Serializable exprs5 e
+  ) => Serializable quintet (a, b, c, d, e)
+ where
+  fromResults (HQuintet a b c d e) =
+    ( fromResults @exprs1 a
+    , fromResults @exprs2 b
+    , fromResults @exprs3 c
+    , fromResults @exprs4 d
+    , fromResults @exprs5 e
+    )
+  toResults (a, b, c, d, e) = HQuintet
+    { hfst = toResults @exprs1 a
+    , hsnd = toResults @exprs2 b
+    , htrd = toResults @exprs3 c
+    , hfrt = toResults @exprs4 d
+    , hfft = toResults @exprs5 e
     }
 
 

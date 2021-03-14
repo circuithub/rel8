@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -37,6 +38,8 @@ import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
+import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
+import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
@@ -138,6 +141,54 @@ instance (Table a, Table b, Table c, Compatible a b, Compatible b c) =>
 
   toColumns (a, b, c) = HTrio (toColumns a) (toColumns b) (toColumns c)
   fromColumns (HTrio x y z) = (fromColumns x, fromColumns y, fromColumns z)
+
+
+instance
+  ( Table a, Table b, Table c, Table d
+  , Compatible a b, Compatible b c, Compatible c d
+  ) => Table (a, b, c, d)
+ where
+  type Columns (a, b, c, d) =
+    HQuartet (Columns a) (Columns b) (Columns c) (Columns d)
+  type Context (a, b, c, d) = Context a
+
+  toColumns (a, b, c, d) = HQuartet
+    { hfst = toColumns a
+    , hsnd = toColumns b
+    , htrd = toColumns c
+    , hfrt = toColumns d
+    }
+  fromColumns (HQuartet a b c d) =
+    ( fromColumns a
+    , fromColumns b
+    , fromColumns c
+    , fromColumns d
+    )
+
+
+instance
+  ( Table a, Table b, Table c, Table d, Table e
+  , Compatible a b, Compatible b c, Compatible c d, Compatible d e
+  ) => Table (a, b, c, d, e)
+ where
+  type Columns (a, b, c, d, e) =
+    HQuintet (Columns a) (Columns b) (Columns c) (Columns d) (Columns e)
+  type Context (a, b, c, d, e) = Context a
+
+  toColumns (a, b, c, d, e) = HQuintet
+    { hfst = toColumns a
+    , hsnd = toColumns b
+    , htrd = toColumns c
+    , hfrt = toColumns d
+    , hfft = toColumns e
+    }
+  fromColumns (HQuintet a b c d e) =
+    ( fromColumns a
+    , fromColumns b
+    , fromColumns c
+    , fromColumns d
+    , fromColumns e
+    )
 
 
 type Congruent :: Type -> Type -> Constraint

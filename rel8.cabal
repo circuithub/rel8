@@ -76,6 +76,8 @@ library
     Rel8.Schema.HTable.NonEmpty
     Rel8.Schema.HTable.Nullify
     Rel8.Schema.HTable.Pair
+    Rel8.Schema.HTable.Quartet
+    Rel8.Schema.HTable.Quintet
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Trio
     Rel8.Schema.HTable.Vectorize
