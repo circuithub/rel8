@@ -1,10 +1,9 @@
 {-# language DataKinds #-}
 {-# language TypeFamilies #-}
-{-# language TypeFamilyDependencies #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Column
-  ( Column
+  ( Column, Default
   , HEither
   , HList
   , HMaybe
@@ -19,22 +18,18 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( Aggregate )
-import Rel8.Kind.Blueprint ( Blueprint, ToDBType, ToType )
+import Rel8.Kind.Blueprint ( FromType )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
-import Rel8.Kind.Nullability ( Nullability ( Nullable, NonNullable ) )
-import Rel8.Schema.Context
-  ( Aggregation, DB, Insert, Result
-  , IsSpecialContext
-  )
-import Rel8.Schema.Spec ( Context, Spec( Spec ) )
+import Rel8.Schema.Context ( Result, IsSpecialContext )
+import Rel8.Schema.Field ( Field )
+import Rel8.Schema.Spec ( Context )
 import Rel8.Schema.Structure
   ( Structure
-  , Shape( Column, Either, List, Maybe, NonEmpty, These )
+  , Shape( Either, List, Maybe, NonEmpty, These )
   , Shape1
   , Shape2
   )
+import Rel8.Schema.Value ( GetNullability, GetValue )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
@@ -45,20 +40,32 @@ import Rel8.Table.These ( TheseTable )
 import Data.These ( These )
 
 
-type IColumn :: Bool -> Context -> Necessity -> Nullability -> Blueprint -> Type
-type family IColumn isSpecialContext context necessity nullability blueprint where
-  IColumn 'False context     necessity  nullability  blueprint = context ('Spec necessity nullability blueprint)
-  IColumn 'True  Result      _necessity 'NonNullable blueprint = ToType blueprint
-  IColumn 'True  Result      _necessity 'Nullable    blueprint = Maybe (ToType blueprint)
-  IColumn 'True  DB          _necessity nullability  blueprint = Expr nullability (ToDBType blueprint)
-  IColumn 'True  Insert      'Required  nullability  blueprint = Expr nullability (ToDBType blueprint)
-  IColumn 'True  Insert      'Optional  nullability  blueprint = Maybe (Expr nullability (ToDBType blueprint))
-  IColumn 'True  Aggregation _necessity nullability  blueprint = Aggregate nullability (ToDBType blueprint)
-  IColumn 'True  Structure   necessity  nullability  blueprint = Shape1 'Column ('Spec necessity nullability blueprint)
+type Default :: Type -> Type
+data Default a
+
+
+type GetNecessity :: Type -> Necessity
+type family GetNecessity a where
+  GetNecessity (Default _) = 'Optional
+  GetNecessity _ = 'Required
+
+
+type UnwrapDefault :: Type -> Type
+type family UnwrapDefault a where
+  UnwrapDefault (Default a) = a
+  UnwrapDefault a = a
+
+
+type Column :: Context -> Type -> Type
+type Column context a =
+  Field context
+    (GetNecessity a)
+    (GetNullability (UnwrapDefault a))
+    (FromType (GetValue (GetNullability (UnwrapDefault a)) (UnwrapDefault a)))
 
 
 type IHEither :: Bool -> Context -> Type -> Type -> Type
-type family IHEither isSpecialContext context = either where
+type family IHEither isSpecialContext context where
   IHEither 'False _ = EitherTable
   IHEither 'True Result = Either
   IHEither 'True Structure = Shape2 'Either
@@ -66,7 +73,7 @@ type family IHEither isSpecialContext context = either where
 
 
 type IHList :: Bool -> Context -> Type -> Type
-type family IHList isSpecialContext context = list where
+type family IHList isSpecialContext context where
   IHList 'False _ = ListTable
   IHList 'True Result = []
   IHList 'True Structure = Shape1 'List
@@ -74,7 +81,7 @@ type family IHList isSpecialContext context = list where
 
 
 type IHMaybe :: Bool -> Context -> Type -> Type
-type family IHMaybe isSpecialContext context = maybe where
+type family IHMaybe isSpecialContext context where
   IHMaybe 'False _ = MaybeTable
   IHMaybe 'True Result = Maybe
   IHMaybe 'True Structure = Shape1 'Maybe
@@ -82,7 +89,7 @@ type family IHMaybe isSpecialContext context = maybe where
 
 
 type IHNonEmpty :: Bool -> Context -> Type -> Type
-type family IHNonEmpty isSpecialContext context = nonEmpty where
+type family IHNonEmpty isSpecialContext context where
   IHNonEmpty 'False _ = NonEmptyTable
   IHNonEmpty 'True Result = NonEmpty
   IHNonEmpty 'True Structure = Shape1 'NonEmpty
@@ -90,16 +97,11 @@ type family IHNonEmpty isSpecialContext context = nonEmpty where
 
 
 type IHThese :: Bool -> Context -> Type -> Type -> Type
-type family IHThese isSpecialContext context = these where
+type family IHThese isSpecialContext context where
   IHThese 'False _ = TheseTable
   IHThese 'True Result = These
   IHThese 'True Structure = Shape2 'These
   IHThese 'True _ = TheseTable
-
-
-type Column :: Context -> Necessity -> Nullability -> Blueprint -> Type
-type Column context necessity nullability blueprint =
-  IColumn (IsSpecialContext context) context necessity nullability blueprint
 
 
 type HEither :: Context -> Type -> Type -> Type

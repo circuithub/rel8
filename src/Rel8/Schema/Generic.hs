@@ -39,7 +39,6 @@ import Rel8.Kind.Nullability
   ( SNullability( SNonNullable, SNullable )
   , KnownNullability, nullabilitySing
   )
-import Rel8.Schema.Column ( Column )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
@@ -55,6 +54,7 @@ import Rel8.Schema.Context.Result
   , fromHNonEmptyTable, toHNonEmptyTable
   , fromHTheseTable, toHTheseTable
   )
+import Rel8.Schema.Field ( Field )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.HTable.Either ( HEitherTable )
@@ -302,7 +302,7 @@ class
 
 instance
   ( spec ~ 'Spec necessity nullability blueprint
-  , a ~ Column Aggregation necessity nullability blueprint
+  , a ~ Field Aggregation necessity nullability blueprint
   ) => K1Table 'True Aggregation 'True (Shape1 'Column spec) a
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
@@ -311,7 +311,7 @@ instance
 
 instance
   ( spec ~ 'Spec necessity nullability blueprint
-  , a ~ Column DB necessity nullability blueprint
+  , a ~ Field DB necessity nullability blueprint
   ) => K1Table 'True DB 'True (Shape1 'Column spec) a
  where
   fromK1Columns (HIdentity (DB a)) = a
@@ -320,7 +320,7 @@ instance
 
 instance
   ( spec ~ 'Spec necessity nullability blueprint
-  , a ~ Column Insert necessity nullability blueprint
+  , a ~ Field Insert necessity nullability blueprint
   , KnownNecessity necessity
   ) => K1Table 'True Insert 'True (Shape1 'Column spec) a
  where
@@ -334,7 +334,7 @@ instance
 
 instance
   ( spec ~ 'Spec necessity nullability blueprint
-  , a ~ Column Result necessity nullability blueprint
+  , a ~ Field Result necessity nullability blueprint
   , KnownNullability nullability
   ) => K1Table 'True Result 'True (Shape1 'Column spec) a
  where
