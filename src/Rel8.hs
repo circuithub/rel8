@@ -224,7 +224,7 @@ import Data.Functor.Compose ( Compose(..) )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Contravariant ( Contravariant )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
-import Data.Int ( Int32, Int64 )
+import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty((:|)), nonEmpty )
 import Data.Monoid ( Any( Any ), getAny )
@@ -2143,6 +2143,7 @@ traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
 
 
+instance DBEq Int16
 instance DBEq Int32
 instance DBEq Int64
 instance DBEq Double
@@ -2876,6 +2877,7 @@ class DBMax a where
 
 instance DBMax Int64
 instance DBMax Double
+instance DBMax Int16
 instance DBMax Int32
 instance DBMax Scientific
 instance DBMax Float
@@ -2894,6 +2896,7 @@ class DBMin a where
 
 instance DBMin Int64
 instance DBMin Double
+instance DBMin Int16
 instance DBMin Int32
 instance DBMin Scientific
 instance DBMin Float
