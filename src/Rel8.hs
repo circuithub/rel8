@@ -1978,6 +1978,12 @@ instance DBType Bool where
   typeInformation = fromOpaleye pgBool $ notNullDecoder Hasql.bool
 
 
+-- | Corresponds to the @int2@ PostgreSQL type.
+instance DBType Int16 where
+  typeInformation = (mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> notNullDecoder Hasql.int2) -- TODO
+    { typeName = "int2" }
+
+
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
   typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> notNullDecoder Hasql.int4 -- TODO
