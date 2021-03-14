@@ -15,7 +15,8 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ), litExpr, null )
+import Rel8.Expr ( Expr( Expr ), null )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Type ( DBType )
 

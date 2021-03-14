@@ -46,11 +46,12 @@ library
     Rel8.Expr
     Rel8.Expr.Aggregate
     Rel8.Expr.Array
-    Rel8.Expr.Eq
     Rel8.Expr.Bool
+    Rel8.Expr.Eq
     Rel8.Expr.Function
     Rel8.Expr.Null
     Rel8.Expr.Ord
+    Rel8.Expr.Serialize
 
     Rel8.Kind.Blueprint
     Rel8.Kind.Emptiability
@@ -96,6 +97,7 @@ library
     Rel8.Table.Maybe
     Rel8.Table.NonEmpty
     Rel8.Table.Ord
+    Rel8.Table.Serialize
     Rel8.Table.These
     Rel8.Table.Undefined
 

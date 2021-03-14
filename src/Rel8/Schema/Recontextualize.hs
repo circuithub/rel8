@@ -4,6 +4,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Schema.Recontextualize
   ( Recontextualize
@@ -40,6 +41,7 @@ class
   , Context a ~ from
   , Context b ~ to
   , Congruent a b
+  , Recontextualize to from b a
   ) => Recontextualize from to a b
     | a -> from
     , b -> to

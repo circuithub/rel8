@@ -15,6 +15,7 @@ module Rel8.Kind.Blueprint
   , KnownBlueprint, blueprintSing
   , FromDBType, ToDBType, FromType, ToType
   , fromDBType, toDBType
+  , sfromDBType, stoDBType
   )
 where
 
@@ -25,7 +26,16 @@ import Prelude
 
 -- rel8
 import Rel8.Kind.Emptiability
+  ( Emptiability( Emptiable, NonEmptiable )
+  , SEmptiability( SEmptiable, SNonEmptiable )
+  , KnownEmptiability, emptiabilitySing
+  )
 import Rel8.Kind.Nullability
+  ( Nullability
+  , SNullability( SNullable, SNonNullable )
+  , KnownNullability, nullabilitySing
+  )
+import Rel8.Schema.Value ( FromValue, GetNullability, GetValue )
 import Rel8.Type.Array ( Array(..) )
 
 
@@ -72,14 +82,10 @@ type family IsList a where
 type FromType' :: Bool -> Type -> Blueprint
 type family FromType' isList a where
   FromType' 'False a = 'Scalar a
-  FromType' 'True [Maybe a] =
-    'Vector 'Emptiable 'Nullable (FromType a)
-  FromType' 'True (NonEmpty (Maybe a)) =
-    'Vector 'NonEmptiable 'Nullable (FromType a)
   FromType' 'True [a] =
-    'Vector 'Emptiable 'NonNullable (FromType a)
+    'Vector 'Emptiable (GetNullability a) (FromType (GetValue (GetNullability a) a))
   FromType' 'True (NonEmpty a) =
-    'Vector 'NonEmptiable 'NonNullable (FromType a)
+    'Vector 'NonEmptiable (GetNullability a) (FromType (GetValue (GetNullability a) a))
 
 
 type FromType :: Type -> Blueprint
@@ -96,10 +102,8 @@ type family FromDBType a where
 type ToType :: Blueprint -> Type
 type family ToType blueprint where
   ToType ('Scalar a) = a
-  ToType ('Vector 'Emptiable 'Nullable a) = [Maybe (ToType a)]
-  ToType ('Vector 'NonEmptiable 'Nullable a) = NonEmpty (Maybe (ToType a))
-  ToType ('Vector 'Emptiable 'NonNullable a) = [ToType a]
-  ToType ('Vector 'NonEmptiable 'NonNullable a) = NonEmpty (ToType a)
+  ToType ('Vector 'Emptiable nullability a) = [FromValue nullability (ToType a)]
+  ToType ('Vector 'NonEmptiable nullability a) = NonEmpty (FromValue nullability (ToType a))
 
 
 type ToDBType :: Blueprint -> Type

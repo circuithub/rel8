@@ -13,6 +13,7 @@ module Rel8.Schema.Value
   ( Value( NonNullableValue, NullableValue )
   , FromValue, ToValue
   , fromValue, toValue
+  , GetNullability, GetValue
   )
 where
 
@@ -56,18 +57,6 @@ type family FromValue nullability a where
   FromValue 'NonNullable a = a
 
 
-type GetNullability :: Type -> Nullability
-type family GetNullability a where
-  GetNullability (Maybe _) = 'Nullable
-  GetNullability _ = 'NonNullable
-
-
-type GetValue :: Nullability -> Type -> Type
-type family GetValue nullability a where
-  GetValue 'Nullable (Maybe a) = a
-  GetValue 'NonNullable a = a
-
-
 type ToValue :: Type -> (Nullability, Type)
 type ToValue a = '(GetNullability a, GetValue (GetNullability a) a)
 
@@ -87,6 +76,18 @@ toValue a = case nullabilitySing @nullability of
   SNullable -> case proof @a of
     Refl -> NullableValue a
   SNonNullable -> NonNullableValue a
+
+
+type GetNullability :: Type -> Nullability
+type family GetNullability a where
+  GetNullability (Maybe _) = 'Nullable
+  GetNullability _ = 'NonNullable
+
+
+type GetValue :: Nullability -> Type -> Type
+type family GetValue nullability a where
+  GetValue 'Nullable (Maybe a) = a
+  GetValue 'NonNullable a = a
 
 
 proof :: GetNullability a ~ 'Nullable => a :~: Maybe (GetValue 'Nullable a)

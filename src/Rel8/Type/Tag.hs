@@ -19,8 +19,9 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ), litExpr )
+import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Type
   ( DBType, typeInformation

@@ -23,8 +23,9 @@ import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
 -- rel8
-import Rel8.Expr ( Expr, litExpr )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Nullify

@@ -14,7 +14,6 @@ module Rel8.Expr
   , DBSemigroup( (<>.))
   , DBMonoid( memptyExpr )
   , castExpr
-  , litExpr
   , null
   , seminullify, unsafeLiftOpSeminullable, unsafeUnnullify
   )
