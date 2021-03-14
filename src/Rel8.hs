@@ -2882,8 +2882,6 @@ instance DBMax Float
 instance DBMax Text
 
 
-instance DBMax a => DBMax (Maybe a) where
-  max expr = retype <$> max (retype @a expr)
 -- | The class of 'DBType's that support the @min@ aggregation function.
 --
 -- If you have a custom type that you know supports @min@, you can use
