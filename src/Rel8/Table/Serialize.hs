@@ -14,11 +14,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
-  ( ToExprs, fromResults, toResults
-  , FromExprs
-  , Serializable
-  , lit, parse
-  , litTable, parseTable
+  ( Serializable, lit, parse
   )
 where
 
