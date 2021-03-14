@@ -2145,6 +2145,7 @@ traversePrimExpr f =
 
 instance DBEq Int32
 instance DBEq Int64
+instance DBEq Double
 instance DBEq Text
 instance DBEq Bool
 instance DBEq UTCTime
@@ -3283,6 +3284,7 @@ instance DBOrd Int32 where
 instance DBOrd Int64 where
 instance DBOrd Text where
 instance DBOrd UTCTime where
+instance DBOrd Double where
 
 
 -- | Corresponds to the SQL @DEFAULT@ keyword.
