@@ -101,6 +101,7 @@ module Rel8
   , in_
   , ifThenElse_
   , EqTable(..)
+  , case_
 
     -- ** Ordering
   , DBOrd(..)
