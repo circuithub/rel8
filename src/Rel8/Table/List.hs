@@ -12,8 +12,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Nullability ( withKnownNullability )
-import Rel8.Schema.Context ( DB )
+import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty )
@@ -22,7 +21,7 @@ import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
-import Rel8.Type ( withDBType )
+import Rel8.Type.Array ( (++.), sempty )
 
 
 type ListTable :: Type -> Type
@@ -47,15 +46,8 @@ instance AlternativeTable ListTable where
 
 instance (Table a, Context a ~ DB) => Semigroup (ListTable a) where
   ListTable as <> ListTable bs = ListTable $
-    happend
-      (\nullability info ->
-        withKnownNullability nullability $
-        withDBType info (<>))
-      as
-      bs
+    happend (\_ _ (DB a) (DB b) -> DB (a ++. b)) as bs
 
 
 instance (Table a, Context a ~ DB) => Monoid (ListTable a) where
-  mempty = ListTable $ hempty $ \nullability info ->
-    withKnownNullability nullability $
-    withDBType info mempty
+  mempty = ListTable $ hempty $ \_ info -> DB (sempty info)

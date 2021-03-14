@@ -16,17 +16,14 @@ where
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
-import Prelude
+import Prelude hiding ( seq )
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
-import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Ord ( (<.), (>.) )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable )
-  , withKnownNullability
-  )
+import Rel8.Expr.Eq ( seq )
+import Rel8.Expr.Ord ( slt, sgt)
+import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
@@ -59,8 +56,8 @@ instance
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [(a <. b, a ==. b)]
+          SSpec _ nullability _ _ ->
+            Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     specs = hspecs @(Columns a)
@@ -74,8 +71,8 @@ infix 4 <:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [(a <. b, a ==. b)]
+          SSpec _ nullability _ _ ->
+            Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     specs = hspecs @(Columns a)
@@ -89,8 +86,8 @@ infix 4 <=:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [(a >. b, a ==. b)]
+          SSpec _ nullability _ _ ->
+            Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     specs = hspecs @(Columns a)
@@ -104,8 +101,8 @@ infix 4 >:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [(a >. b, a ==. b)]
+          SSpec _ nullability _ _ ->
+            Const [(sgt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     specs = hspecs @(Columns a)

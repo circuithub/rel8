@@ -11,7 +11,6 @@ module Rel8.Type
   , TypeInformation(..)
   , mapTypeInformation
   , parseTypeInformation
-  , withDBType
   , cast
   )
 where
@@ -25,7 +24,6 @@ import Data.Bifunctor ( first )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Prelude
-import Unsafe.Coerce ( unsafeCoerce )
 
 -- bytestring
 import Data.ByteString ( ByteString )
@@ -273,10 +271,3 @@ instance DBType Value where
 
 cast :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 cast = Opaleye.CastExpr . typeName
-
-
-withDBType :: forall a b. TypeInformation a -> (DBType a => b) -> b
-withDBType info f = unsafeCoerce (F f :: F a b) info
-
-
-newtype F a b = F (DBType a => b)

@@ -6,7 +6,7 @@
 module Rel8.Kind.Nullability
   ( Nullability( Nullable, NonNullable )
   , SNullability ( SNullable, SNonNullable )
-  , KnownNullability( nullabilitySing ), withKnownNullability
+  , KnownNullability( nullabilitySing )
   )
 where
 
@@ -36,9 +36,3 @@ instance KnownNullability 'Nullable where
 
 instance KnownNullability 'NonNullable where
   nullabilitySing = SNonNullable
-
-
-withKnownNullability :: ()
-  => SNullability nullability -> (KnownNullability nullability => a) -> a
-withKnownNullability SNullable a = a
-withKnownNullability SNonNullable a = a

@@ -14,7 +14,7 @@ module Rel8.Expr
   , DBSemigroup( (<>.))
   , DBMonoid( memptyExpr )
   , castExpr
-  , null
+  , null, snull
   , seminullify, unsafeLiftOpSeminullable, unsafeUnnullify
   )
 where
@@ -36,7 +36,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Kind.Nullability ( Nullability( NonNullable, Nullable ) )
-import Rel8.Type ( DBType, cast, encode, typeInformation )
+import Rel8.Type ( DBType, TypeInformation, cast, encode, typeInformation )
 import Rel8.Type.Num ( DBFractional, DBNum )
 
 -- text
@@ -87,11 +87,12 @@ instance DBFractional a => Fractional (Expr nullability a) where
     castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
 
 
-castExpr :: forall a nullability. DBType a
-  => Expr nullability a -> Expr nullability a
-castExpr (Expr a) = Expr (cast info a)
-  where
-    info = typeInformation @a
+castExpr :: DBType a => Expr nullability a -> Expr nullability a
+castExpr = scastExpr typeInformation
+
+
+scastExpr :: TypeInformation a -> Expr nullability a -> Expr nullability a
+scastExpr info (Expr a) = Expr (cast info a)
 
 
 litExpr :: DBType a => a -> Expr 'NonNullable a
@@ -100,8 +101,12 @@ litExpr = castExpr . Expr . encode info
     info = typeInformation
 
 
+snull :: TypeInformation a -> Expr 'Nullable a
+snull info = scastExpr info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
+
+
 null :: DBType a => Expr 'Nullable a
-null = castExpr $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
+null = snull typeInformation
 
 
 seminullify :: Expr 'NonNullable a -> Expr nullability a

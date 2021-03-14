@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language LambdaCase #-}
 {-# language GADTs #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -6,7 +7,8 @@
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Ord
-  ( (<.), (<=.), (>.), (>=.)
+  ( slt, sle, sgt, sge
+  , (<.), (<=.), (>.), (>=.)
   , (<?), (<=?), (>?), (>=?)
   , leastExpr, greatestExpr
   )
@@ -30,35 +32,59 @@ import Rel8.Kind.Nullability
 import Rel8.Type.Ord ( DBOrd )
 
 
-(<.) :: forall a nullability. (KnownNullability nullability, DBOrd a)
+slt :: DBOrd a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+slt = \case
+  SNullable -> \ma mb -> nullable (isNonNull mb) (\a -> nullable false (a <?) mb) ma
+  SNonNullable -> (<?)
+
+
+sle :: DBOrd a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sle = \case
+  SNullable -> \ma mb -> nullable true (\a -> nullable false (a <=?) mb) ma
+  SNonNullable -> (<=?)
+
+
+sgt :: DBOrd a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sgt = \case
+  SNullable -> \ma mb -> nullable false (\a -> nullable true (a >?) mb) ma
+  SNonNullable -> (>?)
+
+
+sge :: DBOrd a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sge = \case
+  SNullable -> \ma mb -> nullable (isNull mb) (\a -> nullable true (a >=?) mb) ma
+  SNonNullable -> (>=?)
+
+
+(<.) :: (KnownNullability nullability, DBOrd a)
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-ma <. mb = case nullabilitySing @nullability of
-  SNullable -> nullable (isNonNull mb) (\a -> nullable false (a <?) mb) ma
-  SNonNullable -> ma <? mb
+(<.) = slt nullabilitySing
 infix 4 <.
 
 
-(<=.) :: forall a nullability. (KnownNullability nullability, DBOrd a)
+(<=.) :: (KnownNullability nullability, DBOrd a)
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-ma <=. mb = case nullabilitySing @nullability of
-  SNullable -> nullable true (\a -> nullable false (a <=?) mb) ma
-  SNonNullable -> ma <=? mb
+(<=.) = sle nullabilitySing
 infix 4 <=.
 
 
-(>.) :: forall a nullability. (KnownNullability nullability, DBOrd a)
+(>.) :: (KnownNullability nullability, DBOrd a)
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-ma >. mb = case nullabilitySing @nullability of
-  SNullable -> nullable false (\a -> nullable true (a >?) mb) ma
-  SNonNullable -> ma >? mb
+(>.) = sgt nullabilitySing
 infix 4 >.
 
 
-(>=.) :: forall a nullability. (KnownNullability nullability, DBOrd a)
+(>=.) :: (KnownNullability nullability, DBOrd a)
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-ma >=. mb = case nullabilitySing @nullability of
-  SNullable -> nullable (isNull mb) (\a -> nullable true (a >=?) mb) ma
-  SNonNullable -> ma >=? mb
+(>=.) = sge nullabilitySing
 infix 4 >=.
 
 

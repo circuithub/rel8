@@ -11,6 +11,7 @@
 module Rel8.Type.Array
   ( Array(..), array
   , arrayTypeInformation
+  , (++.), sempty
   )
 where
 
@@ -439,6 +440,11 @@ Expr a ++. Expr b = Expr $
   Opaleye.UnExpr (Opaleye.UnOpOther "ROW") $
   Opaleye.BinExpr (Opaleye.:||) (unrow a) (unrow b)
 infixr 5 ++.
+
+
+sempty :: ()
+  => TypeInformation a -> Expr 'NonNullable (Array 'Emptiable nullability a)
+sempty info = Expr (array info [])
 
 
 -- Requires Postgres 13

@@ -17,16 +17,13 @@ where
 import Data.Foldable ( foldl' )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
-import Prelude
+import Prelude hiding ( seq )
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
-import Rel8.Expr.Eq ( (==.), (/=.) )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable )
-  , withKnownNullability
-  )
+import Rel8.Expr.Eq ( seq, sne )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
@@ -59,8 +56,7 @@ instance
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [a ==. b]
+          SSpec _ nullability _ _ -> Const [seq nullability a b]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
@@ -73,8 +69,7 @@ infix 4 ==:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> withKnownNullability nullability $
-            Const [a /=. b]
+          SSpec _ nullability _ _ -> Const [sne nullability a b]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)

@@ -1,19 +1,19 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
+{-# language LambdaCase #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Eq
-  ( (==.), (/=.)
+  ( seq, sne
+  , (==.), (/=.)
   , (==?), (/=?)
   , isDistinctFrom, isNotDistinctFrom
   )
 where
 
 -- base
-import Prelude
+import Prelude hiding ( seq )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -28,19 +28,31 @@ import Rel8.Kind.Nullability
 import Rel8.Type.Eq ( DBEq )
 
 
-(==.) :: forall a nullability. (KnownNullability nullability, DBEq a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(==.) = case nullabilitySing @nullability of
+seq :: DBEq a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+seq = \case
   SNullable -> isNotDistinctFrom
   SNonNullable -> (==?)
+
+
+sne :: DBEq a
+  => SNullability nullability
+  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sne = \case
+  SNullable -> isDistinctFrom
+  SNonNullable -> (/=?)
+
+
+(==.) :: (KnownNullability nullability, DBEq a)
+  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+(==.) = seq nullabilitySing
 infix 4 ==.
 
 
-(/=.) :: forall a nullability. (KnownNullability nullability, DBEq a)
+(/=.) :: (KnownNullability nullability, DBEq a)
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(/=.) = case nullabilitySing @nullability of
-  SNullable -> isDistinctFrom
-  SNonNullable -> (/=?)
+(/=.) = sne nullabilitySing
 infix 4 /=.
 
 
