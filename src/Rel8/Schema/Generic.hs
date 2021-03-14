@@ -68,7 +68,7 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Recontextualize ( Recontextualize )
-import Rel8.Schema.Spec ( Spec( Spec ) )
+import Rel8.Schema.Spec ( Spec( Spec ), KTable )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Structure
   ( IsStructure, Shape(..), Shape1, Shape2
@@ -141,7 +141,7 @@ instance (IsSpecialContext context ~ 'False, Nullifiable context) =>
   gtoColumns = toUnspecialColumns
 
 
-type Rel8able :: (Kind.Context -> Type) -> Constraint
+type Rel8able :: KTable -> Constraint
 class HTable (GRep t) => Rel8able t where
   type GRep t :: HKTable
 

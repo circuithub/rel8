@@ -8,7 +8,7 @@ module Rel8.Schema.Spec
   ( Spec( Spec, nullability, necessity, blueprint )
   , SSpec( SSpec, snullability, snecessity, sblueprint, stypeInformation )
   , KnownSpec( specSing )
-  , Context
+  , Context, KTable
   )
 where
 
@@ -77,3 +77,7 @@ instance
 
 type Context :: Type
 type Context = Spec -> Type
+
+
+type KTable :: Type
+type KTable = Context -> Type
