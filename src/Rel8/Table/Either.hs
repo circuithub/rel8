@@ -60,7 +60,7 @@ data EitherTable a b = EitherTable
   , left :: a
   , right :: b
   }
-  deriving stock Functor
+  deriving stock (Show, Functor)
 
 
 instance Bifunctor EitherTable where

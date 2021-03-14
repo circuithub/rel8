@@ -1,7 +1,9 @@
 {-# language DataKinds #-}
+{-# language DerivingStrategies #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -36,6 +38,7 @@ type Value :: Nullability -> Type -> Type
 data Value nullability a where
   NonNullableValue :: a -> Value 'NonNullable a
   NullableValue :: Maybe a -> Value 'Nullable a
+deriving stock instance Show a => Show (Value nullability a)
 
 
 instance Semigroup a => Semigroup (Value nullability a) where

@@ -64,7 +64,7 @@ data TheseTable a b = TheseTable
   { here :: MaybeTable a
   , there :: MaybeTable b
   }
-  deriving stock Functor
+  deriving stock (Show, Functor)
 
 
 instance Bifunctor TheseTable where

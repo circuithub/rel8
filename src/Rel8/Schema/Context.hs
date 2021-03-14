@@ -1,9 +1,11 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -55,6 +57,7 @@ data DB spec where
   DB :: ()
     => { unDB :: Expr nullability (ToDBType blueprint) }
     -> DB ('Spec necessity nullability blueprint)
+deriving stock instance Show (DB spec)
 
 
 instance
@@ -83,6 +86,7 @@ data Insert spec where
   OptionalInsert :: ()
     => Maybe (Expr nullability (ToDBType blueprint))
     -> Insert ('Spec 'Optional nullability blueprint)
+deriving stock instance Show (Insert spec)
 
 
 instance
@@ -108,11 +112,13 @@ instance
 
 type Name :: Context
 newtype Name spec = Name String
+  deriving stock Show
   deriving newtype (IsString, Monoid, Semigroup)
 
 
 type Labels :: Context
 newtype Labels spec = Labels (NonEmpty String)
+  deriving stock Show
   deriving newtype (Semigroup)
 
 
@@ -121,6 +127,8 @@ data Result spec where
   Result :: ()
     => Value nullability (ToType blueprint)
     -> Result ('Spec necessity nullability blueprint)
+deriving stock instance Show (ToType blueprint) =>
+  Show (Result ('Spec necessity nullability blueprint))
 
 
 instance

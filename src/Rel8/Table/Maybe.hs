@@ -56,7 +56,7 @@ data MaybeTable a = MaybeTable
   { tag :: Expr 'Nullable MaybeTag
   , table :: a
   }
-  deriving stock Functor
+  deriving stock (Show, Functor)
 
 
 instance Apply MaybeTable where
