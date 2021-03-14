@@ -162,6 +162,9 @@ module Rel8
   , nonEmptyAgg
   , groupBy
   , DBMax( max )
+  , sumInt32
+  , count
+  , countRows
 
     -- *** List aggregation
   , ListTable
@@ -3269,3 +3272,17 @@ instance DBOrd UTCTime where
 -- Use with care, as Rel8 will not check that @DEFAULT@ can actually be used!
 defaultValue :: Expr a
 defaultValue = Expr Opaleye.DefaultInsertExpr
+
+
+sumInt32 :: Expr Int32 -> Aggregate (Expr Int64)
+sumInt32 (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrSum a []
+
+
+-- | Count the occurances of a single column. Corresponds to @COUNT(a)@
+count :: Expr a -> Aggregate (Expr Int64)
+count (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrCount a []
+
+
+-- | Count the occurances of a single column. Corresponds to @COUNT(a)@
+countRows :: Query a -> Query (Expr Int64)
+countRows = fmap columnToExpr . mapOpaleye Opaleye.countRows
