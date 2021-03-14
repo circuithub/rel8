@@ -761,9 +761,7 @@ instance Functor HasqlDecoder where
 acceptNull :: HasqlDecoder a -> HasqlDecoder (Maybe a)
 acceptNull = \case
   DecodeNotNull v f -> fmap f <$> nullDecoder v
-  DecodeNull v f  -> DecodeNull v \case
-    Nothing -> Right Nothing
-    Just x  -> fmap Just $ f $ Just x
+  DecodeNull v f  -> DecodeNull v (fmap Just . f)
 
 
 -- | Apply a parser to a decoder.
@@ -1775,7 +1773,15 @@ instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3, Serializab
 
   lit (a, b, c, d) = (lit a, lit b, lit c, lit d)
 
-
+-- | 
+-- >>> select c $ pure (pure (lit Nothing) :: MaybeTable (Expr (Maybe Bool)))
+-- [Just Nothing]
+--
+-- > select c $ pure (pure (lit (Just True)) :: MaybeTable (Expr (Maybe Bool)))
+-- [Just (Just True)]
+--
+-- > select c $ pure (noTable :: MaybeTable (Expr (Maybe Bool)))
+-- [Nothing]
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   rowParser :: forall f. (Applicative f, Traversable f)
     => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
