@@ -41,6 +41,8 @@ class
   , Context a ~ from
   , Context b ~ to
   , Congruent a b
+  , Recontextualize from from a a
+  , Recontextualize to to b b
   , Recontextualize to from b a
   ) => Recontextualize from to a b
     | a -> from

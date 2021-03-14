@@ -36,6 +36,13 @@ data Aggregate nullability a = Aggregate
   }
 
 
+data Aggregator = Aggregator
+  { operation :: Opaleye.AggrOp
+  , ordering :: [Opaleye.OrderExpr]
+  , distinction :: Opaleye.AggrDistinct
+  }
+
+
 groupByExpr :: DBEq a => Expr nullability a -> Aggregate nullability a
 groupByExpr = unsafeMakeAggregate Nothing
 
@@ -57,13 +64,6 @@ nonEmptyAggExpr = unsafeMakeAggregate $ Just Aggregator
   { operation = Opaleye.AggrArr
   , ordering = []
   , distinction = Opaleye.AggrAll
-  }
-
-
-data Aggregator = Aggregator
-  { operation :: Opaleye.AggrOp
-  , ordering :: [Opaleye.OrderExpr]
-  , distinction :: Opaleye.AggrDistinct
   }
 
 

@@ -50,6 +50,7 @@ library
     Rel8.Expr.Eq
     Rel8.Expr.Function
     Rel8.Expr.Null
+    Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Serialize
 
@@ -99,6 +100,7 @@ library
     Rel8.Table.List
     Rel8.Table.Maybe
     Rel8.Table.NonEmpty
+    Rel8.Table.Opaleye
     Rel8.Table.Ord
     Rel8.Table.Serialize
     Rel8.Table.These

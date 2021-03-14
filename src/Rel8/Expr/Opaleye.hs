@@ -1,0 +1,67 @@
+{-# language NamedFieldPuns #-}
+
+module Rel8.Expr.Opaleye
+  ( castExpr
+  , scastExpr
+  , litPrimExpr
+  , fromPrimExpr
+  , toPrimExpr
+  , mapPrimExpr
+  , traversePrimExpr
+  , zipPrimExprsWith
+  )
+where
+
+-- base
+import Prelude
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+
+-- rel8
+import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
+
+
+castExpr :: DBType a => Expr nullability a -> Expr nullability a
+castExpr = scastExpr typeInformation
+
+
+litPrimExpr :: DBType a => a -> Expr nullability a
+litPrimExpr = slitPrimExpr typeInformation
+
+
+scastExpr :: ()
+  => TypeInformation a -> Expr nullability a -> Expr nullability a
+scastExpr TypeInformation {typeName} =
+  Expr . Opaleye.CastExpr typeName . toPrimExpr
+
+
+slitPrimExpr :: TypeInformation a -> a -> Expr nullability a
+slitPrimExpr info@TypeInformation {encode} = scastExpr info . Expr . encode
+
+
+fromPrimExpr :: Opaleye.PrimExpr -> Expr nullability a
+fromPrimExpr = Expr
+
+
+toPrimExpr :: Expr nullability a -> Opaleye.PrimExpr
+toPrimExpr (Expr a) = a
+
+
+mapPrimExpr :: ()
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
+  -> Expr nullability1 a -> Expr nullability2 b
+mapPrimExpr f (Expr a) = Expr (f a)
+
+
+traversePrimExpr :: Functor f
+  => (Opaleye.PrimExpr -> f Opaleye.PrimExpr)
+  -> Expr nullability1 a -> f (Expr nullability2 b)
+traversePrimExpr f (Expr a) = Expr <$> f a
+
+
+zipPrimExprsWith :: ()
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
+  -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
+zipPrimExprsWith f (Expr a) (Expr b) = Expr (f a b)

@@ -25,6 +25,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Kind.Blueprint
   ( SBlueprint
   , KnownBlueprint, blueprintSing
@@ -41,7 +42,7 @@ import Rel8.Schema.Value
   , FromValue, ToValue
   , toValue
   )
-import Rel8.Type ( DBType, TypeInformation(..), cast, typeInformation )
+import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
 
 
 litExpr :: forall value nullability dbType a blueprint.
@@ -66,7 +67,7 @@ slitExpr :: ()
   -> TypeInformation (ToDBType blueprint)
   -> Value nullability (ToType blueprint)
   -> Expr nullability (ToDBType blueprint)
-slitExpr blueprint info = Expr . cast info . \case
+slitExpr blueprint info = scastExpr info . Expr . \case
   NullableValue ma -> maybe null (encode . stoDBType blueprint) ma
   NonNullableValue a -> encode $ stoDBType blueprint a
   where

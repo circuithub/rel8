@@ -22,10 +22,11 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ), toPrimExpr )
+import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Aggregate ( Aggregate(..), groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
-import Rel8.Expr.Null ( nullify, unsafeSemiunnullify )
+import Rel8.Expr.Null ( nullify, unsafeUnnullify )
+import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Kind.Blueprint ( Blueprint( Scalar ) )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
@@ -83,7 +84,7 @@ instance Nullifiable Aggregation where
     Aggregate {aggregator, input, output} ->
       Aggregate
         { aggregator, input
-        , output = unsafeSemiunnullify . output
+        , output = unsafeUnnullify . output
         }
 
 
@@ -91,7 +92,7 @@ instance Nullifiable DB where
   encodeTag _ = DB
   decodeTag _ (DB a) = a
   nullifier _ tag _ (DB a) = DB $ runTag tag a
-  unnullifier _ tag _ (DB a) = DB $ unsafeSemiunnullify $ runTag tag a
+  unnullifier _ tag _ (DB a) = DB $ unsafeUnnullify $ runTag tag a
 
 
 instance Nullifiable Insert where
@@ -103,10 +104,8 @@ instance Nullifiable Insert where
     OptionalInsert ma -> OptionalInsert $ runTag tag <$> ma
 
   unnullifier _ tag _ = \case
-    RequiredInsert a -> RequiredInsert $
-      unsafeSemiunnullify $ runTag tag a
-    OptionalInsert ma -> OptionalInsert $
-      unsafeSemiunnullify . runTag tag <$> ma
+    RequiredInsert a -> RequiredInsert $ unsafeUnnullify $ runTag tag a
+    OptionalInsert ma -> OptionalInsert $ unsafeUnnullify . runTag tag <$> ma
 
 
 instance Nullifiable Labels where

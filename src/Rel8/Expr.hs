@@ -1,62 +1,44 @@
 {-# language DataKinds #-}
-{-# language DefaultSignatures #-}
 {-# language DerivingStrategies #-}
-{-# language FlexibleInstances #-}
-{-# language GADTs #-}
-{-# language OverloadedStrings #-}
 {-# language RoleAnnotations #-}
 {-# language StandaloneKindSignatures #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.Expr
   ( Expr(..)
-  , DBSemigroup( (<>.))
-  , DBMonoid( memptyExpr )
-  , castExpr
-  , null, snull
-  , seminullify, unsafeLiftOpSeminullable, unsafeUnnullify
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
-
--- bytestring
-import Data.ByteString ( ByteString )
-import qualified Data.ByteString.Lazy as Lazy ( ByteString )
-
--- case-insensitive
-import Data.CaseInsensitive ( CI )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Kind.Nullability ( Nullability( NonNullable, Nullable ) )
-import Rel8.Type ( DBType, TypeInformation, cast, encode, typeInformation )
+import Rel8.Expr.Null ( seminullify, liftOpNullable )
+import Rel8.Expr.Opaleye
+  ( castExpr
+  , litPrimExpr
+  , mapPrimExpr
+  , zipPrimExprsWith
+  )
+import Rel8.Kind.Nullability ( Nullability )
+import Rel8.Type ( DBType )
+import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Num ( DBFractional, DBNum )
-
--- text
-import Data.Text ( Text )
-import qualified Data.Text.Lazy as Lazy ( Text )
-
--- time
-import Data.Time.Clock ( DiffTime, NominalDiffTime )
+import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
 type role Expr representational representational
 type Expr :: Nullability -> Type -> Type
-newtype Expr nullability a = Expr
-  { toPrimExpr :: Opaleye.PrimExpr
-  }
+newtype Expr nullability a = Expr Opaleye.PrimExpr
   deriving stock Show
 
 
 instance DBSemigroup a => Semigroup (Expr nullability a) where
-  (<>) = unsafeLiftOpSeminullable (<>.)
+  (<>) = liftOpNullable (<>.)
 
 
 instance DBMonoid a => Monoid (Expr nullability a) where
@@ -64,135 +46,24 @@ instance DBMonoid a => Monoid (Expr nullability a) where
 
 
 instance (IsString a, DBType a) => IsString (Expr nullability a) where
-  fromString = seminullify . litExpr . fromString
+  fromString = litPrimExpr . fromString
 
 
 instance DBNum a => Num (Expr nullability a) where
-  Expr a + Expr b = Expr (Opaleye.BinExpr (Opaleye.:+) a b)
-  Expr a * Expr b = Expr (Opaleye.BinExpr (Opaleye.:*) a b)
+  (+) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
+  (*) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:*))
+  (-) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:-))
 
-  abs (Expr a) = Expr (Opaleye.UnExpr Opaleye.OpAbs a)
-  negate (Expr a) = Expr (Opaleye.UnExpr Opaleye.OpNegate a)
+  abs = mapPrimExpr (Opaleye.UnExpr Opaleye.OpAbs)
+  negate = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNegate)
 
-  signum (Expr a) =
-    castExpr (Expr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN") a))
+  signum = castExpr . mapPrimExpr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN"))
 
   fromInteger = castExpr . Expr . Opaleye.ConstExpr . Opaleye.IntegerLit
 
 
 instance DBFractional a => Fractional (Expr nullability a) where
-  Expr a / Expr b = Expr (Opaleye.BinExpr (Opaleye.:/) a b)
+  (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
 
   fromRational =
     castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-
-
-castExpr :: DBType a => Expr nullability a -> Expr nullability a
-castExpr = scastExpr typeInformation
-
-
-scastExpr :: TypeInformation a -> Expr nullability a -> Expr nullability a
-scastExpr info (Expr a) = Expr (cast info a)
-
-
-litExpr :: DBType a => a -> Expr 'NonNullable a
-litExpr = castExpr . Expr . encode info
-  where
-    info = typeInformation
-
-
-snull :: TypeInformation a -> Expr 'Nullable a
-snull info = scastExpr info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
-
-
-null :: DBType a => Expr 'Nullable a
-null = snull typeInformation
-
-
-seminullify :: Expr 'NonNullable a -> Expr nullability a
-seminullify (Expr a) = Expr a
-
-
-unsafeLiftOpSeminullable :: ()
-  => (Expr 'NonNullable a -> Expr 'NonNullable b -> Expr 'NonNullable c)
-  -> Expr nullability a -> Expr nullability b -> Expr nullability c
-unsafeLiftOpSeminullable f ma mb =
-  seminullify (f (unsafeUnnullify ma) (unsafeUnnullify mb))
-
-
-unsafeUnnullify :: Expr nullability a -> Expr 'NonNullable a
-unsafeUnnullify (Expr a) = Expr a
-
-
-type DBSemigroup :: Type -> Constraint
-class DBType a => DBSemigroup a where
-  (<>.) :: Expr 'NonNullable a -> Expr 'NonNullable a -> Expr 'NonNullable a
-
-
-instance DBSemigroup DiffTime where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:+) a b)
-
-
-instance DBSemigroup NominalDiffTime where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:+) a b)
-
-
-instance DBSemigroup Text where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-instance DBSemigroup Lazy.Text where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-instance DBSemigroup (CI Text) where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-instance DBSemigroup (CI Lazy.Text) where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-instance DBSemigroup ByteString where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-instance DBSemigroup Lazy.ByteString where
-  Expr a <>. Expr b = Expr (Opaleye.BinExpr (Opaleye.:||) a b)
-
-
-type DBMonoid :: Type -> Constraint
-class DBSemigroup a => DBMonoid a where
-  memptyExpr :: Expr 'NonNullable a
-
-
-instance DBMonoid DiffTime where
-  memptyExpr = litExpr 0
-
-
-instance DBMonoid NominalDiffTime where
-  memptyExpr = litExpr 0
-
-
-instance DBMonoid Text where
-  memptyExpr = ""
-
-
-instance DBMonoid Lazy.Text where
-  memptyExpr = ""
-
-
-instance DBMonoid (CI Text) where
-  memptyExpr = ""
-
-
-instance DBMonoid (CI Lazy.Text) where
-  memptyExpr = ""
-
-
-instance DBMonoid ByteString where
-  memptyExpr = ""
-
-
-instance DBMonoid Lazy.ByteString where
-  memptyExpr = ""

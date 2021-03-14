@@ -1,15 +1,12 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Expr.Function
   ( Function, function
   , nullaryFunction
   , binaryOperator
-  , binaryOperatorOpaleye
   )
 where
 
@@ -21,7 +18,8 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ), castExpr, toPrimExpr )
+import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Opaleye ( castExpr, toPrimExpr, zipPrimExprsWith )
 import Rel8.Type ( DBType )
 
 
@@ -49,13 +47,5 @@ nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 binaryOperator :: DBType c
   => String
   -> Expr nullabilityA a -> Expr nullabilityB b -> Expr nullabilityC c
-binaryOperator = binaryOperatorOpaleye . Opaleye.OpOther
-
-
-binaryOperatorOpaleye :: DBType c
-  => Opaleye.BinOp
-  -> Expr nullabilityA a
-  -> Expr nullabilityB b
-  -> Expr nullabilityC c
-binaryOperatorOpaleye op (Expr a) (Expr b) =
-  castExpr $ Expr $ Opaleye.BinExpr op a b
+binaryOperator operator a b =
+  castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther operator)) a b

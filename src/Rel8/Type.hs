@@ -11,7 +11,6 @@ module Rel8.Type
   , TypeInformation(..)
   , mapTypeInformation
   , parseTypeInformation
-  , cast
   )
 where
 
@@ -267,7 +266,3 @@ instance DBType Value where
     , decode = Hasql.jsonb
     , typeName = "jsonb"
     }
-
-
-cast :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-cast = Opaleye.CastExpr . typeName

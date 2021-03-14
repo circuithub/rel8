@@ -15,32 +15,37 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ), null )
-import Rel8.Expr.Serialize ( litExpr )
+import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Opaleye
+  ( castExpr
+  , litPrimExpr
+  , mapPrimExpr
+  , zipPrimExprsWith
+  )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Type ( DBType )
 
 
 false :: Expr 'NonNullable Bool
-false = litExpr False
+false = litPrimExpr False
 
 
 true :: Expr 'NonNullable Bool
-true = litExpr True
+true = litPrimExpr True
 
 
 (&&.) :: Expr nullability Bool -> Expr nullability Bool -> Expr nullability Bool
-Expr a &&. Expr b = Expr (Opaleye.BinExpr Opaleye.OpAnd a b)
+(&&.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpAnd)
 infixr 3 &&.
 
 
 (||.) :: Expr nullability Bool -> Expr nullability Bool -> Expr nullability Bool
-Expr a ||. Expr b = Expr (Opaleye.BinExpr Opaleye.OpOr a b)
+(||.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpOr)
 infixr 2 ||.
 
 
 not_ :: Expr nullability Bool -> Expr nullability Bool
-not_ (Expr a) = Expr (Opaleye.UnExpr Opaleye.OpNot a)
+not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
 
 
 boolExpr :: ()
@@ -67,7 +72,9 @@ mcaseExpr branches = result
     result = Expr $ Opaleye.CaseExpr (map go branches) fallback
       where
         go (Expr condition, Expr value) = (condition, value)
-        Expr fallback = null `asProxyTypeOf` result
+        Expr fallback =
+          castExpr (Expr (Opaleye.ConstExpr Opaleye.NullLit))
+            `asProxyTypeOf` result
 
 
 asProxyTypeOf :: f a -> proxy a -> f a
