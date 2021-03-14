@@ -2149,6 +2149,7 @@ traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
 
 
+instance DBEq Scientific
 instance DBEq Int16
 instance DBEq Int32
 instance DBEq Int64
