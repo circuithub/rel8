@@ -163,6 +163,7 @@ module Rel8
   , nonEmptyAgg
   , groupBy
   , DBMax( max )
+  , DBMin( min )
   , sumInt32
   , count
   , countRows
@@ -2882,6 +2883,22 @@ instance DBMax Text
 
 instance DBMax a => DBMax (Maybe a) where
   max expr = retype <$> max (retype @a expr)
+-- | The class of 'DBType's that support the @min@ aggregation function.
+--
+-- If you have a custom type that you know supports @min@, you can use
+-- @DeriveAnyClass@ to derive a default implementation that calls @min@.
+class DBMin a where
+  -- | Produce an aggregation for @Expr a@ using the @max@ function.
+  min :: Expr a -> Aggregate (Expr a)
+  min (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrMin a []
+
+
+instance DBMin Int64
+instance DBMin Double
+instance DBMin Int32
+instance DBMin Scientific
+instance DBMin Float
+instance DBMin Text
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
