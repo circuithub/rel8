@@ -79,75 +79,42 @@ import Rel8.Type.Array ( Array )
 import Data.These ( These )
 
 
-data Shape
-  = Either Shape Shape
-  | List Shape
-  | Maybe Shape
-  | NonEmpty Shape
-  | These Shape Shape
-  | Pair Shape Shape
-  | Trio Shape Shape Shape
-  | Quartet Shape Shape Shape Shape
-  | Quintet Shape Shape Shape Shape Shape
-  | HTable
-  | Rel8able
-  | Field
-  | Column
+type IsTabular :: Type -> Bool
+type family IsTabular a where
+  IsTabular (Either _ _) = 'True
+  IsTabular [a] = IsListTabular a
+  IsTabular (Maybe a) = IsMaybeTabular a
+  IsTabular (NonEmpty a) = IsListTabular a
+  IsTabular (These _ _) = 'True
+  IsTabular (_, _) = 'True
+  IsTabular (_, _, _) = 'True
+  IsTabular (_, _, _, _) = 'True
+  IsTabular (_, _, _, _, _) = 'True
+  IsTabular (_ (H Result)) = 'True
+  IsTabular (_ Result) = 'True
+  IsTabular (Result _) = 'True
+  IsTabular _ = 'False
 
 
-type Trace :: Type -> Shape
-type family Trace a where
-  Trace (Either a b) = 'Either (Trace a) (Trace b)
-  Trace [a] = 'List (Trace a)
-  Trace (Maybe a) = 'Maybe (Trace a)
-  Trace (NonEmpty a) = 'NonEmpty (Trace a)
-  Trace (These a b) = 'These (Trace a) (Trace b)
-  Trace (a, b) = 'Pair (Trace a) (Trace b)
-  Trace (a, b, c) = 'Trio (Trace a) (Trace b) (Trace c)
-  Trace (a, b, c, d) = 'Quartet (Trace a) (Trace b) (Trace c) (Trace d)
-  Trace (a, b, c, d, e) = 'Quintet (Trace a) (Trace b) (Trace c) (Trace d) (Trace e)
-  Trace (_ (H Result)) = 'HTable
-  Trace (_ Result) = 'Rel8able
-  Trace (Result _) = 'Field
-  Trace _ = 'Column
-
-
-type IsTabular :: Shape -> Bool
-type family IsTabular shape where
-  IsTabular ('Either _ _) = 'True
-  IsTabular ('List a) = IsListTabular a
-  IsTabular ('Maybe a) = IsMaybeTabular a
-  IsTabular ('NonEmpty a) = IsListTabular a
-  IsTabular ('These _ _) = 'True
-  IsTabular ('Pair _ _) = 'True
-  IsTabular ('Trio _ _ _) = 'True
-  IsTabular ('Quartet _ _ _ _) = 'True
-  IsTabular ('Quintet _ _ _ _ _) = 'True
-  IsTabular 'HTable = 'True
-  IsTabular 'Rel8able = 'True
-  IsTabular 'Field = 'True
-  IsTabular 'Column = 'False
-
-
-type IsMaybeTabular :: Shape -> Bool
-type family IsMaybeTabular shape where
-  IsMaybeTabular ('Maybe _) = 'True
+type IsMaybeTabular :: Type -> Bool
+type family IsMaybeTabular a where
+  IsMaybeTabular (Maybe _) = 'True
   IsMaybeTabular a = IsTabular a
 
 
-type IsListTabular :: Shape -> Bool
-type family IsListTabular shape where
-  IsListTabular ('Maybe a) = IsMaybeTabular a
+type IsListTabular :: Type -> Bool
+type family IsListTabular a where
+  IsListTabular (Maybe a) = IsMaybeTabular a
   IsListTabular a = IsTabular a
 
 
 type ToExprs :: Type -> Type -> Constraint
-class ExprsFor (Trace a) (IsTabular (Trace a)) a exprs => ToExprs a exprs
-instance ExprsFor (Trace a) (IsTabular (Trace a)) a exprs => ToExprs a exprs
+class ExprsFor (IsTabular a) a exprs => ToExprs a exprs
+instance ExprsFor (IsTabular a) a exprs => ToExprs a exprs
 
 
-type ExprsFor :: Shape -> Bool -> Type -> Type -> Constraint
-class (Table exprs, Context exprs ~ DB, shape ~ Trace a, isTabular ~ IsTabular shape) => ExprsFor shape isTabular a exprs where
+type ExprsFor :: Bool -> Type -> Type -> Constraint
+class (Table exprs, Context exprs ~ DB, isTabular ~ IsTabular a) => ExprsFor isTabular a exprs where
   fromResults :: Columns exprs (H Result) -> a
   toResults :: a -> Columns exprs (H Result)
 
@@ -155,9 +122,9 @@ class (Table exprs, Context exprs ~ DB, shape ~ Trace a, isTabular ~ IsTabular s
 instance
   ( exprs ~ Expr 'NonNullable a
   , FromDBType a ~ 'Scalar a
+  , IsTabular a ~ 'False
   , DBType a
-  , Trace a ~ 'Column
-  ) => ExprsFor 'Column 'False a exprs
+  ) => ExprsFor 'False a exprs
  where
   fromResults (HIdentity (Result (NonNullableValue a))) = a
   toResults = HIdentity . Result . NonNullableValue
@@ -173,12 +140,10 @@ instance
   , KnownBlueprint blueprint
   , KnownNullability nullability
   , DBType dbType
-  , Trace ma ~ shape
-  , IsListTabular shape ~ 'False
-  , x ~ [ma]
-  , y ~ Array 'Emptiable nullability dbType
+  , IsListTabular ma ~ 'False
+  , x ~ Array 'Emptiable nullability dbType
   , outerNullability ~ 'NonNullable
-  ) => ExprsFor ('List shape) 'False x (Expr outerNullability y)
+  ) => ExprsFor 'False [ma] (Expr outerNullability x)
  where
   fromResults (HIdentity (Result (NonNullableValue a))) = a
   toResults = HIdentity . Result . NonNullableValue
@@ -192,10 +157,9 @@ instance
   , ToType blueprint ~ a
   , KnownBlueprint blueprint
   , DBType dbType
-  , Trace a ~ shape
-  , IsMaybeTabular shape ~ 'False
+  , IsMaybeTabular a ~ 'False
   , x ~ Maybe a
-  ) => ExprsFor ('Maybe shape) 'False x (Expr nullability dbType)
+  ) => ExprsFor 'False (Maybe a) (Expr nullability dbType)
  where
   fromResults (HIdentity (Result (NullableValue a))) = a
   toResults = HIdentity . Result . NullableValue
@@ -211,200 +175,186 @@ instance
   , KnownBlueprint blueprint
   , KnownNullability nullability
   , DBType dbType
-  , Trace ma ~ shape
-  , IsListTabular shape ~ 'False
-  , x ~ NonEmpty ma
-  , y ~ Array 'NonEmptiable nullability dbType
+  , IsListTabular ma ~ 'False
+  , x ~ Array 'NonEmptiable nullability dbType
   , outerNullability ~ 'NonNullable
-  ) => ExprsFor ('NonEmpty shape) 'False x (Expr outerNullability y)
+  ) => ExprsFor 'False (NonEmpty ma) (Expr outerNullability x)
  where
   fromResults (HIdentity (Result (NonNullableValue a))) = a
   toResults = HIdentity . Result . NonNullableValue
 
 
 instance
-  ( ExprsFor shape 'False a exprs
-  , IsListTabular shape ~ 'False
-  , x ~ [a]
-  ) => ExprsFor ('List shape) 'False x (ListTable exprs)
+  ( ToExprs a exprs
+  , IsListTabular a ~ 'False
+  ) => ExprsFor 'False [a] (ListTable exprs)
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHListTable
-  toResults = toHListTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHListTable
+  toResults = toHListTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape 'False a exprs
-  , IsMaybeTabular shape ~ 'False
-  , x ~ Maybe a
-  ) => ExprsFor ('Maybe shape) 'False x (MaybeTable exprs)
+  ( ToExprs a exprs
+  , IsMaybeTabular a ~ 'False
+  ) => ExprsFor 'False (Maybe a) (MaybeTable exprs)
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHMaybeTable
-  toResults = toHMaybeTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHMaybeTable
+  toResults = toHMaybeTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape 'False a exprs
-  , IsListTabular shape ~ 'False
-  , x ~ NonEmpty a
-  ) => ExprsFor ('NonEmpty shape) 'False x (NonEmptyTable exprs)
+  ( ToExprs a exprs
+  , IsListTabular a ~ 'False
+  ) => ExprsFor 'False (NonEmpty a) (NonEmptyTable exprs)
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHNonEmptyTable
-  toResults = toHNonEmptyTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHNonEmptyTable
+  toResults = toHNonEmptyTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
   , isTabular ~ 'True
-  , x ~ Either a b
-  , y ~ EitherTable exprs1 exprs2
-  ) => ExprsFor ('Either shape1 shape2) isTabular x y
+  , x ~ EitherTable exprs1 exprs2
+  ) => ExprsFor isTabular (Either a b) x
  where
-  fromResults = bimap (fromResults @_ @_ @_ @exprs1) (fromResults @_ @_ @_ @exprs2) . fromHEitherTable
-  toResults = toHEitherTable . bimap (toResults @_ @_ @_ @exprs1) (toResults @_ @_ @_ @exprs2)
+  fromResults = bimap (fromResults @_ @_ @exprs1) (fromResults @_ @_ @exprs2) . fromHEitherTable
+  toResults = toHEitherTable . bimap (toResults @_ @_ @exprs1) (toResults @_ @_ @exprs2)
 
 
 instance
-  ( ExprsFor shape (IsTabular shape) a exprs
-  , IsListTabular shape ~ 'True
-  , x ~ [a]
-  , y ~ ListTable exprs
-  ) => ExprsFor ('List shape) 'True x y
+  ( ToExprs a exprs
+  , IsListTabular a ~ 'True
+  , x ~ ListTable exprs
+  ) => ExprsFor 'True [a] x
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHListTable
-  toResults = toHListTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHListTable
+  toResults = toHListTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape (IsTabular shape) a exprs
-  , IsMaybeTabular shape ~ 'True
-  , x ~ Maybe a
-  , y ~ MaybeTable exprs
-  ) => ExprsFor ('Maybe shape) 'True x y
+  ( ToExprs a exprs
+  , IsMaybeTabular a ~ 'True
+  , x ~ MaybeTable exprs
+  ) => ExprsFor 'True (Maybe a) x
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHMaybeTable
-  toResults = toHMaybeTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHMaybeTable
+  toResults = toHMaybeTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape (IsTabular shape) a exprs
-  , IsListTabular shape ~ 'True
-  , x ~ NonEmpty a
-  , y ~ NonEmptyTable exprs
-  ) => ExprsFor ('NonEmpty shape) 'True x y
+  ( ToExprs a exprs
+  , IsListTabular a ~ 'True
+  , x ~ NonEmptyTable exprs
+  ) => ExprsFor 'True (NonEmpty a) x
  where
-  fromResults = fmap (fromResults @_ @_ @_ @exprs) . fromHNonEmptyTable
-  toResults = toHNonEmptyTable . fmap (toResults @_ @_ @_ @exprs)
+  fromResults = fmap (fromResults @_ @_ @exprs) . fromHNonEmptyTable
+  toResults = toHNonEmptyTable . fmap (toResults @_ @_ @exprs)
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
   , isTabular ~ 'True
-  , x ~ These a b
-  , y ~ TheseTable exprs1 exprs2
-  ) => ExprsFor ('These shape1 shape2) isTabular x y
+  , x ~ TheseTable exprs1 exprs2
+  ) => ExprsFor isTabular (These a b) x
  where
-  fromResults = bimap (fromResults @_ @_ @_ @exprs1) (fromResults @_ @_ @_ @exprs2) . fromHTheseTable
-  toResults = toHTheseTable . bimap (toResults @_ @_ @_ @exprs1) (toResults @_ @_ @_ @exprs2)
+  fromResults = bimap (fromResults @_ @_ @exprs1) (fromResults @_ @_ @exprs2) . fromHTheseTable
+  toResults = toHTheseTable . bimap (toResults @_ @_ @exprs1) (toResults @_ @_ @exprs2)
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
   , isTabular ~ 'True
-  , x ~ (a, b)
-  , y ~ (exprs1, exprs2)
-  ) => ExprsFor ('Pair shape1 shape2) isTabular x y
+  , x ~ (exprs1, exprs2)
+  ) => ExprsFor isTabular (a, b) x
  where
   fromResults (HPair a b) =
-    ( fromResults @_ @_ @_ @exprs1 a
-    , fromResults @_ @_ @_ @exprs2 b
+    ( fromResults @_ @_ @exprs1 a
+    , fromResults @_ @_ @exprs2 b
     )
   toResults (a, b) = HPair
-    { hfst = toResults @_ @_ @_ @exprs1 a
-    , hsnd = toResults @_ @_ @_ @exprs2 b
+    { hfst = toResults @_ @_ @exprs1 a
+    , hsnd = toResults @_ @_ @exprs2 b
     }
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
-  , ExprsFor shape3 (IsTabular shape3) c exprs3
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
+  , ToExprs c exprs3
   , isTabular ~ 'True
-  , x ~ (a, b, c)
-  , y ~ (exprs1, exprs2, exprs3)
-  ) => ExprsFor ('Trio shape1 shape2 shape3) isTabular x y
+  , x ~ (exprs1, exprs2, exprs3)
+  ) => ExprsFor isTabular (a, b, c) x
  where
   fromResults (HTrio a b c) =
-    ( fromResults @_ @_ @_ @exprs1 a
-    , fromResults @_ @_ @_ @exprs2 b
-    , fromResults @_ @_ @_ @exprs3 c
+    ( fromResults @_ @_ @exprs1 a
+    , fromResults @_ @_ @exprs2 b
+    , fromResults @_ @_ @exprs3 c
     )
   toResults (a, b, c) = HTrio
-    { hfst = toResults @_ @_ @_ @exprs1 a
-    , hsnd = toResults @_ @_ @_ @exprs2 b
-    , htrd = toResults @_ @_ @_ @exprs3 c
+    { hfst = toResults @_ @_ @exprs1 a
+    , hsnd = toResults @_ @_ @exprs2 b
+    , htrd = toResults @_ @_ @exprs3 c
     }
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
-  , ExprsFor shape3 (IsTabular shape3) c exprs3
-  , ExprsFor shape4 (IsTabular shape4) d exprs4
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
+  , ToExprs c exprs3
+  , ToExprs d exprs4
   , isTabular ~ 'True
-  , x ~ (a, b, c, d)
-  , y ~ (exprs1, exprs2, exprs3, exprs4)
-  ) => ExprsFor ('Quartet shape1 shape2 shape3 shape4) isTabular x y
+  , x ~ (exprs1, exprs2, exprs3, exprs4)
+  ) => ExprsFor isTabular (a, b, c, d) x
  where
   fromResults (HQuartet a b c d) =
-    ( fromResults @_ @_ @_ @exprs1 a
-    , fromResults @_ @_ @_ @exprs2 b
-    , fromResults @_ @_ @_ @exprs3 c
-    , fromResults @_ @_ @_ @exprs4 d
+    ( fromResults @_ @_ @exprs1 a
+    , fromResults @_ @_ @exprs2 b
+    , fromResults @_ @_ @exprs3 c
+    , fromResults @_ @_ @exprs4 d
     )
   toResults (a, b, c, d) = HQuartet
-    { hfst = toResults @_ @_ @_ @exprs1 a
-    , hsnd = toResults @_ @_ @_ @exprs2 b
-    , htrd = toResults @_ @_ @_ @exprs3 c
-    , hfrt = toResults @_ @_ @_ @exprs4 d
+    { hfst = toResults @_ @_ @exprs1 a
+    , hsnd = toResults @_ @_ @exprs2 b
+    , htrd = toResults @_ @_ @exprs3 c
+    , hfrt = toResults @_ @_ @exprs4 d
     }
 
 
 instance
-  ( ExprsFor shape1 (IsTabular shape1) a exprs1
-  , ExprsFor shape2 (IsTabular shape2) b exprs2
-  , ExprsFor shape3 (IsTabular shape3) c exprs3
-  , ExprsFor shape4 (IsTabular shape4) d exprs4
-  , ExprsFor shape5 (IsTabular shape5) e exprs5
+  ( ToExprs a exprs1
+  , ToExprs b exprs2
+  , ToExprs c exprs3
+  , ToExprs d exprs4
+  , ToExprs e exprs5
   , isTabular ~ 'True
-  , x ~ (a, b, c, d, e)
-  , y ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
-  ) => ExprsFor ('Quintet shape1 shape2 shape3 shape4 shape5) isTabular x y
+  , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
+  ) => ExprsFor isTabular (a, b, c, d, e) x
  where
   fromResults (HQuintet a b c d e) =
-    ( fromResults @_ @_ @_ @exprs1 a
-    , fromResults @_ @_ @_ @exprs2 b
-    , fromResults @_ @_ @_ @exprs3 c
-    , fromResults @_ @_ @_ @exprs4 d
-    , fromResults @_ @_ @_ @exprs5 e
+    ( fromResults @_ @_ @exprs1 a
+    , fromResults @_ @_ @exprs2 b
+    , fromResults @_ @_ @exprs3 c
+    , fromResults @_ @_ @exprs4 d
+    , fromResults @_ @_ @exprs5 e
     )
   toResults (a, b, c, d, e) = HQuintet
-    { hfst = toResults @_ @_ @_ @exprs1 a
-    , hsnd = toResults @_ @_ @_ @exprs2 b
-    , htrd = toResults @_ @_ @_ @exprs3 c
-    , hfrt = toResults @_ @_ @_ @exprs4 d
-    , hfft = toResults @_ @_ @_ @exprs5 e
+    { hfst = toResults @_ @_ @exprs1 a
+    , hsnd = toResults @_ @_ @exprs2 b
+    , htrd = toResults @_ @_ @exprs3 c
+    , hfrt = toResults @_ @_ @exprs4 d
+    , hfft = toResults @_ @_ @exprs5 e
     }
 
 
 instance
   ( HTable t
   , isTabular ~ 'True
-  , x ~ t (H Result)
-  , y ~ t (H DB)
-  ) => ExprsFor 'HTable isTabular x y
+  , result ~ H Result
+  , x ~ t (H DB)
+  ) => ExprsFor isTabular (t result) x
  where
   fromResults = id
   toResults = id
@@ -413,9 +363,9 @@ instance
 instance
   ( Recontextualize DB Result (t DB) (t Result)
   , isTabular ~ 'True
-  , x ~ t Result
-  , y ~ t DB
-  ) => ExprsFor 'Rel8able isTabular x y
+  , result ~ Result
+  , x ~ t DB
+  ) => ExprsFor isTabular (t result) x
  where
   fromResults = fromColumns
   toResults = toColumns
@@ -424,9 +374,8 @@ instance
 instance
   ( KnownSpec spec
   , isTabular ~ 'True
-  , x ~ Result spec
-  , y ~ DB spec
-  ) => ExprsFor 'Field isTabular x y
+  , x ~ DB spec
+  ) => ExprsFor isTabular (Result spec) x
  where
   fromResults = fromColumns
   toResults = toColumns
@@ -457,11 +406,11 @@ instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
 
 
 lit :: forall exprs a. Serializable exprs a => a -> exprs
-lit = fromColumns . litTable . toResults @_ @_ @_ @exprs
+lit = fromColumns . litTable . toResults @_ @_ @exprs
 
 
 parse :: forall exprs a. Serializable exprs a => Hasql.Row a
-parse = fromResults @_ @_ @_ @exprs <$> parseTable
+parse = fromResults @_ @_ @exprs <$> parseTable
 
 
 litTable :: Recontextualize Result DB a b => a -> b
