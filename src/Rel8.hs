@@ -164,7 +164,7 @@ module Rel8
   , groupBy
   , DBMax( max )
   , DBMin( min )
-  , sumInt32
+  , DBSum( sum )
   , count
   , countRows
 
@@ -2909,6 +2909,23 @@ instance DBMin Float
 instance DBMin Text
 
 
+-- | The class of data types that can be aggregated under the @sum@ operation.
+-- This type class contains two parameters, as @sum@ can be a type-changing
+-- operation in PostgreSQL.
+class DBType a => DBSum a res | a -> res where
+  -- | Corresponds to @sum@.
+  sum :: Expr a -> Aggregate (Expr res)
+  sum (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrSum a []
+
+
+instance DBSum Int64 Scientific
+instance DBSum Double Double
+instance DBSum Int32 Int64
+instance DBSum Scientific Scientific
+instance DBSum Float Float
+instance DBSum Int16 Int64
+
+
 -- | Apply an aggregation to all rows returned by a 'Query'.
 aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
 aggregate = mapOpaleye $ Opaleye.aggregate aggregator
@@ -3299,10 +3316,6 @@ instance DBOrd Double where
 -- Use with care, as Rel8 will not check that @DEFAULT@ can actually be used!
 defaultValue :: Expr a
 defaultValue = Expr Opaleye.DefaultInsertExpr
-
-
-sumInt32 :: Expr Int32 -> Aggregate (Expr Int64)
-sumInt32 (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrSum a []
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
