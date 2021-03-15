@@ -1,16 +1,20 @@
 {-# language DataKinds #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
+{-# language StandaloneKindSignatures #-}
 {-# language ViewPatterns #-}
 
 module Rel8.Expr.Null
   ( null, snull, nullable, nullableOf
   , isNull, isNonNull
-  , nullify, seminullify
+  , Nullification (nullify, unsafeUnnullify)
   , mapNullable, liftOpNullable
-  , unsafeUnnullify, unsafeMapNullable, unsafeLiftOpNullable
+  , unsafeMapNullable, unsafeLiftOpNullable
   )
 where
 
 -- base
+import Data.Kind ( Constraint )
 import Prelude hiding ( null )
 
 -- opaleye
@@ -22,6 +26,27 @@ import Rel8.Expr.Bool ( boolExpr, (||.) )
 import Rel8.Expr.Opaleye ( scastExpr, mapPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Type ( DBType, TypeInformation, typeInformation )
+
+
+type Nullification :: Nullability -> Nullability -> Constraint
+class Nullification nonNullable nullable where
+  nullify :: Expr nonNullable a -> Expr nullable a
+  unsafeUnnullify :: Expr nullable a -> Expr nonNullable a
+
+
+instance {-# INCOHERENT #-} Nullification 'NonNullable nullable where
+  nullify (Expr a) = Expr a
+  unsafeUnnullify (Expr a) = Expr a
+
+
+instance {-# INCOHERENT #-} Nullification nonNullable 'Nullable where
+  nullify (Expr a) = Expr a
+  unsafeUnnullify (Expr a) = Expr a
+
+
+instance Nullification 'NonNullable 'Nullable where
+  nullify (Expr a) = Expr a
+  unsafeUnnullify (Expr a) = Expr a
 
 
 nullable :: ()
@@ -44,17 +69,17 @@ isNonNull :: Expr 'Nullable a -> Expr 'NonNullable Bool
 isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 
 
-mapNullable :: DBType b
-  => (Expr nullability' a -> Expr nullability' b)
-  -> Expr nullability a -> Expr nullability b
+mapNullable :: (Nullification nonNullable nullable, DBType b)
+  => (Expr nonNullable a -> Expr nonNullable b)
+  -> Expr nullable a -> Expr nullable b
 mapNullable f ma =
   boolExpr (unsafeMapNullable f ma) (unsafeUnnullify null)
     (isNull (nullify ma))
 
 
-liftOpNullable :: DBType c
-  => (Expr nullability' a -> Expr nullability' b -> Expr nullability' c)
-  -> Expr nullability a -> Expr nullability b -> Expr nullability c
+liftOpNullable :: (Nullification nonNullable nullable, DBType c)
+  => (Expr nonNullable a -> Expr nonNullable b -> Expr nonNullable c)
+  -> Expr nullable a -> Expr nullable b -> Expr nullable c
 liftOpNullable f ma mb =
   boolExpr (unsafeLiftOpNullable f ma mb) (unsafeUnnullify null)
     (isNull (nullify ma) ||. isNull (nullify mb))
@@ -68,26 +93,14 @@ null :: DBType a => Expr 'Nullable a
 null = snull typeInformation
 
 
-nullify :: Expr nullability a -> Expr 'Nullable a
-nullify (Expr a) = Expr a
+unsafeMapNullable :: Nullification nonNullable nullable
+  => (Expr nonNullable a -> Expr nonNullable b)
+  -> Expr nullable a -> Expr nullable b
+unsafeMapNullable f ma = nullify (f (unsafeUnnullify ma))
 
 
-seminullify :: Expr 'NonNullable a -> Expr nullability a
-seminullify (Expr a) = Expr a
-
-
-unsafeUnnullify :: Expr nullability' a -> Expr nullability a
-unsafeUnnullify (Expr a) = Expr a
-
-
-unsafeMapNullable :: ()
-  => (Expr nullability' a -> Expr nullability' b)
-  -> Expr nullability a -> Expr nullability b
-unsafeMapNullable f ma = unsafeUnnullify (f (unsafeUnnullify ma))
-
-
-unsafeLiftOpNullable :: ()
-  => (Expr nullability' a -> Expr nullability' b -> Expr nullability' c)
-  -> Expr nullability a -> Expr nullability b -> Expr nullability c
+unsafeLiftOpNullable :: Nullification nonNullable nullable
+  => (Expr nonNullable a -> Expr nonNullable b -> Expr nonNullable c)
+  -> Expr nullable a -> Expr nullable b -> Expr nullable c
 unsafeLiftOpNullable f ma mb =
-  unsafeUnnullify (f (unsafeUnnullify ma) (unsafeUnnullify mb))
+  nullify (f (unsafeUnnullify ma) (unsafeUnnullify mb))
