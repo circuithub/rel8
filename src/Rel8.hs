@@ -2974,9 +2974,11 @@ traverseAggrExpr f = \case
     f (Just (b, d, a), c)
 
   Opaleye.AttrExpr symbol -> 
+    -- TODO Test me
     f (Nothing, Opaleye.AttrExpr symbol)
 
   Opaleye.BaseTableAttrExpr attribute ->
+    -- TODO Test me
     f (Nothing, Opaleye.BaseTableAttrExpr attribute)
 
   Opaleye.CompositeExpr primExpr x ->
