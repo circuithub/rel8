@@ -11,6 +11,7 @@ module Rel8.Table.Opaleye
   ( aggregator
   , binaryspec
   , distinctspec
+  , tableFields
   , unpackspec
   , valuesspec
   , view
@@ -74,6 +75,14 @@ distinctspec =
     toColumns
 
 
+tableFields ::
+  ( Recontextualize Name DB names exprs
+  , Recontextualize Name Insert names inserts
+  )
+  => names -> Opaleye.TableFields inserts exprs
+tableFields = Opaleye.TableFields <$> writer <*> view
+
+
 unpackspec :: (Table a, Context a ~ DB) => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
@@ -92,8 +101,8 @@ view (toColumns -> names) = Opaleye.View $ fromColumns $
       Name name -> DB (fromPrimExpr (Opaleye.BaseTableAttrExpr name))
 
 
-writer :: forall names inserts. Recontextualize Name Insert names inserts
-  => names -> Opaleye.Writer inserts names
+writer :: forall names inserts exprs. Recontextualize Name Insert names inserts
+  => names -> Opaleye.Writer inserts exprs
 writer (toColumns -> names) =
   Opaleye.Writer $ Opaleye.PackMap $ \f (fmap toColumns -> as) ->
     void $ htabulateA @(Columns names) $ \field -> case hfield names field of
