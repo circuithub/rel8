@@ -21,12 +21,12 @@ import Rel8.Schema.Context ( Aggregation( Aggregation ), DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( hfield, hdicts, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.List ( ListTable(..) )
 import Rel8.Table.NonEmpty ( NonEmptyTable(..) )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type.Eq ( DBEq )
 
 

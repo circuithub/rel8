@@ -83,7 +83,6 @@ library
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Trio
     Rel8.Schema.HTable.Vectorize
-    Rel8.Schema.Recontextualize
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainDBType
@@ -102,6 +101,7 @@ library
     Rel8.Table.NonEmpty
     Rel8.Table.Opaleye
     Rel8.Table.Ord
+    Rel8.Table.Recontextualize
     Rel8.Table.Serialize
     Rel8.Table.These
     Rel8.Table.Undefined

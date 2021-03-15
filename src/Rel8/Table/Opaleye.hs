@@ -43,9 +43,9 @@ import Rel8.Expr.Opaleye
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( Aggregation(..), DB(..), Insert(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Table ( Table, Context, fromColumns, toColumns )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 
 

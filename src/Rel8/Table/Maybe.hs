@@ -35,7 +35,6 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -43,6 +42,7 @@ import Rel8.Table.Alternative
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Lifted ( Table1(..) )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag( IsJust ) )
 

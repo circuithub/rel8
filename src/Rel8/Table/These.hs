@@ -38,7 +38,6 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Compatible
@@ -52,6 +51,7 @@ import Rel8.Table.Maybe
   , maybeTable, justTable, nothingTable
   , isJustTable
   )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids

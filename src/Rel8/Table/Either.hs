@@ -36,7 +36,6 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Compatible
@@ -46,6 +45,7 @@ import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 

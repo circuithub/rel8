@@ -67,7 +67,6 @@ import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
-import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec ( Spec( Spec ), KTable )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Structure
@@ -97,13 +96,6 @@ instance (Rel8able t, TableHelper (IsSpecialContext context) context) =>
   type Context (t context) = context
   fromColumns = gfromColumns
   toColumns = gtoColumns
-
-
-instance
-  ( Rel8able t
-  , TableHelper (IsSpecialContext from) from
-  , TableHelper (IsSpecialContext to) to
-  ) => Recontextualize from to (t from) (t to)
 
 
 type TableHelper :: Bool -> Kind.Context -> Constraint
