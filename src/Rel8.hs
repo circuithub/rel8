@@ -2973,6 +2973,9 @@ traverseAggrExpr f = \case
   Opaleye.AggrExpr a b c d ->
     f (Just (b, d, a), c)
 
+  Opaleye.AttrExpr symbol -> 
+    f (Nothing, Opaleye.AttrExpr symbol)
+
   Opaleye.BaseTableAttrExpr attribute ->
     f (Nothing, Opaleye.BaseTableAttrExpr attribute)
 
@@ -3000,9 +3003,6 @@ traverseAggrExpr f = \case
 
   Opaleye.CastExpr t primExpr ->
     Opaleye.CastExpr t <$> traverseAggrExpr f primExpr
-
-  Opaleye.AttrExpr attr ->
-    pure $ Opaleye.AttrExpr attr
 
   Opaleye.ArrayExpr elems ->
     Opaleye.ArrayExpr <$> traverse (traverseAggrExpr f) elems
