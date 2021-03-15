@@ -2,8 +2,6 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
@@ -14,13 +12,11 @@ module Rel8.Table.Opaleye
   , tableFields
   , unpackspec
   , valuesspec
-  , view
-  , writer
   )
 where
 
 -- base
-import Data.Functor ( (<&>), void )
+import Data.Functor ( (<&>) )
 import Prelude hiding ( undefined )
 
 -- opaleye
@@ -33,15 +29,23 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 
+-- profunctors
+import Data.Profunctor ( dimap, lmap )
+
 -- rel8
 import Rel8.Expr.Aggregate ( Aggregate( Aggregate ), Aggregator( Aggregator ) )
 import qualified Rel8.Expr.Aggregate
-import Rel8.Expr.Opaleye ( traversePrimExpr, fromPrimExpr, toPrimExpr )
+import Rel8.Expr.Opaleye
+  ( fromPrimExpr, toPrimExpr
+  , traversePrimExpr
+  , columnToExpr, exprToColumn
+  )
+import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( Aggregation(..), DB(..), Insert(..), Name(..) )
-import Rel8.Schema.HTable ( htabulateA, htabulate, hfield, htraverse, hspecs )
+import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Recontextualize ( Recontextualize )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table ( Table, Context, fromColumns, toColumns )
 import Rel8.Table.Undefined ( undefined )
 
 
@@ -80,7 +84,18 @@ tableFields ::
   , Recontextualize Name Insert names inserts
   )
   => names -> Opaleye.TableFields inserts exprs
-tableFields = Opaleye.TableFields <$> writer <*> view
+tableFields (toColumns -> names) = dimap toColumns fromColumns $
+  htabulateA $ \field -> case hfield hspecs field of
+    specs -> case hfield names field of
+      name -> lmap (`hfield` field) (go specs name)
+  where
+    go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
+    go (SSpec necessity _ _ _) (Name name) = case necessity of
+      SRequired ->
+        lmap (\(RequiredInsert a) -> exprToColumn a) $
+        DB . columnToExpr <$> Opaleye.requiredTableField name
+      SOptional -> lmap (\(OptionalInsert ma) -> exprToColumn <$> ma) $
+        DB . columnToExpr <$> Opaleye.optionalTableField name
 
 
 unpackspec :: (Table a, Context a ~ DB) => Opaleye.Unpackspec a a
@@ -92,27 +107,6 @@ unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
 
 valuesspec :: (Table a, Context a ~ DB) => Opaleye.ValuesspecSafe a a
 valuesspec = Opaleye.ValuesspecSafe (toPackMap undefined) unpackspec
-
-
-view :: Recontextualize Name DB names exprs => names -> Opaleye.View exprs
-view (toColumns -> names) = Opaleye.View $ fromColumns $
-  htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield names field of
-      Name name -> DB (fromPrimExpr (Opaleye.BaseTableAttrExpr name))
-
-
-writer :: forall names inserts exprs. Recontextualize Name Insert names inserts
-  => names -> Opaleye.Writer inserts exprs
-writer (toColumns -> names) =
-  Opaleye.Writer $ Opaleye.PackMap $ \f (fmap toColumns -> as) ->
-    void $ htabulateA @(Columns names) $ \field -> case hfield names field of
-      n@(Name name) -> n <$
-        f (fmap (insertToExpr . (`hfield` field)) as, name)
-  where
-    insertToExpr :: Insert spec -> Opaleye.PrimExpr
-    insertToExpr = \case
-      RequiredInsert a -> toPrimExpr a
-      OptionalInsert ma -> maybe Opaleye.DefaultInsertExpr toPrimExpr ma
 
 
 toPackMap :: (Table a, Context a ~ DB)

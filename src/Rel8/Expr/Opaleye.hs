@@ -9,6 +9,8 @@ module Rel8.Expr.Opaleye
   , mapPrimExpr
   , traversePrimExpr
   , zipPrimExprsWith
+  , exprToColumn
+  , columnToExpr
   )
 where
 
@@ -16,6 +18,7 @@ where
 import Prelude
 
 -- opaleye
+import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
@@ -65,3 +68,11 @@ zipPrimExprsWith :: ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
 zipPrimExprsWith f (Expr a) (Expr b) = Expr (f a b)
+
+
+exprToColumn :: Expr nullability a -> Opaleye.Column b
+exprToColumn (Expr a) = Opaleye.Column a
+
+
+columnToExpr :: Opaleye.Column b -> Expr nullability a
+columnToExpr (Opaleye.Column a) = Expr a

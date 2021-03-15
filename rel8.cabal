@@ -23,7 +23,7 @@ library
     , contravariant
     , hasql
     , opaleye ^>= 0.7.1.0
-    , product-profunctors
+    , profunctors
     , scientific
     , semialign
     , semigroupoids
@@ -37,7 +37,7 @@ library
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
-    -Wno-deprecations -Wno-monomorphism-restriction
+    -Wno-monomorphism-restriction
     -Wno-missing-local-signatures 
   hs-source-dirs:
     src
