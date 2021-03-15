@@ -2050,6 +2050,10 @@ instance DBType Data.ByteString.ByteString where
 instance DBType Scientific where
   typeInformation = fromOpaleye pgNumeric $ notNullDecoder Hasql.numeric
 
+-- TODO
+instance DBType Natural where
+  typeInformation = mapDatabaseType round fromIntegral $ fromOpaleye pgNumeric $ notNullDecoder Hasql.numeric
+
 instance DBType Double where
   typeInformation = fromOpaleye pgDouble $ notNullDecoder Hasql.float8
 
