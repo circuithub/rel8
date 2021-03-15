@@ -3186,8 +3186,8 @@ desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
 --
 -- >>> select c $ orderBy (nullsFirst desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
 -- [Nothing,Nothing,Just 5,Just 4,Just 3,Just 2,Just 1]
-nullsFirst :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
-nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
+nullsFirst :: Order (Expr a) -> Order (Expr (Maybe a))
+nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f . retype
   where
     g :: Opaleye.OrderOp -> Opaleye.OrderOp
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsFirst }
@@ -3198,11 +3198,12 @@ nullsFirst (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . 
 --
 -- >>> select c $ orderBy (nullsLast desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
 -- [Just 5,Just 4,Just 3,Just 2,Just 1,Nothing,Nothing]
-nullsLast :: Order (Expr (Maybe a)) -> Order (Expr (Maybe a))
-nullsLast (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f
+nullsLast :: Order (Expr a) -> Order (Expr (Maybe a))
+nullsLast (Order (Opaleye.Order f)) = Order $ Opaleye.Order $ fmap (first g) . f . retype
   where
     g :: Opaleye.OrderOp -> Opaleye.OrderOp
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsLast }
+
 
 
 -- | Order the rows returned by a 'Query' according to a particular 'Order'.
