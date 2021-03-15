@@ -2889,6 +2889,7 @@ instance DBMax Int32
 instance DBMax Scientific
 instance DBMax Float
 instance DBMax Text
+instance DBMax UTCTime
 
 
 -- | The class of 'DBType's that support the @min@ aggregation function.
@@ -2908,6 +2909,7 @@ instance DBMin Int32
 instance DBMin Scientific
 instance DBMin Float
 instance DBMin Text
+instance DBMin UTCTime
 
 
 -- | The class of data types that can be aggregated under the @sum@ operation.
@@ -2936,19 +2938,20 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
       fromColumns <$> htraverse (g f) (toColumns x)
 
     g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Expr x -> m (Expr x)
-    g f (Expr x) | hasAggrExpr x = Expr <$> traverseAggrExpr f' x
-                 | otherwise     = Expr <$> f (Nothing, x)
-      where f' (a, b, c, d) = f (Just (a, b, c), d)
+    g f (Expr x) = Expr <$> traverseAggrExpr f x
 
 
-hasAggrExpr :: Opaleye.PrimExpr -> Bool
-hasAggrExpr = getAny . getConst . traverseAggrExpr (\_ -> Const (Any True))
 
-
-traverseAggrExpr :: Applicative f => ((Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct, Opaleye.PrimExpr) -> f Opaleye.PrimExpr) -> Opaleye.PrimExpr -> f Opaleye.PrimExpr
+traverseAggrExpr :: Applicative f 
+  => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr) 
+  -> Opaleye.PrimExpr 
+  -> f Opaleye.PrimExpr
 traverseAggrExpr f = \case
   Opaleye.AggrExpr a b c d ->
-    f (b, d, a, c)
+    f (Just (b, d, a), c)
+
+  Opaleye.BaseTableAttrExpr attribute ->
+    f (Nothing, Opaleye.BaseTableAttrExpr attribute)
 
   Opaleye.CompositeExpr primExpr x ->
     Opaleye.CompositeExpr <$> traverseAggrExpr f primExpr <*> pure x
