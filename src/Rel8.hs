@@ -166,6 +166,7 @@ module Rel8
   , DBMin( min )
   , DBSum( sum )
   , count
+  , countDistinct
   , countRows
 
     -- *** List aggregation
@@ -3326,6 +3327,12 @@ defaultValue = Expr Opaleye.DefaultInsertExpr
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
 count :: Expr a -> Aggregate (Expr Int64)
 count (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrCount a []
+
+
+-- | Count the number of distinct occurances of a single column. Corresponds to
+-- @COUNT(DISTINCT a)@
+countDistinct :: Expr a -> Aggregate (Expr Int64)
+countDistinct (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrDistinct Opaleye.AggrCount a []
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
