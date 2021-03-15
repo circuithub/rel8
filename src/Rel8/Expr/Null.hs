@@ -44,11 +44,6 @@ instance {-# INCOHERENT #-} Nullification nonNullable 'Nullable where
   unsafeUnnullify (Expr a) = Expr a
 
 
-instance Nullification 'NonNullable 'Nullable where
-  nullify (Expr a) = Expr a
-  unsafeUnnullify (Expr a) = Expr a
-
-
 nullable :: ()
   => Expr nullability b
   -> (Expr 'NonNullable a -> Expr nullability b)
