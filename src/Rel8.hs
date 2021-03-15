@@ -168,6 +168,8 @@ module Rel8
   , count
   , countDistinct
   , countRows
+  , boolOr
+  , boolAnd
 
     -- *** List aggregation
   , ListTable
@@ -3338,3 +3340,13 @@ countDistinct (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrDistinc
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
 countRows :: Query a -> Query (Expr Int64)
 countRows = fmap columnToExpr . mapOpaleye Opaleye.countRows
+
+
+-- | Corresponds to @bool_or@.
+boolOr :: Expr Bool -> Aggregate (Expr Bool)
+boolOr (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolOr a []
+
+
+-- | Corresponds to @bool_and@.
+boolAnd :: Expr Bool -> Aggregate (Expr Bool)
+boolAnd (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolAnd a []
