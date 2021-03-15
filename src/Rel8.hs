@@ -3331,6 +3331,7 @@ instance DBOrd Int64 where
 instance DBOrd Text where
 instance DBOrd UTCTime where
 instance DBOrd Double where
+instance DBOrd Scientific where
 
 
 -- | Corresponds to the SQL @DEFAULT@ keyword.
