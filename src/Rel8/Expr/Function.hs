@@ -28,7 +28,7 @@ class Function arg res where
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
 
 
-instance (arg ~ Expr nullability a, DBType a) => Function arg (Expr nullability a) where
+instance (arg ~ Expr nullability a, DBType b) => Function arg (Expr nullability b) where
   applyArgument f a = castExpr $ Expr $ f [toPrimExpr a]
 
 

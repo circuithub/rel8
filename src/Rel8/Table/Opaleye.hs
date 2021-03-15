@@ -36,7 +36,8 @@ import Data.Profunctor ( dimap, lmap )
 import Rel8.Expr.Aggregate ( Aggregate( Aggregate ), Aggregator( Aggregator ) )
 import qualified Rel8.Expr.Aggregate
 import Rel8.Expr.Opaleye
-  ( fromPrimExpr, toPrimExpr
+  ( scastExpr
+  , fromPrimExpr, toPrimExpr
   , traversePrimExpr
   , columnToExpr, exprToColumn
   )
@@ -90,12 +91,12 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
-    go (SSpec necessity _ _ _) (Name name) = case necessity of
+    go (SSpec necessity _ _ info) (Name name) = case necessity of
       SRequired ->
         lmap (\(RequiredInsert a) -> exprToColumn a) $
-        DB . columnToExpr <$> Opaleye.requiredTableField name
+        DB . scastExpr info . columnToExpr <$> Opaleye.requiredTableField name
       SOptional -> lmap (\(OptionalInsert ma) -> exprToColumn <$> ma) $
-        DB . columnToExpr <$> Opaleye.optionalTableField name
+        DB . scastExpr info . columnToExpr <$> Opaleye.optionalTableField name
 
 
 unpackspec :: (Table a, Context a ~ DB) => Opaleye.Unpackspec a a

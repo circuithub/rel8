@@ -19,7 +19,9 @@ import Prelude hiding ( seq )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Function ( binaryOperator )
+import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Kind.Nullability
   ( Nullability( NonNullable )
   , SNullability( SNullable, SNonNullable )
@@ -58,23 +60,21 @@ infix 4 /=.
 
 (==?) :: DBEq a
   => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a ==? Expr b = Expr (Opaleye.BinExpr (Opaleye.:==) a b)
+(==?) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:==))
 infix 4 ==?
 
 
 (/=?) :: DBEq a
   => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a /=? Expr b = Expr (Opaleye.BinExpr (Opaleye.:<>) a b)
+(/=?) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
 infix 4 /=?
 
 
 isDistinctFrom :: DBEq a
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-isDistinctFrom (Expr a) (Expr b) =
-  Expr (Opaleye.BinExpr (Opaleye.OpOther "IS DISTINCT FROM") a b)
+isDistinctFrom = binaryOperator "IS DISTINCT FROM"
 
 
 isNotDistinctFrom :: DBEq a
   => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-isNotDistinctFrom (Expr a) (Expr b) =
-  Expr (Opaleye.BinExpr (Opaleye.OpOther "IS NOT DISTINCT FROM") a b)
+isNotDistinctFrom = binaryOperator "IS NOT DISTINCT FROM"

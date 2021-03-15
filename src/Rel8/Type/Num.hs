@@ -8,7 +8,7 @@
 {-# language TypeApplications #-}
 
 module Rel8.Type.Num
-  ( DBNum, DBFractional
+  ( DBNum, DBIntegral, DBFractional
   )
 where
 
@@ -32,6 +32,13 @@ instance DBNum Int64
 instance DBNum Float
 instance DBNum Double
 instance DBNum Scientific
+
+
+type DBIntegral :: Type -> Constraint
+class DBNum a => DBIntegral a
+instance DBIntegral Int16
+instance DBIntegral Int32
+instance DBIntegral Int64
 
 
 type DBFractional :: Type -> Constraint
