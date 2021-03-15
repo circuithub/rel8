@@ -2167,6 +2167,7 @@ instance DBEq Double
 instance DBEq Text
 instance DBEq Bool
 instance DBEq UTCTime
+instance DBEq Day
 instance DBEq (CI Text)
 instance DBEq (CI Data.Text.Lazy.Text)
 
