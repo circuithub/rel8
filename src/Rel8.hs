@@ -126,6 +126,8 @@ module Rel8
   , whereExists
   , whereNotExists
   , distinct
+  , distinctOn
+  , distinctOnBy
 
     -- ** @LIMIT@/@OFFSET@
   , limit
@@ -270,7 +272,7 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( restrict )
-import qualified Opaleye.Order as Opaleye
+import qualified Opaleye.Order as Opaleye (limit, offset, orderBy)
 import Opaleye.PGTypes
   ( IsSqlType(..)
   , pgBool
@@ -2613,6 +2615,16 @@ distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
     distinctspec =
       Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
         traverseTable (\x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
+
+
+distinctOn :: Table Expr b => (a -> b) -> Query a -> Query a
+distinctOn proj = 
+  mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOn unpackspec proj . Opaleye.runSimpleQueryArr q))
+
+
+distinctOnBy :: Table Expr b => (a -> b) -> Order a -> Query a -> Query a
+distinctOnBy proj (Order order) = 
+  mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOnBy unpackspec proj order . Opaleye.runSimpleQueryArr q))
 
 
 -- | @limit n@ select at most @n@ rows from a query.  @limit n@ is equivalent
