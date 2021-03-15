@@ -2905,6 +2905,7 @@ instance DBMax Scientific
 instance DBMax Float
 instance DBMax Text
 instance DBMax UTCTime
+instance DBMax a => DBMax (Maybe a)
 
 
 -- | The class of 'DBType's that support the @min@ aggregation function.
@@ -2925,6 +2926,7 @@ instance DBMin Scientific
 instance DBMin Float
 instance DBMin Text
 instance DBMin UTCTime
+instance DBMax a => DBMin (Maybe a) -- TODO: Do we want this?
 
 
 -- | The class of data types that can be aggregated under the @sum@ operation.
