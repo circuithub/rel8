@@ -29,13 +29,14 @@ import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
+import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
   , encodeTag, decodeTag
   , nullifier, unnullifier
   )
+import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Table
@@ -119,40 +120,37 @@ instance Table2 TheseTable where
   type ConstrainContext2 TheseTable = Nullifiable
 
   toColumns2 f g TheseTable {here, there} = HTheseTable
-    { hhere = case here of
-        MaybeTable {tag, table} -> HMaybeTable
-          { htag = HIdentity $ encodeTag "hasHere" tag
-          , htable = hnullify (nullifier "Here" (isNonNull tag)) (f table)
-          }
-    , hthere = case there of
-        MaybeTable {tag, table} -> HMaybeTable
-          { htag = HIdentity $ encodeTag "hasThere" tag
-          , htable = hnullify (nullifier "There" (isNonNull tag)) (g table)
-          }
+    { hhereTag = HIdentity $ encodeTag "hasHere" (tag here)
+    , hhere = hnullify (nullifier (isNonNull (tag here))) $ f (just here)
+    , hthereTag = HIdentity $ encodeTag "hasThere" (tag there)
+    , hthere = hnullify (nullifier (isNonNull (tag there))) $ g (just there)
     }
 
-  fromColumns2 f g HTheseTable {hhere, hthere} = TheseTable
-    { here = case hhere of
-        HMaybeTable {htag, htable} -> MaybeTable
-          { tag
-          , table = f $ runIdentity $
-              hunnullify
-                (\a -> pure . unnullifier "Here" (isNonNull tag) a)
-                htable
-          }
-          where
-            tag = decodeTag "hasHere" $ unHIdentity htag
-    , there = case hthere of
-        HMaybeTable {htag, htable} -> MaybeTable
-          { tag
-          , table = g $ runIdentity $
-              hunnullify
-                (\a -> pure . unnullifier "There" (isNonNull tag) a)
-                htable
-          }
-          where
-            tag = decodeTag "hasThere" $ unHIdentity htag
-    }
+  fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} =
+    TheseTable
+      { here =
+          let
+            tag = decodeTag "hasHere" $ unHIdentity hhereTag
+          in
+            MaybeTable
+              { tag
+              , just = f $
+                  runIdentity $
+                  hunnullify (\a -> pure . unnullifier (isNonNull tag) a)
+                  hhere
+              }
+      , there =
+          let
+            tag = decodeTag "hasThere" $ unHIdentity hthereTag
+          in
+            MaybeTable
+              { tag
+              , just = g $
+                  runIdentity $
+                  hunnullify (\a -> pure . unnullifier (isNonNull tag) a)
+                  hthere
+              }
+      }
 
 
 instance Table a => Table1 (TheseTable a) where
@@ -163,19 +161,28 @@ instance Table a => Table1 (TheseTable a) where
   fromColumns1 = fromColumns2 fromColumns
 
 
-instance (Table a, Table b, Compatible a b, Nullifiable (Context a)) =>
-  Table (TheseTable a b)
+instance
+  ( Table a, Table b, Compatible a b
+  , Labelable (Context a), Nullifiable (Context a)
+  ) => Table (TheseTable a b)
  where
-  type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
+  type Columns (TheseTable a b) =
+    HTheseTable (HLabel "Here" (Columns a)) (HLabel "There" (Columns b))
   type Context (TheseTable a b) = Context a
 
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
+  toColumns =
+    toColumns2
+      (hlabel labeler . toColumns)
+      (hlabel labeler . toColumns)
+  fromColumns =
+    fromColumns2
+      (fromColumns . hunlabel unlabeler)
+      (fromColumns . hunlabel unlabeler)
 
 
 instance
-  ( Nullifiable from
-  , Nullifiable to
+  ( Labelable from, Nullifiable from
+  , Labelable to, Nullifiable to
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   ) =>

@@ -56,7 +56,7 @@ instance
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> Const [seq nullability a b]
+          SSpec _ _ nullability _ _ -> Const [seq nullability a b]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
@@ -69,7 +69,7 @@ infix 4 ==:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ nullability _ _ -> Const [sne nullability a b]
+          SSpec _ _ nullability _ _ -> Const [sne nullability a b]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)

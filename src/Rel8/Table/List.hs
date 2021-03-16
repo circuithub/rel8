@@ -1,4 +1,3 @@
-{-# language DataKinds #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 
@@ -16,7 +15,7 @@ import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable

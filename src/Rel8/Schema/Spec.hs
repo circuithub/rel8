@@ -5,8 +5,8 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Spec
-  ( Spec( Spec, nullability, necessity, blueprint )
-  , SSpec( SSpec, snullability, snecessity, sblueprint, stypeInformation )
+  ( Spec( Spec, labels, nullability, necessity, blueprint )
+  , SSpec( SSpec, slabels, snullability, snecessity, sblueprint, stypeInformation )
   , KnownSpec( specSing )
   , Context, KTable
   )
@@ -23,6 +23,7 @@ import Rel8.Kind.Blueprint
   , KnownBlueprint, blueprintSing
   , ToDBType
   )
+import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Kind.Necessity
   ( Necessity
   , SNecessity
@@ -38,7 +39,8 @@ import Rel8.Type ( DBType, TypeInformation, typeInformation )
 
 type Spec :: Type
 data Spec = Spec
-  { necessity :: Necessity
+  { labels :: Labels
+  , necessity :: Necessity
   , nullability :: Nullability
   , blueprint :: Blueprint
   }
@@ -47,12 +49,13 @@ data Spec = Spec
 type SSpec :: Spec -> Type
 data SSpec spec where
   SSpec ::
-    { snecessity :: SNecessity necessity
+    { slabels :: SLabels labels
+    , snecessity :: SNecessity necessity
     , snullability :: SNullability nullability
     , sblueprint :: SBlueprint blueprint
     , stypeInformation :: TypeInformation (ToDBType blueprint)
     }
-    -> SSpec ('Spec necessity nullability blueprint)
+    -> SSpec ('Spec labels necessity nullability blueprint)
 
 
 type KnownSpec :: Spec -> Constraint
@@ -61,14 +64,16 @@ class KnownSpec spec where
 
 
 instance
-  ( KnownNecessity necessity
+  ( KnownLabels labels
+  , KnownNecessity necessity
   , KnownNullability nullability
   , KnownBlueprint blueprint
   , DBType (ToDBType blueprint)
-  ) => KnownSpec ('Spec necessity nullability blueprint)
+  ) => KnownSpec ('Spec labels necessity nullability blueprint)
  where
   specSing = SSpec
-    { snecessity = necessitySing
+    { slabels = labelsSing
+    , snecessity = necessitySing
     , snullability = nullabilitySing
     , sblueprint = blueprintSing
     , stypeInformation = typeInformation

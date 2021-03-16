@@ -18,4 +18,4 @@ import Rel8.Table ( Table, Context, fromColumns )
 
 undefined :: (Table a, Context a ~ DB) => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
-  SSpec _ _ _ info -> DB (unsafeUnnullify (snull info))
+  SSpec _ _ _ _ info -> DB (unsafeUnnullify (snull info))

@@ -16,7 +16,6 @@ module Rel8.Schema.Context
   , DB( DB, unDB )
   , Insert( RequiredInsert, OptionalInsert )
   , Name( Name )
-  , Labels( Labels )
   , Result( Result )
   , IsSpecialContext
   )
@@ -24,7 +23,6 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
-import Data.List.NonEmpty ( NonEmpty )
 import Data.String ( IsString )
 import Prelude
 
@@ -49,19 +47,19 @@ type Aggregation :: Context
 data Aggregation spec where
   Aggregation :: ()
     => Aggregate nullability (ToDBType blueprint)
-    -> Aggregation ('Spec necessity nullability blueprint)
+    -> Aggregation ('Spec labels necessity nullability blueprint)
 
 
 type DB :: Context
 data DB spec where
   DB :: ()
     => { unDB :: Expr nullability (ToDBType blueprint) }
-    -> DB ('Spec necessity nullability blueprint)
+    -> DB ('Spec labels necessity nullability blueprint)
 deriving stock instance Show (DB spec)
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , DBSemigroup (ToDBType blueprint)
   ) =>
   Semigroup (DB spec)
@@ -70,7 +68,7 @@ instance
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , DBMonoid (ToDBType blueprint)
   ) =>
   Monoid (DB spec)
@@ -82,15 +80,15 @@ type Insert :: Context
 data Insert spec where
   RequiredInsert :: ()
     => Expr nullability (ToDBType blueprint)
-    -> Insert ('Spec 'Required nullability blueprint)
+    -> Insert ('Spec labels 'Required nullability blueprint)
   OptionalInsert :: ()
     => Maybe (Expr nullability (ToDBType blueprint))
-    -> Insert ('Spec 'Optional nullability blueprint)
+    -> Insert ('Spec labels 'Optional nullability blueprint)
 deriving stock instance Show (Insert spec)
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , DBSemigroup (ToDBType blueprint)
   ) =>
   Semigroup (Insert spec)
@@ -100,7 +98,7 @@ instance
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , KnownNecessity necessity
   , DBMonoid (ToDBType blueprint)
   ) => Monoid (Insert spec)
@@ -116,23 +114,17 @@ newtype Name spec = Name String
   deriving newtype (IsString, Monoid, Semigroup)
 
 
-type Labels :: Context
-newtype Labels spec = Labels (NonEmpty String)
-  deriving stock Show
-  deriving newtype (Semigroup)
-
-
 type Result :: Context
 data Result spec where
   Result :: ()
     => Value nullability (ToType blueprint)
-    -> Result ('Spec necessity nullability blueprint)
+    -> Result ('Spec labels necessity nullability blueprint)
 deriving stock instance Show (ToType blueprint) =>
-  Show (Result ('Spec necessity nullability blueprint))
+  Show (Result ('Spec labels necessity nullability blueprint))
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , Semigroup (ToType blueprint)
   ) =>
   Semigroup (Result spec)
@@ -141,7 +133,7 @@ instance
 
 
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , KnownNullability nullability
   , Monoid (ToType blueprint)
   ) => Monoid (Result spec)

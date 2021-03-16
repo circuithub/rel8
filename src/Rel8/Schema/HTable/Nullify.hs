@@ -33,7 +33,6 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htabulateA, htraverse, hdicts, hspecs
   )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.HTable.Functor ( HFunctor, hmap )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec( SSpec ) )
 
 
@@ -42,15 +41,11 @@ data HNullify table context where
   HNullify :: table (H (NullifySpec context)) -> HNullify table (H context)
 
 
-instance HFunctor HNullify where
-  hmap f (HNullify table) = HNullify (f table)
-
-
 type HNullifyField :: HKTable -> Context
 data HNullifyField table spec where
   HNullifyField
-    :: HField table ('Spec necessity nullability blueprint)
-    -> HNullifyField table ('Spec necessity 'Nullable blueprint)
+    :: HField table ('Spec labels necessity nullability blueprint)
+    -> HNullifyField table ('Spec labels necessity 'Nullable blueprint)
 
 
 instance HTable table => HTable (HNullify table) where
@@ -72,8 +67,8 @@ instance HTable table => HTable (HNullify table) where
       Dict -> NullifySpec Dict
 
   hspecs = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec necessity  _ blueprint info ->
-      NullifySpec (SSpec necessity SNullable blueprint info)
+    SSpec labels necessity  _ blueprint info ->
+      NullifySpec (SSpec labels necessity SNullable blueprint info)
 
 
 type NullifyingSpec :: Type -> Type
@@ -83,20 +78,20 @@ type NullifyingSpec r = (Spec -> r) -> Spec -> r
 type NullifySpec :: NullifyingSpec Type
 data NullifySpec context spec where
   NullifySpec
-    :: { getNullifySpec :: context ('Spec necessity 'Nullable blueprint) }
-    -> NullifySpec context ('Spec necessity nullability blueprint)
+    :: { getNullifySpec :: context ('Spec labels necessity 'Nullable blueprint) }
+    -> NullifySpec context ('Spec labels necessity nullability blueprint)
 
 
 type NullifySpecC :: NullifyingSpec Constraint
 class
-  ( forall necessity nullability blueprint.
-    ( spec ~ 'Spec necessity nullability blueprint =>
-       constraint ('Spec necessity 'Nullable blueprint)
+  ( forall labels necessity nullability blueprint.
+    ( spec ~ 'Spec labels necessity nullability blueprint =>
+       constraint ('Spec labels necessity 'Nullable blueprint)
     )
   ) => NullifySpecC constraint spec
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
-  , constraint ('Spec necessity 'Nullable blueprint)
+  ( spec ~ 'Spec labels necessity nullability blueprint
+  , constraint ('Spec labels necessity 'Nullable blueprint)
   ) => NullifySpecC constraint spec
 
 
@@ -107,18 +102,18 @@ traverseNullifySpec f (NullifySpec a) = NullifySpec <$> f a
 
 
 hnulls :: HTable t
-  => (forall necessity blueprint. ()
-    => context ('Spec necessity 'Nullable blueprint))
+  => (forall labels necessity blueprint. ()
+    => context ('Spec labels necessity 'Nullable blueprint))
   -> HNullify t (H context)
 hnulls null = HNullify $ htabulate $ \field -> case hfield hspecs field of
   SSpec {} -> NullifySpec null
 
 
 hnullify :: HTable t
-  => (forall necessity nullability blueprint. ()
-    => SSpec ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity 'Nullable blueprint))
+  => (forall labels necessity nullability blueprint. ()
+    => SSpec ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity 'Nullable blueprint))
   -> t (H context)
   -> HNullify t (H context)
 hnullify nullifier a = HNullify $ htabulate $ \field ->
@@ -127,10 +122,10 @@ hnullify nullifier a = HNullify $ htabulate $ \field ->
 
 
 hunnullify :: (HTable t, Applicative m)
-  => (forall necessity nullability blueprint. ()
-    => SSpec ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity 'Nullable blueprint)
-    -> m (context ('Spec necessity nullability blueprint)))
+  => (forall labels necessity nullability blueprint. ()
+    => SSpec ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity 'Nullable blueprint)
+    -> m (context ('Spec labels necessity nullability blueprint)))
   -> HNullify t (H context)
   -> m (t (H context))
 hunnullify unnullifier (HNullify as) =

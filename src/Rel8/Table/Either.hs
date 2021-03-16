@@ -28,6 +28,7 @@ import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
+import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
   , encodeTag, decodeTag
@@ -35,6 +36,7 @@ import Rel8.Schema.Context.Nullify
   )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -99,23 +101,23 @@ instance Table2 EitherTable where
 
   toColumns2 f g EitherTable {tag, left, right} = HEitherTable
     { htag
-    , hleft = hnullify (nullifier "Left" (isLeft tag)) (f left)
-    , hright = hnullify (nullifier "Right" (isRight tag)) (g right)
+    , hleft = hnullify (nullifier (isLeft tag)) $ f left
+    , hright = hnullify (nullifier (isRight tag)) $ g right
     }
     where
       htag =
         HIdentity (encodeTag "isRight" tag)
 
-  fromColumns2 f g HEitherTable {htag = HIdentity htag, hleft, hright} =
+  fromColumns2 f g HEitherTable {htag = htag, hleft, hright} =
     EitherTable
       { tag
       , left = f $ runIdentity $
-          hunnullify (\a -> pure . unnullifier "Left" (isLeft tag) a) hleft
+          hunnullify (\a -> pure . unnullifier (isLeft tag) a) hleft
       , right = g $ runIdentity $
-          hunnullify (\a -> pure . unnullifier "Right" (isRight tag) a) hright
+          hunnullify (\a -> pure . unnullifier (isRight tag) a) hright
       }
     where
-      tag = decodeTag "isRight" htag
+      tag = decodeTag "isRight" $ unHIdentity htag
 
 
 instance Table a => Table1 (EitherTable a) where
@@ -126,19 +128,29 @@ instance Table a => Table1 (EitherTable a) where
   fromColumns1 = fromColumns2 fromColumns
 
 
-instance (Table a, Table b, Compatible a b, Nullifiable (Context a)) =>
+instance
+  ( Table a, Table b, Compatible a b
+  , Labelable (Context a), Nullifiable (Context a)
+  ) =>
   Table (EitherTable a b)
  where
-  type Columns (EitherTable a b) = HEitherTable (Columns a) (Columns b)
+  type Columns (EitherTable a b) =
+    HEitherTable (HLabel "Left" (Columns a)) (HLabel "Right" (Columns b))
   type Context (EitherTable a b) = Context a
 
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
+  toColumns =
+    toColumns2
+      (hlabel labeler . toColumns)
+      (hlabel labeler . toColumns)
+  fromColumns =
+    fromColumns2
+      (fromColumns . hunlabel unlabeler)
+      (fromColumns . hunlabel unlabeler)
 
 
 instance
-  ( Nullifiable from
-  , Nullifiable to
+  ( Nullifiable from, Labelable from
+  , Nullifiable to, Labelable to
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   ) =>

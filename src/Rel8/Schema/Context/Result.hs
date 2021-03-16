@@ -84,18 +84,18 @@ toHMaybeTable = maybe hnothing hjust
   where
     hnothing = HMaybeTable
       { htag = HIdentity (Result (NullableValue Nothing))
-      , htable = hnulls null
+      , hjust = hnulls null
       }
     hjust table = HMaybeTable
       { htag = HIdentity (Result (NullableValue (Just IsJust)))
-      , htable = hnullify (const nullifier) table
+      , hjust = hnullify (const nullifier) table
       }
 
 
 fromHMaybeTable :: HTable t => HMaybeTable t (H Result) -> Maybe (t (H Result))
-fromHMaybeTable HMaybeTable {htag, htable} = case htag of
+fromHMaybeTable HMaybeTable {htag, hjust} = case htag of
   HIdentity (Result (NullableValue tag)) ->
-    tag *> hunnullify unnullifier htable
+    tag *> hunnullify unnullifier hjust
 
 
 toHNonEmptyTable :: HTable t => NonEmpty (t (H Result)) -> HNonEmptyTable t (H Result)
@@ -110,49 +110,69 @@ toHTheseTable :: (HTable t, HTable u)
   => These (t (H Result)) (u (H Result))
   -> HTheseTable t u (H Result)
 toHTheseTable tables = HTheseTable
-  { hhere = toHMaybeTable (justHere tables)
-  , hthere = toHMaybeTable (justThere tables)
+  { hhereTag = relabel hhereTag
+  , hhere
+  , hthereTag = relabel hthereTag
+  , hthere
   }
+  where
+    HMaybeTable
+      { htag = hhereTag
+      , hjust = hhere
+      } = toHMaybeTable (justHere tables)
+    HMaybeTable
+      { htag = hthereTag
+      , hjust = hthere
+      } = toHMaybeTable (justThere tables)
 
 
 fromHTheseTable :: (HTable t, HTable u)
   => HTheseTable t u (H Result)
   -> These (t (H Result)) (u (H Result))
-fromHTheseTable HTheseTable {hhere, hthere} =
-  case (fromHMaybeTable hhere, fromHMaybeTable hthere) of
+fromHTheseTable HTheseTable {hhereTag, hhere, hthereTag, hthere} =
+  case (fromHMaybeTable mhere, fromHMaybeTable mthere) of
     (Just a, Nothing) -> This a
     (Nothing, Just b) -> That b
     (Just a, Just b) -> These a b
     _ -> error "fromHTheseTable: mismatch between tags and data"
+  where
+    mhere = HMaybeTable
+      { htag = relabel hhereTag
+      , hjust = hhere
+      }
+    mthere = HMaybeTable
+      { htag = relabel hthereTag
+      , hjust = hthere
+      }
 
 
-null :: Result ('Spec necessity 'Nullable a)
+null :: Result ('Spec labels necessity 'Nullable a)
 null = Result $ NullableValue Nothing
 
 
 nullifier :: ()
-  => Result ('Spec necessity nullability blueprint)
-  -> Result ('Spec necessity 'Nullable blueprint)
+  => Result ('Spec labels necessity nullability blueprint)
+  -> Result ('Spec labels necessity 'Nullable blueprint)
 nullifier (Result result) = Result $ case result of
   NonNullableValue a -> NullableValue (Just a)
   NullableValue ma -> NullableValue ma
 
 
 unnullifier :: ()
-  => SSpec ('Spec necessity nullability blueprint)
-  -> Result ('Spec necessity 'Nullable blueprint)
-  -> Maybe (Result ('Spec necessity nullability blueprint))
-unnullifier (SSpec _ nullability _ _) (Result (NullableValue ma)) =
+  => SSpec ('Spec labels necessity nullability blueprint)
+  -> Result ('Spec labels necessity 'Nullable blueprint)
+  -> Maybe (Result ('Spec labels necessity nullability blueprint))
+unnullifier (SSpec _ _ nullability _ _) (Result (NullableValue ma)) =
   case nullability of
     SNonNullable -> Result . NonNullableValue <$> ma
     SNullable -> pure (Result (NullableValue ma))
 
 
 vectorizer :: ()
-  => SSpec ('Spec necessity nullability blueprint)
-  -> [Result ('Spec necessity nullability blueprint)]
-  -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
-vectorizer (SSpec _ nullability _ _) results = case nullability of
+  => SSpec ('Spec labels necessity nullability blueprint)
+  -> [Result ('Spec labels necessity nullability blueprint)]
+  -> Result ('Spec labels necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
+vectorizer (SSpec _ _ nullability _ _) results = case nullability of
   SNullable -> Result $ NonNullableValue $
     fmap (\(Result (NullableValue a)) -> a) results
   SNonNullable -> Result $ NonNullableValue $
@@ -160,10 +180,10 @@ vectorizer (SSpec _ nullability _ _) results = case nullability of
 
 
 vectorizer1 :: ()
-  => SSpec ('Spec necessity nullability blueprint)
-  -> NonEmpty (Result ('Spec necessity nullability blueprint))
-  -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
-vectorizer1 (SSpec _ nullability _ _) results = case nullability of
+  => SSpec ('Spec labels necessity nullability blueprint)
+  -> NonEmpty (Result ('Spec labels necessity nullability blueprint))
+  -> Result ('Spec labels necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
+vectorizer1 (SSpec _ _ nullability _ _) results = case nullability of
   SNullable -> Result $ NonNullableValue $
     fmap (\(Result (NullableValue a)) -> a) results
   SNonNullable -> Result $ NonNullableValue $
@@ -171,20 +191,26 @@ vectorizer1 (SSpec _ nullability _ _) results = case nullability of
 
 
 unvectorizer :: ()
-  => SSpec ('Spec necessity nullability blueprint)
-  -> Result ('Spec necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
-  -> [Result ('Spec necessity nullability blueprint)]
-unvectorizer (SSpec _ nullability _ _) (Result (NonNullableValue results)) =
+  => SSpec ('Spec labels necessity nullability blueprint)
+  -> Result ('Spec labels necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
+  -> [Result ('Spec labels necessity nullability blueprint)]
+unvectorizer (SSpec _ _ nullability _ _) (Result (NonNullableValue results)) =
   case nullability of
     SNullable -> Result . NullableValue <$> results
     SNonNullable -> Result . NonNullableValue <$> results
 
 
 unvectorizer1 :: ()
-  => SSpec ('Spec necessity nullability blueprint)
-  -> Result ('Spec necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
-  -> NonEmpty (Result ('Spec necessity nullability blueprint))
-unvectorizer1 (SSpec _ nullability _ _) (Result (NonNullableValue results)) =
+  => SSpec ('Spec labels necessity nullability blueprint)
+  -> Result ('Spec labels necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
+  -> NonEmpty (Result ('Spec labels necessity nullability blueprint))
+unvectorizer1 (SSpec _ _ nullability _ _) (Result (NonNullableValue results)) =
   case nullability of
     SNullable -> Result . NullableValue <$> results
     SNonNullable -> Result . NonNullableValue <$> results
+
+
+relabel :: ()
+  => HIdentity ('Spec labels necessity nullability blueprint) (H Result)
+  -> HIdentity ('Spec relabels necessity nullability blueprint) (H Result)
+relabel (HIdentity (Result a)) = HIdentity (Result a)

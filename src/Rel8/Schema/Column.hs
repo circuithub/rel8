@@ -3,7 +3,7 @@
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Column
-  ( Column, Default
+  ( Column, Default, Named
   , HEither
   , HList
   , HMaybe
@@ -15,10 +15,12 @@ where
 -- base
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
+import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
 import Rel8.Kind.Blueprint ( FromType )
+import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
 import Rel8.Schema.Context ( Result, IsSpecialContext )
 import Rel8.Schema.Field ( Field )
@@ -40,8 +42,24 @@ import Rel8.Table.These ( TheseTable )
 import Data.These ( These )
 
 
+type Named :: Symbol -> Type -> Type
+data Named label a
+
+
 type Default :: Type -> Type
 data Default a
+
+
+type GetLabel :: Type -> Labels
+type family GetLabel a where
+  GetLabel (Named label _) = '[label]
+  GetLabel _ = '[]
+
+
+type UnwrapNamed :: Type -> Type
+type family UnwrapNamed a where
+  UnwrapNamed (Named _ a) = a
+  UnwrapNamed a = a
 
 
 type GetNecessity :: Type -> Necessity
@@ -58,10 +76,13 @@ type family UnwrapDefault a where
 
 type Column :: Context -> Type -> Type
 type Column context a =
-  Field context
-    (GetNecessity a)
-    (GetNullability (UnwrapDefault a))
-    (FromType (GetValue (GetNullability (UnwrapDefault a)) (UnwrapDefault a)))
+  Field context (GetLabel a)
+    (GetNecessity (UnwrapNamed a))
+    (GetNullability (UnwrapDefault (UnwrapNamed a)))
+    (FromType
+      (GetValue
+        (GetNullability (UnwrapDefault (UnwrapNamed a)))
+        (UnwrapDefault (UnwrapNamed a))))
 
 
 type IHEither :: Bool -> Context -> Type -> Type -> Type

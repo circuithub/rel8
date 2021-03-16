@@ -22,7 +22,7 @@ import Data.Text ( Text )
 
 
 data Table f = Table
-  { foo :: Column f Bool
+  { foo :: Column f (Named "blah" Bool)
   , bar :: Column f (Maybe Bool)
   }
   deriving stock Generic
@@ -38,7 +38,7 @@ data TablePair f = TablePair
 
 
 data TableMaybe f = TableMaybe
-  { foo :: Column f [Maybe Bool]
+  { foo :: Column f (Named "ABC" [Maybe Bool])
   , bars :: HMaybe f (TablePair f, TablePair f)
   }
   deriving stock Generic
@@ -47,7 +47,7 @@ data TableMaybe f = TableMaybe
 
 data TableEither f = TableEither
   { foo :: Column f Bool
-  , bars :: HEither f (HMaybe f (TablePair f, TablePair f)) (Column f Char)
+  , bars :: HEither f (HMaybe f (TablePair f, TablePair f)) (Column f (Named "XYZ" Char))
   }
   deriving stock Generic
   deriving anyclass Rel8able

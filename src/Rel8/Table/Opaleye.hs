@@ -91,7 +91,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
-    go (SSpec necessity _ _ info) (Name name) = case necessity of
+    go (SSpec _ necessity _ _ info) (Name name) = case necessity of
       SRequired ->
         lmap (\(RequiredInsert a) -> exprToColumn a) $
         DB . scastExpr info . columnToExpr <$> Opaleye.requiredTableField name

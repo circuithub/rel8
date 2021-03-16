@@ -24,9 +24,6 @@ import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.Spec ( Context, Spec, KnownSpec( specSing ) )
 
 
-{-| A single-column higher-kinded table. This is primarily useful for
-facilitating generic-deriving of higher kinded tables.
--}
 type HIdentity :: Spec -> HKTable
 data HIdentity spec context where
   HIdentity ::

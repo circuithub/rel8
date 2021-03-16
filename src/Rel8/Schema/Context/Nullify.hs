@@ -15,7 +15,6 @@ where
 -- base
 import Data.Foldable ( fold )
 import Data.Kind ( Constraint )
-import Data.List.NonEmpty ( NonEmpty( (:|) ), (<|) )
 import Prelude hiding ( null )
 
 -- opaleye
@@ -35,7 +34,6 @@ import Rel8.Schema.Context
   , DB( DB )
   , Insert( RequiredInsert, OptionalInsert )
   , Name( Name )
-  , Labels( Labels )
   )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec )
 import Rel8.Type.Eq ( DBEq )
@@ -47,40 +45,38 @@ class Nullifiable context where
   encodeTag :: DBEq a
     => String
     -> Expr nullability a
-    -> context ('Spec 'Required nullability ('Scalar a))
+    -> context ('Spec labels 'Required nullability ('Scalar a))
 
   decodeTag :: DBMonoid a
     => String
-    -> context ('Spec 'Required nullability ('Scalar a))
+    -> context ('Spec labels 'Required nullability ('Scalar a))
     -> Expr nullability a
 
   nullifier :: ()
-    => String
-    -> Expr 'NonNullable Bool
-    -> SSpec ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity 'Nullable blueprint)
+    => Expr 'NonNullable Bool
+    -> SSpec ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity 'Nullable blueprint)
 
   unnullifier :: ()
-    => String
-    -> Expr 'NonNullable Bool
-    -> SSpec ('Spec necessity nullability blueprint)
-    -> context ('Spec necessity 'Nullable blueprint)
-    -> context ('Spec necessity nullability blueprint)
+    => Expr 'NonNullable Bool
+    -> SSpec ('Spec labels necessity nullability blueprint)
+    -> context ('Spec labels necessity 'Nullable blueprint)
+    -> context ('Spec labels necessity nullability blueprint)
 
 
 instance Nullifiable Aggregation where
   encodeTag _ = Aggregation . groupByExpr
   decodeTag _ (Aggregation aggregate) = fold $ undoGroupBy aggregate
 
-  nullifier _ tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
+  nullifier tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
     Aggregate {aggregator, input, output} -> Aggregate
       { aggregator
       , input = toPrimExpr $ runTag tag (Expr input)
       , output = nullify . output
       }
 
-  unnullifier _ _ _ (Aggregation aggregate) = Aggregation $ case aggregate of
+  unnullifier _ _ (Aggregation aggregate) = Aggregation $ case aggregate of
     Aggregate {aggregator, input, output} ->
       Aggregate
         { aggregator, input
@@ -91,38 +87,28 @@ instance Nullifiable Aggregation where
 instance Nullifiable DB where
   encodeTag _ = DB
   decodeTag _ (DB a) = a
-  nullifier _ tag _ (DB a) = DB $ runTag tag a
-  unnullifier _ tag _ (DB a) = DB $ unsafeUnnullify $ runTag tag a
+  nullifier tag _ (DB a) = DB $ runTag tag a
+  unnullifier tag _ (DB a) = DB $ unsafeUnnullify $ runTag tag a
 
 
 instance Nullifiable Insert where
   encodeTag _ = RequiredInsert
   decodeTag _ (RequiredInsert a) = a
 
-  nullifier _ tag _ = \case
+  nullifier tag _ = \case
     RequiredInsert a -> RequiredInsert $ runTag tag a
     OptionalInsert ma -> OptionalInsert $ runTag tag <$> ma
 
-  unnullifier _ tag _ = \case
+  unnullifier tag _ = \case
     RequiredInsert a -> RequiredInsert $ unsafeUnnullify $ runTag tag a
     OptionalInsert ma -> OptionalInsert $ unsafeUnnullify . runTag tag <$> ma
-
-
-instance Nullifiable Labels where
-  encodeTag tagName _ = Labels (pure tagName)
-  decodeTag _ = mempty
-  nullifier tableName _ _ (Labels labels) = Labels (tableName <| labels)
-  unnullifier tableName _ _ = \case
-    Labels (name :| (label : labels))
-      | name == tableName -> Labels (label :| labels)
-    Labels labels -> Labels labels
 
 
 instance Nullifiable Name where
   encodeTag tagName _ = Name tagName
   decodeTag _ _ = mempty
-  nullifier _ _ _ (Name name) = Name name
-  unnullifier _ _ _ (Name name) = Name name
+  nullifier _ _ (Name name) = Name name
+  unnullifier _ _ (Name name) = Name name
 
 
 type NullifiableEq :: Context -> Context -> Constraint

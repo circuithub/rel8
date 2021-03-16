@@ -23,13 +23,13 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 
 type ConstrainType :: (Type -> Constraint) -> Spec -> Constraint
 class
-  ( forall necessity nullability blueprint a. ()
-     => (spec ~ 'Spec necessity nullability blueprint, a ~ ToType blueprint)
+  ( forall labels necessity nullability blueprint a. ()
+     => (spec ~ 'Spec labels necessity nullability blueprint, a ~ ToType blueprint)
      => constraint a
   ) =>
   ConstrainType constraint spec
 instance
-  ( spec ~ 'Spec necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity nullability blueprint
   , a ~ ToType blueprint
   , constraint a
   ) =>

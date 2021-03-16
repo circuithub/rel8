@@ -57,11 +57,13 @@ library
 
     Rel8.Kind.Blueprint
     Rel8.Kind.Emptiability
+    Rel8.Kind.Labels
     Rel8.Kind.Necessity
     Rel8.Kind.Nullability
 
     Rel8.Schema.Column
     Rel8.Schema.Context
+    Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Result
     Rel8.Schema.Dict
@@ -69,11 +71,10 @@ library
     Rel8.Schema.Generic
     Rel8.Schema.Generic.Test
     Rel8.Schema.HTable
-    Rel8.Schema.HTable.Bifunctor
     Rel8.Schema.HTable.Context
     Rel8.Schema.HTable.Either
-    Rel8.Schema.HTable.Functor
     Rel8.Schema.HTable.Identity
+    Rel8.Schema.HTable.Label
     Rel8.Schema.HTable.List
     Rel8.Schema.HTable.Maybe
     Rel8.Schema.HTable.NonEmpty

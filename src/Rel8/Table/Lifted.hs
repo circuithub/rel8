@@ -1,3 +1,4 @@
+{-# language ConstrainedClassMethods #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
@@ -17,13 +18,11 @@ import Prelude ()
 -- rel8
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.HTable.Bifunctor ( HBifunctor )
-import Rel8.Schema.HTable.Functor ( HFunctor )
 import Rel8.Schema.Spec ( Context )
 
 
 type Table1 :: (Type -> Type) -> Constraint
-class HFunctor (Columns1 f) => Table1 f where
+class Table1 f where
   type Columns1 f :: HKTable -> HKTable
   type ConstrainContext1 f :: Context -> Constraint
   type ConstrainContext1 _ = DefaultConstrainContext
@@ -32,6 +31,7 @@ class HFunctor (Columns1 f) => Table1 f where
     => (a -> t (H context))
     -> f a
     -> Columns1 f t (H context)
+
   fromColumns1 :: (ConstrainContext1 f context, HTable t)
     => (t (H context) -> a)
     -> Columns1 f t (H context)
@@ -39,7 +39,7 @@ class HFunctor (Columns1 f) => Table1 f where
 
 
 type Table2 :: (Type -> Type -> Type) -> Constraint
-class HBifunctor (Columns2 p) => Table2 p where
+class Table2 p where
   type Columns2 p :: HKTable -> HKTable -> HKTable
   type ConstrainContext2 p :: Context -> Constraint
   type ConstrainContext2 _ = DefaultConstrainContext
@@ -49,6 +49,7 @@ class HBifunctor (Columns2 p) => Table2 p where
     -> (b -> u (H context))
     -> p a b
     -> Columns2 p t u (H context)
+
   fromColumns2 :: (ConstrainContext2 p context, HTable t, HTable u)
     => (t (H context) -> a)
     -> (u (H context) -> b)

@@ -25,6 +25,7 @@ import Rel8.Kind.Blueprint
   )
 import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Context ( Aggregation, DB, Result )
+import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.Spec ( KnownSpec )
@@ -165,14 +166,19 @@ instance
   ) => Recontextualize from to (t from) (t to)
 
 
-instance (Recontextualize from to a1 b1, Recontextualize from to a2 b2) =>
-  Recontextualize from to (a1, a2) (b1, b2)
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , Labelable from
+  , Labelable to
+  ) => Recontextualize from to (a1, a2) (b1, b2)
 
 
 instance
   ( Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   , Recontextualize from to a3 b3
+  , Labelable from, Labelable to
   ) => Recontextualize from to (a1, a2, a3) (b1, b2, b3)
 
 
@@ -181,6 +187,7 @@ instance
   , Recontextualize from to a2 b2
   , Recontextualize from to a3 b3
   , Recontextualize from to a4 b4
+  , Labelable from, Labelable to
   ) => Recontextualize from to (a1, a2, a3, a4) (b1, b2, b3, b4)
 
 
@@ -190,4 +197,5 @@ instance
   , Recontextualize from to a3 b3
   , Recontextualize from to a4 b4
   , Recontextualize from to a5 b5
+  , Labelable from, Labelable to
   ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)

@@ -42,6 +42,7 @@ import Rel8.Kind.Nullability
   , KnownNullability
   )
 import Rel8.Schema.Context ( DB(..), Result(..) )
+import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.Context.Result
   ( fromHEitherTable, toHEitherTable
   , fromHListTable, toHListTable
@@ -50,6 +51,7 @@ import Rel8.Schema.Context.Result
   , fromHTheseTable, toHTheseTable
   )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
+import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
@@ -227,8 +229,12 @@ instance
   , IsMaybeTabular a ~ 'False
   ) => ExprsFor 'False 'False (Maybe a) (MaybeTable exprs)
  where
-  fromResults = fmap (fromResults' @exprs) . fromHMaybeTable
-  toResults = toHMaybeTable . fmap (toResults' @exprs)
+  fromResults =
+    fmap (fromResults' @exprs . hunlabel unlabeler) .
+    fromHMaybeTable
+  toResults =
+    toHMaybeTable .
+    fmap (hlabel labeler . toResults' @exprs)
 
 
 instance
@@ -247,8 +253,16 @@ instance
   , x ~ EitherTable exprs1 exprs2
   ) => ExprsFor 'False isTabular (Either a b) x
  where
-  fromResults = bimap (fromResults' @exprs1) (fromResults' @exprs2) . fromHEitherTable
-  toResults = toHEitherTable . bimap (toResults' @exprs1) (toResults' @exprs2)
+  fromResults =
+    bimap
+      (fromResults' @exprs1 . hunlabel unlabeler)
+      (fromResults' @exprs2 . hunlabel unlabeler) .
+    fromHEitherTable
+  toResults =
+    toHEitherTable .
+    bimap
+      (hlabel labeler . toResults' @exprs1)
+      (hlabel labeler . toResults' @exprs2)
 
 
 instance
@@ -267,8 +281,12 @@ instance
   , x ~ MaybeTable exprs
   ) => ExprsFor 'False 'True (Maybe a) x
  where
-  fromResults = fmap (fromResults' @exprs) . fromHMaybeTable
-  toResults = toHMaybeTable . fmap (toResults' @exprs)
+  fromResults =
+    fmap (fromResults' @exprs . hunlabel unlabeler) .
+    fromHMaybeTable
+  toResults =
+    toHMaybeTable .
+    fmap (hlabel labeler . toResults' @exprs)
 
 
 instance
@@ -288,8 +306,16 @@ instance
   , x ~ TheseTable exprs1 exprs2
   ) => ExprsFor 'False isTabular (These a b) x
  where
-  fromResults = bimap (fromResults' @exprs1) (fromResults' @exprs2) . fromHTheseTable
-  toResults = toHTheseTable . bimap (toResults' @exprs1) (toResults' @exprs2)
+  fromResults =
+    bimap
+      (fromResults' @exprs1 . hunlabel unlabeler)
+      (fromResults' @exprs2 . hunlabel unlabeler) .
+    fromHTheseTable
+  toResults =
+    toHTheseTable .
+    bimap
+      (hlabel labeler . toResults' @exprs1)
+      (hlabel labeler . toResults' @exprs2)
 
 
 instance
@@ -300,12 +326,12 @@ instance
   ) => ExprsFor 'False isTabular (a, b) x
  where
   fromResults (HPair a b) =
-    ( fromResults' @exprs1 a
-    , fromResults' @exprs2 b
+    ( fromResults' @exprs1 $ hunlabel unlabeler a
+    , fromResults' @exprs2 $ hunlabel unlabeler b
     )
   toResults (a, b) = HPair
-    { hfst = toResults' @exprs1 a
-    , hsnd = toResults' @exprs2 b
+    { hfst = hlabel labeler $ toResults' @exprs1 a
+    , hsnd = hlabel labeler $ toResults' @exprs2 b
     }
 
 
@@ -318,14 +344,14 @@ instance
   ) => ExprsFor 'False isTabular (a, b, c) x
  where
   fromResults (HTrio a b c) =
-    ( fromResults' @exprs1 a
-    , fromResults' @exprs2 b
-    , fromResults' @exprs3 c
+    ( fromResults' @exprs1 $ hunlabel unlabeler a
+    , fromResults' @exprs2 $ hunlabel unlabeler b
+    , fromResults' @exprs3 $ hunlabel unlabeler c
     )
   toResults (a, b, c) = HTrio
-    { hfst = toResults' @exprs1 a
-    , hsnd = toResults' @exprs2 b
-    , htrd = toResults' @exprs3 c
+    { hfst = hlabel labeler $ toResults' @exprs1 a
+    , hsnd = hlabel labeler $ toResults' @exprs2 b
+    , htrd = hlabel labeler $ toResults' @exprs3 c
     }
 
 
@@ -339,16 +365,16 @@ instance
   ) => ExprsFor 'False isTabular (a, b, c, d) x
  where
   fromResults (HQuartet a b c d) =
-    ( fromResults' @exprs1 a
-    , fromResults' @exprs2 b
-    , fromResults' @exprs3 c
-    , fromResults' @exprs4 d
+    ( fromResults' @exprs1 $ hunlabel unlabeler a
+    , fromResults' @exprs2 $ hunlabel unlabeler b
+    , fromResults' @exprs3 $ hunlabel unlabeler c
+    , fromResults' @exprs4 $ hunlabel unlabeler d
     )
   toResults (a, b, c, d) = HQuartet
-    { hfst = toResults' @exprs1 a
-    , hsnd = toResults' @exprs2 b
-    , htrd = toResults' @exprs3 c
-    , hfrt = toResults' @exprs4 d
+    { hfst = hlabel labeler $ toResults' @exprs1 a
+    , hsnd = hlabel labeler $ toResults' @exprs2 b
+    , htrd = hlabel labeler $ toResults' @exprs3 c
+    , hfrt = hlabel labeler $ toResults' @exprs4 d
     }
 
 
@@ -363,18 +389,18 @@ instance
   ) => ExprsFor 'False isTabular (a, b, c, d, e) x
  where
   fromResults (HQuintet a b c d e) =
-    ( fromResults' @exprs1 a
-    , fromResults' @exprs2 b
-    , fromResults' @exprs3 c
-    , fromResults' @exprs4 d
-    , fromResults' @exprs5 e
+    ( fromResults' @exprs1 $ hunlabel unlabeler a
+    , fromResults' @exprs2 $ hunlabel unlabeler b
+    , fromResults' @exprs3 $ hunlabel unlabeler c
+    , fromResults' @exprs4 $ hunlabel unlabeler d
+    , fromResults' @exprs5 $ hunlabel unlabeler e
     )
   toResults (a, b, c, d, e) = HQuintet
-    { hfst = toResults' @exprs1 a
-    , hsnd = toResults' @exprs2 b
-    , htrd = toResults' @exprs3 c
-    , hfrt = toResults' @exprs4 d
-    , hfft = toResults' @exprs5 e
+    { hfst = hlabel labeler $ toResults' @exprs1 a
+    , hsnd = hlabel labeler $ toResults' @exprs2 b
+    , htrd = hlabel labeler $ toResults' @exprs3 c
+    , hfrt = hlabel labeler $ toResults' @exprs4 d
+    , hfft = hlabel labeler $ toResults' @exprs5 e
     }
 
 
@@ -445,12 +471,12 @@ parse = fromResults' @exprs <$> parseTable
 litTable :: Recontextualize Result DB a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ _ blueprint info -> case hfield as field of
+    SSpec _ _ _ blueprint info -> case hfield as field of
       Result value -> DB (slitExpr blueprint info value)
 
 
 parseTable :: (Table a, Context a ~ Result) => Hasql.Row a
 parseTable = fmap fromColumns $ htabulateA $ \field ->
   case hfield hspecs field of
-    SSpec _ nullability blueprint info ->
+    SSpec _ _ nullability blueprint info ->
       Result <$> sparseValue nullability blueprint info
