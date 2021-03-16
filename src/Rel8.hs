@@ -50,6 +50,7 @@ module Rel8
     -- *** Deriving-via helpers
     -- **** @JSONEncoded@
   , JSONEncoded(..)
+  , JSONBEncoded(..)
 
     -- **** @ReadShow@
   , ReadShow(..)
@@ -720,6 +721,21 @@ instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONEncoded a) where
     where
       f = fmap JSONEncoded . parseEither parseJSON
       g = toJSON . fromJSONEncoded
+
+
+-- | Like 'JSONEncoded', but works for @jsonb@ columns.
+newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
+
+
+instance (FromJSON a, ToJSON a, Typeable a) => DBType (JSONBEncoded a) where
+  typeInformation = parseDatabaseType f g DatabaseType
+    { encode = encode typeInformation
+    , decoder = notNullDecoder Hasql.jsonb
+    , typeName = "jsonb"
+    }
+    where
+      f = fmap JSONBEncoded . parseEither parseJSON
+      g = toJSON . fromJSONBEncoded
 
 
 -- | A deriving-via helper type for column types that store a Haskell value
