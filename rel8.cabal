@@ -22,7 +22,7 @@ library
     , case-insensitive
     , contravariant
     , hasql
-    , opaleye ^>= 0.7.1.0
+    , opaleye ^>= 0.7.0.0
     , scientific
     , text
     , time
