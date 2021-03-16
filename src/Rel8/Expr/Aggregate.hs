@@ -44,33 +44,37 @@ data Aggregator = Aggregator
 
 
 groupByExpr :: DBEq a => Expr nullability a -> Aggregate nullability a
-groupByExpr = unsafeMakeAggregate Nothing
+groupByExpr = unsafeMakeAggregate Expr Nothing
 
 
 listAggExpr :: ()
   => Expr nullability a
   -> Aggregate 'NonNullable (Array 'Emptiable nullability a)
-listAggExpr = unsafeMakeAggregate $ Just Aggregator
+listAggExpr = unsafeMakeAggregate row $ Just Aggregator
   { operation = Opaleye.AggrArr
   , ordering = []
   , distinction = Opaleye.AggrAll
   }
+  where
+    row = Expr . Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
 
 
 nonEmptyAggExpr :: ()
   => Expr nullability a
   -> Aggregate 'NonNullable (Array 'NonEmptiable nullability a)
-nonEmptyAggExpr = unsafeMakeAggregate $ Just Aggregator
+nonEmptyAggExpr = unsafeMakeAggregate row $ Just Aggregator
   { operation = Opaleye.AggrArr
   , ordering = []
   , distinction = Opaleye.AggrAll
   }
+  where
+    row = Expr . Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
 
 
 unsafeMakeAggregate :: ()
-  => Maybe Aggregator -> Expr _nullability _a -> Aggregate nullability a
-unsafeMakeAggregate aggregator (Expr input) = Aggregate
-  { aggregator
-  , input
-  , output = Expr
-  }
+  => (Opaleye.PrimExpr -> Expr nullability a)
+  -> Maybe Aggregator
+  -> Expr _nullability _a
+  -> Aggregate nullability a
+unsafeMakeAggregate output aggregator (Expr input) =
+  Aggregate { aggregator, input, output}
