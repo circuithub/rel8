@@ -2245,7 +2245,13 @@ hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity)
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    fmap fromColumns . htraverse (traversePrimExpr f) . toColumns
+    fmap fromColumns . htraverse (traversePrimExpr f) . addCasts . toColumns
+  where
+    addCasts :: forall f. HTable f => f (Context Expr) -> f (Context Expr)
+    addCasts columns = htabulate go
+      where
+        go :: forall x. HField f x -> Expr x
+        go i = unsafeCastExpr (typeName (hfield hdbtype i)) (hfield columns i)
 
 
 -- | Run an @INSERT@ statement
