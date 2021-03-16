@@ -264,15 +264,16 @@ import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit )
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, limit, exists )
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
+import qualified Opaleye.Exists as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Lateral as Opaleye
-import qualified Opaleye.Operators as Opaleye hiding ( restrict )
+import qualified Opaleye.Operators as Opaleye hiding ( exists, restrict )
 import qualified Opaleye.Order as Opaleye (limit, offset, orderBy)
 import Opaleye.PGTypes
   ( IsSqlType(..)
@@ -2354,7 +2355,7 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
   where
     showSqlForPostgresExplicit =
       case Opaleye.runQueryArrUnpack unpackspec opaleye of
-        (x, y, z) -> Opaleye.formatAndShowSQL (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
+        (x, y, z) -> Opaleye.formatAndShowSQL True (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
 
 
 -- | Run a @DELETE@ statement.
@@ -2487,8 +2488,7 @@ data Update target returning where
 -- ("Bryan O'Sullivan",True)
 -- ("Emily Pillmore",False)
 exists :: Query a -> Query (Expr Bool)
-exists = fmap (maybeTable (lit False) (const (lit True))) .
-  optional . whereExists
+exists = fmap columnToExpr . mapOpaleye Opaleye.exists
 
 
 -- | Select each row from a table definition. This is equivalent to @FROM

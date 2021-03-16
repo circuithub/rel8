@@ -41,11 +41,10 @@ primQuery f = \case
 
     return ( Join joinType primExpr bindingsA bindingsB primQueryA primQueryB )
 
-  Exists bool primQueryA primQueryB -> do
+  Exists bool primQueryA -> do
     primQueryA <- f primQueryA
-    primQueryB <- f primQueryB
 
-    return ( Exists bool primQueryA primQueryB )
+    return ( Exists bool primQueryA )
 
   Binary binOp primQueries -> do
     primQueries <- both f primQueries
