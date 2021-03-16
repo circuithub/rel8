@@ -111,7 +111,7 @@ instance Table1 MaybeTable where
     , hjust = hnullify (nullifier (isNonNull tag)) $ f just
     }
     where
-      htag = HIdentity (encodeTag "isJust" tag)
+      htag = HIdentity (encodeTag tag)
 
   fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
     { tag
@@ -119,7 +119,7 @@ instance Table1 MaybeTable where
         hunnullify (\a -> pure . unnullifier (isNonNull tag) a) hjust
     }
     where
-      tag = decodeTag "isJust" htag
+      tag = decodeTag htag
 
 
 instance

@@ -120,9 +120,9 @@ instance Table2 TheseTable where
   type ConstrainContext2 TheseTable = Nullifiable
 
   toColumns2 f g TheseTable {here, there} = HTheseTable
-    { hhereTag = HIdentity $ encodeTag "hasHere" (tag here)
+    { hhereTag = HIdentity $ encodeTag (tag here)
     , hhere = hnullify (nullifier (isNonNull (tag here))) $ f (just here)
-    , hthereTag = HIdentity $ encodeTag "hasThere" (tag there)
+    , hthereTag = HIdentity $ encodeTag (tag there)
     , hthere = hnullify (nullifier (isNonNull (tag there))) $ g (just there)
     }
 
@@ -130,7 +130,7 @@ instance Table2 TheseTable where
     TheseTable
       { here =
           let
-            tag = decodeTag "hasHere" $ unHIdentity hhereTag
+            tag = decodeTag $ unHIdentity hhereTag
           in
             MaybeTable
               { tag
@@ -141,7 +141,7 @@ instance Table2 TheseTable where
               }
       , there =
           let
-            tag = decodeTag "hasThere" $ unHIdentity hthereTag
+            tag = decodeTag $ unHIdentity hthereTag
           in
             MaybeTable
               { tag

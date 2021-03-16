@@ -105,8 +105,7 @@ instance Table2 EitherTable where
     , hright = hnullify (nullifier (isRight tag)) $ g right
     }
     where
-      htag =
-        HIdentity (encodeTag "isRight" tag)
+      htag = HIdentity (encodeTag tag)
 
   fromColumns2 f g HEitherTable {htag = htag, hleft, hright} =
     EitherTable
@@ -117,7 +116,7 @@ instance Table2 EitherTable where
           hunnullify (\a -> pure . unnullifier (isRight tag) a) hright
       }
     where
-      tag = decodeTag "isRight" $ unHIdentity htag
+      tag = decodeTag $ unHIdentity htag
 
 
 instance Table a => Table1 (EitherTable a) where
