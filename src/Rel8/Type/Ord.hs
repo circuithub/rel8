@@ -3,6 +3,7 @@
 
 module Rel8.Type.Ord
   ( DBOrd
+  , DBMax, DBMin
   )
 where
 
@@ -39,8 +40,6 @@ import Data.UUID ( UUID )
 
 type DBOrd :: Type -> Constraint
 class DBEq a => DBOrd a
-
-
 instance DBOrd Bool
 instance DBOrd Char
 instance DBOrd Int16
@@ -62,3 +61,51 @@ instance DBOrd (CI Lazy.Text)
 instance DBOrd ByteString
 instance DBOrd Lazy.ByteString
 instance DBOrd UUID
+
+
+type DBMax :: Type -> Constraint
+class DBOrd a => DBMax a
+instance DBMax Bool
+instance DBMax Char
+instance DBMax Int16
+instance DBMax Int32
+instance DBMax Int64
+instance DBMax Float
+instance DBMax Double
+instance DBMax Scientific
+instance DBMax UTCTime
+instance DBMax Day
+instance DBMax LocalTime
+instance DBMax TimeOfDay
+instance DBMax DiffTime
+instance DBMax NominalDiffTime
+instance DBMax Text
+instance DBMax Lazy.Text
+instance DBMax (CI Text)
+instance DBMax (CI Lazy.Text)
+instance DBMax ByteString
+instance DBMax Lazy.ByteString
+
+
+type DBMin :: Type -> Constraint
+class DBOrd a => DBMin a
+instance DBMin Bool
+instance DBMin Char
+instance DBMin Int16
+instance DBMin Int32
+instance DBMin Int64
+instance DBMin Float
+instance DBMin Double
+instance DBMin Scientific
+instance DBMin UTCTime
+instance DBMin Day
+instance DBMin LocalTime
+instance DBMin TimeOfDay
+instance DBMin DiffTime
+instance DBMin NominalDiffTime
+instance DBMin Text
+instance DBMin Lazy.Text
+instance DBMin (CI Text)
+instance DBMin (CI Lazy.Text)
+instance DBMin ByteString
+instance DBMin Lazy.ByteString

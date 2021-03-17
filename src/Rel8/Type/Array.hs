@@ -41,7 +41,7 @@ import Rel8.Kind.Nullability
   )
 import Rel8.Type ( DBType, typeInformation, TypeInformation(..) )
 import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Ord ( DBOrd )
+import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
 
 
 type Array :: Emptiability -> Nullability -> Type -> Type
@@ -74,6 +74,20 @@ instance
   , KnownNullability nullability
   , DBOrd a
   ) => DBOrd (Array emptiability nullability a)
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBMax a
+  ) => DBMax (Array emptiability nullability a)
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBMin a
+  ) => DBMin (Array emptiability nullability a)
 
 
 array :: Foldable f

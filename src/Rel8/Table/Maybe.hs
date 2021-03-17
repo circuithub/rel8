@@ -13,6 +13,7 @@ module Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
+  , ($?)
   )
 where
 
@@ -23,6 +24,7 @@ import Prelude hiding ( null, repeat, undefined, zipWith )
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
@@ -48,6 +50,7 @@ import Rel8.Table.Lifted
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
+import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( MaybeTag( IsJust ) )
 
 -- semigroupoids
@@ -159,3 +162,10 @@ nothingTable = MaybeTable null undefined
 
 justTable :: a -> MaybeTable a
 justTable = MaybeTable (nullify (litExpr IsJust))
+
+
+($?) :: DBType b
+  => (a -> Expr nullability b) -> MaybeTable a -> Expr 'Nullable b
+f $? ma@(MaybeTable _ a) =
+  boolExpr (nullify (f a)) null (isNothingTable ma)
+infixl 4 $?

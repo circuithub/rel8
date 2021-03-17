@@ -118,6 +118,8 @@ library
     Rel8.Type.Num
     Rel8.Type.Ord
     Rel8.Type.Semigroup
+    Rel8.Type.String
+    Rel8.Type.Sum
     Rel8.Type.Tag
 
   other-modules:
