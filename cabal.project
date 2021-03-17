@@ -1,1 +1,7 @@
 packages: .
+
+source-repository-package
+  type: git
+  location: https://github.com/circuithub/haskell-opaleye
+  tag: 19fb49a4a1916cc40bd54e717cf61cab2c298874
+  --sha256: 1jz6479lh5334aws8k9pj3pzak3c4qwfh7i2kprqszl86p6h9ky8
