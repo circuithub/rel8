@@ -5,10 +5,23 @@
 
 module Rel8.Optimize ( optimize ) where
 
-import Control.Applicative
-import Data.Functor.Identity
+-- base
+import Control.Applicative ( Applicative( liftA2 ) )
+import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
+
+-- opaleye
 import Opaleye.Internal.HaskellDB.PrimQuery
+  ( AggrOp( AggrStringAggr )
+  , BinOp( (:&&), (:||) )
+  , Literal( BoolLit )
+  , OrderExpr( OrderExpr )
+  , PrimExpr( CaseExpr, AttrExpr, BaseTableAttrExpr, CompositeExpr, BinExpr, UnExpr, AggrExpr, ConstExpr )
+  , Symbol( Symbol )
+  , UnOp( OpIsNull )
+  )
 import Opaleye.Internal.PrimQuery
+  ( PrimQuery'( Join, Aggregate, DistinctOnOrderBy, Limit, Exists, Binary, Label )
+  )
 
 
 optimize :: PrimQuery' a -> PrimQuery' a
@@ -91,7 +104,6 @@ nullIsFalse =
         Nothing
 
 
-
 -- | Traverse all immediate 'PrimExpr's
 primExprs :: Applicative f => ( PrimExpr -> f PrimExpr ) -> PrimExpr -> f PrimExpr
 primExprs f = \case
@@ -135,7 +147,6 @@ primExprs f = \case
 
   other ->
     pure other
-
 
 
 aggrOpPrimExprs :: Applicative f => ( PrimExpr -> f PrimExpr ) -> AggrOp -> f AggrOp

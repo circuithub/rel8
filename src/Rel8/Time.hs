@@ -30,13 +30,14 @@ import Rel8
   ( Expr
   , binaryOperator
   , function
+  , nullaryFunction
   , unsafeCastExpr
-  , unsafeLiteral, nullaryFunction
+  , unsafeLiteral
   )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime, NominalDiffTime )
+import Data.Time.Clock ( NominalDiffTime, UTCTime )
 
 
 -- | Corresponds to @date(now())@.

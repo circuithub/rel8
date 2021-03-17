@@ -3,16 +3,28 @@
 
 module Main where
 
-import Build_doctests ( flags, pkgs, module_sources )
-import Control.Exception ( bracket, throwIO )
-import Data.ByteString.Char8 ( unpack )
-import Data.Foldable ( traverse_ )
+-- 
+import Build_doctests ( flags, module_sources, pkgs )
 import Hasql.Connection ( acquire, release )
 import Hasql.Session ( run, sql )
-import Database.Postgres.Temp ( toConnectionString, with, withConfig, verboseConfig )
-import System.Environment ( setEnv, lookupEnv )
+
+-- base
+import Control.Exception ( bracket, throwIO )
+import Data.Foldable ( traverse_ )
+import System.Environment ( lookupEnv, setEnv )
+
+-- base-compat
 import System.Environment.Compat ( unsetEnv )
+
+-- bytestring
+import Data.ByteString.Char8 ( unpack )
+
+-- doctest
 import Test.DocTest ( doctest )
+
+-- tmp-postgres
+import Database.Postgres.Temp ( toConnectionString, verboseConfig, with, withConfig )
+
 
 main :: IO ()
 main = do
@@ -33,7 +45,7 @@ main = do
         sql "insert into project ( author_id, name ) values ( 2, 'text' )"
 
     doctest (args nixGhcLibdir)
-  
+
   where
-    args nixGhcLibdir = 
+    args nixGhcLibdir =
       flags ++ pkgs ++ foldMap (\x -> ["-package-db" <> x <> "/package.conf.d"]) nixGhcLibdir ++ module_sources

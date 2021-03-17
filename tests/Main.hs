@@ -16,37 +16,68 @@
 
 module Main (main) where
 
+-- 
 import Hasql.Connection ( Connection,  acquire, release )
 import Hasql.Session ( sql, run )
+
+-- base
 import Control.Applicative ( liftA2, liftA3 )
-import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
+import Control.Monad (void)
 import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Control.Monad.Trans.Control ( MonadBaseControl )
-import qualified Data.ByteString.Lazy
-import Data.CaseInsensitive (mk)
+import Data.Bifunctor ( bimap )
 import Data.Foldable ( for_ )
 import Data.Functor.Identity ( Identity )
 import Data.Int ( Int32, Int64 )
-import Data.Bifunctor ( bimap )
 import Data.List ( nub, sort )
-import qualified Data.Map.Strict as Map
 import Data.Maybe ( catMaybes )
-import Data.Scientific ( Scientific )
 import Data.String ( fromString )
-import qualified Data.Text.Lazy
-import Data.Time
-import qualified Data.UUID
-import qualified Database.Postgres.Temp as TmpPostgres
+import Data.Word (Word32)
 import GHC.Generics ( Generic )
+
+-- bytestring
+import qualified Data.ByteString.Lazy
+
+-- case-insensitive
+import Data.CaseInsensitive (mk)
+
+-- containers
+import qualified Data.Map.Strict as Map
+
+-- hedgehog
 import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
+-- lifted-base
+import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
+
+-- monad-control
+import Control.Monad.Trans.Control ( MonadBaseControl )
+
+-- rel8
 import qualified Rel8
+
+-- scientific
+import Data.Scientific ( Scientific )
+
+-- tasty
 import Test.Tasty
+
+-- tasty-hedgehog
 import Test.Tasty.Hedgehog ( testProperty )
-import Control.Monad (void)
-import Data.Word (Word32)
+
+-- text
 import Data.Text (Text, pack)
+import qualified Data.Text.Lazy
+
+-- time
+import Data.Time
+
+-- tmp-postgres
+import qualified Database.Postgres.Temp as TmpPostgres
+
+-- uuid
+import qualified Data.UUID
 
 
 main :: IO ()

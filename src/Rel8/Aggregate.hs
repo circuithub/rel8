@@ -1,236 +1,219 @@
 {-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language GADTs #-}
+{-# language FunctionalDependencies #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Aggregate
-  ( aggregateExpr
-  , aggregator
-  , groupAndAggregate
+  ( Aggregate(..)
   , aggregate
-  , MonoidTable
-  , DBMonoid
-  , GroupBy(..)
+  , groupBy
+  , boolAnd
+  , boolOr
+  , count
+  , countStar
+  , countDistinct
+  , listAgg
+  , nonEmptyAgg
+  , some
+  , many
   ) where
 
-import Data.Functor
-import Data.Functor.Identity
-import Data.Monoid
-import Data.Profunctor ( dimap, lmap )
+-- base
+import Data.Int ( Int64 )
+import Data.List.NonEmpty ( NonEmpty )
+
+-- opaleye
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import Rel8.Column
-import Rel8.EqTable
-import Rel8.Expr
-import Rel8.HigherKindedTable
-import Rel8.Table
-import Rel8.Query
+
+-- rel8
+import Rel8.Expr ( Expr( Expr ) )
+import Rel8.HTable ( htraverse )
+import Rel8.HTable.HComposeTable ( ComposeInner( ComposeInner ) )
+import Rel8.Query ( Query, mapOpaleye )
+import Rel8.Table ( Table( toColumns ), fromColumns )
+import Rel8.Table.Congruent ( traverseTable )
+import Rel8.Table.ListTable ( ListTable( ListTable ) )
+import Rel8.Table.MaybeTable ( maybeTable, optional )
+import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
 
 
-{-| @groupAndAggregate@ is the fundamental aggregation operator in Rel8. Like
-SQL, it combines the @GROUP BY@ operator along with aggregation functions to
-reduce a sequence of rows to 1 or more rows. If you wish to aggregate any entire
-query without grouping, you may find 'aggregate' more convenient.
-
-=== __Relationship to @foldMap@__
-
-@groupAndAggregate@ is intended to be similar to the 'foldMap' function in
-pure Haskell code:
-
-@
-foldMap :: Monoid b => ( a -> b ) -> [ a ] -> b
-@
-
-@foldMap@ takes a list of values of type @a@, and maps each element to an
-element of the monoid @b@. @foldMap@ then combines all of these @b@s together
-under their monoid structure to give you a single value.
-
-If we choose @b@ to a map-like structure, we can also use this operation to
-do grouping:
-
-@
-foldMap :: ( Eq k, Monoid v ) => ( a -> Map k v ) -> [a] -> Map k v
-@
-
-It's this instantiation of @foldMap@ that @groupAndAggregate@ attempts to
-mirror. If we view @MonadQuery m => m a@ as @[a]@, @groupAndAggregate@ has
-a type like:
-
-@
-groupAndAggregate
-  :: ( EqTable k, MonoidTable v )
-  => ( a -> GroupBy k v ) -> [a] -> [(k, v)]
-@
-
-This is not quite like @foldMap@, but is more like a @foldMap@ followed by
-transforming a @Map k v@ into a list of pairs:
-
-@
-\f as -> Map.toList (foldMap f as) :: ( a -> Map k v ) -> [ a ] -> [ ( k, v ) ]
-@
-
--}
-groupAndAggregate
-  :: ( MonoidTable v
-     , EqTable k
-     , Context v ~ Expr
-     )
-  => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
-groupAndAggregate = groupAndAggregate_forAll
+-- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
+-- unpack an @Aggregate@ back to @a@ by running it with 'aggregate'. As
+-- @Aggregate@ is an 'Applicative' functor, you can combine @Aggregate@s using
+-- the normal @Applicative@ combinators, or by working in @do@ notation with
+-- @ApplicativeDo@.
+newtype Aggregate a = Aggregate a
 
 
-groupAndAggregate_forAll
-  :: forall a k v
-   . ( MonoidTable v
-     , EqTable k
-     , Context v ~ Expr
-     )
-  => ( a -> GroupBy k v ) -> Query a -> Query ( k, v )
-groupAndAggregate_forAll f query =
-  aggregate ( eqTableIsImportant . f ) query <&> \GroupBy{ key, value } ->
-    ( key, value )
+instance Functor Aggregate where
+  fmap f (Aggregate a) = Aggregate $ f a
 
+
+instance Applicative Aggregate where
+  pure = Aggregate
+  Aggregate f <*> Aggregate a = Aggregate $ f a
+
+
+-- | Apply an aggregation to all rows returned by a 'Query'.
+aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
+aggregate = mapOpaleye $ Opaleye.aggregate aggregator
   where
+    aggregator :: Opaleye.Aggregator (Aggregate a) a
+    aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
+      fromColumns <$> htraverse (g f) (toColumns x)
 
-    -- GHC will complain that EqTable isn't necessary. In A sense this is true
-    -- as the code doesn't use it at all. However, semantically it's very
-    -- important - PostgreSQL will not let us GROUP BY types that can't be
-    -- compared for equality.
-    eqTableIsImportant :: GroupBy k v -> GroupBy k v
-    eqTableIsImportant g@GroupBy{ key } =
-      const g ( key ==. key )
+    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Expr x -> m (Expr x)
+    g f (Expr x) = Expr <$> traverseAggrExpr f x
 
 
--- | Aggregate a table to a single row. This is like @groupAndAggregate@, but
--- where there is only one group.
-aggregate
-  :: MonoidTable b
-  => ( a -> b ) -> Query a -> Query b
-aggregate = aggregate_forAll
+-- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
+-- 'pure', but sometimes being explicit can help the readability of your code.
+groupBy :: a -> Aggregate a
+groupBy = pure
 
 
-aggregate_forAll
-  :: forall a b
-   . MonoidTable b
-  => ( a -> b ) -> Query a -> Query b
-aggregate_forAll f =
-  liftOpaleye . Opaleye.aggregate ( lmap f aggregator ) . toOpaleye
+-- | Corresponds to @bool_and@.
+boolAnd :: Expr Bool -> Aggregate (Expr Bool)
+boolAnd (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolAnd a []
 
 
--- | The class of tables that can be aggregated. This is like Haskell's 'Monoid'
--- type.
-class Table a => MonoidTable a where
-  -- | How to aggregate an entire table.
-  aggregator :: Opaleye.Aggregator a a
+-- | Corresponds to @bool_or@.
+boolOr :: Expr Bool -> Aggregate (Expr Bool)
+boolOr (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolOr a []
 
 
--- | Higher-kinded records can be used a monoidal aggregations if all fields
--- are instances of 'DBMonoid'.
-instance ( HConstrainTable t Expr DBType, HConstrainTable t Expr Unconstrained, HigherKindedTable t, ConstrainTable ( t Expr ) DBMonoid ) => MonoidTable ( t Expr ) where
-  aggregator =
-    Opaleye.Aggregator $ Opaleye.PackMap \f ->
-      traverseTableC
-        @Id
-        @DBMonoid
-        ( traverseCC @DBMonoid ( Opaleye.runAggregator aggregateExpr f ) )
+-- | Count the occurances of a single column. Corresponds to @COUNT(a)@
+count :: Expr a -> Aggregate (Expr Int64)
+count (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrCount a []
 
 
--- | The class of database types that have an aggregation operator.
-class DBMonoid a where
-  -- | How to aggregate a single expression under a particular monoidal
-  -- structure.
-  aggregateExpr :: Opaleye.Aggregator ( Expr a ) ( Expr a )
+-- | Corresponds to @COUNT(*)@.
+countStar :: Aggregate (Expr Int64)
+countStar = count (0 :: Expr Int64)
 
 
-instance DBMonoid ( Sum a ) where
-  aggregateExpr =
-    Opaleye.Aggregator $ Opaleye.PackMap \f expr ->
-      fromPrimExpr
-        <$> f ( Just ( Opaleye.AggrSum, [], Opaleye.AggrAll )
-              , toPrimExpr expr
-              )
+-- | Count the number of distinct occurances of a single column. Corresponds to
+-- @COUNT(DISTINCT a)@
+countDistinct :: Expr a -> Aggregate (Expr Int64)
+countDistinct (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrDistinct Opaleye.AggrCount a []
 
 
-instance DBType a => MonoidTable ( Sum ( Expr a ) ) where
-  aggregator =
-    dimap from to aggregateExpr
+traverseAggrExpr :: Applicative f
+  => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr)
+  -> Opaleye.PrimExpr
+  -> f Opaleye.PrimExpr
+traverseAggrExpr f = \case
+  Opaleye.AggrExpr a b c d ->
+    f (Just (b, d, a), c)
 
+  Opaleye.AttrExpr symbol ->
+    -- TODO Test me
+    f (Nothing, Opaleye.AttrExpr symbol)
+
+  Opaleye.BaseTableAttrExpr attribute ->
+    -- TODO Test me
+    f (Nothing, Opaleye.BaseTableAttrExpr attribute)
+
+  Opaleye.CompositeExpr primExpr x ->
+    Opaleye.CompositeExpr <$> traverseAggrExpr f primExpr <*> pure x
+
+  Opaleye.BinExpr x primExpr1 primExpr2 ->
+    Opaleye.BinExpr x <$> traverseAggrExpr f primExpr1 <*> traverseAggrExpr f primExpr2
+
+  Opaleye.UnExpr x primExpr ->
+    Opaleye.UnExpr x <$> traverseAggrExpr f primExpr
+
+  Opaleye.CaseExpr cases def ->
+    Opaleye.CaseExpr <$> traverse (traverseBoth (traverseAggrExpr f)) cases <*> traverseAggrExpr f def
+    where traverseBoth g (x, y) = (,) <$> g x <*> g y
+
+  Opaleye.ListExpr elems ->
+    Opaleye.ListExpr <$> traverse (traverseAggrExpr f) elems
+
+  Opaleye.ParamExpr p primExpr ->
+    Opaleye.ParamExpr p <$> traverseAggrExpr f primExpr
+
+  Opaleye.FunExpr name params ->
+    Opaleye.FunExpr name <$> traverse (traverseAggrExpr f) params
+
+  Opaleye.CastExpr t primExpr ->
+    Opaleye.CastExpr t <$> traverseAggrExpr f primExpr
+
+  Opaleye.ArrayExpr elems ->
+    Opaleye.ArrayExpr <$> traverse (traverseAggrExpr f) elems
+
+  Opaleye.RangeExpr a b c ->
+    Opaleye.RangeExpr a <$> traverseBoundExpr (traverseAggrExpr f) b <*> traverseBoundExpr (traverseAggrExpr f) c
     where
+      traverseBoundExpr g = \case
+        Opaleye.Inclusive primExpr -> Opaleye.Inclusive <$> g primExpr
+        Opaleye.Exclusive primExpr -> Opaleye.Exclusive <$> g primExpr
+        other                      -> pure other
 
-      from :: Sum ( Expr a ) -> Expr ( Sum a )
-      from ( Sum expr ) =
-        retype expr
+  Opaleye.ArrayIndex x i ->
+    Opaleye.ArrayIndex <$> traverseAggrExpr f x <*> traverseAggrExpr f i
 
-
-      to :: Expr ( Sum a ) -> Sum ( Expr a )
-      to expr =
-        Sum ( retype expr )
-
-
--- | Group rows of type @v@ by key @k@.
-data GroupBy k v =
-  GroupBy { key :: k, value :: v }
+  other ->
+    -- All other constructors that don't contain any PrimExpr's.
+    pure other
 
 
-data GroupByField k v a where
-  KeyFields :: Field k x -> GroupByField k v x
-  ValueFields :: Field v x -> GroupByField k v x
+-- | Aggregate rows into a single row containing an array of all aggregated
+-- rows. This can be used to associate multiple rows with a single row, without
+-- changing the over cardinality of the query. This allows you to essentially
+-- return a tree-like structure from queries.
+--
+-- For example, if we have a table of orders and each orders contains multiple
+-- items, we could aggregate the table of orders, pairing each order with its
+-- items:
+--
+-- @
+-- ordersWithItems :: Query (Order Expr, ListTable (Item Expr))
+-- ordersWithItems = do
+--   order <- each orderSchema
+--   items <- aggregate $ listAgg <$> itemsFromOrder order
+--   return (order, items)
+-- @
+listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
+listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
+  where
+    go :: Expr a -> Aggregate (Expr [a])
+    go (Expr a) =
+      Aggregate $ Expr $
+        Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
-instance ( Table k, Table v, Context k ~ Context v ) => Table ( GroupBy k v ) where
-  type Context ( GroupBy k v ) =
-    Context k
-
-  type Field ( GroupBy k v ) =
-    GroupByField k v
-
-  type ConstrainTable ( GroupBy k v ) c =
-    ( ConstrainTable k c, ConstrainTable v c )
-
-  field GroupBy{ key, value } = \case
-    KeyFields i -> field key i
-    ValueFields i -> field value i
-
-  tabulateMCP proxy f =
-    GroupBy
-      <$> tabulateMCP proxy ( f . KeyFields )
-      <*> tabulateMCP proxy ( f . ValueFields )
+-- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
+nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
+  where
+    go :: Expr a -> Aggregate (Expr (NonEmpty a))
+    go (Expr a) = Aggregate $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
-instance ( Context k ~ Context v, Context ( MapTable f k ) ~ Context ( MapTable f v ), Recontextualise k f, Recontextualise v f ) => Recontextualise ( GroupBy k v ) f where
-  type MapTable f ( GroupBy k v ) =
-    GroupBy ( MapTable f k ) ( MapTable f v )
+-- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
+-- 0 rows, this function will produce a 'Query' that is empty - that is, will
+-- produce zero @NonEmptyTable@s. If the supplied @Query@ does return rows,
+-- @some@ will return exactly one row, with a @NonEmptyTable@ collecting all
+-- returned rows.
+--
+-- @some@ is analogous to 'Control.Applicative.some' from
+-- @Control.Applicative@.
+some :: Table Expr exprs => Query exprs -> Query (NonEmptyTable exprs)
+some = aggregate . fmap nonEmptyAgg
 
-  fieldMapping = \case
-    KeyFields i -> KeyFields ( fieldMapping @_ @f i )
-    ValueFields i -> ValueFields ( fieldMapping @_ @f i )
 
-  reverseFieldMapping = \case
-    KeyFields i -> KeyFields ( reverseFieldMapping @_ @f i )
-    ValueFields i -> ValueFields ( reverseFieldMapping @_ @f i )
-
-
-instance ( Context v ~ Expr, Table k, Context k ~ Expr, MonoidTable v ) => MonoidTable ( GroupBy k v ) where
-  aggregator =
-    GroupBy
-      <$> lmap key group
-      <*> lmap value aggregator
-
-    where
-
-      group :: Opaleye.Aggregator k k
-      group =
-        Opaleye.Aggregator $ Opaleye.PackMap \f ->
-          fmap runIdentity
-            . traverseTable @Id ( traverseC \x -> fromPrimExpr <$> f ( Nothing, toPrimExpr x ) )
-            . Identity
+-- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
+-- rows, this function will produce a 'Query' that returns one row containing
+-- the empty @ListTable@. If the supplied @Query@ does return rows, @many@ will
+-- return exactly one row, with a @ListTable@ collecting all returned rows.
+-- 
+-- @many@ is analogous to 'Control.Applicative.many' from
+-- @Control.Applicative@.
+many :: Table Expr exprs => Query exprs -> Query (ListTable exprs)
+many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg

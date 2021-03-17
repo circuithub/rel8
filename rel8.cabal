@@ -1,93 +1,129 @@
-cabal-version:       2.0
-name:                rel8
-version:             0.1.0.0
-synopsis:            Hey! Hey! Can u rel8?
-license:             BSD3
-license-file:        LICENSE
-author:              Oliver Charles
-maintainer:          ollie@ocharles.org.uk
-build-type:          Custom
+cabal-version: 2.0
+name:          rel8
+version:       0.1.0.0
+synopsis:      Hey! Hey! Can u rel8?
+license:       BSD3
+license-file:  LICENSE
+author:        Oliver Charles
+maintainer:    ollie@ocharles.org.uk
+build-type:    Custom
 
 custom-setup
- setup-depends:
-   base >= 4 && <5,
-   Cabal,
-   cabal-doctest >= 1 && <1.1
+  setup-depends:
+      base           >=4 && <5
+    , Cabal
+    , cabal-doctest  ^>=1
 
 library
   build-depends:
       aeson
-    , base ^>=4.12 || ^>= 4.13 || ^>= 4.14
+    , base              >=4.12    && <4.15
     , bytestring
     , case-insensitive
     , contravariant
     , hasql
-    , opaleye ^>= 0.7.0.0
+    , opaleye           ^>=0.7.0.0
     , scientific
     , text
     , time
     , uuid
-  default-language:
-    Haskell2010
+
+  default-language: Haskell2010
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
-    -Wno-missing-import-lists -Wno-prepositive-qualified-module
-    -Wno-deprecations -Wno-monomorphism-restriction
-    -Wno-missing-local-signatures -Wno-implicit-prelude
-  hs-source-dirs:
-    src
+    -Wno-prepositive-qualified-module -Wno-deprecations
+    -Wno-monomorphism-restriction -Wno-missing-local-signatures
+    -Wno-implicit-prelude -Wno-orphan-instances
+
+  hs-source-dirs:   src
   exposed-modules:
     Rel8
     Rel8.Text
     Rel8.Time
-  other-modules:
-    Rel8.Optimize
 
+  other-modules:
+    Rel8.Aggregate
+    Rel8.Context
+    Rel8.DatabaseType
+    Rel8.DatabaseType.Decoder
+    Rel8.DBFunctor
+    Rel8.DBType
+    Rel8.DBType.DBEq
+    Rel8.DBType.DBMax
+    Rel8.DBType.DBMin
+    Rel8.DBType.DBOrd
+    Rel8.DBType.DBSum
+    Rel8.DBType.JSONBEncoded
+    Rel8.DBType.JSONEncoded
+    Rel8.DBType.ReadShow
+    Rel8.Delete
+    Rel8.Expr
+    Rel8.Expr.Bool
+    Rel8.Expr.Lit
+    Rel8.Expr.Null
+    Rel8.Expr.Opaleye
+    Rel8.Function
+    Rel8.Generic
+    Rel8.HTable
+    Rel8.HTable.HComposeTable
+    Rel8.HTable.HMaybeTable
+    Rel8.HTable.HPair
+    Rel8.HTable.Identity
+    Rel8.Insert
+    Rel8.Optimize
+    Rel8.Query
+    Rel8.Query.Order
+    Rel8.Returning
+    Rel8.Serializable
+    Rel8.Table
+    Rel8.Table.Bool
+    Rel8.Table.Congruent
+    Rel8.Table.ListTable
+    Rel8.Table.MaybeTable
+    Rel8.Table.NonEmptyTable
+    Rel8.Table.Selects
+    Rel8.TableSchema
+    Rel8.TableSchema.ColumnSchema
+    Rel8.Update
 
 test-suite tests
-  type:
-    exitcode-stdio-1.0
+  type:             exitcode-stdio-1.0
   build-depends:
       base
     , bytestring
     , case-insensitive
     , containers
-    , hedgehog          ^>= 1.0.2
-    , lifted-base       ^>= 0.2.3.12
-    , monad-control     ^>= 1.0.2.3
+    , hasql
+    , hedgehog          ^>=1.0.2
+    , lifted-base       ^>=0.2.3.12
+    , monad-control     ^>=1.0.2.3
     , rel8
     , scientific
     , tasty
     , tasty-hedgehog
     , text
     , time
-    , tmp-postgres      ^>= 1.34.1.0
+    , tmp-postgres      ^>=1.34.1.0
     , uuid
-    , hasql
-  main-is:
-    Main.hs
-  hs-source-dirs:
-    tests
-  default-language:
-    Haskell2010
+
+  main-is:          Main.hs
+  hs-source-dirs:   tests
+  default-language: Haskell2010
   ghc-options:
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
 
-
 test-suite doctests
-  type:
-    exitcode-stdio-1.0
+  type:             exitcode-stdio-1.0
   build-depends:
       base
     , base-compat
-    , doctest
-    , tmp-postgres
     , bytestring
+    , doctest
     , hasql
-  main-is:
-    Doctest.hs
-  default-language:
-    Haskell2010
+    , tmp-postgres
+
+  main-is:          Doctest.hs
+  default-language: Haskell2010
