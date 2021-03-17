@@ -17,17 +17,12 @@ module Rel8.Table.ListTable ( ListTable( ListTable ) ) where
 import Control.Applicative ( ZipList( ZipList, getZipList ) )
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
 
--- hasql
-import qualified Hasql.Decoders as Hasql
-
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Context )
 import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
 import Rel8.DatabaseType ( DatabaseType( typeName ) )
-import Rel8.DatabaseType.Decoder ( HasqlDecoder( DecodeNotNull, DecodeNull ) )
+import Rel8.DatabaseType.Decoder ( listDecoder )
 import Rel8.Expr ( Expr( toPrimExpr ), binaryOperator, fromPrimExpr )
 import Rel8.Expr.Lit ( litExprWith )
 import Rel8.HTable ( HTable( hdbtype, htabulate, hfield ), hzipWith )
@@ -79,15 +74,6 @@ instance Serializable a b => Serializable (ListTable a) [b] where
         where
           array = typeName (liftDatabaseType @[] databaseType)
 
-  rowParser liftHasqlDecoder = fmap getZipList . getCompose <$> rowParser @a (\x -> Compose <$> liftHasqlDecoder (listOf x))
-    where
-    listOf :: HasqlDecoder x -> HasqlDecoder (ZipList x)
-    listOf = \case
-      DecodeNotNull v f ->
-        DecodeNotNull (fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
-
-      DecodeNull v f -> DecodeNull v' \case
-        Nothing      -> pure <$> f Nothing
-        Just zipList -> traverse f zipList
-        where
-          v' = fmap ZipList $ Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nullable v
+  rowParser liftHasqlDecoder =
+    fmap getZipList . getCompose <$>
+      rowParser @a (\x -> Compose <$> liftHasqlDecoder (fmap ZipList (listDecoder x)))

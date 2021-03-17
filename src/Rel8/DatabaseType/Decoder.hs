@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 
@@ -7,6 +8,7 @@ module Rel8.DatabaseType.Decoder
   , parseDecoder
   , notNullDecoder
   , runHasqlDecoder
+  , listDecoder
   ) where
 
 -- base
@@ -43,6 +45,18 @@ acceptNull :: HasqlDecoder a -> HasqlDecoder (Maybe a)
 acceptNull = \case
   DecodeNotNull v f -> fmap f <$> nullDecoder v
   DecodeNull v f  -> DecodeNull v (fmap Just . f)
+
+
+listDecoder :: HasqlDecoder a -> HasqlDecoder [a]
+listDecoder = \case
+  DecodeNotNull v f ->
+    DecodeNotNull (Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
+
+  DecodeNull v f -> DecodeNull v' \case
+    Nothing -> pure <$> f Nothing
+    Just xs -> traverse f xs
+    where
+      v' = Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nullable v
 
 
 -- | Apply a parser to a decoder.
