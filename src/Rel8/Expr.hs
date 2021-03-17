@@ -17,7 +17,6 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr.Null ( nullify, liftOpNullable )
 import Rel8.Expr.Opaleye
   ( castExpr
   , litPrimExpr
@@ -38,11 +37,11 @@ newtype Expr nullability a = Expr Opaleye.PrimExpr
 
 
 instance DBSemigroup a => Semigroup (Expr nullability a) where
-  (<>) = liftOpNullable (<>.)
+  (<>) = (<>.)
 
 
 instance DBMonoid a => Monoid (Expr nullability a) where
-  mempty = nullify memptyExpr
+  mempty = memptyExpr
 
 
 instance (IsString a, DBType a) => IsString (Expr nullability a) where

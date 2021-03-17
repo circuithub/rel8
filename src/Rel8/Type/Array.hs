@@ -11,7 +11,6 @@
 module Rel8.Type.Array
   ( Array(..), array
   , arrayTypeInformation
-  , (++.), sempty
   )
 where
 
@@ -28,7 +27,6 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
   , SEmptiability( SEmptiable, SNonEmptiable )
@@ -43,9 +41,7 @@ import Rel8.Kind.Nullability
   )
 import Rel8.Type ( DBType, typeInformation, TypeInformation(..) )
 import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Ord ( DBOrd )
-import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
 type Array :: Emptiability -> Nullability -> Type -> Type
@@ -78,24 +74,6 @@ instance
   , KnownNullability nullability
   , DBOrd a
   ) => DBOrd (Array emptiability nullability a)
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBType a
-  ) => DBSemigroup (Array emptiability nullability a)
- where
-  (<>.) = (++.)
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBType a
-  ) => DBMonoid (Array emptiability nullability a)
- where
-  memptyExpr = Expr (array (typeInformation @a) [])
 
 
 array :: Foldable f
@@ -136,23 +114,3 @@ arrayTypeInformation emptiability nullability info = TypeInformation
       where
         message = "failed to decode NonEmptiable Array: empty list"
     null = Opaleye.ConstExpr Opaleye.NullLit
-
-
-(++.) :: ()
-  => Expr 'NonNullable (Array emptiability nullability a)
-  -> Expr 'NonNullable (Array emptiability nullability a)
-  -> Expr 'NonNullable (Array emptiability nullability a)
-Expr a ++. Expr b = Expr $
-  Opaleye.UnExpr (Opaleye.UnOpOther "ROW") $
-  Opaleye.BinExpr (Opaleye.:||) (unrow a) (unrow b)
-infixr 5 ++.
-
-
-sempty :: ()
-  => TypeInformation a -> Expr 'NonNullable (Array 'Emptiable nullability a)
-sempty info = Expr (array info [])
-
-
--- Requires Postgres 13
-unrow :: Opaleye.PrimExpr -> Opaleye.PrimExpr
-unrow a = Opaleye.CompositeExpr a "f1"

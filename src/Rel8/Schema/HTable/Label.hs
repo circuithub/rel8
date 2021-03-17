@@ -67,8 +67,8 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
       Dict -> LabelSpec Dict
 
   hspecs = HLabel $ htabulate $ \field -> case hfield hspecs field of
-    SSpec labels necessity nullability blueprint info ->
-      LabelSpec (SSpec (SLabels Proxy labels) necessity nullability blueprint info)
+    SSpec labels necessity nullability blueprint ->
+      LabelSpec (SSpec (SLabels Proxy labels) necessity nullability blueprint)
 
 
 type LabelingSpec :: Type -> Type

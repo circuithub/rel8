@@ -67,8 +67,8 @@ instance HTable table => HTable (HNullify table) where
       Dict -> NullifySpec Dict
 
   hspecs = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec labels necessity  _ blueprint info ->
-      NullifySpec (SSpec labels necessity SNullable blueprint info)
+    SSpec labels necessity  _ blueprint ->
+      NullifySpec (SSpec labels necessity SNullable blueprint)
 
 
 type NullifyingSpec :: Type -> Type

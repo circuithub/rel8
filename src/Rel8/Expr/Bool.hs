@@ -15,7 +15,7 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye
   ( castExpr
   , litPrimExpr

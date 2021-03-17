@@ -21,9 +21,9 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( boolExpr, (||.) )
-import Rel8.Expr.Opaleye ( scastExpr, mapPrimExpr )
+import Rel8.Expr.Opaleye ( scastExpr, unsafeMapPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Type ( DBType, TypeInformation, typeInformation )
 
@@ -57,11 +57,11 @@ nullableOf = maybe null nullify
 
 
 isNull :: Expr 'Nullable a -> Expr 'NonNullable Bool
-isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
+isNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
 isNonNull :: Expr 'Nullable a -> Expr 'NonNullable Bool
-isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
+isNonNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 
 
 mapNullable :: (Nullification nonNullable nullable, DBType b)

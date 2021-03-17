@@ -46,7 +46,6 @@ import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Value ( Value )
-import Rel8.Type ( DBType )
 
 
 type Table :: Type -> Constraint
@@ -81,7 +80,6 @@ instance
   , KnownBlueprint blueprint
   , blueprint ~ FromDBType a
   , ToDBType blueprint ~ a
-  , DBType a
   ) =>
   Table (Aggregate nullability a)
  where
@@ -98,7 +96,6 @@ instance
   , KnownBlueprint blueprint
   , blueprint ~ FromDBType a
   , ToDBType blueprint ~ a
-  , DBType a
   ) =>
   Table (Expr nullability a)
  where
@@ -115,7 +112,6 @@ instance
   , KnownBlueprint blueprint
   , blueprint ~ FromType a
   , ToType blueprint ~ a
-  , DBType (ToDBType blueprint)
   ) =>
   Table (Value nullability a)
  where

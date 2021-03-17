@@ -56,7 +56,7 @@ instance
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ _ ->
+          SSpec _ _ nullability _ ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -71,7 +71,7 @@ infix 4 <:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ _ ->
+          SSpec _ _ nullability _ ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -86,7 +86,7 @@ infix 4 <=:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ _ ->
+          SSpec _ _ nullability _ ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -101,7 +101,7 @@ infix 4 >:
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ _ ->
+          SSpec _ _ nullability _ ->
             Const [(sgt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)

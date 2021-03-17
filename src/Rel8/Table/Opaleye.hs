@@ -37,10 +37,11 @@ import Rel8.Expr.Aggregate ( Aggregate( Aggregate ), Aggregator( Aggregator ) )
 import qualified Rel8.Expr.Aggregate
 import Rel8.Expr.Opaleye
   ( scastExpr
-  , fromPrimExpr, toPrimExpr
-  , traversePrimExpr
+  , unsafeFromPrimExpr, unsafeToPrimExpr
+  , unsafeTraversePrimExpr
   , columnToExpr, exprToColumn
   )
+import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( Aggregation(..), DB(..), Insert(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
@@ -69,14 +70,15 @@ binaryspec :: (Table a, Context a ~ DB) => Opaleye.Binaryspec a a
 binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
   fmap fromColumns $ htabulateA $ \field ->
     case (hfield (toColumns as) field, hfield (toColumns bs) field) of
-      (DB a, DB b) -> DB . fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
+      (DB a, DB b) -> DB . unsafeFromPrimExpr <$>
+        f (unsafeToPrimExpr a, unsafeToPrimExpr b)
 
 
 distinctspec :: (Table a, Context a ~ DB) => Opaleye.Distinctspec a a
 distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
     fmap fromColumns .
-    htraverse (\(DB a) -> DB . fromPrimExpr <$> f (Nothing, toPrimExpr a)) .
+    htraverse (\(DB a) -> DB . unsafeFromPrimExpr <$> f (Nothing, unsafeToPrimExpr a)) .
     toColumns
 
 
@@ -91,18 +93,20 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
-    go (SSpec _ necessity _ _ info) (Name name) = case necessity of
+    go (SSpec _ necessity _ blueprint) (Name name) = case necessity of
       SRequired ->
         lmap (\(RequiredInsert a) -> exprToColumn a) $
         DB . scastExpr info . columnToExpr <$> Opaleye.requiredTableField name
       SOptional -> lmap (\(OptionalInsert ma) -> exprToColumn <$> ma) $
         DB . scastExpr info . columnToExpr <$> Opaleye.optionalTableField name
+      where
+        info = typeInformationFromBlueprint blueprint
 
 
 unpackspec :: (Table a, Context a ~ DB) => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
-  htraverse (\(DB a) -> DB <$> traversePrimExpr f a) .
+  htraverse (\(DB a) -> DB <$> unsafeTraversePrimExpr f a) .
   toColumns
 
 
@@ -114,5 +118,5 @@ toPackMap :: (Table a, Context a ~ DB)
   => a -> Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $
-  htraverse (\(DB a) -> DB <$> traversePrimExpr f a) $
+  htraverse (\(DB a) -> DB <$> unsafeTraversePrimExpr f a) $
   toColumns as

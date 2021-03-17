@@ -28,7 +28,7 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Aggregate ( Aggregate(..), groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( toPrimExpr )
+import Rel8.Expr.Opaleye ( unsafeToPrimExpr )
 import Rel8.Kind.Blueprint ( Blueprint( Scalar ) )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
@@ -74,7 +74,7 @@ instance Nullifiable Aggregation where
   nullifier tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
     Aggregate {aggregator, input, output} -> Aggregate
       { aggregator
-      , input = toPrimExpr $ runTag tag (Expr input)
+      , input = unsafeToPrimExpr $ runTag tag (Expr input)
       , output = nullify . output
       }
 

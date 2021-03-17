@@ -1,11 +1,6 @@
 {-# language DataKinds #-}
-{-# language DefaultSignatures #-}
-{-# language DerivingStrategies #-}
-{-# language GADTs #-}
-{-# language RoleAnnotations #-}
+{-# language TypeFamilies #-}
 {-# language StandaloneKindSignatures #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.Type.Num
   ( DBNum, DBIntegral, DBFractional
@@ -18,6 +13,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
+import Rel8.Kind.Blueprint ( Blueprint( Scalar ), FromDBType )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -25,7 +21,7 @@ import Data.Scientific ( Scientific )
 
 
 type DBNum :: Type -> Constraint
-class DBType a => DBNum a
+class (DBType a, FromDBType a ~ 'Scalar a) => DBNum a
 instance DBNum Int16
 instance DBNum Int32
 instance DBNum Int64

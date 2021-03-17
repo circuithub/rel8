@@ -16,6 +16,7 @@ module Rel8.Kind.Blueprint
   , FromDBType, ToDBType, FromType, ToType
   , fromDBType, toDBType
   , sfromDBType, stoDBType
+  , typeInformationFromBlueprint
   )
 where
 
@@ -36,7 +37,8 @@ import Rel8.Kind.Nullability
   , KnownNullability, nullabilitySing
   )
 import Rel8.Schema.Value ( FromValue, GetNullability, GetValue )
-import Rel8.Type.Array ( Array(..) )
+import Rel8.Type ( DBType, TypeInformation, typeInformation )
+import Rel8.Type.Array ( Array(..), arrayTypeInformation )
 
 
 type Blueprint :: Type
@@ -45,7 +47,7 @@ data Blueprint = Scalar Type | Vector Emptiability Nullability Blueprint
 
 type SBlueprint :: Blueprint -> Type
 data SBlueprint blueprint where
-  SScalar :: SBlueprint ('Scalar a)
+  SScalar :: TypeInformation a -> SBlueprint ('Scalar a)
   SVector :: ()
     => SEmptiability emptiability
     -> SNullability nullability
@@ -58,8 +60,8 @@ class KnownBlueprint blueprint where
   blueprintSing :: SBlueprint blueprint
 
 
-instance KnownBlueprint ('Scalar a) where
-  blueprintSing = SScalar
+instance DBType a => KnownBlueprint ('Scalar a) where
+  blueprintSing = SScalar typeInformation
 
 
 instance
@@ -126,7 +128,7 @@ fromDBType = sfromDBType (blueprintSing @blueprint)
 sfromDBType :: (a ~ ToType blueprint, dbType ~ ToDBType blueprint)
   => SBlueprint blueprint -> dbType -> a
 sfromDBType = \case
-  SScalar -> id
+  SScalar _ -> id
   SVector SEmptiable SNullable blueprint ->
     \(NullableList as) -> fmap (fmap (sfromDBType blueprint)) as
   SVector SNonEmptiable SNullable blueprint ->
@@ -150,7 +152,7 @@ toDBType = stoDBType (blueprintSing @blueprint)
 stoDBType :: (a ~ ToType blueprint, dbType ~ ToDBType blueprint)
   => SBlueprint blueprint -> a -> dbType
 stoDBType = \case
-  SScalar -> id
+  SScalar _ -> id
   SVector SEmptiable SNullable blueprint ->
     NullableList . fmap (fmap (stoDBType blueprint))
   SVector SNonEmptiable SNullable blueprint ->
@@ -159,3 +161,12 @@ stoDBType = \case
     NonNullableList . fmap (stoDBType blueprint)
   SVector SNonEmptiable SNonNullable blueprint ->
     NonNullableNonEmpty . fmap (stoDBType blueprint)
+
+
+typeInformationFromBlueprint :: ()
+  => SBlueprint blueprint -> TypeInformation (ToDBType blueprint)
+typeInformationFromBlueprint = \case
+  SScalar a -> a
+  SVector emptiability nullability blueprint ->
+    arrayTypeInformation emptiability nullability
+      (typeInformationFromBlueprint blueprint)

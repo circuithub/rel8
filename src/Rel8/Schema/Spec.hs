@@ -6,7 +6,7 @@
 
 module Rel8.Schema.Spec
   ( Spec( Spec, labels, nullability, necessity, blueprint )
-  , SSpec( SSpec, slabels, snullability, snecessity, sblueprint, stypeInformation )
+  , SSpec( SSpec, slabels, snullability, snecessity, sblueprint )
   , KnownSpec( specSing )
   , Context, KTable
   )
@@ -21,7 +21,6 @@ import Rel8.Kind.Blueprint
   ( Blueprint
   , SBlueprint
   , KnownBlueprint, blueprintSing
-  , ToDBType
   )
 import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Kind.Necessity
@@ -34,7 +33,6 @@ import Rel8.Kind.Nullability
   , SNullability
   , KnownNullability, nullabilitySing
   )
-import Rel8.Type ( DBType, TypeInformation, typeInformation )
 
 
 type Spec :: Type
@@ -53,7 +51,6 @@ data SSpec spec where
     , snecessity :: SNecessity necessity
     , snullability :: SNullability nullability
     , sblueprint :: SBlueprint blueprint
-    , stypeInformation :: TypeInformation (ToDBType blueprint)
     }
     -> SSpec ('Spec labels necessity nullability blueprint)
 
@@ -68,7 +65,6 @@ instance
   , KnownNecessity necessity
   , KnownNullability nullability
   , KnownBlueprint blueprint
-  , DBType (ToDBType blueprint)
   ) => KnownSpec ('Spec labels necessity nullability blueprint)
  where
   specSing = SSpec
@@ -76,7 +72,6 @@ instance
     , snecessity = necessitySing
     , snullability = nullabilitySing
     , sblueprint = blueprintSing
-    , stypeInformation = typeInformation
     }
 
 

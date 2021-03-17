@@ -21,7 +21,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Expr.Opaleye ( litPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Type
   ( DBType, typeInformation
@@ -53,15 +53,15 @@ instance DBSemigroup EitherTag where
 
 
 instance DBMonoid EitherTag where
-  memptyExpr = litExpr mempty
+  memptyExpr = litPrimExpr mempty
 
 
 isLeft :: Expr 'NonNullable EitherTag -> Expr 'NonNullable Bool
-isLeft = (litExpr IsLeft ==.)
+isLeft = (litPrimExpr IsLeft ==.)
 
 
 isRight :: Expr 'NonNullable EitherTag -> Expr 'NonNullable Bool
-isRight = (litExpr IsLeft ==.)
+isRight = (litPrimExpr IsLeft ==.)
 
 
 type MaybeTag :: Type
@@ -84,4 +84,4 @@ instance DBSemigroup MaybeTag where
 
 
 instance DBMonoid MaybeTag where
-  memptyExpr = litExpr mempty
+  memptyExpr = litPrimExpr mempty

@@ -1,6 +1,10 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Semigroup
   ( DBSemigroup( (<>.))
@@ -23,9 +27,15 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
+import Rel8.Expr.Array ( sappend )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
+import Rel8.Kind.Blueprint
+  ( KnownBlueprint, blueprintSing, FromDBType, ToDBType
+  )
+import Rel8.Kind.Emptiability ( KnownEmptiability, emptiabilitySing )
+import Rel8.Kind.Nullability ( KnownNullability, nullabilitySing )
 import Rel8.Type ( DBType )
+import Rel8.Type.Array ( Array )
 
 -- text
 import Data.Text ( Text )
@@ -37,8 +47,20 @@ import Data.Time.Clock ( DiffTime, NominalDiffTime )
 
 type DBSemigroup :: Type -> Constraint
 class DBType a => DBSemigroup a where
-  (<>.) :: Expr 'NonNullable a -> Expr 'NonNullable a -> Expr 'NonNullable a
+  (<>.) :: Expr nullability a -> Expr nullability a -> Expr nullability a
   infixr 6 <>.
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , KnownBlueprint blueprint
+  , blueprint ~ FromDBType a
+  , a ~ ToDBType blueprint
+  , DBType a
+  ) => DBSemigroup (Array emptiability nullability a)
+ where
+  (<>.) = sappend emptiabilitySing nullabilitySing (blueprintSing @blueprint)
 
 
 instance DBSemigroup DiffTime where

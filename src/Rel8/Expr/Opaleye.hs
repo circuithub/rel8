@@ -1,15 +1,21 @@
+{-# language FlexibleContexts #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+
+{-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Opaleye
   ( castExpr, unsafeCastExpr
   , scastExpr, sunsafeCastExpr
   , unsafeLiteral
   , litPrimExpr
-  , fromPrimExpr
-  , toPrimExpr
-  , mapPrimExpr
-  , traversePrimExpr
-  , zipPrimExprsWith
+  , unsafeFromPrimExpr, unsafeToPrimExpr, unsafeMapPrimExpr
+  , unsafeZipPrimExprsWith, unsafeTraversePrimExpr
+  , fromPrimExpr, toPrimExpr, mapPrimExpr, zipPrimExprsWith
+  , sfromPrimExpr, stoPrimExpr
   , exprToColumn
   , columnToExpr
   )
@@ -24,6 +30,12 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Kind.Blueprint
+  ( SBlueprint( SScalar, SVector )
+  , KnownBlueprint, blueprintSing
+  , FromDBType, ToDBType
+  , typeInformationFromBlueprint
+  )
 import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
 
 
@@ -43,7 +55,7 @@ scastExpr = sunsafeCastExpr
 sunsafeCastExpr :: ()
   => TypeInformation b -> Expr nullability a -> Expr nullability b
 sunsafeCastExpr TypeInformation {typeName} =
-  Expr . Opaleye.CastExpr typeName . toPrimExpr
+  Expr . Opaleye.CastExpr typeName . unsafeToPrimExpr
 
 
 unsafeLiteral :: DBType a => String -> Expr nullability a
@@ -58,30 +70,104 @@ slitPrimExpr :: TypeInformation a -> a -> Expr nullability a
 slitPrimExpr info@TypeInformation {encode} = scastExpr info . Expr . encode
 
 
-fromPrimExpr :: Opaleye.PrimExpr -> Expr nullability a
-fromPrimExpr = Expr
+unsafeFromPrimExpr :: Opaleye.PrimExpr -> Expr nullability a
+unsafeFromPrimExpr = Expr
 
 
-toPrimExpr :: Expr nullability a -> Opaleye.PrimExpr
-toPrimExpr (Expr a) = a
+unsafeToPrimExpr :: Expr nullability a -> Opaleye.PrimExpr
+unsafeToPrimExpr (Expr a) = a
 
 
-mapPrimExpr :: ()
+unsafeMapPrimExpr :: ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr nullability1 a -> Expr nullability2 b
-mapPrimExpr f (Expr a) = Expr (f a)
+unsafeMapPrimExpr f = unsafeFromPrimExpr . f . unsafeToPrimExpr
 
 
-traversePrimExpr :: Functor f
-  => (Opaleye.PrimExpr -> f Opaleye.PrimExpr)
-  -> Expr nullability1 a -> f (Expr nullability2 b)
-traversePrimExpr f (Expr a) = Expr <$> f a
-
-
-zipPrimExprsWith :: ()
+unsafeZipPrimExprsWith :: ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
-zipPrimExprsWith f (Expr a) (Expr b) = Expr (f a b)
+unsafeZipPrimExprsWith f a b =
+  unsafeFromPrimExpr (f (unsafeToPrimExpr a) (unsafeToPrimExpr b))
+
+
+unsafeTraversePrimExpr :: Functor f
+  => (Opaleye.PrimExpr -> f Opaleye.PrimExpr)
+  -> Expr nullability1 a -> f (Expr nullability2 b)
+unsafeTraversePrimExpr f = fmap unsafeFromPrimExpr . f . unsafeToPrimExpr
+
+
+fromPrimExpr :: forall blueprint nullability a.
+  ( blueprint ~ FromDBType a
+  , a ~ ToDBType blueprint
+  , KnownBlueprint blueprint
+  )
+  => Opaleye.PrimExpr -> Expr nullability a
+fromPrimExpr = sfromPrimExpr (blueprintSing @blueprint)
+
+
+toPrimExpr :: forall blueprint nullability a.
+  ( blueprint ~ FromDBType a
+  , a ~ ToDBType blueprint
+  , KnownBlueprint blueprint
+  )
+  => Expr nullability a -> Opaleye.PrimExpr
+toPrimExpr = stoPrimExpr (blueprintSing @blueprint)
+
+
+sfromPrimExpr :: a ~ ToDBType blueprint
+  => SBlueprint blueprint -> Opaleye.PrimExpr -> Expr nullability a
+sfromPrimExpr = \case
+  SScalar _ -> unsafeFromPrimExpr
+  SVector _ _ blueprint -> \a -> Expr $
+    Opaleye.CaseExpr
+      [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
+      ]
+      (Opaleye.UnExpr (Opaleye.UnOpOther "ROW") (Opaleye.CastExpr name a))
+    where
+      info = typeInformationFromBlueprint blueprint
+      name = typeName info <> "[]"
+
+
+stoPrimExpr :: a ~ ToDBType blueprint
+  => SBlueprint blueprint -> Expr nullability a -> Opaleye.PrimExpr
+stoPrimExpr = \case
+  SScalar _ -> unsafeToPrimExpr
+  SVector {} -> \(Expr a) ->
+    Opaleye.CaseExpr
+      [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
+      ]
+      -- Requires at least Postgres 13
+      (Opaleye.CompositeExpr a "f1")
+
+
+mapPrimExpr ::
+  ( blueprint1 ~ FromDBType a
+  , a ~ ToDBType blueprint1
+  , KnownBlueprint blueprint1
+  , blueprint2 ~ FromDBType b
+  , b ~ ToDBType blueprint2
+  , KnownBlueprint blueprint2
+  )
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
+  -> Expr nullability1 a -> Expr nullability2 b
+mapPrimExpr f = fromPrimExpr . f . toPrimExpr
+
+
+zipPrimExprsWith ::
+  ( blueprint1 ~ FromDBType a
+  , a ~ ToDBType blueprint1
+  , KnownBlueprint blueprint1
+  , blueprint2 ~ FromDBType b
+  , b ~ ToDBType blueprint2
+  , KnownBlueprint blueprint2
+  , blueprint3 ~ FromDBType c
+  , c ~ ToDBType blueprint3
+  , KnownBlueprint blueprint3
+  )
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
+  -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
+zipPrimExprsWith f a b = fromPrimExpr (f (toPrimExpr a) (toPrimExpr b))
 
 
 exprToColumn :: Expr nullability a -> Opaleye.Column b

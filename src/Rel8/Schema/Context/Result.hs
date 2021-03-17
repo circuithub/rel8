@@ -162,7 +162,7 @@ unnullifier :: ()
   => SSpec ('Spec labels necessity nullability blueprint)
   -> Result ('Spec labels necessity 'Nullable blueprint)
   -> Maybe (Result ('Spec labels necessity nullability blueprint))
-unnullifier (SSpec _ _ nullability _ _) (Result (NullableValue ma)) =
+unnullifier (SSpec _ _ nullability _) (Result (NullableValue ma)) =
   case nullability of
     SNonNullable -> Result . NonNullableValue <$> ma
     SNullable -> pure (Result (NullableValue ma))
@@ -172,7 +172,7 @@ vectorizer :: ()
   => SSpec ('Spec labels necessity nullability blueprint)
   -> [Result ('Spec labels necessity nullability blueprint)]
   -> Result ('Spec labels necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
-vectorizer (SSpec _ _ nullability _ _) results = case nullability of
+vectorizer (SSpec _ _ nullability _) results = case nullability of
   SNullable -> Result $ NonNullableValue $
     fmap (\(Result (NullableValue a)) -> a) results
   SNonNullable -> Result $ NonNullableValue $
@@ -183,7 +183,7 @@ vectorizer1 :: ()
   => SSpec ('Spec labels necessity nullability blueprint)
   -> NonEmpty (Result ('Spec labels necessity nullability blueprint))
   -> Result ('Spec labels necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
-vectorizer1 (SSpec _ _ nullability _ _) results = case nullability of
+vectorizer1 (SSpec _ _ nullability _) results = case nullability of
   SNullable -> Result $ NonNullableValue $
     fmap (\(Result (NullableValue a)) -> a) results
   SNonNullable -> Result $ NonNullableValue $
@@ -194,7 +194,7 @@ unvectorizer :: ()
   => SSpec ('Spec labels necessity nullability blueprint)
   -> Result ('Spec labels necessity 'NonNullable ('Vector 'Emptiable nullability blueprint))
   -> [Result ('Spec labels necessity nullability blueprint)]
-unvectorizer (SSpec _ _ nullability _ _) (Result (NonNullableValue results)) =
+unvectorizer (SSpec _ _ nullability _) (Result (NonNullableValue results)) =
   case nullability of
     SNullable -> Result . NullableValue <$> results
     SNonNullable -> Result . NonNullableValue <$> results
@@ -204,7 +204,7 @@ unvectorizer1 :: ()
   => SSpec ('Spec labels necessity nullability blueprint)
   -> Result ('Spec labels necessity 'NonNullable ('Vector 'NonEmptiable nullability blueprint))
   -> NonEmpty (Result ('Spec labels necessity nullability blueprint))
-unvectorizer1 (SSpec _ _ nullability _ _) (Result (NonNullableValue results)) =
+unvectorizer1 (SSpec _ _ nullability _) (Result (NonNullableValue results)) =
   case nullability of
     SNullable -> Result . NullableValue <$> results
     SNonNullable -> Result . NonNullableValue <$> results

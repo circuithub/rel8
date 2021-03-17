@@ -29,10 +29,10 @@ import Prelude
 import Rel8.Kind.Blueprint
   ( Blueprint( Vector )
   , SBlueprint( SVector )
+  , ToDBType
   )
 import Rel8.Kind.Emptiability
-  ( Emptiability( Emptiable )
-  , KnownEmptiability, emptiabilitySing
+  ( Emptiability, KnownEmptiability, emptiabilitySing
   )
 import Rel8.Kind.Nullability
   ( Nullability( NonNullable )
@@ -50,6 +50,8 @@ import Rel8.Schema.Spec
   , Spec( Spec )
   , SSpec(..)
   )
+import Rel8.Type ( TypeInformation )
+import Rel8.Type.Array ( arrayTypeInformation )
 
 -- semialign
 import Data.Zip ( Unzip, Repeat, Zippy(..) )
@@ -182,7 +184,7 @@ hunvectorize unvectorizer (HVectorize table) =
 happend :: HTable t =>
   ( forall labels necessity nullability blueprint. ()
     => SNullability nullability
-    -> SBlueprint blueprint
+    -> TypeInformation (ToDBType blueprint)
     -> context
          ( 'Spec labels necessity 'NonNullable
              ('Vector emptiability nullability blueprint)
@@ -203,23 +205,24 @@ happend append (HVectorize as) (HVectorize bs) = HVectorize $
   htabulate $ \field -> case (hfield as field, hfield bs field) of
     (VectorizeSpec a, VectorizeSpec b) -> case hfield hspecs field of
       SSpec _ _ nullability blueprint ->
-        VectorizeSpec $ append nullability blueprint a b
+        VectorizeSpec $ append nullability info a b
+        where
+          info = typeInformationFromBlueprint blueprint
 
 
 hempty :: HTable t =>
   ( forall labels necessity nullability blueprint. ()
     => SNullability nullability
-    -> SBlueprint blueprint
+    -> TypeInformation (ToDBType blueprint)
     -> context
          ('Spec labels necessity 'NonNullable
-           ( 'Vector 'Emptiable nullability blueprint
+           ( 'Vector emptiability nullability blueprint
            )
          )
   )
-  -> HVectorize 'Emptiable t (H context)
+  -> HVectorize emptiability t (H context)
 hempty empty = HVectorize $ htabulate $ \field -> case hfield hspecs field of
-  SSpec _ _ nullability blueprint ->
-    VectorizeSpec (empty nullability blueprint)
+  SSpec _ _ nullability _ info -> VectorizeSpec (empty nullability info)
 
 
 hrelabel :: Labelable context

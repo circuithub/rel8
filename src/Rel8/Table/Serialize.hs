@@ -35,6 +35,7 @@ import Rel8.Kind.Blueprint
   , KnownBlueprint
   , FromDBType, ToDBType
   , FromType, ToType
+  , typeInformationFromBlueprint
   )
 import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
 import Rel8.Kind.Nullability
@@ -170,7 +171,6 @@ instance
   , ToType blueprint ~ a
   , KnownBlueprint blueprint
   , KnownNullability nullability
-  , DBType dbType
   , IsListTabular ma ~ 'False
   , x ~ Array 'Emptiable nullability dbType
   , outerNullability ~ 'NonNullable
@@ -189,7 +189,6 @@ instance
   , KnownBlueprint blueprint
   , isTabular ~ 'False
   , IsMaybeTabular a ~ 'False
-  , DBType dbType
   ) => ExprsFor 'False 'False (Maybe a) (Expr nullability dbType)
  where
   fromResults (HIdentity (Result (NullableValue a))) = a
@@ -205,7 +204,6 @@ instance
   , ToType blueprint ~ a
   , KnownBlueprint blueprint
   , KnownNullability nullability
-  , DBType dbType
   , IsListTabular ma ~ 'False
   , x ~ Array 'NonEmptiable nullability dbType
   , outerNullability ~ 'NonNullable
@@ -471,12 +469,16 @@ parse = fromResults' @exprs <$> parseTable
 litTable :: Recontextualize Result DB a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ _ _ blueprint info -> case hfield as field of
+    SSpec _ _ _ blueprint -> case hfield as field of
       Result value -> DB (slitExpr blueprint info value)
+      where
+        info = typeInformationFromBlueprint blueprint
 
 
 parseTable :: (Table a, Context a ~ Result) => Hasql.Row a
 parseTable = fmap fromColumns $ htabulateA $ \field ->
   case hfield hspecs field of
-    SSpec _ _ nullability blueprint info ->
+    SSpec _ _ nullability blueprint ->
       Result <$> sparseValue nullability blueprint info
+      where
+        info = typeInformationFromBlueprint blueprint
