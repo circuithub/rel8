@@ -53,6 +53,7 @@ library
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Serialize
+    Rel8.Expr.Time
 
     Rel8.Kind.Blueprint
     Rel8.Kind.Emptiability

@@ -1,8 +1,9 @@
 {-# language NamedFieldPuns #-}
 
 module Rel8.Expr.Opaleye
-  ( castExpr
-  , scastExpr
+  ( castExpr, unsafeCastExpr
+  , scastExpr, sunsafeCastExpr
+  , unsafeLiteral
   , litPrimExpr
   , fromPrimExpr
   , toPrimExpr
@@ -30,14 +31,27 @@ castExpr :: DBType a => Expr nullability a -> Expr nullability a
 castExpr = scastExpr typeInformation
 
 
-litPrimExpr :: DBType a => a -> Expr nullability a
-litPrimExpr = slitPrimExpr typeInformation
+unsafeCastExpr :: DBType b => Expr nullability a -> Expr nullability b
+unsafeCastExpr = sunsafeCastExpr typeInformation
 
 
 scastExpr :: ()
   => TypeInformation a -> Expr nullability a -> Expr nullability a
-scastExpr TypeInformation {typeName} =
+scastExpr = sunsafeCastExpr
+
+
+sunsafeCastExpr :: ()
+  => TypeInformation b -> Expr nullability a -> Expr nullability b
+sunsafeCastExpr TypeInformation {typeName} =
   Expr . Opaleye.CastExpr typeName . toPrimExpr
+
+
+unsafeLiteral :: DBType a => String -> Expr nullability a
+unsafeLiteral = castExpr . Expr . Opaleye.ConstExpr . Opaleye.OtherLit
+
+
+litPrimExpr :: DBType a => a -> Expr nullability a
+litPrimExpr = slitPrimExpr typeInformation
 
 
 slitPrimExpr :: TypeInformation a -> a -> Expr nullability a
