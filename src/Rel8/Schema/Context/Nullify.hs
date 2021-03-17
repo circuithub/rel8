@@ -1,7 +1,6 @@
 {-# language DataKinds #-}
 {-# language LambdaCase #-}
 {-# language FlexibleInstances #-}
-{-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -108,11 +107,7 @@ instance Nullifiable Insert where
 
 
 instance Nullifiable Name where
-  encodeTag :: forall labels nullability a. KnownLabels labels
-    => Expr nullability a
-    -> Name ('Spec labels 'Required nullability ('Scalar a))
-  encodeTag _ = case labelsSing @labels of
-    labels -> Name (NonEmpty.last (renderLabels labels))
+  encodeTag _ = nameFromLabel
   decodeTag _ = mempty
   nullifier _ _ (Name name) = Name name
   unnullifier _ _ (Name name) = Name name
@@ -133,3 +128,9 @@ runTag tag a = boolExpr null (nullify a) tag
 undoGroupBy :: Aggregate _nullability _a -> Maybe (Expr nullability a)
 undoGroupBy Aggregate {aggregator = Nothing, input} = Just (Expr input)
 undoGroupBy _ = Nothing
+
+
+nameFromLabel :: forall labels necessity nullability blueprint.
+  KnownLabels labels => Name ('Spec labels necessity nullability blueprint)
+nameFromLabel = case labelsSing @labels of
+  labels -> Name (NonEmpty.last (renderLabels labels))
