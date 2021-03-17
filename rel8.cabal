@@ -24,6 +24,7 @@ library
     , hasql
     , opaleye ^>= 0.7.0.0
     , scientific
+    , semigroupoids
     , text
     , time
     , uuid
@@ -41,7 +42,31 @@ library
     Rel8.Text
     Rel8.Time
   other-modules:
+    Rel8.ColumnSchema
+    Rel8.Context
+    Rel8.Expr
+    Rel8.Expr.Bool
+    Rel8.Expr.Function
+    Rel8.Expr.Opaleye
+    Rel8.Expr.Time
+    Rel8.HTable
+    Rel8.HTable.Identity
+    Rel8.HTable.Maybe
     Rel8.Optimize
+    Rel8.Table
+    Rel8.Table.Alternative
+    Rel8.Table.Bool
+    Rel8.Table.Maybe
+    Rel8.TableSchema
+    Rel8.Type
+    Rel8.Type.DBEq
+    Rel8.Type.DBIsString
+    Rel8.Type.DBMonoid
+    Rel8.Type.DBNum
+    Rel8.Type.DBOrd
+    Rel8.Type.DBSemigroup
+    Rel8.Type.Decoder
+    Rel8.Type.Tag
 
 
 test-suite tests
