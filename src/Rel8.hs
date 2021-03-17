@@ -102,7 +102,6 @@ module Rel8
   , not_
   , in_
   , ifThenElse_
-  , EqTable(..)
   , case_
 
     -- ** Ordering
@@ -218,13 +217,10 @@ module Rel8
   ) where
 
 -- base
-import Data.Foldable ( fold )
-import Prelude ( Bool, String, (.) )
-
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Prelude ()
 
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Aggregate
   ( Aggregate
   , aggregate
@@ -241,7 +237,7 @@ import Rel8.Aggregate
   )
 import Rel8.Context ( Context, KContext )
 import Rel8.DBType ( DBType( typeInformation ) )
-import Rel8.DBType.DBEq ( DBEq( eqExprs ) )
+import Rel8.DBType.DBEq ( DBEq( (==.), (/=.) ), in_ )
 import Rel8.DBType.DBMax ( DBMax( max ) )
 import Rel8.DBType.DBMin ( DBMin( min ) )
 import Rel8.DBType.DBOrd ( DBOrd( (<.), (<=.), (>.), (>=.) ) )
@@ -262,7 +258,7 @@ import Rel8.Expr
   , unsafeCastExpr
   , unsafeCoerceExpr
   )
-import Rel8.Expr.Bool ( (&&.), (||.), and_, in_, not_, or_ )
+import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
 import Rel8.Expr.Lit ( unsafeLiteral )
 import Rel8.Expr.Null ( catMaybe, fromNull, isNull, liftNull, mapNull, null, nullExpr )
 import Rel8.Function ( Function, function, nullaryFunction )
@@ -284,7 +280,7 @@ import Rel8.Query
   , limit
   , offset
   , select
-  , selectQuery
+  , showQuery
   , union
   , unionAll
   , values
@@ -672,25 +668,6 @@ import Rel8.Update ( Update( Update, target, updateWhere, set, returning ), upda
 -- ("Ollie",["rel8"])
 -- ("Bryan O'Sullivan",["aeson","text"])
 -- ("Emily Pillmore",[])
-
-
--- | The class of database tables (containing one or more columns) that can be
--- compared for equality as a whole.
-class Table Expr a => EqTable a where
-  -- | Compare two tables or expressions for equality.
-  (==.) :: a -> a -> Expr Bool
-
-
--- | Any @Expr@s can be compared for equality as long as the underlying
--- database type supports equality comparisons.
-instance DBEq a => EqTable (Expr a) where
-  (==.) = eqExprs
-
-
--- | Convert a query to a 'String' containing the query as a @SELECT@
--- statement.
-showQuery :: Table Expr a => Query a -> String
-showQuery = fold . selectQuery
 
 
 -- | Corresponds to the SQL @DEFAULT@ keyword.

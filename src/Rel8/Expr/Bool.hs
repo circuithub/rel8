@@ -1,6 +1,7 @@
+{-# options_ghc -Wno-redundant-constraints #-}
+
 module Rel8.Expr.Bool
-  ( in_
-  , (&&.)
+  ( (&&.)
   , and_
   , (||.)
   , or_
@@ -10,25 +11,10 @@ module Rel8.Expr.Bool
 -- base
 import Data.Foldable ( foldl' )
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
-import Rel8.DBType.DBEq ( DBEq( eqExprs ) )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Lit ( litExpr )
-
-
--- | Like the SQL @IN@ operator, but implemented by folding over a list with
--- '==.' and '||.'.
---
--- >>> select c $ return $ lit (5 :: Int32) `in_` [ lit x | x <- [1..5] ]
--- [True]
---
--- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
--- [False]
-in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
-in_ x = foldl' (\b y -> b ||. eqExprs x y) (litExpr False)
 
 
 -- | The SQL @AND@ operator.

@@ -23,14 +23,12 @@ import qualified Data.CaseInsensitive as CI
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
--- opaleye
+-- rel8
 import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
--- rel8
 import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
 import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, nullDatabaseType, typeName )
-import Rel8.DatabaseType.Decoder ( notNullDecoder )
+import Rel8.DatabaseType.Decoder ( valueDecoder )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -76,12 +74,12 @@ class DBType a where
 
 -- | Corresponds to the @json@ PostgreSQL type.
 instance DBType Value where
-  typeInformation = fromOpaleye pgValueJSON $ notNullDecoder Hasql.json
+  typeInformation = fromOpaleye pgValueJSON $ valueDecoder Hasql.json
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance DBType Text where
-  typeInformation = fromOpaleye pgStrictText $ notNullDecoder Hasql.text
+  typeInformation = fromOpaleye pgStrictText $ valueDecoder Hasql.text
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
@@ -91,35 +89,35 @@ instance DBType Data.Text.Lazy.Text where
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance DBType Bool where
-  typeInformation = fromOpaleye pgBool $ notNullDecoder Hasql.bool
+  typeInformation = fromOpaleye pgBool $ valueDecoder Hasql.bool
 
 
 -- | Corresponds to the @int2@ PostgreSQL type.
 instance DBType Int16 where
-  typeInformation = (mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> notNullDecoder Hasql.int2) -- TODO
+  typeInformation = (mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> valueDecoder Hasql.int2) -- TODO
     { typeName = "int2" }
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance DBType Int32 where
-  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> notNullDecoder Hasql.int4 -- TODO
+  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> valueDecoder Hasql.int4 -- TODO
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance DBType Int64 where
-  typeInformation = fromOpaleye pgInt8 $ notNullDecoder Hasql.int8
+  typeInformation = fromOpaleye pgInt8 $ valueDecoder Hasql.int8
 
 
 instance DBType Float where
   typeInformation = DatabaseType
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decoder = notNullDecoder Hasql.float4
+    , decoder = valueDecoder Hasql.float4
     , typeName = "float4"
     }
 
 
 instance DBType UTCTime where
-  typeInformation = fromOpaleye pgUTCTime $ notNullDecoder Hasql.timestamptz
+  typeInformation = fromOpaleye pgUTCTime $ valueDecoder Hasql.timestamptz
 
 
 -- | Extends any @DBType@ with the value @null@. Note that you cannot "stack"
@@ -133,36 +131,36 @@ instance DBType Data.ByteString.Lazy.ByteString where
 
 
 instance DBType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString $ notNullDecoder Hasql.bytea
+  typeInformation = fromOpaleye pgStrictByteString $ valueDecoder Hasql.bytea
 
 
 instance DBType Scientific where
-  typeInformation = fromOpaleye pgNumeric $ notNullDecoder Hasql.numeric
+  typeInformation = fromOpaleye pgNumeric $ valueDecoder Hasql.numeric
 
 
 -- TODO
 instance DBType Natural where
-  typeInformation = mapDatabaseType round fromIntegral $ fromOpaleye pgNumeric $ notNullDecoder Hasql.numeric
+  typeInformation = mapDatabaseType round fromIntegral $ fromOpaleye pgNumeric $ valueDecoder Hasql.numeric
 
 
 instance DBType Double where
-  typeInformation = fromOpaleye pgDouble $ notNullDecoder Hasql.float8
+  typeInformation = fromOpaleye pgDouble $ valueDecoder Hasql.float8
 
 
 instance DBType UUID where
-  typeInformation = fromOpaleye pgUUID $ notNullDecoder Hasql.uuid
+  typeInformation = fromOpaleye pgUUID $ valueDecoder Hasql.uuid
 
 
 instance DBType Day where
-  typeInformation = fromOpaleye pgDay $ notNullDecoder Hasql.date
+  typeInformation = fromOpaleye pgDay $ valueDecoder Hasql.date
 
 
 instance DBType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime $ notNullDecoder Hasql.timestamp
+  typeInformation = fromOpaleye pgLocalTime $ valueDecoder Hasql.timestamp
 
 
 instance DBType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay $ notNullDecoder Hasql.time
+  typeInformation = fromOpaleye pgTimeOfDay $ valueDecoder Hasql.time
 
 
 instance DBType (CI Text) where

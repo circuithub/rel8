@@ -1,21 +1,22 @@
 {-# language FlexibleInstances #-}
 {-# language KindSignatures #-}
 
-module Rel8.DBType.DBEq ( DBEq(..) ) where
+module Rel8.DBType.DBEq ( DBEq(..), in_ ) where
 
 -- base
+import Data.Foldable ( foldl' )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Type )
 
 -- case-insensitive
 import Data.CaseInsensitive ( CI )
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Bool ( (||.), not_ )
+import Rel8.Expr.Lit ( litExpr )
 import Rel8.Expr.Opaleye ( binExpr )
 
 -- scientific
@@ -64,8 +65,11 @@ import Data.Time ( Day, UTCTime )
 -- @"Green"@, etc, in the database, and they can be compared for equality by
 -- just using @=@.
 class DBType a => DBEq (a :: Type) where
-  eqExprs :: Expr a -> Expr a -> Expr Bool
-  eqExprs = binExpr (Opaleye.:==)
+  (==.) :: Expr a -> Expr a -> Expr Bool
+  (==.) = binExpr (Opaleye.:==)
+
+  (/=.) :: Expr a -> Expr a -> Expr Bool
+  (/=.) = fmap (fmap not_) (==.)
 
 
 instance DBEq Scientific
@@ -101,3 +105,13 @@ instance DBEq (CI Text)
 instance DBEq (CI Data.Text.Lazy.Text)
 
 
+-- | Like the SQL @IN@ operator, but implemented by folding over a list with
+-- '==.' and '||.'.
+--
+-- >>> select c $ return $ lit (5 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [True]
+--
+-- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [False]
+in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
+in_ x = foldl' (\b y -> b ||. x ==. y) (litExpr False)

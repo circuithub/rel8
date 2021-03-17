@@ -53,7 +53,7 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import Rel8.DBType ( DBType( typeInformation ) )
-import Rel8.DBType.DBEq ( eqExprs )
+import Rel8.DBType.DBEq ( (==.) )
 import Rel8.DatabaseType ( DatabaseType( decoder ), nullDatabaseType )
 import Rel8.DatabaseType.Decoder ( Decoder, acceptNull, runDecoder )
 import Rel8.Expr ( Expr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
@@ -191,7 +191,7 @@ bindMaybeTable query (MaybeTable input a) = do
 traverseMaybeTable :: (a -> Query b) -> MaybeTable a -> Query (MaybeTable b)
 traverseMaybeTable query ma@(MaybeTable input _) = do
   MaybeTable output b <- optional (query =<< catMaybeTable ma)
-  where_ $ eqExprs (isNull output) (isNull input)
+  where_ $ isNull output ==. isNull input
   return $ MaybeTable input b
 
 

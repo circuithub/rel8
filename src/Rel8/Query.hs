@@ -34,12 +34,13 @@ module Rel8.Query
   , values
   , filter
   , mapOpaleye
+  , showQuery
   ) where
 
 -- base
 import Control.Exception ( throwIO )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Data.Foldable ( toList )
+import Data.Foldable ( fold, toList )
 import Data.Functor.Identity ( Identity( Identity ), runIdentity )
 import Data.Int ( Int64 )
 import Numeric.Natural ( Natural )
@@ -65,7 +66,7 @@ import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
--- opaleye
+-- rel8
 import qualified Opaleye ( valuesExplicit )
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
@@ -87,8 +88,6 @@ import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( exists, restrict )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
-
--- rel8
 import Rel8.Context ( Context )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
 import Rel8.Expr ( Expr, column, fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
@@ -425,3 +424,8 @@ filter f a = do
   where_ $ f a
   return a
 
+
+-- | Convert a query to a 'String' containing the query as a @SELECT@
+-- statement.
+showQuery :: Table Expr a => Query a -> String
+showQuery = fold . selectQuery

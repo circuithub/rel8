@@ -4,10 +4,15 @@
 
 module Rel8.DatabaseType.Decoder
   ( Decoder(..)
-  , acceptNull
-  , parseDecoder
-  , notNullDecoder
+    -- * Construcing Decoders
+  , valueDecoder
+
+    -- * Running Decoders
   , runDecoder
+
+    -- ** Transforming Decoders
+  , parseDecoder
+  , acceptNull
   , listDecoder
   ) where
 
@@ -27,42 +32,46 @@ data Decoder a where
   DecodeNull :: Hasql.Value x -> (Maybe x -> Either String a) -> Decoder a
 
 
-nullDecoder :: Hasql.Value a -> Decoder (Maybe a)
-nullDecoder v = DecodeNull v pure
-
-
-notNullDecoder :: Hasql.Value a -> Decoder a
-notNullDecoder v = DecodeNotNull v id
-
-
 instance Functor Decoder where
-  fmap f (DecodeNotNull v g) = DecodeNotNull v (f . g)
-  fmap f (DecodeNull v g) = DecodeNull v (fmap f . g)
+  fmap f = \case
+    DecodeNotNull v g -> DecodeNotNull v (f . g)
+    DecodeNull v g    -> DecodeNull v (fmap f . g)
+
+
+valueDecoder :: Hasql.Value a -> Decoder a
+valueDecoder v = DecodeNotNull v id
 
 
 -- | Enrich a 'DatabaseType' with the ability to parse @null@.
 acceptNull :: Decoder a -> Decoder (Maybe a)
 acceptNull = \case
-  DecodeNotNull v f -> fmap f <$> nullDecoder v
-  DecodeNull v f  -> DecodeNull v (fmap Just . f)
+  DecodeNotNull v f -> fmap f <$> nullDecoder
+    where nullDecoder = DecodeNull v pure
+
+  DecodeNull v f -> DecodeNull v (fmap Just . f)
 
 
 listDecoder :: Decoder a -> Decoder [a]
 listDecoder = \case
-  DecodeNotNull v f ->
-    DecodeNotNull (Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
+  DecodeNotNull v f -> DecodeNotNull v' id
+    where v' = compositeArrayOf (Hasql.nonNullable (f <$> v))
 
   DecodeNull v f -> DecodeNull v' \case
     Nothing -> pure <$> f Nothing
     Just xs -> traverse f xs
-    where
-      v' = Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nullable v
+    where v' = compositeArrayOf (Hasql.nullable v)
+  where
+    compositeArrayOf =
+      Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray
 
 
 -- | Apply a parser to a decoder.
 parseDecoder :: (a -> Either String b) -> Decoder a -> Decoder b
 parseDecoder f = \case
-  DecodeNotNull v g -> DecodeNotNull (Hasql.refine (first pack . f . g) v) id
+  DecodeNotNull v g -> DecodeNotNull v' id
+    where
+      v' = Hasql.refine (first pack . f . g) v
+
   DecodeNull v g -> DecodeNull v (f <=< g)
 
 

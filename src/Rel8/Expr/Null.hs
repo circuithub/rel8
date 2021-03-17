@@ -13,12 +13,10 @@ module Rel8.Expr.Null
 -- base
 import Prelude ( Bool( False ), Maybe( Nothing ), ($), (.), id, return )
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
-import Rel8.DBType.DBEq ( DBEq( eqExprs ) )
+import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr( toPrimExpr ), fromPrimExpr, retype, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( not_ )
 import Rel8.Expr.Lit ( litExpr )
@@ -101,5 +99,5 @@ catMaybe e = do
 
 
 instance DBEq a => DBEq ( Maybe a ) where
-  eqExprs a b =
-    null ( isNull b ) ( \a' -> null ( litExpr False ) ( eqExprs a' ) b ) a
+  a ==. b =
+    null ( isNull b ) ( \a' -> null ( litExpr False ) ( a' ==. ) b ) a
