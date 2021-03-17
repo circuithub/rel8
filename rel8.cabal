@@ -22,7 +22,7 @@ library
     , case-insensitive
     , contravariant
     , hasql
-    , opaleye ^>= 0.7.1.0
+    , opaleye ^>= 0.7.0.0
     , profunctors
     , scientific
     , semialign
@@ -42,6 +42,7 @@ library
   hs-source-dirs:
     src
   exposed-modules:
+    Rel8
 
     Rel8.Expr
     Rel8.Expr.Aggregate

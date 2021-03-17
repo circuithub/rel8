@@ -127,7 +127,7 @@ data TestTable f = TestTable
   , testTableColumn2 :: Rel8.Column f Bool
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
 deriving stock instance Eq (TestTable Identity)
@@ -526,7 +526,7 @@ data TwoTestTables f =
     , testTable2 :: TestTable f
     }
   deriving stock Generic 
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
 deriving stock instance Eq (TwoTestTables Identity)
@@ -656,7 +656,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 deriving stock instance Eq (HKNestedPair Identity)
 deriving stock instance Ord (HKNestedPair Identity)
@@ -690,7 +690,7 @@ data NestedMaybeTable f = NestedMaybeTable
   , nmt2 :: Rel8.HMaybe f (TestTable f)
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
 deriving stock instance Eq (NestedMaybeTable Identity)
