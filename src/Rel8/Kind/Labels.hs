@@ -16,7 +16,7 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.List.NonEmpty ( NonEmpty, (<|) )
+import Data.List.NonEmpty ( NonEmpty( (:|) ), (<|) )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.TypeLits ( KnownSymbol, Symbol, symbolVal )
 import Prelude
@@ -48,6 +48,11 @@ instance (KnownSymbol label, KnownLabels (label_ ': labels)) =>
 
 
 renderLabels :: SLabels labels -> NonEmpty String
-renderLabels = \case
+renderLabels = cleanup . \case
   SLabel label -> pure (symbolVal label)
   SLabels label labels -> symbolVal label <| renderLabels labels
+  where
+    cleanup ("" :| []) = "anon" :| []
+    cleanup (a :| []) = a :| []
+    cleanup (a :| [""]) = a :| []
+    cleanup (a :| (b : c)) = a <| cleanup (b :| c)

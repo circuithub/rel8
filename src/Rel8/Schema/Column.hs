@@ -3,7 +3,7 @@
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Column
-  ( Column, Default, Named
+  ( Column, Default, Label
   , HEither
   , HList
   , HMaybe
@@ -42,8 +42,8 @@ import Rel8.Table.These ( TheseTable )
 import Data.These ( These )
 
 
-type Named :: Symbol -> Type -> Type
-data Named label a
+type Label :: Symbol -> Type -> Type
+data Label label a
 
 
 type Default :: Type -> Type
@@ -52,14 +52,14 @@ data Default a
 
 type GetLabel :: Type -> Labels
 type family GetLabel a where
-  GetLabel (Named label _) = '[label]
+  GetLabel (Label label _) = '[label]
   GetLabel _ = '[]
 
 
-type UnwrapNamed :: Type -> Type
-type family UnwrapNamed a where
-  UnwrapNamed (Named _ a) = a
-  UnwrapNamed a = a
+type UnwrapLabel :: Type -> Type
+type family UnwrapLabel a where
+  UnwrapLabel (Label _ a) = a
+  UnwrapLabel a = a
 
 
 type GetNecessity :: Type -> Necessity
@@ -77,12 +77,12 @@ type family UnwrapDefault a where
 type Column :: Context -> Type -> Type
 type Column context a =
   Field context (GetLabel a)
-    (GetNecessity (UnwrapNamed a))
-    (GetNullability (UnwrapDefault (UnwrapNamed a)))
+    (GetNecessity (UnwrapLabel a))
+    (GetNullability (UnwrapDefault (UnwrapLabel a)))
     (FromType
       (GetValue
-        (GetNullability (UnwrapDefault (UnwrapNamed a)))
-        (UnwrapDefault (UnwrapNamed a))))
+        (GetNullability (UnwrapDefault (UnwrapLabel a)))
+        (UnwrapDefault (UnwrapLabel a))))
 
 
 type IHEither :: Bool -> Context -> Type -> Type -> Type

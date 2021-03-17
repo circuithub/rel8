@@ -84,7 +84,7 @@ instance
   Table (Aggregate nullability a)
  where
   type Columns (Aggregate nullability a) =
-    HIdentity ('Spec '["anonymous"] 'Required nullability (FromDBType a))
+    HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
   type Context (Aggregate nullability a) = Aggregation
 
   toColumns a = HIdentity (Aggregation a)
@@ -100,7 +100,7 @@ instance
   Table (Expr nullability a)
  where
   type Columns (Expr nullability a) =
-    HIdentity ('Spec '["anonymous"] 'Required nullability (FromDBType a))
+    HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
   type Context (Expr nullability a) = DB
 
   toColumns a = HIdentity (DB a)
@@ -116,7 +116,7 @@ instance
   Table (Value nullability a)
  where
   type Columns (Value nullability a) =
-    HIdentity ('Spec '["anonymous"] 'Required nullability (FromType a))
+    HIdentity ('Spec '[""] 'Required nullability (FromType a))
   type Context (Value nullability a) = Result
 
   toColumns a = HIdentity (Result a)
