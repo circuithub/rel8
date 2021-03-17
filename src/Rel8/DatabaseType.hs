@@ -15,13 +15,11 @@ module Rel8.DatabaseType
 import Data.Data ( Proxy( Proxy ) )
 import Data.Kind ( Type )
 
--- opaleye
+-- rel8
 import Opaleye ( Column, IsSqlType, showSqlType )
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
--- rel8
-import Rel8.DatabaseType.Decoder ( HasqlDecoder, acceptNull, parseDecoder )
+import Rel8.DatabaseType.Decoder ( Decoder, acceptNull, parseDecoder )
 
 
 -- | A @DatabaseType@ describes how to encode and decode a Haskell type to and
@@ -35,7 +33,7 @@ data DatabaseType a = DatabaseType
     -- ^ How to encode a single Haskell value as a SQL expression.
   , typeName :: String
     -- ^ The name of the SQL type.
-  , decoder :: HasqlDecoder a
+  , decoder :: Decoder a
     -- ^ How to deserialize a single result back to Haskell.
   }
 
@@ -86,7 +84,7 @@ mapDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseTy
 
 fromOpaleye :: forall a b. IsSqlType b
   => (a -> Opaleye.Column b)
-  -> HasqlDecoder a
+  -> Decoder a
   -> DatabaseType a
 fromOpaleye f decoder =
   DatabaseType

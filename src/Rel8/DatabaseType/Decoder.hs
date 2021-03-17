@@ -3,11 +3,11 @@
 {-# language LambdaCase #-}
 
 module Rel8.DatabaseType.Decoder
-  ( HasqlDecoder(..)
+  ( Decoder(..)
   , acceptNull
   , parseDecoder
   , notNullDecoder
-  , runHasqlDecoder
+  , runDecoder
   , listDecoder
   ) where
 
@@ -22,32 +22,32 @@ import qualified Hasql.Decoders as Hasql
 import Data.Text ( pack )
 
 
-data HasqlDecoder a where
-  DecodeNotNull :: Hasql.Value x -> (x -> a) -> HasqlDecoder a
-  DecodeNull :: Hasql.Value x -> (Maybe x -> Either String a) -> HasqlDecoder a
+data Decoder a where
+  DecodeNotNull :: Hasql.Value x -> (x -> a) -> Decoder a
+  DecodeNull :: Hasql.Value x -> (Maybe x -> Either String a) -> Decoder a
 
 
-nullDecoder :: Hasql.Value a -> HasqlDecoder (Maybe a)
+nullDecoder :: Hasql.Value a -> Decoder (Maybe a)
 nullDecoder v = DecodeNull v pure
 
 
-notNullDecoder :: Hasql.Value a -> HasqlDecoder a
+notNullDecoder :: Hasql.Value a -> Decoder a
 notNullDecoder v = DecodeNotNull v id
 
 
-instance Functor HasqlDecoder where
+instance Functor Decoder where
   fmap f (DecodeNotNull v g) = DecodeNotNull v (f . g)
   fmap f (DecodeNull v g) = DecodeNull v (fmap f . g)
 
 
 -- | Enrich a 'DatabaseType' with the ability to parse @null@.
-acceptNull :: HasqlDecoder a -> HasqlDecoder (Maybe a)
+acceptNull :: Decoder a -> Decoder (Maybe a)
 acceptNull = \case
   DecodeNotNull v f -> fmap f <$> nullDecoder v
   DecodeNull v f  -> DecodeNull v (fmap Just . f)
 
 
-listDecoder :: HasqlDecoder a -> HasqlDecoder [a]
+listDecoder :: Decoder a -> Decoder [a]
 listDecoder = \case
   DecodeNotNull v f ->
     DecodeNotNull (Hasql.composite $ Hasql.field $ Hasql.nonNullable $ Hasql.listArray $ Hasql.nonNullable (f <$> v)) id
@@ -60,14 +60,14 @@ listDecoder = \case
 
 
 -- | Apply a parser to a decoder.
-parseDecoder :: (a -> Either String b) -> HasqlDecoder a -> HasqlDecoder b
+parseDecoder :: (a -> Either String b) -> Decoder a -> Decoder b
 parseDecoder f = \case
   DecodeNotNull v g -> DecodeNotNull (Hasql.refine (first pack . f . g) v) id
   DecodeNull v g -> DecodeNull v (f <=< g)
 
 
-runHasqlDecoder :: HasqlDecoder x -> Hasql.Row x
-runHasqlDecoder = \case
+runDecoder :: Decoder x -> Hasql.Row x
+runDecoder = \case
   DecodeNotNull v f ->
     Hasql.column $ Hasql.nonNullable (f <$> v)
 

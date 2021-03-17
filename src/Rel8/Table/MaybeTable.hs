@@ -45,19 +45,17 @@ import Prelude
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
--- opaleye
+-- rel8
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, exists, limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
-
--- rel8
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DBType.DBEq ( eqExprs )
 import Rel8.DatabaseType ( DatabaseType( decoder ), nullDatabaseType )
-import Rel8.DatabaseType.Decoder ( HasqlDecoder, acceptNull, runHasqlDecoder )
+import Rel8.DatabaseType.Decoder ( Decoder, acceptNull, runDecoder )
 import Rel8.Expr ( Expr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Lit ( litExpr, litExprWith )
@@ -124,11 +122,11 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a)   (Maybe b)
 -- [Nothing]
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
   rowParser :: forall f. (Applicative f, Traversable f)
-    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
+    => (forall x. Decoder x -> Decoder (f x))
     -> Hasql.Row (f (Maybe b))
-  rowParser liftHasqlDecoder = do
-    tags <- runHasqlDecoder (liftHasqlDecoder (decoder (typeInformation @(Maybe Bool))))
-    rows <- rowParser @a (fmap Compose . liftHasqlDecoder . acceptNull)
+  rowParser liftDecoder = do
+    tags <- runDecoder (liftDecoder (decoder (typeInformation @(Maybe Bool))))
+    rows <- rowParser @a (fmap Compose . liftDecoder . acceptNull)
     return $ liftA2 f tags (getCompose rows)
     where
       f :: Maybe Bool -> Maybe b -> Maybe b

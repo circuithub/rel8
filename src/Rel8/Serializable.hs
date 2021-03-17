@@ -21,14 +21,12 @@ import Data.Functor.Identity ( Identity( Identity ) )
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Context )
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName, decoder ) )
-import Rel8.DatabaseType.Decoder ( HasqlDecoder, runHasqlDecoder )
+import Rel8.DatabaseType.Decoder ( Decoder, runDecoder )
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Lit ( litExprWith )
 import Rel8.HTable ( HTable( HField, htraverse, htabulate, hdbtype, hfield ) )
@@ -42,7 +40,7 @@ class ExprFor expr haskell => Serializable expr haskell | expr -> haskell where
   lit :: haskell -> expr
 
   rowParser :: forall f. (Applicative f, Traversable f)
-    => (forall x. HasqlDecoder x -> HasqlDecoder (f x))
+    => (forall x. Decoder x -> Decoder (f x))
     -> Hasql.Row (f haskell)
 
 
@@ -83,9 +81,9 @@ instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity)          
 instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => Serializable (s expr) (t identity) where
   rowParser liftDecoder = getCompose $ htraverse (fmap pure) $ htabulate (f liftDecoder)
     where
-      f :: forall f x. (forall y. HasqlDecoder y -> HasqlDecoder (f y)) -> HField t x -> Compose Hasql.Row f x
+      f :: forall f x. (forall y. Decoder y -> Decoder (f y)) -> HField t x -> Compose Hasql.Row f x
       f liftDecoder_ i = case hfield hdbtype i of
-        databaseType -> Compose $ runHasqlDecoder $ liftDecoder_ $ decoder databaseType
+        databaseType -> Compose $ runDecoder $ liftDecoder_ $ decoder databaseType
 
   lit t =
     fromColumns $ htabulate \i ->
@@ -95,7 +93,7 @@ instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => 
 
 instance (DBType a, a ~ b) => Serializable (Expr a) b where
   rowParser liftDecoder =
-    runHasqlDecoder (liftDecoder (decoder (typeInformation @a)))
+    runDecoder (liftDecoder (decoder (typeInformation @a)))
 
   lit = Expr . Opaleye.CastExpr typeName . encode
     where

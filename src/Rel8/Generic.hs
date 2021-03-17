@@ -28,7 +28,7 @@ import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Rel8.Context ( Context, KContext )
-import Rel8.DatabaseType.Decoder ( HasqlDecoder )
+import Rel8.DatabaseType.Decoder ( Decoder )
 import Rel8.Expr ( Expr )
 import Rel8.HTable ( HTable ) 
 import Rel8.HTable.HComposeTable ( HComposeTable )
@@ -191,7 +191,7 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
   glit = to @_ @() . glitImpl @(Rep (t Expr)) @(Rep (t Identity)) . GHC.Generics.from @_ @()
 
   growParser :: (Applicative f, Traversable f)
-    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    => (forall a. Decoder a -> Decoder (f a))
     -> Hasql.Row (f (t Identity))
   default growParser
     :: ( Generic (t Identity)
@@ -199,7 +199,7 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
        , Applicative f
        , Traversable f
        )
-    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    => (forall a. Decoder a -> Decoder (f a))
     -> Hasql.Row (f (t Identity))
   growParser f = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f
 
@@ -208,7 +208,7 @@ class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
   glitImpl :: haskell x -> expr x
 
   growParserImpl :: (Applicative f, Traversable f)
-    => (forall a. HasqlDecoder a -> HasqlDecoder (f a))
+    => (forall a. Decoder a -> Decoder (f a))
     -> Hasql.Row (f (haskell x))
 
 
