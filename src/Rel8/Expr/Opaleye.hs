@@ -1,9 +1,13 @@
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
+
 module Rel8.Expr.Opaleye
   ( binExpr
   , exprToColumn
   , columnToExpr
   , zipPrimExprsWith
   , mapPrimExpr
+  , unsafeLiteral
   ) where
 
 -- rel8
@@ -33,3 +37,13 @@ zipPrimExprsWith
   :: (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr a -> Expr b -> Expr c
 zipPrimExprsWith f (Expr x) (Expr y) = Expr (f x y)
+
+
+-- | Construct a SQL expression from some literal text. The provided literal
+-- will be interpolated exactly as specified with no escaping.
+unsafeLiteral :: forall a. String -> Expr a
+unsafeLiteral = fromPrimExpr . Opaleye.ConstExpr . Opaleye.OtherLit
+
+
+fromPrimExpr :: Opaleye.PrimExpr -> Expr a
+fromPrimExpr = Expr

@@ -259,8 +259,8 @@ import Rel8.Expr
   , unsafeCoerceExpr
   )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
-import Rel8.Expr.Lit ( unsafeLiteral )
 import Rel8.Expr.Null ( catMaybe, fromNull, isNull, liftNull, mapNull, null, nullExpr )
+import Rel8.Expr.Opaleye ( unsafeLiteral )
 import Rel8.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
