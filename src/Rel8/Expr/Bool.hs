@@ -13,8 +13,9 @@ import Data.Foldable ( foldl' )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Lit ( litExpr )
+import Rel8.Expr.Opaleye ( mapPrimExpr, zipPrimExprsWith )
 
 
 -- | The SQL @AND@ operator.
@@ -33,7 +34,7 @@ infixr 3 &&.
 
 
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
-Expr a &&. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpAnd a b
+(&&.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpAnd)
 
 
 -- | Fold @AND@ over a collection of expressions.
@@ -63,7 +64,7 @@ infixr 2 ||.
 
 
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
-Expr a ||. Expr b = Expr $ Opaleye.BinExpr Opaleye.OpOr a b
+(||.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpOr)
 
 
 -- | Fold @OR@ over a collection of expressions.
@@ -85,6 +86,4 @@ or_ = foldl' (||.) (litExpr False)
 -- >>> select c $ pure $ not_ $ lit False
 -- [True]
 not_ :: Expr Bool -> Expr Bool
-not_ (Expr a) = Expr $ Opaleye.UnExpr Opaleye.OpNot a
-
-
+not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
