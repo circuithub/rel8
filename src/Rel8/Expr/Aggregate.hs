@@ -16,7 +16,6 @@ module Rel8.Expr.Aggregate
   , stringAgg
   , groupByExpr
   , listAggExpr, nonEmptyAggExpr
-  , slistAggExpr, snonEmptyAggExpr
   , Aggregator(..)
   , unsafeMakeAggregate
   )
@@ -36,24 +35,12 @@ import Rel8.Expr.Bool ( caseExpr, mcaseExpr )
 import Rel8.Expr.Opaleye
   ( castExpr
   , litPrimExpr
-  , sfromPrimExpr
+  , fromPrimExpr
   , unsafeFromPrimExpr
   , unsafeToPrimExpr
   )
-import Rel8.Kind.Blueprint
-  ( SBlueprint( SVector )
-  , KnownBlueprint, blueprintSing
-  , FromDBType, ToDBType
-  )
-import Rel8.Kind.Emptiability
-  ( Emptiability( Emptiable, NonEmptiable )
-  , SEmptiability( SEmptiable, SNonEmptiable )
-  )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable )
-  , SNullability
-  , KnownNullability, nullabilitySing
-  )
+import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Type.Array ( Array )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )
@@ -168,58 +155,26 @@ groupByExpr :: DBEq a => Expr nullability a -> Aggregate nullability a
 groupByExpr = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr Nothing
 
 
-listAggExpr :: forall a nullability blueprint.
-  ( blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
-  , KnownBlueprint blueprint
-  , KnownNullability nullability
-  )
+listAggExpr :: ()
   => Expr nullability a
   -> Aggregate 'NonNullable (Array 'Emptiable nullability a)
-listAggExpr = slistAggExpr nullabilitySing (blueprintSing @blueprint)
+listAggExpr = unsafeMakeAggregate fromPrimExpr unsafeToPrimExpr $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
 
 
-nonEmptyAggExpr :: forall a nullability blueprint.
-  ( blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
-  , KnownBlueprint blueprint
-  , KnownNullability nullability
-  )
+nonEmptyAggExpr :: ()
   => Expr nullability a
   -> Aggregate 'NonNullable (Array 'NonEmptiable nullability a)
-nonEmptyAggExpr = snonEmptyAggExpr nullabilitySing (blueprintSing @blueprint)
-
-
-slistAggExpr :: a ~ ToDBType blueprint
-  => SNullability nullability
-  -> SBlueprint blueprint
-  -> Expr nullability a
-  -> Aggregate 'NonNullable (Array 'Emptiable nullability a)
-slistAggExpr nullability blueprint =
-  unsafeMakeAggregate (sfromPrimExpr blueprint') unsafeToPrimExpr $ Just
-    Aggregator
-      { operation = Opaleye.AggrArr
-      , ordering = []
-      , distinction = Opaleye.AggrAll
-      }
-  where
-    blueprint' = SVector SEmptiable nullability blueprint
-
-
-snonEmptyAggExpr :: a ~ ToDBType blueprint
-  => SNullability nullability
-  -> SBlueprint blueprint
-  -> Expr nullability a
-  -> Aggregate 'NonNullable (Array 'NonEmptiable nullability a)
-snonEmptyAggExpr nullability blueprint =
-  unsafeMakeAggregate (sfromPrimExpr blueprint') unsafeToPrimExpr $ Just
-    Aggregator
-      { operation = Opaleye.AggrArr
-      , ordering = []
-      , distinction = Opaleye.AggrAll
-      }
-  where
-    blueprint' = SVector SNonEmptiable nullability blueprint
+nonEmptyAggExpr = unsafeMakeAggregate fromPrimExpr unsafeToPrimExpr $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
 
 
 unsafeMakeAggregate :: ()

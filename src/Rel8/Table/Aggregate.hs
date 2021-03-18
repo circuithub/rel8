@@ -16,12 +16,11 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Expr.Aggregate ( groupByExpr, slistAggExpr, snonEmptyAggExpr )
+import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
 import Rel8.Schema.Context ( Aggregation( Aggregation ), DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( hfield, hdicts, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
-import Rel8.Schema.Spec ( SSpec( SSpec ))
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
@@ -49,8 +48,7 @@ listAgg :: forall exprs aggregates. ()
   => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = ListTable $
   hvectorize
-    (\(SSpec _ _ nullability blueprint ) (Identity (DB a)) ->
-       Aggregation $ slistAggExpr nullability blueprint a)
+    (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
     (pure exprs)
 
 
@@ -59,6 +57,5 @@ nonEmptyAgg :: forall exprs aggregates. ()
   => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = NonEmptyTable $
   hvectorize
-    (\(SSpec _ _ nullability blueprint) (Identity (DB a)) ->
-       Aggregation $ snonEmptyAggExpr nullability blueprint a)
+    (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
     (pure exprs)

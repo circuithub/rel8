@@ -27,15 +27,9 @@ import Data.CaseInsensitive ( CI )
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
 import Rel8.Expr.Opaleye ( litPrimExpr )
-import Rel8.Kind.Blueprint
-  ( KnownBlueprint, blueprintSing
-  , FromDBType, ToDBType
-  )
 import Rel8.Kind.Emptiability ( Emptiability( Emptiable ) )
-import Rel8.Kind.Nullability
-  ( KnownNullability, nullabilitySing
-  )
-import Rel8.Type ( DBType )
+import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( Array )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -55,13 +49,10 @@ class DBSemigroup a => DBMonoid a where
 instance
   ( emptiability ~ 'Emptiable
   , KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
   , DBType a
   ) => DBMonoid (Array emptiability nullability a)
  where
-  memptyExpr = sempty nullabilitySing (blueprintSing @blueprint)
+  memptyExpr = sempty typeInformation
 
 
 instance DBMonoid DiffTime where

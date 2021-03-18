@@ -13,6 +13,7 @@ module Rel8.Kind.Blueprint
   ( Blueprint( Scalar, Vector )
   , SBlueprint( SScalar, SVector )
   , KnownBlueprint, blueprintSing
+  , IsList, IsArray
   , FromDBType, ToDBType, FromType, ToType
   , fromDBType, toDBType
   , sfromDBType, stoDBType
@@ -79,6 +80,12 @@ type family IsList a where
   IsList [_] = 'True
   IsList (NonEmpty _) = 'True
   IsList _ = 'False
+
+
+type IsArray :: Type -> Bool
+type family IsArray a where
+  IsArray (Array _ _ _) = 'True
+  IsArray _ = 'False
 
 
 type FromType' :: Bool -> Type -> Blueprint

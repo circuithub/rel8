@@ -16,7 +16,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr.Array ( sappend, sempty )
-import Rel8.Kind.Emptiability ( SEmptiability( SEmptiable ) )
+import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.List ( HListTable )
@@ -54,13 +54,9 @@ instance AlternativeTable ListTable where
 
 instance Table DB a => Semigroup (ListTable a) where
   ListTable as <> ListTable bs = ListTable $
-    happend
-      (\nullability blueprint (DB a) (DB b) ->
-         DB (sappend SEmptiable nullability blueprint a b))
-      as
-      bs
+    happend (\_ _ (DB a) (DB b) -> DB (sappend a b)) as bs
 
 
 instance Table DB a => Monoid (ListTable a) where
-  mempty = ListTable $ hempty $ \nullability blueprint ->
-    DB (sempty nullability blueprint)
+  mempty = ListTable $ hempty $ \_ blueprint ->
+    DB (sempty (typeInformationFromBlueprint blueprint))

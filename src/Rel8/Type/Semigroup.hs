@@ -29,11 +29,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Kind.Blueprint
-  ( KnownBlueprint, blueprintSing, FromDBType, ToDBType
-  )
-import Rel8.Kind.Emptiability ( KnownEmptiability, emptiabilitySing )
-import Rel8.Kind.Nullability ( KnownNullability, nullabilitySing )
+import Rel8.Kind.Emptiability ( KnownEmptiability )
+import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Type ( DBType )
 import Rel8.Type.Array ( Array )
 
@@ -54,13 +51,10 @@ class DBType a => DBSemigroup a where
 instance
   ( KnownEmptiability emptiability
   , KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
   , DBType a
   ) => DBSemigroup (Array emptiability nullability a)
  where
-  (<>.) = sappend emptiabilitySing nullabilitySing (blueprintSing @blueprint)
+  (<>.) = sappend
 
 
 instance DBSemigroup DiffTime where

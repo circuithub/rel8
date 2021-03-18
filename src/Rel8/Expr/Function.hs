@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
@@ -26,7 +27,8 @@ import Rel8.Expr.Opaleye
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   , unsafeZipPrimExprsWith
   )
-import Rel8.Kind.Blueprint ( KnownBlueprint, FromDBType, ToDBType )
+import Rel8.Kind.Blueprint ( IsArray )
+import Rel8.Kind.Bool ( KnownBool )
 import Rel8.Type ( DBType )
 
 
@@ -36,12 +38,8 @@ class Function arg res where
 
 
 instance
-  ( iblueprint ~ FromDBType a
-  , ToDBType iblueprint ~ a
-  , KnownBlueprint iblueprint
-  , oblueprint ~ FromDBType b
-  , ToDBType oblueprint ~ b
-  , KnownBlueprint oblueprint
+  ( KnownBool (IsArray a)
+  , KnownBool (IsArray b)
   , arg ~ Expr nullability a
   , DBType b
   ) => Function arg (Expr nullability b) where
@@ -49,9 +47,7 @@ instance
 
 
 instance
-  ( blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  , KnownBlueprint blueprint
+  ( KnownBool (IsArray a)
   , arg ~ Expr nullability a
   , Function args res
   ) => Function arg (args -> res) where
@@ -67,15 +63,7 @@ nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
 
 binaryOperator ::
-  ( ablueprint ~ FromDBType a
-  , a ~ ToDBType ablueprint
-  , KnownBlueprint ablueprint
-  , bblueprint ~ FromDBType b
-  , b ~ ToDBType bblueprint
-  , KnownBlueprint bblueprint
-  , cblueprint ~ FromDBType c
-  , c ~ ToDBType cblueprint
-  , KnownBlueprint cblueprint
+  ( KnownBool (IsArray a), KnownBool (IsArray b), KnownBool (IsArray c)
   , DBType c
   )
   => String

@@ -1,8 +1,6 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
@@ -15,7 +13,6 @@ module Rel8.Expr.Opaleye
   , unsafeFromPrimExpr, unsafeToPrimExpr, unsafeMapPrimExpr
   , unsafeZipPrimExprsWith, unsafeTraversePrimExpr
   , fromPrimExpr, toPrimExpr, mapPrimExpr, zipPrimExprsWith
-  , sfromPrimExpr, stoPrimExpr
   , exprToColumn
   , columnToExpr
   )
@@ -30,11 +27,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Kind.Blueprint
-  ( SBlueprint( SScalar, SVector )
-  , KnownBlueprint, blueprintSing
-  , FromDBType, ToDBType
-  )
+import Rel8.Kind.Blueprint ( IsArray )
+import Rel8.Kind.Bool ( SBool( SFalse, STrue ), KnownBool, boolSing )
 import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
 
 
@@ -96,40 +90,32 @@ unsafeTraversePrimExpr :: Functor f
 unsafeTraversePrimExpr f = fmap unsafeFromPrimExpr . f . unsafeToPrimExpr
 
 
-fromPrimExpr :: forall blueprint nullability a.
-  ( blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
-  , KnownBlueprint blueprint
-  )
+fromPrimExpr :: KnownBool (IsArray a)
   => Opaleye.PrimExpr -> Expr nullability a
-fromPrimExpr = sfromPrimExpr (blueprintSing @blueprint)
+fromPrimExpr = sfromPrimExpr boolSing
 
 
-toPrimExpr :: forall blueprint nullability a.
-  ( blueprint ~ FromDBType a
-  , a ~ ToDBType blueprint
-  , KnownBlueprint blueprint
-  )
+toPrimExpr :: KnownBool (IsArray a)
   => Expr nullability a -> Opaleye.PrimExpr
-toPrimExpr = stoPrimExpr (blueprintSing @blueprint)
+toPrimExpr = stoPrimExpr boolSing
 
 
-sfromPrimExpr :: a ~ ToDBType blueprint
-  => SBlueprint blueprint -> Opaleye.PrimExpr -> Expr nullability a
+sfromPrimExpr :: isArray ~ IsArray a
+  => SBool isArray-> Opaleye.PrimExpr -> Expr nullability a
 sfromPrimExpr = \case
-  SScalar _ -> unsafeFromPrimExpr
-  SVector {} -> \a -> Expr $
+  SFalse -> unsafeFromPrimExpr
+  STrue -> \a -> Expr $
     Opaleye.CaseExpr
       [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
       ]
       (Opaleye.UnExpr (Opaleye.UnOpOther "ROW") a)
 
 
-stoPrimExpr :: a ~ ToDBType blueprint
-  => SBlueprint blueprint -> Expr nullability a -> Opaleye.PrimExpr
+stoPrimExpr :: isArray ~ IsArray a
+  => SBool isArray -> Expr nullability a -> Opaleye.PrimExpr
 stoPrimExpr = \case
-  SScalar _ -> unsafeToPrimExpr
-  SVector {} -> \(Expr a) ->
+  SFalse -> unsafeToPrimExpr
+  STrue -> \(Expr a) ->
     Opaleye.CaseExpr
       [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
       ]
@@ -137,29 +123,16 @@ stoPrimExpr = \case
       (Opaleye.CompositeExpr a "f1")
 
 
-mapPrimExpr ::
-  ( blueprint1 ~ FromDBType a
-  , a ~ ToDBType blueprint1
-  , KnownBlueprint blueprint1
-  , blueprint2 ~ FromDBType b
-  , b ~ ToDBType blueprint2
-  , KnownBlueprint blueprint2
-  )
+mapPrimExpr :: (KnownBool (IsArray a), KnownBool (IsArray b))
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr nullability1 a -> Expr nullability2 b
 mapPrimExpr f = fromPrimExpr . f . toPrimExpr
 
 
 zipPrimExprsWith ::
-  ( blueprint1 ~ FromDBType a
-  , a ~ ToDBType blueprint1
-  , KnownBlueprint blueprint1
-  , blueprint2 ~ FromDBType b
-  , b ~ ToDBType blueprint2
-  , KnownBlueprint blueprint2
-  , blueprint3 ~ FromDBType c
-  , c ~ ToDBType blueprint3
-  , KnownBlueprint blueprint3
+  ( KnownBool (IsArray a)
+  , KnownBool (IsArray b)
+  , KnownBool (IsArray c)
   )
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c

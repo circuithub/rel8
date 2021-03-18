@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Kind.Nullability
