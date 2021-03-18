@@ -8,12 +8,10 @@
 {-# language TypeApplications #-}
 
 module Rel8.Query
-  ( Query
+  ( Query(..)
   , liftOpaleye
   , toOpaleye
-  , selectQuery
   , countRows
-  , select
   , where_
   , whereExists
   , whereNotExists
@@ -32,36 +30,23 @@ module Rel8.Query
   , values
   , filter
   , mapOpaleye
-  , showQuery
   ) where
 
 -- base
-import Control.Exception ( throwIO )
-import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Data.Foldable ( fold, toList )
+import Data.Foldable ( toList )
 import Data.Int ( Int64 )
 import Numeric.Natural ( Natural )
 import Prelude
   ( Applicative
-  , Bool( False , True )
+  , Bool
   , Foldable
   , Functor( fmap )
-  , Maybe( Just, Nothing )
-  , Monad( return, (>>=) )
-  , String
+  , Monad
   , ($)
   , (.)
   , (<$)
-  , either
   , fromIntegral
   )
-
--- hasql
-import Hasql.Connection ( Connection )
-import qualified Hasql.Decoders as Hasql
-import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Session as Hasql
-import qualified Hasql.Statement as Hasql
 
 -- profunctors
 import Data.Profunctor ( lmap )
@@ -72,25 +57,17 @@ import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Exists as Opaleye
-import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.Order as Opaleye
-import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( exists )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn )
-import qualified Rel8.Optimize
-import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( binaryspec, distinctspec, unpackspec, valuesspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, selectSchema )
-
--- text
-import Data.Text ( pack )
-import Data.Text.Encoding ( encodeUtf8 )
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -111,28 +88,6 @@ toOpaleye (Query q) = q
 
 mapOpaleye :: (Opaleye.Query a -> Opaleye.Query b) -> Query a -> Query b
 mapOpaleye f = liftOpaleye . f . toOpaleye
-
-
--- | Run a @SELECT@ query, returning all rows.
-select :: forall row haskell m. (Serializable row haskell, MonadIO m) => Connection -> Query row -> m [haskell]
-select conn query = liftIO case selectQuery query of
-  Nothing -> return []
-  Just neQuery ->
-    Hasql.run session conn >>= either throwIO return
-    where
-      session = Hasql.statement () statement
-      statement = Hasql.Statement q params (Hasql.rowList (hasqlRowDecoder @row)) prepare
-      q = encodeUtf8 (pack neQuery)
-      params = Hasql.noParams
-      prepare = False
-
-
-selectQuery :: forall a . Table Expr a => Query a -> Maybe String
-selectQuery (Query opaleye) = showSqlForPostgresExplicit
-  where
-    showSqlForPostgresExplicit =
-      case Opaleye.runQueryArrUnpack unpackspec opaleye of
-        (x, y, z) -> Opaleye.formatAndShowSQL True (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
@@ -322,9 +277,3 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
 -- [4,5]
 filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = a <$ where_ (f a)
-
-
--- | Convert a query to a 'String' containing the query as a @SELECT@
--- statement.
-showQuery :: Table Expr a => Query a -> String
-showQuery = fold . selectQuery

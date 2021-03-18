@@ -5,7 +5,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-module Rel8.Insert ( Insert(..), OnConflict(..), insert ) where
+module Rel8.Statement.Insert ( Insert(..), OnConflict(..), insert ) where
 
 -- base
 import Control.Exception ( throwIO )
@@ -24,8 +24,8 @@ import qualified Hasql.Statement as Hasql
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
 import Rel8.Expr ( column )
-import Rel8.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
+import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )

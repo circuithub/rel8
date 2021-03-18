@@ -250,7 +250,6 @@ import Rel8.DatabaseType
   , mapDatabaseType
   , parseDatabaseType
   )
-import Rel8.Delete ( Delete( Delete, from, deleteWhere, returning ), delete )
 import Rel8.Expr
   ( Expr( Expr )
   , binaryOperator
@@ -264,7 +263,6 @@ import Rel8.Expr.Opaleye ( unsafeLiteral )
 import Rel8.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
-import Rel8.Insert ( Insert( Insert, into, rows, returning, onConflict ), OnConflict( Abort, DoNothing ), insert )
 import Rel8.Query
   ( Query
   , countRows
@@ -279,8 +277,6 @@ import Rel8.Query
   , intersectAll
   , limit
   , offset
-  , select
-  , showQuery
   , union
   , unionAll
   , values
@@ -289,8 +285,12 @@ import Rel8.Query
   , where_
   )
 import Rel8.Query.Order ( Order, asc, desc, distinctOnBy, nullsFirst, nullsLast, orderBy )
-import Rel8.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Serializable ( ExprFor, Serializable( rowParser, lit ) )
+import Rel8.Statement.Delete ( Delete( Delete, from, deleteWhere, returning ), delete )
+import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict ), OnConflict( Abort, DoNothing ), insert )
+import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
+import Rel8.Statement.Select ( select, showQuery )
+import Rel8.Statement.Update ( Update( Update, target, updateWhere, set, returning ), update )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 import Rel8.Table.Bool ( case_, ifThenElse_ )
 import Rel8.Table.Congruent ( Congruent )
@@ -309,7 +309,6 @@ import Rel8.Table.NonEmptyTable ( NonEmptyTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema( TableSchema, tableName, tableSchema, tableColumns ) )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
-import Rel8.Update ( Update( Update, target, updateWhere, set, returning ), update )
 
 
 -- $setup

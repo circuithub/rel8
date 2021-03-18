@@ -1,6 +1,6 @@
 {-# language GADTs #-}
 
-module Rel8.Returning ( Returning(..) ) where
+module Rel8.Statement.Returning ( Returning(..) ) where
 
 -- base
 import Data.Int ( Int64 )

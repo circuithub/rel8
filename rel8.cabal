@@ -57,7 +57,6 @@ library
     Rel8.DBType.JSONBEncoded
     Rel8.DBType.JSONEncoded
     Rel8.DBType.ReadShow
-    Rel8.Delete
     Rel8.Expr
     Rel8.Expr.Bool
     Rel8.Expr.Null
@@ -69,12 +68,15 @@ library
     Rel8.HTable.HMaybeTable
     Rel8.HTable.HPair
     Rel8.HTable.Identity
-    Rel8.Insert
     Rel8.Optimize
     Rel8.Query
     Rel8.Query.Order
-    Rel8.Returning
     Rel8.Serializable
+    Rel8.Statement.Delete
+    Rel8.Statement.Insert
+    Rel8.Statement.Returning
+    Rel8.Statement.Select
+    Rel8.Statement.Update
     Rel8.Table
     Rel8.Table.Bool
     Rel8.Table.Congruent
@@ -85,7 +87,6 @@ library
     Rel8.Table.Selects
     Rel8.TableSchema
     Rel8.TableSchema.ColumnSchema
-    Rel8.Update
 
 test-suite tests
   type:             exitcode-stdio-1.0

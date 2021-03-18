@@ -5,7 +5,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-module Rel8.Delete ( Delete(..), delete ) where
+module Rel8.Statement.Update ( Update(..), update ) where
 
 -- base
 import Control.Exception ( throwIO )
@@ -22,8 +22,8 @@ import qualified Hasql.Statement as Hasql
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import Rel8.Expr ( Expr( toPrimExpr ), column )
-import Rel8.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
+import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
@@ -35,21 +35,23 @@ import Data.Text ( pack )
 import Data.Text.Encoding ( encodeUtf8 )
 
 
--- | The constituent parts of a @DELETE@ statement.
-data Delete from return where
-  Delete
-    :: Selects from row
-    => { from :: TableSchema from
-         -- ^ Which table to delete from.
-       , deleteWhere :: row -> Expr Bool
-         -- ^ Which rows should be selected for deletion.
-       , returning :: Returning from return
-         -- ^ What to return from the @DELETE@ statement.
+-- | The constituent parts of an @UPDATE@ statement.
+data Update target returning where
+  Update
+    :: Selects target row
+    => { target :: TableSchema target
+         -- ^ Which table to update.
+       , set :: row -> row
+         -- ^ How to update each selected row.
+       , updateWhere :: row -> Expr Bool
+         -- ^ Which rows to select for update.
+       , returning :: Returning target returning
+         -- ^ What to return from the @UPDATE@ statement.
        }
-    -> Delete from return
+    -> Update target returning
 
 
--- | Run a @DELETE@ statement.
+-- | Run an @UPDATE@ statement.
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 1, projectName = "rel8"}
@@ -57,34 +59,38 @@ data Delete from return where
 -- Project {projectAuthorId = 2, projectName = "text"}
 --
 -- >>> :{
--- delete c Delete
---   { from = projectSchema
---   , deleteWhere = \p -> projectName p ==. lit "rel8"
---   , returning = Projection projectName
+-- update c Update
+--   { target = projectSchema
+--   , set = \p -> p { projectName = "Rel8!" }
+--   , updateWhere = \p -> projectName p ==. lit "rel8"
+--   , returning = NumberOfRowsAffected
 --   }
 -- :}
--- ["rel8"]
+-- 1
 --
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
 -- Project {projectAuthorId = 2, projectName = "text"}
-delete :: MonadIO m => Connection -> Delete from returning -> m returning
-delete conn Delete{ from = deleteFrom, deleteWhere, returning } = liftIO
+-- Project {projectAuthorId = 1, projectName = "Rel8!"}
+update :: MonadIO m => Connection -> Update target returning -> m returning
+update conn Update{ target, set, updateWhere, returning } = liftIO
   case returning of
     NumberOfRowsAffected -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
-          q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteSql table f where
-            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
-            table = ddlTable deleteFrom (writer deleteFrom)
+          q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateSql table g f where
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
+            g = set . mapTable (column . columnName)
 
     Projection p -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
-          q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteReturningSql unpackspec table f g where
-            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
-            table = ddlTable deleteFrom (writer deleteFrom)
-            g = p . mapTable (column . columnName)
+          q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateReturningSql unpackspec table g f h where
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
+            g = set . mapTable (column . columnName)
+            h = p . mapTable (column . columnName)
 
           mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
           mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)
+  where
+    table = ddlTable target (writer target)
