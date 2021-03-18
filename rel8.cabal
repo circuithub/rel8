@@ -73,6 +73,7 @@ library
     Rel8.Query.Optimize
     Rel8.Query.Set
     Rel8.Query.SQL
+    Rel8.Query.Table
     Rel8.Query.These
     Rel8.Query.Values
 

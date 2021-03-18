@@ -1,3 +1,5 @@
+{-# language DeriveFunctor #-}
+{-# language DerivingStrategies #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
@@ -6,9 +8,11 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Opaleye
-  ( aggregator
+  ( TableSchema(..)
+  , aggregator
   , binaryspec
   , distinctspec
+  , table
   , tableFields
   , unpackspec
   , valuesspec
@@ -51,6 +55,14 @@ import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
 
 
+data TableSchema names = TableSchema
+  { name :: String
+  , schema :: Maybe String
+  , columns :: names
+  }
+  deriving stock Functor
+
+
 aggregator :: MapTable Aggregation DB aggregates exprs
   => Opaleye.Aggregator aggregates exprs
 aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
@@ -80,6 +92,19 @@ distinctspec =
     fmap fromColumns .
     htraverse (\(DB a) -> DB . unsafeFromPrimExpr <$> f (Nothing, unsafeToPrimExpr a)) .
     toColumns
+
+
+table ::
+  ( MapTable Name DB names exprs
+  , MapTable Name Insert names inserts
+  )
+  => TableSchema names -> Opaleye.Table inserts exprs
+table (TableSchema name schema columns) =
+  Opaleye.Table qualified (tableFields columns)
+  where
+    qualified = case schema of
+      Nothing -> name
+      Just qualifier -> qualifier <> "." <> name
 
 
 tableFields ::
