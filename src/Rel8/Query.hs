@@ -111,7 +111,7 @@ import Data.Text.Encoding ( encodeUtf8 )
 -- Functions like 'select' will instantiate @m@ to be 'Query' when they run
 -- queries.
 newtype Query a = Query (Opaleye.Query a)
-  deriving newtype (Functor, Applicative)
+  deriving newtype (Functor, Applicative, Monad)
 
 
 liftOpaleye :: Opaleye.Query a -> Query a
@@ -124,16 +124,6 @@ toOpaleye (Query q) = q
 
 mapOpaleye :: (Opaleye.Query a -> Opaleye.Query b) -> Query a -> Query b
 mapOpaleye f = liftOpaleye . f . toOpaleye
-
-
-instance Monad Query where
-  return = pure
-  Query ( Opaleye.QueryArr f ) >>= g = Query $ Opaleye.QueryArr \input ->
-    case f input of
-      ( a, primQuery, tag ) ->
-        case g a of
-          Query ( Opaleye.QueryArr h ) ->
-            h ( (), primQuery, tag )
 
 
 -- | Run a @SELECT@ query, returning all rows.
