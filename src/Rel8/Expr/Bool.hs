@@ -3,12 +3,14 @@
 module Rel8.Expr.Bool
   ( false, true
   , (&&.), (||.), not_
+  , and_, or_
   , boolExpr
   , caseExpr, mcaseExpr
   )
 where
 
 -- base
+import Data.Foldable ( foldl' )
 import Prelude hiding ( null )
 
 -- opaleye
@@ -46,6 +48,14 @@ infixr 2 ||.
 
 not_ :: Expr nullability Bool -> Expr nullability Bool
 not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
+
+
+and_ :: Foldable f => f (Expr nullability Bool) -> Expr nullability Bool
+and_ = foldl' (&&.) (litPrimExpr True)
+
+
+or_ :: Foldable f => f (Expr nullability Bool) -> Expr nullability Bool
+or_ = foldl' (||.) (litPrimExpr False)
 
 
 boolExpr :: ()
