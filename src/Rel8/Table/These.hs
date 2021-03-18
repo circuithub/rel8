@@ -13,7 +13,9 @@
 module Rel8.Table.These
   ( TheseTable(..)
   , theseTable, thisTable, thatTable, thoseTable
-  , isThisTable, isThatTable, isThoseTable, hasHereTable, hasThereTable
+  , isThisTable, isThatTable, isThoseTable
+  , hasHereTable, hasThereTable
+  , justHereTable, justThereTable
   )
 where
 
@@ -207,6 +209,14 @@ hasHereTable TheseTable {here} = isJustTable here
 
 hasThereTable :: TheseTable a b -> Expr 'NonNullable Bool
 hasThereTable TheseTable {there} = isJustTable there
+
+
+justHereTable :: TheseTable a b -> MaybeTable a
+justHereTable = here
+
+
+justThereTable :: TheseTable a b -> MaybeTable b
+justThereTable = there
 
 
 thisTable :: (Table b, Context b ~ DB) => a -> TheseTable a b
