@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -33,19 +34,17 @@ import Rel8.Schema.HTable
   )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Table, Context, Columns, toColumns )
+import Rel8.Table ( Table, Columns, toColumns )
 import Rel8.Type.Eq ( DBEq )
 
 
 type EqTable :: Type -> Constraint
 class
-  ( Table a
-  , Context a ~ DB
+  ( Table DB a
   , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 instance
-  ( Table a
-  , Context a ~ DB
+  ( Table DB a
   , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 

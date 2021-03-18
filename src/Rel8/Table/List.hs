@@ -1,5 +1,9 @@
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Table.List
   ( ListTable(..)
@@ -22,18 +26,22 @@ import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
+import Rel8.Table.Map ( MapTable )
 
 
 type ListTable :: Type -> Type
 newtype ListTable a = ListTable (HListTable (Columns a) (H (Context a)))
 
 
-instance Table a => Table (ListTable a) where
+instance Table context a => Table context (ListTable a) where
   type Columns (ListTable a) = HListTable (Columns a)
   type Context (ListTable a) = Context a
 
   fromColumns = ListTable
   toColumns (ListTable a) = a
+
+
+instance MapTable from to a b => MapTable from to (ListTable a) (ListTable b)
 
 
 instance AltTable ListTable where
@@ -44,7 +52,7 @@ instance AlternativeTable ListTable where
   emptyTable = mempty
 
 
-instance (Table a, Context a ~ DB) => Semigroup (ListTable a) where
+instance Table DB a => Semigroup (ListTable a) where
   ListTable as <> ListTable bs = ListTable $
     happend
       (\nullability blueprint (DB a) (DB b) ->
@@ -53,6 +61,6 @@ instance (Table a, Context a ~ DB) => Semigroup (ListTable a) where
       bs
 
 
-instance (Table a, Context a ~ DB) => Monoid (ListTable a) where
+instance Table DB a => Monoid (ListTable a) where
   mempty = ListTable $ hempty $ \nullability blueprint ->
     DB (sempty nullability blueprint)

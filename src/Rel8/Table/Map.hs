@@ -6,8 +6,8 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Table.Recontextualize
-  ( Recontextualize
+module Rel8.Table.Map
+  ( MapTable
   )
 where
 
@@ -31,21 +31,19 @@ import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.Spec ( KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Value ( Value )
-import Rel8.Table ( Table, Context, Congruent )
+import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
 
-type Recontextualize :: Kind.Context -> Kind.Context -> Type -> Type -> Constraint
+type MapTable :: Kind.Context -> Kind.Context -> Type -> Type -> Constraint
 class
-  ( Table a
-  , Table b
-  , Context a ~ from
-  , Context b ~ to
+  ( Table from a
+  , Table to b
   , Congruent a b
-  , Recontextualize from from a a
-  , Recontextualize to to b b
-  , Recontextualize to from b a
-  ) => Recontextualize from to a b
+  , MapTable from from a a
+  , MapTable to to b b
+  , MapTable to from b a
+  ) => MapTable from to a b
     | a -> from
     , b -> to
     , a to -> b
@@ -59,7 +57,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize Aggregation Aggregation (Aggregate nullability a) (Aggregate nullability a)
+  MapTable Aggregation Aggregation (Aggregate nullability a) (Aggregate nullability a)
 
 
 instance
@@ -69,7 +67,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize Aggregation DB (Aggregate nullability a) (Expr nullability a)
+  MapTable Aggregation DB (Aggregate nullability a) (Expr nullability a)
 
 
 instance
@@ -81,7 +79,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  Recontextualize Aggregation Result (Aggregate nullability dbType) (Value nullability a)
+  MapTable Aggregation Result (Aggregate nullability dbType) (Value nullability a)
 
 
 instance
@@ -91,7 +89,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize DB Aggregation (Expr nullability a) (Aggregate nullability a)
+  MapTable DB Aggregation (Expr nullability a) (Aggregate nullability a)
 
 
 instance
@@ -101,7 +99,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  Recontextualize DB DB (Expr nullability a) (Expr nullability a)
+  MapTable DB DB (Expr nullability a) (Expr nullability a)
 
 
 instance
@@ -113,7 +111,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  Recontextualize DB Result (Expr nullability dbType) (Value nullability a)
+  MapTable DB Result (Expr nullability dbType) (Value nullability a)
 
 
 instance
@@ -125,7 +123,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  Recontextualize Result Aggregation (Value nullability a) (Aggregate nullability dbType)
+  MapTable Result Aggregation (Value nullability a) (Aggregate nullability dbType)
 
 
 instance
@@ -137,7 +135,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  Recontextualize Result DB (Value nullability a) (Expr nullability dbType)
+  MapTable Result DB (Value nullability a) (Expr nullability dbType)
 
 
 instance
@@ -148,54 +146,52 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  Recontextualize Result Result (Value nullability a) (Value nullability a)
+  MapTable Result Result (Value nullability a) (Value nullability a)
 
 
-instance KnownSpec spec => Recontextualize from to (from spec) (to spec)
+instance KnownSpec spec => MapTable from to (from spec) (to spec)
 
 
-instance HTable t => Recontextualize from to (t (H from)) (t (H to))
+instance HTable t => MapTable from to (t (H from)) (t (H to))
 
 
 instance
-  ( Table (t from)
-  , Table (t to)
-  , Context (t from) ~ from
-  , Context (t to) ~ to
+  ( Table from (t from)
+  , Table to (t to)
   , Congruent (t from) (t to)
-  ) => Recontextualize from to (t from) (t to)
+  ) => MapTable from to (t from) (t to)
 
 
 instance
-  ( Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
+  ( MapTable from to a1 b1
+  , MapTable from to a2 b2
   , Labelable from
   , Labelable to
-  ) => Recontextualize from to (a1, a2) (b1, b2)
+  ) => MapTable from to (a1, a2) (b1, b2)
 
 
 instance
-  ( Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
-  , Recontextualize from to a3 b3
+  ( MapTable from to a1 b1
+  , MapTable from to a2 b2
+  , MapTable from to a3 b3
   , Labelable from, Labelable to
-  ) => Recontextualize from to (a1, a2, a3) (b1, b2, b3)
+  ) => MapTable from to (a1, a2, a3) (b1, b2, b3)
 
 
 instance
-  ( Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
-  , Recontextualize from to a3 b3
-  , Recontextualize from to a4 b4
+  ( MapTable from to a1 b1
+  , MapTable from to a2 b2
+  , MapTable from to a3 b3
+  , MapTable from to a4 b4
   , Labelable from, Labelable to
-  ) => Recontextualize from to (a1, a2, a3, a4) (b1, b2, b3, b4)
+  ) => MapTable from to (a1, a2, a3, a4) (b1, b2, b3, b4)
 
 
 instance
-  ( Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
-  , Recontextualize from to a3 b3
-  , Recontextualize from to a4 b4
-  , Recontextualize from to a5 b5
+  ( MapTable from to a1 b1
+  , MapTable from to a2 b2
+  , MapTable from to a3 b3
+  , MapTable from to a4 b4
+  , MapTable from to a5 b5
   , Labelable from, Labelable to
-  ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)
+  ) => MapTable from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)

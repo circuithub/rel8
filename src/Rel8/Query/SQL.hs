@@ -29,21 +29,21 @@ import Rel8.Query.Opaleye ( toOpaleye )
 import qualified Rel8.Query.Optimize as Rel8 ( optimize )
 import Rel8.Schema.Context ( DB( DB ), Name( Name ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
-import Rel8.Table ( Table, Context, toColumns )
+import Rel8.Table ( Table, toColumns )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Name ( namesFromLabels )
-import Rel8.Table.Recontextualize ( Recontextualize )
 
 
-showQuery :: (Table a, Context a ~ DB) => Query a -> String
+showQuery :: Table DB a => Query a -> String
 showQuery = fold . sqlForQuery
 
 
-sqlForQuery :: (Table a, Context a ~ DB)
+sqlForQuery :: Table DB a
   => Query a -> Maybe String
 sqlForQuery = sqlForQueryWithNames namesFromLabels . fmap toColumns
 
 
-sqlForQueryWithNames :: Recontextualize Name DB names exprs
+sqlForQueryWithNames :: MapTable Name DB names exprs
   => names -> Query exprs -> Maybe String
 sqlForQueryWithNames names query =
   show . Opaleye.ppSql . selectFrom names exprs <$> optimize primQuery
@@ -56,7 +56,7 @@ optimize :: Opaleye.PrimQuery' a -> Maybe (Opaleye.PrimQuery' Void)
 optimize = Opaleye.removeEmpty . Rel8.optimize . Opaleye.optimize
 
 
-selectFrom :: Recontextualize Name DB names exprs
+selectFrom :: MapTable Name DB names exprs
   => names -> exprs -> Opaleye.PrimQuery' Void -> Opaleye.Select
 selectFrom (toColumns -> names) (toColumns -> exprs) query =
   Opaleye.SelectFrom $ Opaleye.newSelect

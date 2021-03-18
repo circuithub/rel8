@@ -101,7 +101,7 @@ import Data.These ( These )
 
 
 instance (Rel8able t, TableHelper (IsSpecialContext context) context) =>
-  Table (t context)
+  Table context (t context)
  where
   type Columns (t context) = GRep t
   type Context (t context) = context
@@ -553,7 +553,7 @@ instance
 
 instance
   ( K1Table label 'True Aggregation (IsStructure structure) structure a
-  , Table a, Context a ~ Aggregation
+  , Table Aggregation a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
   ) => K1Table label 'True Aggregation 'True (Shape1 'List structure) as
@@ -564,7 +564,7 @@ instance
 
 instance
   ( K1Table label 'True DB (IsStructure structure) structure a
-  , Table a, Context a ~ DB
+  , Table DB a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
   ) => K1Table label 'True DB 'True (Shape1 'List structure) as
@@ -575,7 +575,7 @@ instance
 
 instance
   ( K1Table label 'True Insert (IsStructure structure) structure a
-  , Table a, Context a ~ Insert
+  , Table Insert a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
   ) => K1Table label 'True Insert 'True (Shape1 'List structure) as
@@ -597,7 +597,7 @@ instance
 instance
   ( K1Table label 'False context (IsStructure structure) structure a
   , IsSpecialContext context ~ 'False
-  , Table a, Context a ~ context
+  , Table context a
   , K1Columns label structure ~ HLabel label (Columns a)
   , Labelable context
   , as ~ ListTable a
@@ -684,7 +684,7 @@ instance
 
 instance
   ( K1Table label 'True Aggregation (IsStructure structure) structure a
-  , Table a, Context a ~ Aggregation
+  , Table Aggregation a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
   ) => K1Table label 'True Aggregation 'True (Shape1 'NonEmpty structure) as
@@ -695,7 +695,7 @@ instance
 
 instance
   ( K1Table label 'True DB (IsStructure structure) structure a
-  , Table a, Context a ~ DB
+  , Table DB a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
   ) => K1Table label 'True DB 'True (Shape1 'NonEmpty structure) as
@@ -706,7 +706,7 @@ instance
 
 instance
   ( K1Table label 'True Insert (IsStructure structure) structure a
-  , Table a, Context a ~ Insert
+  , Table Insert a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
   ) => K1Table label 'True Insert 'True (Shape1 'NonEmpty structure) as
@@ -728,7 +728,7 @@ instance
 instance
   ( K1Table label 'False context (IsStructure structure) structure a
   , IsSpecialContext context ~ 'False
-  , Table a, Context a ~ context
+  , Table context a
   , K1Columns label structure ~ HLabel label (Columns a)
   , Labelable context
   , as ~ NonEmptyTable a
@@ -950,7 +950,7 @@ instance
   , K1Columns label structure ~ HLabel label (Columns structure)
   , Columns structure ~ Columns a
   , Labelable context
-  , Table a, Context a ~ context
+  , Table context a
   ) => K1Table label isSpecialContext context 'False structure a
  where
   fromK1Columns = fromColumns . hunlabel unlabeler

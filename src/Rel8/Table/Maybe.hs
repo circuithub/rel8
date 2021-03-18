@@ -48,7 +48,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( MaybeTag( IsJust ) )
@@ -97,11 +97,11 @@ instance AlternativeTable MaybeTable where
   emptyTable = nothingTable
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Semigroup (MaybeTable a) where
+instance (Table DB a, Semigroup a) => Semigroup (MaybeTable a) where
   ma <> mb = maybeTable mb (\a -> maybeTable ma (justTable . (a <>)) mb) ma
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Monoid (MaybeTable a) where
+instance (Table DB a, Semigroup a) => Monoid (MaybeTable a) where
   mempty = nothingTable
 
 
@@ -126,9 +126,9 @@ instance Table1 MaybeTable where
 
 
 instance
-  ( Table a
-  , Labelable (Context a), Nullifiable (Context a)
-  ) => Table (MaybeTable a)
+  ( Table context a
+  , Labelable context, Nullifiable context
+  ) => Table context (MaybeTable a)
  where
   type Columns (MaybeTable a) = HMaybeTable (HLabel "Just" (Columns a))
   type Context (MaybeTable a) = Context a
@@ -140,8 +140,8 @@ instance
 instance
   ( Labelable from, Nullifiable from
   , Labelable to, Nullifiable to
-  , Recontextualize from to a b
-  ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
+  , MapTable from to a b
+  ) => MapTable from to (MaybeTable a) (MaybeTable b)
 
 
 isNothingTable :: MaybeTable a -> Expr 'NonNullable Bool
@@ -152,11 +152,11 @@ isJustTable :: MaybeTable a -> Expr 'NonNullable Bool
 isJustTable (MaybeTable tag _) = isNonNull tag
 
 
-maybeTable :: (Table b, Context b ~ DB) => b -> (a -> b) -> MaybeTable a -> b
+maybeTable :: Table DB b => b -> (a -> b) -> MaybeTable a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
 
 
-nothingTable :: (Table a, Context a ~ DB) => MaybeTable a
+nothingTable :: Table DB a => MaybeTable a
 nothingTable = MaybeTable null undefined
 
 

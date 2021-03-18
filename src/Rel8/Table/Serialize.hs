@@ -64,12 +64,12 @@ import Rel8.Schema.Value
   ( Value( NullableValue, NonNullableValue )
   , FromValue, ToValue
   )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 import Rel8.Type.Array ( Array )
@@ -145,7 +145,7 @@ toResults' = toResults @(IsPlainColumn a) @_ @_ @exprs
 
 
 type ExprsFor :: Bool -> Bool -> Type -> Type -> Constraint
-class (Table exprs, Context exprs ~ DB, isTabular ~ IsTabular a) =>
+class (Table DB exprs, isTabular ~ IsTabular a) =>
   ExprsFor isPlainColumn isTabular a exprs where
   fromResults :: Columns exprs (H Result) -> a
   toResults :: a -> Columns exprs (H Result)
@@ -414,7 +414,7 @@ instance
 
 
 instance
-  ( Recontextualize DB Result (t DB) (t Result)
+  ( MapTable DB Result (t DB) (t Result)
   , isTabular ~ 'True
   , result ~ Result
   , x ~ t DB
@@ -466,7 +466,7 @@ parse :: forall exprs a. Serializable exprs a => Hasql.Row a
 parse = fromResults' @exprs <$> parseTable
 
 
-litTable :: Recontextualize Result DB a b => a -> b
+litTable :: MapTable Result DB a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec _ _ _ blueprint -> case hfield as field of
@@ -475,7 +475,7 @@ litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
         info = typeInformationFromBlueprint blueprint
 
 
-parseTable :: (Table a, Context a ~ Result) => Hasql.Row a
+parseTable :: Table Result a => Hasql.Row a
 parseTable = fmap fromColumns $ htabulateA $ \field ->
   case hfield hspecs field of
     SSpec _ _ nullability blueprint ->

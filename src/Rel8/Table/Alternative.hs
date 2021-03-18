@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 
@@ -13,15 +14,15 @@ import Prelude ()
 
 -- rel8
 import Rel8.Schema.Context ( DB )
-import Rel8.Table ( Table, Context )
+import Rel8.Table ( Table )
 
 
 type AltTable :: (Type -> Type) -> Constraint
 class AltTable f where
-  (<|>:) :: (Context a ~ DB, Table a) => f a -> f a -> f a
+  (<|>:) :: Table DB a => f a -> f a -> f a
   infixl 3 <|>:
 
 
 type AlternativeTable :: (Type -> Type) -> Constraint
 class AltTable f => AlternativeTable f where
-  emptyTable :: (Context a ~ DB, Table a) => f a
+  emptyTable :: Table DB a => f a

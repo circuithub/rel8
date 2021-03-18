@@ -26,13 +26,13 @@ import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.List ( ListTable(..) )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable(..) )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type.Eq ( DBEq )
 
 
 groupBy :: forall exprs aggregates.
-  ( Recontextualize DB Aggregation exprs aggregates
+  ( MapTable DB Aggregation exprs aggregates
   , EqTable exprs
   )
   => exprs -> aggregates
@@ -45,7 +45,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 
 
 listAgg :: forall exprs aggregates. ()
-  => Recontextualize DB Aggregation exprs aggregates
+  => MapTable DB Aggregation exprs aggregates
   => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = ListTable $
   hvectorize
@@ -55,7 +55,7 @@ listAgg (toColumns -> exprs) = ListTable $
 
 
 nonEmptyAgg :: forall exprs aggregates. ()
-  => Recontextualize DB Aggregation exprs aggregates
+  => MapTable DB Aggregation exprs aggregates
   => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = NonEmptyTable $
   hvectorize

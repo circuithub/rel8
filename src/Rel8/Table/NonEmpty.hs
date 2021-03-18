@@ -1,5 +1,9 @@
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Table.NonEmpty
   ( NonEmptyTable(..)
@@ -20,6 +24,7 @@ import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
+import Rel8.Table.Map ( MapTable )
 
 
 type NonEmptyTable :: Type -> Type
@@ -27,7 +32,7 @@ newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (H (Context a)))
 
 
-instance Table a => Table (NonEmptyTable a) where
+instance Table context a => Table context (NonEmptyTable a) where
   type Columns (NonEmptyTable a) = HNonEmptyTable (Columns a)
   type Context (NonEmptyTable a) = Context a
 
@@ -35,11 +40,15 @@ instance Table a => Table (NonEmptyTable a) where
   toColumns (NonEmptyTable a) = a
 
 
+instance MapTable from to a b =>
+  MapTable from to (NonEmptyTable a) (NonEmptyTable b)
+
+
 instance AltTable NonEmptyTable where
   (<|>:) = (<>)
 
 
-instance (Table a, Context a ~ DB) => Semigroup (NonEmptyTable a) where
+instance Table DB a => Semigroup (NonEmptyTable a) where
   NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
     happend
       (\nullability blueprint (DB a) (DB b) ->

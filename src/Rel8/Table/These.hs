@@ -41,20 +41,17 @@ import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns
-  , Compatible
-  )
+import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
@@ -74,20 +71,20 @@ instance Bifunctor TheseTable where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Apply (TheseTable a) where
+instance (Table DB a, Semigroup a) => Apply (TheseTable a) where
   fs <.> as = TheseTable
     { here = here fs <> here as
     , there = there fs <.> there as
     }
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Applicative (TheseTable a)
+instance (Table DB a, Semigroup a) => Applicative (TheseTable a)
  where
   pure = thatTable
   (<*>) = (<.>)
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Bind (TheseTable a) where
+instance (Table DB a, Semigroup a) => Bind (TheseTable a) where
   TheseTable here1 ma >>- f = case ma >>- f' of
     mtb -> TheseTable
       { here = maybeTable here1 ((here1 <>) . fst) mtb
@@ -98,18 +95,12 @@ instance (Table a, Context a ~ DB, Semigroup a) => Bind (TheseTable a) where
         TheseTable here2 mb -> (here2,) <$> mb
 
 
-instance (Table a, Context a ~ DB, Semigroup a) => Monad (TheseTable a) where
+instance (Table DB a, Semigroup a) => Monad (TheseTable a) where
   (>>=) = (>>-)
 
 
-instance
-  ( Table a
-  , Context a ~ DB
-  , Semigroup a
-  , Table b
-  , Context b ~ DB
-  , Semigroup b
-  ) => Semigroup (TheseTable a b)
+instance (Table DB a, Table DB b, Semigroup a, Semigroup b) =>
+  Semigroup (TheseTable a b)
  where
   a <> b = TheseTable
     { here = here a <> here b
@@ -155,7 +146,7 @@ instance Table2 TheseTable where
       }
 
 
-instance Table a => Table1 (TheseTable a) where
+instance Table context a => Table1 (TheseTable a) where
   type Columns1 (TheseTable a) = HTheseTable (Columns a)
   type ConstrainContext1 (TheseTable a) = NullifiableEq (Context a)
 
@@ -164,9 +155,9 @@ instance Table a => Table1 (TheseTable a) where
 
 
 instance
-  ( Table a, Table b, Compatible a b
-  , Labelable (Context a), Nullifiable (Context a)
-  ) => Table (TheseTable a b)
+  ( Table context a, Table context b
+  , Labelable context, Nullifiable context
+  ) => Table context (TheseTable a b)
  where
   type Columns (TheseTable a b) =
     HTheseTable (HLabel "Here" (Columns a)) (HLabel "There" (Columns b))
@@ -185,10 +176,10 @@ instance
 instance
   ( Labelable from, Nullifiable from
   , Labelable to, Nullifiable to
-  , Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
+  , MapTable from to a1 b1
+  , MapTable from to a2 b2
   ) =>
-  Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
+  MapTable from to (TheseTable a1 a2) (TheseTable b1 b2)
 
 
 isThisTable :: TheseTable a b -> Expr 'NonNullable Bool
@@ -219,11 +210,11 @@ justThereTable :: TheseTable a b -> MaybeTable b
 justThereTable = there
 
 
-thisTable :: (Table b, Context b ~ DB) => a -> TheseTable a b
+thisTable :: Table DB b => a -> TheseTable a b
 thisTable a = TheseTable (justTable a) nothingTable
 
 
-thatTable :: (Table a, Context a ~ DB) => b -> TheseTable a b
+thatTable :: Table DB a => b -> TheseTable a b
 thatTable b = TheseTable nothingTable (justTable b)
 
 
@@ -231,7 +222,7 @@ thoseTable :: a -> b -> TheseTable a b
 thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
-theseTable :: (Table c, Context c ~ DB)
+theseTable :: Table DB c
   => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
 theseTable f g h TheseTable {here, there} =
   maybeTable

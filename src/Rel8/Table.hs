@@ -2,7 +2,7 @@
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
+{-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -11,7 +11,7 @@
 module Rel8.Table
   ( Table (Columns, Context)
   , toColumns, fromColumns
-  , Congruent, Compatible
+  , Congruent
   )
 where
 
@@ -48,8 +48,8 @@ import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Value ( Value )
 
 
-type Table :: Type -> Constraint
-class HTable (Columns a) => Table a where
+type Table :: Kind.Context -> Type -> Constraint
+class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
   type Columns a :: HKTable
   type Context a :: Kind.Context
 
@@ -58,7 +58,7 @@ class HTable (Columns a) => Table a where
 
 
 -- | Any 'HTable' is also a 'Table'.
-instance HTable t => Table (t (H context)) where
+instance HTable t => Table context (t (H context)) where
   type Columns (t (H context)) = t
   type Context (t (H context)) = context
 
@@ -67,7 +67,7 @@ instance HTable t => Table (t (H context)) where
 
 
 -- | Any context is trivially a table.
-instance KnownSpec spec => Table (context spec) where
+instance KnownSpec spec => Table context (context spec) where
   type Columns (context spec) = HIdentity spec
   type Context (context spec) = context
 
@@ -81,7 +81,7 @@ instance
   , blueprint ~ FromDBType a
   , ToDBType blueprint ~ a
   ) =>
-  Table (Aggregate nullability a)
+  Table Aggregation (Aggregate nullability a)
  where
   type Columns (Aggregate nullability a) =
     HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
@@ -97,7 +97,7 @@ instance
   , blueprint ~ FromDBType a
   , ToDBType blueprint ~ a
   ) =>
-  Table (Expr nullability a)
+  Table DB (Expr nullability a)
  where
   type Columns (Expr nullability a) =
     HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
@@ -113,7 +113,7 @@ instance
   , blueprint ~ FromType a
   , ToType blueprint ~ a
   ) =>
-  Table (Value nullability a)
+  Table Result (Value nullability a)
  where
   type Columns (Value nullability a) =
     HIdentity ('Spec '[""] 'Required nullability (FromType a))
@@ -124,10 +124,10 @@ instance
 
 
 instance
-  ( Table a, Table b
-  , Compatible a b
-  , Labelable (Context a)
-  ) => Table (a, b)
+  ( Table context a, Table context b
+  , Labelable context
+  ) =>
+  Table context (a, b)
  where
   type Columns (a, b) =
     HPair
@@ -146,10 +146,9 @@ instance
 
 
 instance
-  ( Table a, Table b, Table c
-  , Compatible a b, Compatible b c
-  , Labelable (Context a)
-  ) => Table (a, b, c)
+  ( Table context a, Table context b, Table context c
+  , Labelable context
+  ) => Table context (a, b, c)
  where
   type Columns (a, b, c) =
     HTrio
@@ -171,10 +170,9 @@ instance
 
 
 instance
-  ( Table a, Table b, Table c, Table d
-  , Compatible a b, Compatible b c, Compatible c d
-  , Labelable (Context a)
-  ) => Table (a, b, c, d)
+  ( Table context a, Table context b, Table context c, Table context d
+  , Labelable context
+  ) => Table context (a, b, c, d)
  where
   type Columns (a, b, c, d) =
     HQuartet
@@ -199,10 +197,10 @@ instance
 
 
 instance
-  ( Table a, Table b, Table c, Table d, Table e
-  , Compatible a b, Compatible b c, Compatible c d, Compatible d e
-  , Labelable (Context a)
-  ) => Table (a, b, c, d, e)
+  ( Table context a, Table context b, Table context c, Table context d
+  , Table context e
+  , Labelable context
+  ) => Table context (a, b, c, d, e)
  where
   type Columns (a, b, c, d, e) =
     HQuintet
@@ -232,8 +230,3 @@ instance
 type Congruent :: Type -> Type -> Constraint
 class Columns a ~ Columns b => Congruent a b
 instance Columns a ~ Columns b => Congruent a b
-
-
-type Compatible :: Type -> Type -> Constraint
-class Context a ~ Context b => Compatible a b
-instance Context a ~ Context b => Compatible a b

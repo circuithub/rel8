@@ -38,16 +38,13 @@ import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns
-  , Compatible
-  )
+import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
@@ -69,29 +66,27 @@ instance Bifunctor EitherTable where
   bimap f g (EitherTable tag a b) = EitherTable tag (f a) (g b)
 
 
-instance (Table a, Context a ~ DB) => Apply (EitherTable a) where
+instance Table DB a => Apply (EitherTable a) where
   EitherTable tag l1 f <.> EitherTable tag' l2 a =
     EitherTable (tag <> tag') (bool l1 l2 (tag ==. litExpr IsLeft)) (f a)
 
 
-instance (Table a, Context a ~ DB) => Applicative (EitherTable a) where
+instance Table DB a => Applicative (EitherTable a) where
   pure = rightTable
   (<*>) = (<.>)
 
 
-instance (Table a, Context a ~ DB) => Bind (EitherTable a) where
+instance Table DB a => Bind (EitherTable a) where
   EitherTable tag l1 a >>- f = case f a of
     EitherTable tag' l2 b ->
       EitherTable (tag <> tag') (bool l1 l2 (tag ==. litExpr IsLeft)) b
 
 
-instance (Table a, Context a ~ DB) => Monad (EitherTable a) where
+instance Table DB a => Monad (EitherTable a) where
   (>>=) = (>>-)
 
 
-instance (Table a, Context a ~ DB, Table b, Context b ~ DB) =>
-  Semigroup (EitherTable a b)
- where
+instance (Table DB a, Table DB b) => Semigroup (EitherTable a b) where
   a <> b = bool a b (isRightTable a)
 
 
@@ -119,7 +114,7 @@ instance Table2 EitherTable where
       tag = decodeTag $ unHIdentity htag
 
 
-instance Table a => Table1 (EitherTable a) where
+instance Table context a => Table1 (EitherTable a) where
   type Columns1 (EitherTable a) = HEitherTable (Columns a)
   type ConstrainContext1 (EitherTable a) = NullifiableEq (Context a)
 
@@ -128,10 +123,10 @@ instance Table a => Table1 (EitherTable a) where
 
 
 instance
-  ( Table a, Table b, Compatible a b
-  , Labelable (Context a), Nullifiable (Context a)
+  ( Table context a, Table context b
+  , Labelable context, Nullifiable context
   ) =>
-  Table (EitherTable a b)
+  Table context (EitherTable a b)
  where
   type Columns (EitherTable a b) =
     HEitherTable (HLabel "Left" (Columns a)) (HLabel "Right" (Columns b))
@@ -150,10 +145,10 @@ instance
 instance
   ( Nullifiable from, Labelable from
   , Nullifiable to, Labelable to
-  , Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
+  , MapTable from to a1 b1
+  , MapTable from to a2 b2
   ) =>
-  Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
+  MapTable from to (EitherTable a1 a2) (EitherTable b1 b2)
 
 
 isLeftTable :: EitherTable a b -> Expr 'NonNullable Bool
@@ -164,15 +159,15 @@ isRightTable :: EitherTable a b -> Expr 'NonNullable Bool
 isRightTable = isRight . tag
 
 
-eitherTable :: (Table c, Context c ~ DB)
+eitherTable :: Table DB c
   => (a -> c) -> (b -> c) -> EitherTable a b -> c
 eitherTable f g EitherTable {tag, left, right} =
   bool (f left) (g right) (isRight tag)
 
 
-leftTable :: (Table b, Context b ~ DB) => a -> EitherTable a b
+leftTable :: Table DB b => a -> EitherTable a b
 leftTable a = EitherTable (litExpr IsLeft) a undefined
 
 
-rightTable :: (Table a, Context a ~ DB) => b -> EitherTable a b
+rightTable :: Table DB a => b -> EitherTable a b
 rightTable = EitherTable (litExpr IsRight) undefined

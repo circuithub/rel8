@@ -46,12 +46,12 @@ import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( Aggregation(..), DB(..), Insert(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Table ( Table, Context, fromColumns, toColumns )
-import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
 
 
-aggregator :: Recontextualize Aggregation DB aggregates exprs
+aggregator :: MapTable Aggregation DB aggregates exprs
   => Opaleye.Aggregator aggregates exprs
 aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
@@ -66,7 +66,7 @@ aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
   toColumns
 
 
-binaryspec :: (Table a, Context a ~ DB) => Opaleye.Binaryspec a a
+binaryspec :: Table DB a => Opaleye.Binaryspec a a
 binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
   fmap fromColumns $ htabulateA $ \field ->
     case (hfield (toColumns as) field, hfield (toColumns bs) field) of
@@ -74,7 +74,7 @@ binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
         f (unsafeToPrimExpr a, unsafeToPrimExpr b)
 
 
-distinctspec :: (Table a, Context a ~ DB) => Opaleye.Distinctspec a a
+distinctspec :: Table DB a => Opaleye.Distinctspec a a
 distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
     fmap fromColumns .
@@ -83,8 +83,8 @@ distinctspec =
 
 
 tableFields ::
-  ( Recontextualize Name DB names exprs
-  , Recontextualize Name Insert names inserts
+  ( MapTable Name DB names exprs
+  , MapTable Name Insert names inserts
   )
   => names -> Opaleye.TableFields inserts exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
@@ -103,18 +103,18 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         info = typeInformationFromBlueprint blueprint
 
 
-unpackspec :: (Table a, Context a ~ DB) => Opaleye.Unpackspec a a
+unpackspec :: Table DB a => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
   htraverse (\(DB a) -> DB <$> unsafeTraversePrimExpr f a) .
   toColumns
 
 
-valuesspec :: (Table a, Context a ~ DB) => Opaleye.ValuesspecSafe a a
+valuesspec :: Table DB a => Opaleye.ValuesspecSafe a a
 valuesspec = Opaleye.ValuesspecSafe (toPackMap undefined) unpackspec
 
 
-toPackMap :: (Table a, Context a ~ DB)
+toPackMap :: Table DB a
   => a -> Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $

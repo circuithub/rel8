@@ -113,12 +113,12 @@ library
     Rel8.Table.Eq
     Rel8.Table.Lifted
     Rel8.Table.List
+    Rel8.Table.Map
     Rel8.Table.Maybe
     Rel8.Table.Name
     Rel8.Table.NonEmpty
     Rel8.Table.Opaleye
     Rel8.Table.Ord
-    Rel8.Table.Recontextualize
     Rel8.Table.Serialize
     Rel8.Table.These
     Rel8.Table.Undefined

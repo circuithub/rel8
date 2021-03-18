@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -28,26 +29,26 @@ import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 
 
-namesFromLabels :: (Table a, Context a ~ Name) => a
+namesFromLabels :: Table Name a => a
 namesFromLabels = namesFromLabelsWith go
   where
     go = fold . intersperse "/" . fmap quietSnake
 
 
-namesFromLabelsWith :: (Table a, Context a ~ Name)
+namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec labels _ _ _ -> Name (f (renderLabels labels))
 
 
-showLabels :: forall a. Table a => a -> [NonEmpty String]
+showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]
 showLabels _ = getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
     SSpec labels _ _ _ -> Const [renderLabels labels]
 
 
-showNames :: forall a. (Table a, Context a ~ Name) => a -> [String]
+showNames :: forall a. Table Name a => a -> [String]
 showNames (toColumns -> names) = getConst $
   htabulateA @(Columns a) $ \field -> case hfield names field of
     Name name -> Const [name]

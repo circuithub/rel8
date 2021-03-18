@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Table.Undefined
@@ -14,10 +15,10 @@ import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Table ( Table, Context, fromColumns )
+import Rel8.Table ( Table, fromColumns )
 
 
-undefined :: (Table a, Context a ~ DB) => a
+undefined :: Table DB a => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
   SSpec _ _ _ blueprint ->
     DB (unsafeUnnullify (snull (typeInformationFromBlueprint blueprint)))

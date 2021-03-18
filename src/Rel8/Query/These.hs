@@ -1,4 +1,4 @@
-{-# language TypeFamilies #-}
+{-# language FlexibleContexts #-}
 
 module Rel8.Query.These
   ( alignBy
@@ -18,12 +18,12 @@ import Rel8.Expr.Opaleye ( exprToColumn )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
 import Rel8.Schema.Context ( DB )
-import Rel8.Table ( Table, Context )
+import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.These ( TheseTable( TheseTable ) )
 
 
-alignBy :: (Table a, Table b, Context a ~ DB, Context b ~ DB)
+alignBy :: (Table DB a, Table DB b)
   => (a -> b -> Expr nullability Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
 alignBy condition as bs =
