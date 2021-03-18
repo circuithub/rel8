@@ -67,6 +67,7 @@ library
     Rel8.Query
     Rel8.Query.Aggregate
     Rel8.Query.Each
+    Rel8.Query.Exists
     Rel8.Query.Filter
     Rel8.Query.Limit
     Rel8.Query.List

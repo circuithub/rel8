@@ -1,5 +1,3 @@
-{-# language DeriveFunctor #-}
-{-# language DerivingStrategies #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
