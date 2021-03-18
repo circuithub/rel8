@@ -1,5 +1,3 @@
-{-# options_ghc -Wno-redundant-constraints #-}
-
 module Rel8.Expr.Bool
   ( (&&.)
   , and_

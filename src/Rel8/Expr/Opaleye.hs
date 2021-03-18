@@ -11,14 +11,16 @@ module Rel8.Expr.Opaleye
   , unsafeLiteral
   , litExprWith
   , litExpr
+  , listOfExprs
   ) where
 
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
-import {-# source #-} Rel8.Expr ( Expr( Expr ) )
+import {-# source #-} Rel8.Expr ( Expr( Expr ), toPrimExpr )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
@@ -60,3 +62,11 @@ litExpr = litExprWith typeInformation
 
 litExprWith :: DatabaseType a -> a -> Expr a
 litExprWith DatabaseType{ encode, typeName } = Expr . Opaleye.CastExpr typeName . encode
+
+
+listOfExprs :: DatabaseType x -> [Expr x] -> Expr [x]
+listOfExprs databaseType as = fromPrimExpr $
+  Opaleye.CastExpr array $
+  Opaleye.ArrayExpr (map toPrimExpr as)
+  where
+    array = typeName (liftDatabaseType @[] databaseType)

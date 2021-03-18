@@ -1,7 +1,4 @@
-{-# language BlockArguments #-}
 {-# language FlexibleInstances #-}
-{-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -18,13 +15,11 @@ import Control.Applicative ( ZipList( ZipList, getZipList ) )
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
 
 -- rel8
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Context )
 import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
-import Rel8.DatabaseType ( DatabaseType( typeName ) )
 import Rel8.DatabaseType.Decoder ( listDecoder )
-import Rel8.Expr ( Expr( toPrimExpr ), binaryOperator, fromPrimExpr )
-import Rel8.Expr.Opaleye ( litExprWith )
+import Rel8.Expr ( Expr, binaryOperator )
+import Rel8.Expr.Opaleye ( listOfExprs, litExprWith )
 import Rel8.HTable ( HTable( hdbtype, htabulate, hfield ), hzipWith )
 import Rel8.HTable.HComposeTable
   ( ComposeInner( ComposeInner )
@@ -66,13 +61,6 @@ instance Serializable a b => Serializable (ListTable a) [b] where
     case hfield hdbtype field of
       databaseType -> ComposeInner $ listOfExprs databaseType $
         map (\x -> hfield (toColumns x) field) xs
-    where
-      listOfExprs :: DatabaseType x -> [Expr x] -> Expr [x]
-      listOfExprs databaseType as = fromPrimExpr $
-        Opaleye.CastExpr array $
-        Opaleye.ArrayExpr (map toPrimExpr as)
-        where
-          array = typeName (liftDatabaseType @[] databaseType)
 
   rowParser liftHasqlDecoder =
     fmap getZipList . getCompose <$>

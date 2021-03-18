@@ -17,9 +17,9 @@ import Prelude ( Bool( False ), Maybe( Nothing ), ($), (.), id, return )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
-import Rel8.Expr ( Expr( toPrimExpr ), fromPrimExpr, retype, unsafeCoerceExpr )
+import Rel8.Expr ( Expr, retype, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( not_ )
-import Rel8.Expr.Opaleye ( litExpr )
+import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr )
 import Rel8.Query ( Query, where_ )
 import Rel8.Table.Bool ( ifThenElse_ )
 
@@ -43,7 +43,7 @@ null whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
 -- >>> select c $ pure $ isNull (lit (Just 42) :: Expr (Maybe Int32))
 -- [False]
 isNull :: Expr (Maybe a) -> Expr Bool
-isNull = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNull . toPrimExpr
+isNull = mapPrimExpr ( Opaleye.UnExpr Opaleye.OpIsNull )
 
 
 -- | Corresponds to SQL @null@.

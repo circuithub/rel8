@@ -2,7 +2,6 @@
 {-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
 {-# language GADTs #-}
-{-# language KindSignatures #-}
 {-# language LambdaCase #-}
 {-# language TypeFamilies #-}
 

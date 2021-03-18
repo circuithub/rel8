@@ -1,5 +1,4 @@
 {-# language FunctionalDependencies #-}
-{-# language MultiParamTypeClasses #-}
 
 module Rel8.DBType.DBSum ( DBSum(..) ) where
 

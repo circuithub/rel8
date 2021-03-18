@@ -1,5 +1,4 @@
 {-# language KindSignatures #-}
-{-# language TypeApplications #-}
 
 module Rel8.DBType.DBOrd ( DBOrd(..) ) where
 

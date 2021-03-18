@@ -1,9 +1,6 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language InstanceSigs #-}
-{-# language KindSignatures #-}
 {-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
 
 module Rel8.HTable.HComposeTable
@@ -15,7 +12,6 @@ module Rel8.HTable.HComposeTable
 -- rel8
 import Rel8.Context ( Context, KContext )
 import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
-import Rel8.DatabaseType ( DatabaseType )
 import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ), hmap )
 
 
@@ -36,7 +32,6 @@ instance (HTable t, DBFunctor f) => HTable (HComposeTable f t) where
 
   htraverse f (HComposeTable t) = HComposeTable <$> htraverse (traverseComposeInner f) t
 
-  hdbtype :: HComposeTable f t (Context DatabaseType)
   hdbtype = HComposeTable $ hmap (ComposeInner . liftDatabaseType) hdbtype
 
 
@@ -44,14 +39,14 @@ data ComposeInner context g a where
   ComposeInner :: { getComposeInner :: f (g a) } -> ComposeInner (Context f) g a
 
 
-traverseComposeInner :: forall f g t m a. Applicative m
+traverseComposeInner :: Applicative m
   => (forall x. f x -> m (g x))
   -> ComposeInner (Context f) t a -> m (ComposeInner (Context g) t a)
 traverseComposeInner f (ComposeInner a) =
   ComposeInner <$> f a
 
 
-zipComposeInnerWith :: forall f g h t a. ()
+zipComposeInnerWith :: ()
   => (forall x. f x -> g x -> h x)
   -> ComposeInner (Context f) t a -> ComposeInner (Context g) t a -> ComposeInner (Context h) t a
 zipComposeInnerWith f (ComposeInner a) (ComposeInner b) =

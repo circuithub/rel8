@@ -32,7 +32,6 @@ import Prelude
   , Functor( fmap )
   , Maybe( Just, Nothing )
   , Monad( return, (>>=) )
-  , Traversable
   , ($)
   , (.)
   , (<$>)
@@ -41,9 +40,6 @@ import Prelude
   , error
   , id
   )
-
--- hasql
-import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -55,7 +51,7 @@ import qualified Opaleye.Lateral as Opaleye
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DBType.DBEq ( (==.) )
 import Rel8.DatabaseType ( DatabaseType( decoder ), nullDatabaseType )
-import Rel8.DatabaseType.Decoder ( Decoder, acceptNull, runDecoder )
+import Rel8.DatabaseType.Decoder ( acceptNull, runDecoder )
 import Rel8.Expr ( Expr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
@@ -121,9 +117,6 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a)   (Maybe b)
 -- > select c $ pure (noTable :: MaybeTable (Expr (Maybe Bool)))
 -- [Nothing]
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
-  rowParser :: forall f. (Applicative f, Traversable f)
-    => (forall x. Decoder x -> Decoder (f x))
-    -> Hasql.Row (f (Maybe b))
   rowParser liftDecoder = do
     tags <- runDecoder (liftDecoder (decoder (typeInformation @(Maybe Bool))))
     rows <- rowParser @a (fmap Compose . liftDecoder . acceptNull)

@@ -1,4 +1,3 @@
-{-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
 {-# language GADTs #-}
