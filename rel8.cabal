@@ -80,6 +80,7 @@ library
     Rel8.Table.ListTable
     Rel8.Table.MaybeTable
     Rel8.Table.NonEmptyTable
+    Rel8.Table.Opaleye
     Rel8.Table.Selects
     Rel8.TableSchema
     Rel8.TableSchema.ColumnSchema

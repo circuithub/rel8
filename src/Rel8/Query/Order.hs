@@ -21,20 +21,19 @@ import Data.Functor.Contravariant ( Contravariant )
 -- contravariant
 import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
 
--- opaleye
+-- rel8
 import Opaleye.Internal.HaskellDB.PrimQuery ( OrderOp( orderDirection, orderNulls ) )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy )
-
--- rel8
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr( Expr ), retype )
 import Rel8.HTable ( htraverse )
-import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye, unpackspec )
+import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye )
 import Rel8.Table ( Table, toColumns )
+import Rel8.Table.Opaleye ( unpackspec )
 
 
 -- | An ordering expression for @a@. Primitive orderings are defined with 'asc'

@@ -59,10 +59,11 @@ import Rel8.Expr.Opaleye ( litExpr, litExprWith )
 import Rel8.HTable ( HTable( htabulate, HField, hfield, hdbtype ) )
 import Rel8.HTable.HMaybeTable ( HMaybeTable( HMaybeTable ) )
 import Rel8.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Query ( Query, mapOpaleye, unpackspec, where_ )
+import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor, Serializable( rowParser, lit ) )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 import Rel8.Table.Bool ( ifThenElse_ )
+import Rel8.Table.Opaleye ( unpackspec )
 
 
 -- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If

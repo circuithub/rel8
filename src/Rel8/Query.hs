@@ -11,8 +11,6 @@ module Rel8.Query
   ( Query
   , liftOpaleye
   , toOpaleye
-  , hasqlRowDecoder
-  , unpackspec
   , selectQuery
   , countRows
   , select
@@ -41,7 +39,6 @@ module Rel8.Query
 import Control.Exception ( throwIO )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Data.Foldable ( fold, toList )
-import Data.Functor.Identity ( Identity( Identity ), runIdentity )
 import Data.Int ( Int64 )
 import Numeric.Natural ( Natural )
 import Prelude
@@ -83,20 +80,19 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( exists, restrict )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
-import Rel8.Context ( Context )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
-import Rel8.Expr ( Expr, column, fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
+import Rel8.Expr ( Expr, column, fromPrimExpr, toPrimExpr, traversePrimExpr )
 import Rel8.Expr.Opaleye ( columnToExpr )
-import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse )
+import Rel8.HTable ( hdbtype, hfield, htabulate, htraverse )
 import qualified Rel8.Optimize
-import Rel8.Serializable ( Serializable( rowParser ) )
-import Rel8.Table ( Columns, Table, fromColumns, toColumns )
+import Rel8.Serializable ( Serializable, hasqlRowDecoder )
+import Rel8.Table ( Columns, Table, fromColumns )
 import Rel8.Table.Congruent ( mapTable, traverseTable, zipTablesWithM )
+import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema( tableColumns ), toOpaleyeTable )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )
@@ -138,22 +134,6 @@ select conn query = liftIO case selectQuery query of
       q = encodeUtf8 (pack neQuery)
       params = Hasql.noParams
       prepare = False
-
-
-hasqlRowDecoder :: forall row haskell. Serializable row haskell => Hasql.Row haskell
-hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity)
-
-
-unpackspec :: Table Expr row => Opaleye.Unpackspec row row
-unpackspec =
-  Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    fmap fromColumns . htraverse (traversePrimExpr f) . addCasts . toColumns
-  where
-    addCasts :: forall f. HTable f => f (Context Expr) -> f (Context Expr)
-    addCasts columns = htabulate go
-      where
-        go :: forall x. HField f x -> Expr x
-        go i = unsafeCastExpr (typeName (hfield hdbtype i)) (hfield columns i)
 
 
 selectQuery :: forall a . Table Expr a => Query a -> Maybe String

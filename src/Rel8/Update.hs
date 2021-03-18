@@ -18,16 +18,14 @@ import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
--- opaleye
+-- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
-
--- rel8
 import Rel8.Expr ( Expr( toPrimExpr ), column )
-import Rel8.Query ( hasqlRowDecoder, unpackspec )
 import Rel8.Returning ( Returning( Projection, NumberOfRowsAffected ) )
-import Rel8.Serializable ( Serializable )
+import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Table.Congruent ( mapTable )
+import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, ddlTable, writer )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )

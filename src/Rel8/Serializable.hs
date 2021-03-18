@@ -11,12 +11,12 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Serializable ( ExprFor, Serializable(..) ) where
+module Rel8.Serializable ( ExprFor, Serializable(..), hasqlRowDecoder ) where
 
 -- base
 import Control.Applicative ( Applicative( liftA2 ), liftA3 )
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
-import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Functor.Identity ( Identity( Identity ), runIdentity )
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -120,3 +120,6 @@ instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3, Serializab
 
   lit (a, b, c, d) = (lit a, lit b, lit c, lit d)
 
+
+hasqlRowDecoder :: forall row haskell. Serializable row haskell => Hasql.Row haskell
+hasqlRowDecoder = runIdentity <$> rowParser @row (fmap Identity)
