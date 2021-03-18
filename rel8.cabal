@@ -63,6 +63,17 @@ library
     Rel8.Kind.Necessity
     Rel8.Kind.Nullability
 
+    Rel8.Query
+    Rel8.Query.Aggregate
+    Rel8.Query.Limit
+    Rel8.Query.List
+    Rel8.Query.Maybe
+    Rel8.Query.Opaleye
+    Rel8.Query.Optimize
+    Rel8.Query.Set
+    Rel8.Query.SQL
+    Rel8.Query.Values
+
     Rel8.Schema.Column
     Rel8.Schema.Context
     Rel8.Schema.Context.Label

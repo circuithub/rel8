@@ -48,10 +48,13 @@ instance (KnownSymbol label, KnownLabels (label_ ': labels)) =>
 
 
 renderLabels :: SLabels labels -> NonEmpty String
-renderLabels = cleanup . \case
-  SLabel label -> pure (symbolVal label)
-  SLabels label labels -> symbolVal label <| renderLabels labels
+renderLabels = cleanup . go
   where
+    go :: SLabels labels -> NonEmpty String
+    go = \case
+      SLabel label -> pure (symbolVal label)
+      SLabels label labels -> symbolVal label <| go labels
+
     cleanup ("" :| []) = "anon" :| []
     cleanup (a :| []) = a :| []
     cleanup (a :| [""]) = a :| []

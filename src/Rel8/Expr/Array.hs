@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -19,13 +20,16 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( sfromPrimExpr, stoPrimExpr )
-import Rel8.Kind.Blueprint ( SBlueprint( SVector ), ToDBType )
+import Rel8.Kind.Blueprint
+  ( SBlueprint( SVector ), ToDBType
+  , typeInformationFromBlueprint
+  )
 import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
   , SEmptiability( SEmptiable )
   )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ), SNullability )
-import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
 import Rel8.Type.Array ( Array, array )
 
 
@@ -49,9 +53,11 @@ sempty :: a ~ ToDBType blueprint
   => SNullability nullability
   -> SBlueprint blueprint
   -> Expr nullability' (Array 'Emptiable nullability a)
-sempty nullability blueprint = sfromPrimExpr blueprint' $ Opaleye.ArrayExpr []
+sempty _ blueprint = Expr $
+  Opaleye.UnExpr (Opaleye.UnOpOther "ROW") $
+  Opaleye.CastExpr (typeName <> "[]") $ Opaleye.ArrayExpr []
   where
-    blueprint' = SVector SEmptiable nullability blueprint
+    TypeInformation {typeName} = typeInformationFromBlueprint blueprint
 
 
 listOf :: forall a nullability. DBType a

@@ -34,7 +34,6 @@ import Rel8.Kind.Blueprint
   ( SBlueprint( SScalar, SVector )
   , KnownBlueprint, blueprintSing
   , FromDBType, ToDBType
-  , typeInformationFromBlueprint
   )
 import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
 
@@ -119,14 +118,11 @@ sfromPrimExpr :: a ~ ToDBType blueprint
   => SBlueprint blueprint -> Opaleye.PrimExpr -> Expr nullability a
 sfromPrimExpr = \case
   SScalar _ -> unsafeFromPrimExpr
-  SVector _ _ blueprint -> \a -> Expr $
+  SVector {} -> \a -> Expr $
     Opaleye.CaseExpr
       [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
       ]
-      (Opaleye.UnExpr (Opaleye.UnOpOther "ROW") (Opaleye.CastExpr name a))
-    where
-      info = typeInformationFromBlueprint blueprint
-      name = typeName info <> "[]"
+      (Opaleye.UnExpr (Opaleye.UnOpOther "ROW") a)
 
 
 stoPrimExpr :: a ~ ToDBType blueprint

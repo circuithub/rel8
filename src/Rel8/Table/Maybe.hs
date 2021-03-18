@@ -153,7 +153,7 @@ isJustTable (MaybeTable tag _) = isNonNull tag
 
 
 maybeTable :: (Table b, Context b ~ DB) => b -> (a -> b) -> MaybeTable a -> b
-maybeTable b f ma@(MaybeTable _ a) = bool b (f a) (isNothingTable ma)
+maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
 
 
 nothingTable :: (Table a, Context a ~ DB) => MaybeTable a
