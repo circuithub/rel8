@@ -66,6 +66,7 @@ library
 
     Rel8.Query
     Rel8.Query.Aggregate
+    Rel8.Query.Each
     Rel8.Query.Filter
     Rel8.Query.Limit
     Rel8.Query.List
@@ -74,7 +75,6 @@ library
     Rel8.Query.Optimize
     Rel8.Query.Set
     Rel8.Query.SQL
-    Rel8.Query.Table
     Rel8.Query.These
     Rel8.Query.Values
 
@@ -106,6 +106,7 @@ library
     Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
+    Rel8.Schema.Table
     Rel8.Schema.Value
 
     Rel8.Table
