@@ -31,15 +31,12 @@ import Prelude
   , fmap
   )
 
--- opaleye
+-- rel8
 import qualified Opaleye ( PGInt8 )
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
--- rel8
 import Rel8.DBType ( DBType )
-import Rel8.Expr.Lit ( litExpr )
-import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn )
+import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, litExpr )
 import Rel8.Function ( function )
 
 

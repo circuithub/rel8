@@ -36,5 +36,7 @@ newtype ReadShow a = ReadShow { fromReadShow :: a }
 --   deriving DBType via ReadShow Color
 -- @
 instance (Read a, Show a) => DBType (ReadShow a) where
-  typeInformation =
-    parseDatabaseType (fmap ReadShow . readEither . Text.unpack) (Text.pack . show . fromReadShow) typeInformation
+  typeInformation = parseDatabaseType parser printer typeInformation
+    where
+      parser = fmap ReadShow . readEither . Text.unpack
+      printer = Text.pack . show . fromReadShow

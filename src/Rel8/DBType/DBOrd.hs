@@ -7,14 +7,11 @@ module Rel8.DBType.DBOrd ( DBOrd(..) ) where
 import Data.Int ( Int32, Int64 )
 import Data.Kind ( Type )
 
--- opaleye
-import qualified Opaleye.Operators as Opaleye
-import qualified Opaleye.PGTypes as Opaleye
-
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn )
+import Rel8.Expr.Opaleye ( binExpr )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -29,19 +26,19 @@ import Data.Time ( Day, UTCTime )
 class DBEq a => DBOrd (a :: Type) where
   -- | The PostgreSQL @<@ operator.
   (<.) :: Expr a -> Expr a -> Expr Bool
-  a <. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..< exprToColumn b)
+  (<.) = binExpr (Opaleye.:<)
 
   -- | The PostgreSQL @<=@ operator.
   (<=.) :: Expr a -> Expr a -> Expr Bool
-  a <=. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..<= exprToColumn b)
+  (<=.) = binExpr (Opaleye.:<=)
 
   -- | The PostgreSQL @>@ operator.
   (>.) :: Expr a -> Expr a -> Expr Bool
-  a >. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..> exprToColumn b)
+  (>.) = binExpr (Opaleye.:>)
 
   -- | The PostgreSQL @>@ operator.
   (>=.) :: Expr a -> Expr a -> Expr Bool
-  a >=. b = columnToExpr (exprToColumn @_ @Opaleye.PGInt8 a Opaleye..>= exprToColumn b)
+  (>=.) = binExpr (Opaleye.:>=)
 
 
 instance DBOrd Bool where

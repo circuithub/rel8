@@ -19,7 +19,7 @@ import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr( toPrimExpr ), fromPrimExpr, retype, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( not_ )
-import Rel8.Expr.Lit ( litExpr )
+import Rel8.Expr.Opaleye ( litExpr )
 import Rel8.Query ( Query, where_ )
 import Rel8.Table.Bool ( ifThenElse_ )
 

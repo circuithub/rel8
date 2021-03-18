@@ -1,3 +1,4 @@
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
@@ -8,11 +9,15 @@ module Rel8.Expr.Opaleye
   , zipPrimExprsWith
   , mapPrimExpr
   , unsafeLiteral
+  , litExprWith
+  , litExpr
   ) where
 
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.DBType ( DBType( typeInformation ) )
+import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
 import {-# source #-} Rel8.Expr ( Expr( Expr ) )
 
 
@@ -47,3 +52,11 @@ unsafeLiteral = fromPrimExpr . Opaleye.ConstExpr . Opaleye.OtherLit
 
 fromPrimExpr :: Opaleye.PrimExpr -> Expr a
 fromPrimExpr = Expr
+
+
+litExpr :: DBType a => a -> Expr a
+litExpr = litExprWith typeInformation
+
+
+litExprWith :: DatabaseType a -> a -> Expr a
+litExprWith DatabaseType{ encode, typeName } = Expr . Opaleye.CastExpr typeName . encode

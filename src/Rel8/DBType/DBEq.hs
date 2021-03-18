@@ -16,8 +16,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), not_ )
-import Rel8.Expr.Lit ( litExpr )
-import Rel8.Expr.Opaleye ( binExpr )
+import Rel8.Expr.Opaleye ( binExpr, litExpr )
 
 -- scientific
 import Data.Scientific ( Scientific )

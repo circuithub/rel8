@@ -28,7 +28,7 @@ import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName, decoder ) )
 import Rel8.DatabaseType.Decoder ( Decoder, runDecoder )
 import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Lit ( litExprWith )
+import Rel8.Expr.Opaleye ( litExprWith )
 import Rel8.HTable ( HTable( HField, htraverse, htabulate, hdbtype, hfield ) )
 import Rel8.Table ( Table, fromColumns )
 

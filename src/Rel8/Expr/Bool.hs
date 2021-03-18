@@ -14,8 +14,7 @@ import Data.Foldable ( foldl' )
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Lit ( litExpr )
-import Rel8.Expr.Opaleye ( mapPrimExpr, zipPrimExprsWith )
+import Rel8.Expr.Opaleye ( binExpr, litExpr, mapPrimExpr )
 
 
 -- | The SQL @AND@ operator.
@@ -34,7 +33,7 @@ infixr 3 &&.
 
 
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
-(&&.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpAnd)
+(&&.) = binExpr Opaleye.OpAnd
 
 
 -- | Fold @AND@ over a collection of expressions.
@@ -64,7 +63,7 @@ infixr 2 ||.
 
 
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
-(||.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpOr)
+(||.) = binExpr Opaleye.OpOr
 
 
 -- | Fold @OR@ over a collection of expressions.

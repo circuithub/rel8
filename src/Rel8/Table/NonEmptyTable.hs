@@ -26,7 +26,6 @@ import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
 import Rel8.DatabaseType ( DatabaseType( typeName ) )
 import Rel8.DatabaseType.Decoder ( listDecoder )
 import Rel8.Expr ( Expr( toPrimExpr ), binaryOperator, fromPrimExpr )
-import Rel8.Expr.Lit ()
 import Rel8.HTable ( HTable( hfield, htabulate, hdbtype ), hzipWith )
 import Rel8.HTable.HComposeTable
   ( ComposeInner( ComposeInner )

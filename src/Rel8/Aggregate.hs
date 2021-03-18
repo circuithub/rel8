@@ -18,19 +18,18 @@ module Rel8.Aggregate
   , nonEmptyAgg
   , some
   , many
+  , aggregateAllExprs
   ) where
 
 -- base
 import Data.Int ( Int64 )
 import Data.List.NonEmpty ( NonEmpty )
 
--- opaleye
+-- rel8
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-
--- rel8
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.HTable ( htraverse )
 import Rel8.HTable.HComposeTable ( ComposeInner( ComposeInner ) )
@@ -75,6 +74,10 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
 -- 'pure', but sometimes being explicit can help the readability of your code.
 groupBy :: a -> Aggregate a
 groupBy = pure
+
+
+aggregateAllExprs :: Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
+aggregateAllExprs op (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll op a []
 
 
 -- | Corresponds to @bool_and@.

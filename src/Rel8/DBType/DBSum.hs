@@ -6,13 +6,11 @@ module Rel8.DBType.DBSum ( DBSum(..) ) where
 -- base
 import Data.Int ( Int16, Int32, Int64 )
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ) )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Aggregate ( Aggregate, aggregateAllExprs )
 import Rel8.DBType ( DBType )
-import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -24,7 +22,7 @@ import Data.Scientific ( Scientific )
 class DBType a => DBSum a res | a -> res where
   -- | Corresponds to @sum@.
   sum :: Expr a -> Aggregate (Expr res)
-  sum (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrSum a []
+  sum = aggregateAllExprs Opaleye.AggrSum
 
 
 instance DBSum Double Double
