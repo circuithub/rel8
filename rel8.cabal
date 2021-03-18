@@ -53,6 +53,7 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
+    Rel8.Expr.Order
     Rel8.Expr.Serialize
     Rel8.Expr.Text
     Rel8.Expr.Time
@@ -64,8 +65,11 @@ library
     Rel8.Kind.Necessity
     Rel8.Kind.Nullability
 
+    Rel8.Order
+
     Rel8.Query
     Rel8.Query.Aggregate
+    Rel8.Query.Distinct
     Rel8.Query.Each
     Rel8.Query.Exists
     Rel8.Query.Filter
@@ -74,6 +78,7 @@ library
     Rel8.Query.Maybe
     Rel8.Query.Opaleye
     Rel8.Query.Optimize
+    Rel8.Query.Order
     Rel8.Query.Set
     Rel8.Query.SQL
     Rel8.Query.These
@@ -124,6 +129,7 @@ library
     Rel8.Table.NonEmpty
     Rel8.Table.Opaleye
     Rel8.Table.Ord
+    Rel8.Table.Order
     Rel8.Table.Serialize
     Rel8.Table.These
     Rel8.Table.Undefined
