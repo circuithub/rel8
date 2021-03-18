@@ -23,6 +23,7 @@ library
     , contravariant
     , hasql
     , opaleye           ^>=0.7.0.0
+    , profunctors
     , scientific
     , text
     , time

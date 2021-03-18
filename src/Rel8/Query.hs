@@ -42,7 +42,7 @@ import Data.Foldable ( fold, toList )
 import Data.Int ( Int64 )
 import Numeric.Natural ( Natural )
 import Prelude
-  ( Applicative( pure )
+  ( Applicative
   , Bool( False , True )
   , Foldable
   , Functor( fmap )
@@ -51,7 +51,7 @@ import Prelude
   , String
   , ($)
   , (.)
-  , (<$>)
+  , (<$)
   , either
   , fromIntegral
   )
@@ -63,39 +63,30 @@ import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
+-- profunctors
+import Data.Profunctor ( lmap )
+
 -- rel8
 import qualified Opaleye ( valuesExplicit )
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Binary as Opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Exists as Opaleye
-import qualified Opaleye.Internal.Aggregate as Opaleye
-import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Distinct as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.Order as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, exists, limit )
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
-import qualified Opaleye.Internal.Values as Opaleye
-import qualified Opaleye.Operators as Opaleye hiding ( exists, restrict )
+import qualified Opaleye.Operators as Opaleye hiding ( exists )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
-import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
-import Rel8.Expr ( Expr, column, fromPrimExpr, toPrimExpr, traversePrimExpr )
-import Rel8.Expr.Opaleye ( columnToExpr )
-import Rel8.HTable ( hdbtype, hfield, htabulate, htraverse )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn )
 import qualified Rel8.Optimize
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
-import Rel8.Table ( Columns, Table, fromColumns )
-import Rel8.Table.Congruent ( mapTable, traverseTable, zipTablesWithM )
-import Rel8.Table.Opaleye ( unpackspec )
+import Rel8.Table ( Table )
+import Rel8.Table.Opaleye ( binaryspec, distinctspec, unpackspec, valuesspec )
 import Rel8.Table.Selects ( Selects )
-import Rel8.TableSchema ( TableSchema( tableColumns ), toOpaleyeTable )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )
+import Rel8.TableSchema ( TableSchema, selectSchema )
 
 -- text
 import Data.Text ( pack )
@@ -160,9 +151,7 @@ countRows = fmap columnToExpr . mapOpaleye Opaleye.countRows
 -- :}
 -- [3,4,5]
 where_ :: Expr Bool -> Query ()
-where_ x =
-  liftOpaleye $ Opaleye.QueryArr \((), left, t) ->
-    ((), Opaleye.restrict (toPrimExpr x) left, t)
+where_ x = liftOpaleye $ lmap (\_ -> exprToColumn x) Opaleye.restrict
 
 
 -- | Produce the empty query if the given query returns no rows. @whereExists@
@@ -222,16 +211,7 @@ exists = fmap columnToExpr . mapOpaleye Opaleye.exists
 -- Project {projectAuthorId = 2, projectName = "aeson"}
 -- Project {projectAuthorId = 2, projectName = "text"}
 each :: Selects schema row => TableSchema schema -> Query row
-each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
-  where
-    f :: forall schema row.  Selects schema row => TableSchema schema -> Opaleye.Table () row
-    f schema = toOpaleyeTable schema noWriter view
-      where
-        noWriter :: Opaleye.Writer () row
-        noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
-
-        view :: Opaleye.View row
-        view = Opaleye.View $ mapTable (column . columnName) (tableColumns schema)
+each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . selectSchema
 
 
 -- | Combine the results of two queries of the same type, collapsing
@@ -241,11 +221,6 @@ each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . f
 -- [False,True]
 union :: Table Expr a => Query a -> Query a -> Query a
 union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Combine the results of two queries of the same type, retaining duplicates.
@@ -255,11 +230,6 @@ union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpal
 -- [True,True,False,True]
 unionAll :: Table Expr a => Query a -> Query a -> Query a
 unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the intersection of two queries, collapsing duplicates.  @intersect a
@@ -269,11 +239,6 @@ unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (
 -- [True]
 intersect :: Table Expr a => Query a -> Query a -> Query a
 intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the intersection of two queries, retaining duplicates.  @intersectAll
@@ -283,11 +248,6 @@ intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l)
 -- [True,True]
 intersectAll :: Table Expr a => Query a -> Query a -> Query a
 intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the difference of two queries, collapsing duplicates @except a b@ is
@@ -297,11 +257,6 @@ intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpal
 -- [False]
 except :: Table Expr a => Query a -> Query a -> Query a
 except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Find the difference of two queries, retaining duplicates.  @exceptAll a b@
@@ -311,11 +266,6 @@ except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOp
 -- [False,False]
 exceptAll :: Table Expr a => Query a -> Query a -> Query a
 exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l) (toOpaleye r)
-  where
-    binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-    binaryspec =
-      Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-        zipTablesWithM (\x y -> fromPrimExpr <$> f (toPrimExpr x, toPrimExpr y)) a b
 
 
 -- | Select all distinct rows from a query, removing duplicates.  @distinct q@
@@ -325,11 +275,6 @@ exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l)
 -- [False,True]
 distinct :: Table Expr a => Query a -> Query a
 distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
-  where
-    distinctspec :: Table Expr a => Opaleye.Distinctspec a a
-    distinctspec =
-      Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
-        traverseTable (\x -> fromPrimExpr <$> f (Nothing, toPrimExpr x))
 
 
 distinctOn :: Table Expr b => (a -> b) -> Query a -> Query a
@@ -366,20 +311,6 @@ offset n = mapOpaleye $ Opaleye.offset (fromIntegral n)
 -- World!
 values :: forall expr f. (Table Expr expr, Foldable f) => f expr -> Query expr
 values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
-  where
-    valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
-      where
-        packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
-        packmap = Opaleye.PackMap \f () ->
-          fmap fromColumns $
-            htraverse (traversePrimExpr f) $
-              htabulate @(Columns expr) @Expr \i ->
-                case hfield (hdbtype @(Columns expr)) i of
-                  databaseType -> fromPrimExpr $ nullPrimExpr databaseType
-            where
-              nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
-              nullPrimExpr DatabaseType{ typeName } =
-                Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
 
 
 -- | @filter f x@ will be a zero-row query when @f x@ is @False@, and will
@@ -390,9 +321,7 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
 -- >>> select c $ values [ lit x | x <- [ 1..5 :: Int32 ] ] >>= filter (>. 3)
 -- [4,5]
 filter :: (a -> Expr Bool) -> a -> Query a
-filter f a = do
-  where_ $ f a
-  return a
+filter f a = a <$ where_ (f a)
 
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@

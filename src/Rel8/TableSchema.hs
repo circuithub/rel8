@@ -6,22 +6,21 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-module Rel8.TableSchema ( TableSchema(..), toOpaleyeTable, ddlTable, writer ) where
+module Rel8.TableSchema ( TableSchema(..), toOpaleyeTable, ddlTable, writer, selectSchema ) where
 
 -- base
 import Control.Monad ( void )
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
 import Data.Kind ( Type )
 
--- opaleye
+-- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-
--- rel8
 import Rel8.Expr ( Expr( toPrimExpr ), column )
 import Rel8.HTable ( HTable( hfield, htraverse, htabulate ) )
 import Rel8.Table ( Table( toColumns, Columns ) )
+import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema( ColumnSchema, columnName ) )
 
@@ -102,3 +101,13 @@ writer into_ =
 
   in
   Opaleye.Writer ( Opaleye.PackMap go )
+
+
+selectSchema :: forall schema row.  Selects schema row => TableSchema schema -> Opaleye.Table () row
+selectSchema schema = toOpaleyeTable schema noWriter view
+  where
+    noWriter :: Opaleye.Writer () row
+    noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
+
+    view :: Opaleye.View row
+    view = Opaleye.View $ mapTable (column . columnName) (tableColumns schema)
