@@ -26,7 +26,7 @@ import Rel8.Kind.Blueprint
   )
 import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
-  , SEmptiability( SEmptiable )
+  , SEmptiability
   )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ), SNullability )
 import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
