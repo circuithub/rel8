@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
@@ -24,12 +25,11 @@ module Rel8.Table.MaybeTable
   ) where
 
 -- base
-import Control.Applicative ( liftA2 )
-import Data.Functor.Compose ( Compose( Compose, getCompose ) )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
   ( Applicative( (<*>), pure )
   , Bool( True, False )
-  , Functor( fmap )
+  , Functor
   , Maybe( Just, Nothing )
   , Monad( return, (>>=) )
   , ($)
@@ -42,27 +42,33 @@ import Prelude
   )
 
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, exists, limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
-import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DBType.DBEq ( (==.) )
-import Rel8.DatabaseType ( DatabaseType( decoder ), nullDatabaseType )
-import Rel8.DatabaseType.Decoder ( acceptNull, runDecoder )
-import Rel8.Expr ( Expr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
+import Rel8.Expr ( Expr, fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( (&&.), not_ )
+import Rel8.Expr.Bool ( ifThenElse_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
 import Rel8.Expr.Opaleye ( litExpr, litExprWith )
-import Rel8.HTable ( HTable( htabulate, HField, hfield, hdbtype ) )
-import Rel8.HTable.HMaybeTable ( HMaybeTable( HMaybeTable ) )
+import Rel8.HTable ( HTable( htabulate, HField, hfield, hdbtype ), hmap )
+import Rel8.HTable.HMapTable
+  ( HMapTable( HMapTable )
+  , HMapTableField( HMapTableField )
+  , Precompose( Precompose )
+  , mapInfo
+  )
+import Rel8.HTable.HMaybeTable ( HMaybeTable( HMaybeTable, hnullTag, htable ), MakeNull )
 import Rel8.HTable.Identity ( HIdentity( HIdentity ) )
+import Rel8.Info ( Info( Null, NotNull ) )
 import Rel8.Query ( Query, mapOpaleye, where_ )
-import Rel8.Serializable ( ExprFor, Serializable( rowParser, lit ) )
+import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
-import Rel8.Table.Bool ( ifThenElse_ )
+import qualified Rel8.Table.Bool as T
 import Rel8.Table.Opaleye ( unpackspec )
 
 
@@ -101,11 +107,64 @@ instance Monad MaybeTable where
 instance Table Expr a => Table Expr (MaybeTable a) where
   type Columns (MaybeTable a) = HMaybeTable (Columns a)
 
-  toColumns (MaybeTable x y) = HMaybeTable (HIdentity x) (toColumns y)
-  fromColumns (HMaybeTable (HIdentity x) y) = MaybeTable x (fromColumns y)
+  toColumns (MaybeTable x y) = HMaybeTable
+    { hnullTag = HIdentity x
+    , htable = HMapTable $ htabulate f
+    }
+    where
+      f :: forall x. HField (Columns a) x -> Precompose MakeNull Expr x
+      f i = Precompose
+        case hfield hdbtype i of
+          NotNull _ ->
+            ifThenElse_
+              (x ==. lit (Just True))
+              (unsafeCoerceExpr (hfield (toColumns y) i))
+              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+
+          Null _ ->
+            ifThenElse_
+              (x ==. lit (Just True))
+              (hfield (toColumns y) i)
+              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+
+  fromColumns (HMaybeTable (HIdentity x) (HMapTable y)) =
+    MaybeTable x (fromColumns (hmap (\(Precompose e) -> unsafeCoerceExpr e) y))
 
 
-instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a)   (Maybe b)
+instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
+  pack HMaybeTable{ hnullTag = HIdentity (Identity nullTag), htable = HMapTable t } =
+    case nullTag of
+      Just True -> Just $ pack @a $ htabulate \i ->
+        case hfield hdbtype i of
+          NotNull _ ->
+            case hfield t i of
+              Precompose (Identity Nothing)  -> error "Impossible"
+              Precompose (Identity (Just x)) -> pure x
+
+          Null _ ->
+            case hfield t i of
+              Precompose (Identity x) -> pure x
+
+      _ -> Nothing
+
+  unpack = \case
+    Just a -> HMaybeTable
+      { hnullTag = HIdentity (pure (Just True))
+      , htable = htabulate \(HMapTableField i) ->
+          case hfield hdbtype i of
+            NotNull _ -> Just <$> hfield unpacked i
+            Null _    -> hfield unpacked i
+      }
+      where
+        unpacked = unpack @a a
+
+    Nothing -> HMaybeTable
+      { hnullTag = HIdentity (pure Nothing)
+      , htable = htabulate \(HMapTableField i) ->
+          case hfield hdbtype i of
+            NotNull _ -> pure Nothing
+            Null _    -> pure Nothing
+      }
 
 
 -- | 
@@ -118,19 +177,6 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a)   (Maybe b)
 -- > select c $ pure (noTable :: MaybeTable (Expr (Maybe Bool)))
 -- [Nothing]
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
-  rowParser liftDecoder = do
-    tags <- runDecoder (liftDecoder (decoder (typeInformation @(Maybe Bool))))
-    rows <- rowParser @a (fmap Compose . liftDecoder . acceptNull)
-    return $ liftA2 f tags (getCompose rows)
-    where
-      f :: Maybe Bool -> Maybe b -> Maybe b
-      f (Just True)  (Just row) = Just row
-      f (Just True)  Nothing    = error "TODO"
-      f _            _          = Nothing
-
-  lit = \case
-    Nothing -> noTable
-    Just x  -> pure $ lit x
 
 
 -- | @bindMaybeTable f x@ is similar to the monadic bind (@>>=@) operation. It
@@ -247,7 +293,7 @@ maybeTable
   :: Table Expr b
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
-  ifThenElse_ (null (lit False) id nullTag) (f table) def
+  T.ifThenElse_ (null (lit False) id nullTag) (f table) def
 
 
 isNothingTable :: MaybeTable a -> Expr Bool
@@ -260,5 +306,6 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
     f :: forall x. HField (Columns a) x -> Expr x
     f i =
-      case hfield (hdbtype @(Columns a)) i of
-        databaseType -> unsafeCoerceExpr (litExprWith (nullDatabaseType databaseType) (Nothing :: Maybe x))
+      case hfield hdbtype i of
+        NotNull{} -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)
+        Null{}    -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)

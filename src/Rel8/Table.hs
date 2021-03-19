@@ -14,11 +14,11 @@ import Data.Kind ( Type )
 
 -- rel8
 import Rel8.Context ( Context, KContext )
-import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.HTable ( HTable )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.HTable.Identity ( HIdentity( HIdentity, unHIdentity ) )
+import Rel8.Info ( HasInfo )
 
 
 -- | Types that represent SQL tables.
@@ -33,7 +33,7 @@ class HTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> c
   fromColumns :: Columns t (Context context) -> t
 
 
-instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
+instance (HasInfo a, expr ~ Expr) => Table expr (Expr a) where
   type Columns (Expr a) = HIdentity a
   toColumns = HIdentity
   fromColumns = unHIdentity

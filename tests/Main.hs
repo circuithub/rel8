@@ -399,13 +399,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.DBType a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.HasInfo a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b. (Rel8.HasInfo a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -445,7 +445,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.DBEq a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase

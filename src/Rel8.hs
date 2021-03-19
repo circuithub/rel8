@@ -47,6 +47,7 @@ module Rel8
     -- * Database types
     -- ** @DBType@
     DBType(..)
+  , HasInfo
 
     -- *** Deriving-via helpers
     -- **** @JSONEncoded@
@@ -79,6 +80,7 @@ module Rel8
 
     -- * Expressions
   , Expr
+  , lit
   , unsafeCastExpr
   , unsafeCoerceExpr
   , unsafeLiteral
@@ -191,7 +193,7 @@ module Rel8
   , nullsLast
 
     -- * IO
-  , Serializable(..)
+  , Serializable
   , ExprFor
 
     -- * Running statements
@@ -263,6 +265,7 @@ import Rel8.Expr.Opaleye ( unsafeLiteral )
 import Rel8.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
+import Rel8.Info ( HasInfo )
 import Rel8.Query
   ( Query
   , countRows
@@ -285,7 +288,7 @@ import Rel8.Query
   , where_
   )
 import Rel8.Query.Order ( Order, asc, desc, distinctOnBy, nullsFirst, nullsLast, orderBy )
-import Rel8.Serializable ( ExprFor, Serializable( rowParser, lit ) )
+import Rel8.Serializable ( ExprFor, Serializable, lit )
 import Rel8.Statement.Delete ( Delete( Delete, from, deleteWhere, returning ), delete )
 import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict ), OnConflict( Abort, DoNothing ), insert )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )

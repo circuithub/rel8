@@ -4,6 +4,7 @@ module Rel8.Expr.Bool
   , (||.)
   , or_
   , not_
+  , ifThenElse_
   ) where
 
 -- base
@@ -11,8 +12,9 @@ import Data.Foldable ( foldl' )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( binExpr, litExpr, mapPrimExpr )
+import Rel8.Expr ( Expr, fromPrimExpr, toPrimExpr )
+import Rel8.Expr.Opaleye ( binExpr, mapPrimExpr )
+import Rel8.Serializable ( lit )
 
 
 -- | The SQL @AND@ operator.
@@ -42,7 +44,7 @@ infixr 3 &&.
 -- >>> select c $ pure $ and_ []
 -- [True]
 and_ :: Foldable f => f (Expr Bool) -> Expr Bool
-and_ = foldl' (&&.) (litExpr True)
+and_ = foldl' (&&.) (lit True)
 
 
 -- | The SQL @OR@ operator.
@@ -72,7 +74,7 @@ infixr 2 ||.
 -- >>> select c $ pure $ or_ []
 -- [False]
 or_ :: Foldable f => f (Expr Bool) -> Expr Bool
-or_ = foldl' (||.) (litExpr False)
+or_ = foldl' (||.) (lit False)
 
 
 -- | The SQL @NOT@ operator.
@@ -84,3 +86,11 @@ or_ = foldl' (||.) (litExpr False)
 -- [True]
 not_ :: Expr Bool -> Expr Bool
 not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
+
+
+ifThenElse_ :: Expr Bool -> Expr a -> Expr a -> Expr a
+ifThenElse_ bool whenTrue whenFalse =
+  fromPrimExpr $
+    Opaleye.CaseExpr
+      [(toPrimExpr bool, toPrimExpr whenTrue)]
+      (toPrimExpr whenFalse)
