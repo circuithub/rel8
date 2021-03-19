@@ -3,6 +3,8 @@
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language RankNTypes #-}
 
+{-# options_ghc -Wno-simplifiable-class-constraints #-}
+
 module Rel8.Query.Order
   ( Order(..)
   , orderBy
@@ -28,9 +30,9 @@ import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy )
-import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr( Expr ), retype )
 import Rel8.HTable ( htraverse )
+import Rel8.Info ( HasInfo )
 import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Opaleye ( unpackspec )
@@ -59,7 +61,7 @@ newtype Order a = Order (Opaleye.Order a)
 --
 -- >>> select c $ orderBy asc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [1,2,3,4,5]
-asc :: DBType a => Order (Expr a)
+asc :: HasInfo a => Order (Expr a)
 asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
     f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)
@@ -76,7 +78,7 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
 --
 -- >>> select c $ orderBy desc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [5,4,3,2,1]
-desc :: DBType a => Order (Expr a)
+desc :: HasInfo a => Order (Expr a)
 desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
   where
     f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)

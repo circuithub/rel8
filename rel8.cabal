@@ -46,8 +46,6 @@ library
     Rel8.Aggregate
     Rel8.Context
     Rel8.DatabaseType
-    Rel8.DatabaseType.Decoder
-    Rel8.DBFunctor
     Rel8.DBType
     Rel8.DBType.DBEq
     Rel8.DBType.DBMax
@@ -64,10 +62,11 @@ library
     Rel8.Function
     Rel8.Generic
     Rel8.HTable
-    Rel8.HTable.HComposeTable
+    Rel8.HTable.HMapTable
     Rel8.HTable.HMaybeTable
     Rel8.HTable.HPair
     Rel8.HTable.Identity
+    Rel8.Info
     Rel8.Optimize
     Rel8.Query
     Rel8.Query.Order

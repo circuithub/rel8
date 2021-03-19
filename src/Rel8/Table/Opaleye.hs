@@ -1,5 +1,6 @@
 {-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
+{-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -17,7 +18,8 @@ import qualified Opaleye.Internal.Values as Opaleye
 import Rel8.Context ( Context )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
 import Rel8.Expr ( Expr, fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
-import Rel8.HTable ( HTable( HField, hfield, htraverse, htabulate ), hdbtype )
+import Rel8.HTable ( HTable( HField, hfield, htraverse, htabulate, hdbtype ) )
+import Rel8.Info ( Info( Null, NotNull ) )
 import Rel8.Table ( Columns, Table( toColumns, fromColumns ) )
 import Rel8.Table.Congruent ( traverseTable, zipTablesWithM )
 
@@ -31,7 +33,9 @@ unpackspec =
     addCasts columns = htabulate go
       where
         go :: forall x. HField f x -> Expr x
-        go i = unsafeCastExpr (typeName (hfield hdbtype i)) (hfield columns i)
+        go i = case hfield hdbtype i of
+          NotNull t -> unsafeCastExpr (typeName t) (hfield columns i)
+          Null t -> unsafeCastExpr (typeName t) (hfield columns i)
 
 
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a
@@ -55,7 +59,8 @@ valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
         htraverse (traversePrimExpr f) $
           htabulate @(Columns expr) @Expr \i ->
             case hfield (hdbtype @(Columns expr)) i of
-              databaseType -> fromPrimExpr $ nullPrimExpr databaseType
+              NotNull databaseType -> fromPrimExpr $ nullPrimExpr databaseType
+              Null databaseType -> fromPrimExpr $ nullPrimExpr databaseType
         where
           nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
           nullPrimExpr DatabaseType{ typeName } =

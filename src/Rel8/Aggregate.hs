@@ -31,11 +31,10 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Expr ( Expr( Expr ) )
-import Rel8.HTable ( htraverse )
-import Rel8.HTable.HComposeTable ( ComposeInner( ComposeInner ) )
+import Rel8.HTable ( hmap, htraverse )
+import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
 import Rel8.Query ( Query, mapOpaleye )
 import Rel8.Table ( Table( toColumns ), fromColumns )
-import Rel8.Table.Congruent ( traverseTable )
 import Rel8.Table.ListTable ( ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
@@ -183,20 +182,20 @@ traverseAggrExpr f = \case
 --   return (order, items)
 -- @
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
-listAgg = fmap ListTable . traverseTable (fmap ComposeInner . go)
+listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Expr a -> Aggregate (Expr [a])
+    go :: Expr a -> Expr [a]
     go (Expr a) =
-      Aggregate $ Expr $
+      Expr $
         Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
-nonEmptyAgg = fmap NonEmptyTable . traverseTable (fmap ComposeInner . go)
+nonEmptyAgg = Aggregate . NonEmptyTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Expr a -> Aggregate (Expr (NonEmpty a))
-    go (Expr a) = Aggregate $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
+    go :: Expr a -> Expr (NonEmpty a)
+    go (Expr a) = Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns

@@ -8,6 +8,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Aggregate ( Aggregate, aggregateAllExprs )
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
+import Rel8.Info ( HasInfo )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -23,7 +24,7 @@ import Data.Time ( UTCTime )
 --
 -- If you have a custom type that you know supports @min@, you can use
 -- @DeriveAnyClass@ to derive a default implementation that calls @min@.
-class DBType a => DBMin a where
+class HasInfo a => DBMin a where
   -- | Produce an aggregation for @Expr a@ using the @max@ function.
   min :: Expr a -> Aggregate (Expr a)
   min = aggregateAllExprs Opaleye.AggrMin
@@ -53,4 +54,4 @@ instance DBMin Text
 instance DBMin UTCTime
 
 
-instance DBMin a => DBMin (Maybe a) -- TODO: Do we want this?
+instance DBType a => DBMin (Maybe a) -- TODO: Do we want this?

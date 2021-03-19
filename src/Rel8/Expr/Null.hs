@@ -20,6 +20,7 @@ import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr, retype, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( not_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr )
+import Rel8.Info ( HasInfo )
 import Rel8.Query ( Query, where_ )
 import Rel8.Table.Bool ( ifThenElse_ )
 
@@ -31,7 +32,7 @@ import Rel8.Table.Bool ( ifThenElse_ )
 --
 -- >>> select c $ pure $ null 0 id (lit (Just 42) :: Expr (Maybe Int32))
 -- [42]
-null :: DBType b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+null :: HasInfo b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 null whenNull f a = ifThenElse_ (isNull a) whenNull (f (retype a))
 
 
@@ -69,7 +70,7 @@ mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNull f = retype . f . retype
 
 
-fromNull :: DBType a => Expr a -> Expr (Maybe a) -> Expr a
+fromNull :: HasInfo a => Expr a -> Expr (Maybe a) -> Expr a
 fromNull x = null x id
 
 
@@ -98,6 +99,6 @@ catMaybe e = do
   return $ unsafeCoerceExpr e
 
 
-instance DBEq a => DBEq ( Maybe a ) where
+instance (DBType a, DBEq a) => DBEq (Maybe a) where
   a ==. b =
     null ( isNull b ) ( \a' -> null ( litExpr False ) ( a' ==. ) b ) a

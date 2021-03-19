@@ -35,9 +35,9 @@ import Prelude
 import qualified Opaleye ( PGInt8 )
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DBType ( DBType )
 import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, litExpr )
 import Rel8.Function ( function )
+import Rel8.Info ( HasInfo )
 
 
 -- | Typed SQL expressions
@@ -55,7 +55,7 @@ newtype Expr a = Expr { toPrimExpr :: Opaleye.PrimExpr }
 -- *However*, if this is not the case, you should `newtype` the Haskell type
 -- and avoid providing a 'Num' instance, or you may write be able to write
 -- ill-typed queries!
-instance (DBType a, Num a) => Num (Expr a) where
+instance (HasInfo a, Num a) => Num (Expr a) where
   a + b = columnToExpr (Opaleye.binOp (Opaleye.:+) (exprToColumn a) (exprToColumn b))
   a - b = columnToExpr (Opaleye.binOp (Opaleye.:-) (exprToColumn a) (exprToColumn b))
   a * b = columnToExpr (Opaleye.binOp (Opaleye.:*) (exprToColumn a) (exprToColumn b))
@@ -65,12 +65,12 @@ instance (DBType a, Num a) => Num (Expr a) where
   negate = columnToExpr @Opaleye.PGInt8 . negate . exprToColumn
 
 
-instance (DBType a, Fractional a) => Fractional (Expr a) where
+instance (HasInfo a, Fractional a) => Fractional (Expr a) where
   a / b = columnToExpr (Opaleye.binOp (Opaleye.:/) (exprToColumn a) (exprToColumn b))
   fromRational = litExpr . fromRational
 
 
-instance (IsString a, DBType a) => IsString (Expr a) where
+instance (IsString a, HasInfo a) => IsString (Expr a) where
   fromString = litExpr . fromString
 
 

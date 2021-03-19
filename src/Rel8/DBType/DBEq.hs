@@ -13,10 +13,10 @@ import Data.CaseInsensitive ( CI )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), not_ )
 import Rel8.Expr.Opaleye ( binExpr, litExpr )
+import Rel8.Info ( HasInfo )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -63,7 +63,7 @@ import Data.Time ( Day, UTCTime )
 -- This means @Color@s will be treated as the literal strings @"Red"@,
 -- @"Green"@, etc, in the database, and they can be compared for equality by
 -- just using @=@.
-class DBType a => DBEq (a :: Type) where
+class HasInfo a => DBEq (a :: Type) where
   (==.) :: Expr a -> Expr a -> Expr Bool
   (==.) = binExpr (Opaleye.:==)
 

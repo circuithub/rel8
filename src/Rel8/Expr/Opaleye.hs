@@ -1,3 +1,5 @@
+{-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -11,16 +13,14 @@ module Rel8.Expr.Opaleye
   , unsafeLiteral
   , litExprWith
   , litExpr
-  , listOfExprs
   ) where
 
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DBFunctor ( DBFunctor( liftDatabaseType ) )
-import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
-import {-# source #-} Rel8.Expr ( Expr( Expr ), toPrimExpr )
+import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
+import {-# source #-} Rel8.Expr ( Expr( Expr ) )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
@@ -56,17 +56,11 @@ fromPrimExpr :: Opaleye.PrimExpr -> Expr a
 fromPrimExpr = Expr
 
 
-litExpr :: DBType a => a -> Expr a
-litExpr = litExprWith typeInformation
+litExpr :: HasInfo a => a -> Expr a
+litExpr = litExprWith info
 
 
-litExprWith :: DatabaseType a -> a -> Expr a
-litExprWith DatabaseType{ encode, typeName } = Expr . Opaleye.CastExpr typeName . encode
-
-
-listOfExprs :: DatabaseType x -> [Expr x] -> Expr [x]
-listOfExprs databaseType as = fromPrimExpr $
-  Opaleye.CastExpr array $
-  Opaleye.ArrayExpr (map toPrimExpr as)
-  where
-    array = typeName (liftDatabaseType @[] databaseType)
+litExprWith :: Info a -> a -> Expr a
+litExprWith = \case
+  NotNull DatabaseType{ encode, typeName } -> Expr . Opaleye.CastExpr typeName . encode
+  Null DatabaseType{ encode, typeName }    -> Expr . Opaleye.CastExpr typeName . maybe (Opaleye.ConstExpr Opaleye.NullLit) encode

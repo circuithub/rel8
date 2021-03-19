@@ -17,28 +17,23 @@
 module Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable ) where
 
 -- base
-import Control.Applicative ( Applicative(liftA2) )
 import Data.Functor.Identity ( Identity )
 import Data.Kind (Type)
 import Data.List.NonEmpty ( NonEmpty )
-import GHC.Generics ( Generic( Rep, from, to ), K1(K1, unK1), M1(M1, unM1), type (:*:)((:*:))) 
-
--- hasql
-import qualified Hasql.Decoders as Hasql
+import GHC.Generics ( Generic( Rep, from, to ), K1(K1), M1(M1, unM1), type (:*:)((:*:))) 
 
 -- rel8
 import Rel8.Context ( Context, KContext )
-import Rel8.DatabaseType.Decoder ( Decoder )
 import Rel8.Expr ( Expr )
 import Rel8.HTable ( HTable ) 
-import Rel8.HTable.HComposeTable ( HComposeTable )
+import Rel8.HTable.HMapTable ( HMapTable )
 import Rel8.HTable.HMaybeTable ( HMaybeTable )
 import Rel8.HTable.HPair ( HPair(HPair) )
-import Rel8.Serializable ( Serializable(rowParser, lit), ExprFor )
+import Rel8.Serializable ( Serializable, ExprFor( unpack, pack ) )
 import Rel8.Table ( Table(Columns, fromColumns, toColumns) )
-import Rel8.Table.ListTable ( ListTable )
+import Rel8.Table.ListTable ( ListTable, ListOf )
 import Rel8.Table.MaybeTable ( MaybeTable )
-import Rel8.Table.NonEmptyTable ( NonEmptyTable )
+import Rel8.Table.NonEmptyTable ( NonEmptyTable, NonEmptyList )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
 
@@ -87,13 +82,13 @@ type family HMaybe (context :: Type -> Type) (a :: Type) :: Type where
 type family HList (context :: Type -> Type) (a :: Type) :: Type where
   HList Identity a = [a]
   HList Expr a     = ListTable a
-  HList f a        = HComposeTable [] (Columns a) (Context f)
+  HList f a        = HMapTable ListOf (Columns a) (Context f)
 
 
 type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
   HNonEmpty Identity a = NonEmpty a
   HNonEmpty Expr a     = NonEmptyTable a
-  HNonEmpty f a        = HComposeTable NonEmpty (Columns a) (Context f)
+  HNonEmpty f a        = HMapTable NonEmptyList (Columns a) (Context f)
 
 
 -- | Higher-kinded data types.
@@ -181,50 +176,44 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
     => GRep t (Context ColumnSchema) -> t ColumnSchema
   fromColumnSchemas = to @_ @() . ghigherKindedFrom @ColumnSchema @(Rep (t ColumnSchema))
 
-  glit :: t Identity -> t Expr
-  default glit
+  gpack :: GRep t (Context Identity) -> t Identity 
+  gunpack :: t Identity -> GRep t (Context Identity)
+
+  default gpack 
     :: ( Generic (t Identity)
-       , Generic (t Expr)
-       , GSerializable (Rep (t Expr)) (Rep (t Identity))
-       )
-    => t Identity -> t Expr
-  glit = to @_ @() . glitImpl @(Rep (t Expr)) @(Rep (t Identity)) . GHC.Generics.from @_ @()
+       , GPack (Rep (t Expr)) (Rep (t Identity))
+       , GColumns (Rep (t Expr)) ~ GRep t 
+       ) 
+    => GRep t (Context Identity) -> t Identity 
+  gpack = to @_ @() . gpackImpl @(Rep (t Expr)) @(Rep (t Identity))
 
-  growParser :: (Applicative f, Traversable f)
-    => (forall a. Decoder a -> Decoder (f a))
-    -> Hasql.Row (f (t Identity))
-  default growParser
+  default gunpack 
     :: ( Generic (t Identity)
-       , GSerializable (Rep (t Expr)) (Rep (t Identity))
-       , Applicative f
-       , Traversable f
-       )
-    => (forall a. Decoder a -> Decoder (f a))
-    -> Hasql.Row (f (t Identity))
-  growParser f = fmap (to @_ @()) <$> growParserImpl @(Rep (t Expr)) @(Rep (t Identity)) f
+       , GPack (Rep (t Expr)) (Rep (t Identity)) 
+       , GColumns (Rep (t Expr)) ~ GRep t 
+       ) 
+    => t Identity -> GRep t (Context Identity)
+  gunpack = gunpackImpl @(Rep (t Expr)) @(Rep (t Identity)) . from @_ @()
 
 
-class GSerializable (expr :: Type -> Type) (haskell :: Type -> Type) where
-  glitImpl :: haskell x -> expr x
-
-  growParserImpl :: (Applicative f, Traversable f)
-    => (forall a. Decoder a -> Decoder (f a))
-    -> Hasql.Row (f (haskell x))
+class GPack f g where
+  gpackImpl :: GColumns f (Context Identity) -> g x
+  gunpackImpl :: g x -> GColumns f (Context Identity)
 
 
-instance GSerializable f f' => GSerializable (M1 i c f) (M1 i' c' f') where
-  glitImpl = M1 . glitImpl @f @f' . unM1
-  growParserImpl f = fmap M1 <$> growParserImpl @f @f' f
+instance GPack f g => GPack (M1 i c f) (M1 i' c' g) where
+  gpackImpl = M1 . gpackImpl @f @g
+  gunpackImpl (M1 a) = gunpackImpl @f @g a
 
 
-instance (GSerializable f f', GSerializable g g') => GSerializable (f :*: g) (f' :*: g') where
-  glitImpl (x :*: y) = glitImpl @f @f' x :*: glitImpl @g @g' y
-  growParserImpl f = liftA2 (liftA2 (:*:)) (growParserImpl @f @f' f) (growParserImpl @g @g' f)
+instance (GPack f1 f2, GPack g1 g2) => GPack (f1 :*: g1) (f2 :*: g2) where
+  gpackImpl (HPair x y) = gpackImpl @f1 @f2 x :*: gpackImpl @g1 @g2 y
+  gunpackImpl (x :*: y) = HPair (gunpackImpl @f1 @f2 x) (gunpackImpl @g1 @g2 y)
 
 
-instance Serializable expr haskell => GSerializable (K1 i expr) (K1 i haskell) where
-  glitImpl = K1 . lit . unK1
-  growParserImpl f = fmap K1 <$> rowParser @expr @haskell f
+instance Serializable a a' => GPack (K1 i a) (K1 i' a') where
+  gpackImpl = K1 . pack @a
+  gunpackImpl (K1 a) = unpack @a a
 
 
 class HigherKindedTableImpl (context :: Type -> Type) (rep :: Type -> Type) where
@@ -272,11 +261,12 @@ instance HigherKindedTable t => Helper ColumnSchema t where
   helperFrom = fromColumnSchemas
 
 
-instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) => Selects (s columnSchema) (t expr)
+instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) => Selects (s columnSchema) (t expr) 
 
 
-instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity)                             => ExprFor a                (t identity)
+instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity) => ExprFor a (t identity) where
+  pack = gpack
+  unpack = gunpack
 
 instance (s ~ t, expr ~ Expr, identity ~ Identity, HigherKindedTable t) => Serializable (s expr) (t identity) where
-  lit = glit
-  rowParser = growParser
+
