@@ -24,8 +24,9 @@ import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
   )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
-import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
+import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( Array, array )
+import Rel8.Type.Information ( TypeInformation(..) )
 
 
 sappend :: ()

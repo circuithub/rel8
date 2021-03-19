@@ -20,6 +20,9 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
+import Rel8.Kind.Emptiability ( KnownEmptiability )
+import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Type.Array ( Array )
 import Rel8.Type.Eq ( DBEq )
 
 -- scientific
@@ -63,6 +66,13 @@ instance DBOrd Lazy.ByteString
 instance DBOrd UUID
 
 
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBOrd a
+  ) => DBOrd (Array emptiability nullability a)
+
+
 type DBMax :: Type -> Constraint
 class DBOrd a => DBMax a
 instance DBMax Bool
@@ -87,6 +97,13 @@ instance DBMax ByteString
 instance DBMax Lazy.ByteString
 
 
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBMax a
+  ) => DBMax (Array emptiability nullability a)
+
+
 type DBMin :: Type -> Constraint
 class DBOrd a => DBMin a
 instance DBMin Bool
@@ -109,3 +126,10 @@ instance DBMin (CI Text)
 instance DBMin (CI Lazy.Text)
 instance DBMin ByteString
 instance DBMin Lazy.ByteString
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBMin a
+  ) => DBMin (Array emptiability nullability a)

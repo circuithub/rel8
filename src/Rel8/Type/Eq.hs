@@ -22,7 +22,10 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
+import Rel8.Kind.Emptiability ( KnownEmptiability )
+import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Type ( DBType )
+import Rel8.Type.Array ( Array )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -66,3 +69,10 @@ instance DBEq ByteString
 instance DBEq Lazy.ByteString
 instance DBEq UUID
 instance DBEq Value
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBEq a
+  ) => DBEq (Array emptiability nullability a)

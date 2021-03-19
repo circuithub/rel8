@@ -3,10 +3,7 @@
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 
 module Rel8.Type.Array
   ( Array(..), array
@@ -30,18 +27,12 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
   , SEmptiability( SEmptiable, SNonEmptiable )
-  , KnownEmptiability
-  , emptiabilitySing
   )
 import Rel8.Kind.Nullability
   ( Nullability( Nullable, NonNullable )
   , SNullability( SNullable, SNonNullable )
-  , KnownNullability
-  , nullabilitySing
   )
-import Rel8.Type ( DBType, typeInformation, TypeInformation(..) )
-import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
+import Rel8.Type.Information ( TypeInformation(..) )
 
 
 type Array :: Emptiability -> Nullability -> Type -> Type
@@ -50,44 +41,6 @@ data Array emptiability nullability a where
   NullableNonEmpty :: NonEmpty (Maybe a) -> Array 'NonEmptiable 'Nullable a
   NonNullableList :: [a] -> Array 'Emptiable 'NonNullable a
   NonNullableNonEmpty :: NonEmpty a -> Array 'NonEmptiable 'NonNullable a
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBType a
-  ) => DBType (Array emptiability nullability a)
- where
-  typeInformation =
-    arrayTypeInformation emptiabilitySing nullabilitySing typeInformation
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBEq a
-  ) => DBEq (Array emptiability nullability a)
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBOrd a
-  ) => DBOrd (Array emptiability nullability a)
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBMax a
-  ) => DBMax (Array emptiability nullability a)
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBMin a
-  ) => DBMin (Array emptiability nullability a)
 
 
 array :: Foldable f

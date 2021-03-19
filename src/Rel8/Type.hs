@@ -1,16 +1,9 @@
 {-# language FlexibleInstances #-}
-{-# language KindSignatures #-}
-{-# language NamedFieldPuns #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 
 module Rel8.Type
   ( DBType(..)
-  , TypeInformation(..)
-  , mapTypeInformation
-  , parseTypeInformation
   )
 where
 
@@ -19,7 +12,6 @@ import Data.Aeson ( Value )
 import qualified Data.Aeson as Aeson
 
 -- base
-import Data.Bifunctor ( first )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Prelude
@@ -40,6 +32,12 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
+-- rel8
+import Rel8.Kind.Emptiability ( KnownEmptiability, emptiabilitySing )
+import Rel8.Kind.Nullability ( KnownNullability, nullabilitySing )
+import Rel8.Type.Array ( Array, arrayTypeInformation )
+import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
+
 -- scientific
 import Data.Scientific ( Scientific )
 
@@ -59,31 +57,6 @@ import Data.Time.Format ( formatTime, defaultTimeLocale )
 -- uuid
 import Data.UUID ( UUID )
 import qualified Data.UUID as UUID
-
-
-type TypeInformation :: Type -> Type
-data TypeInformation (a :: Type) = TypeInformation
-  { encode :: a -> Opaleye.PrimExpr
-  , decode :: Hasql.Value a
-  , typeName :: String
-  }
-
-
-mapTypeInformation :: ()
-  => (a -> b) -> (b -> a)
-  -> TypeInformation a -> TypeInformation b
-mapTypeInformation = parseTypeInformation . fmap pure
-
-
-parseTypeInformation :: ()
-  => (a -> Either String b) -> (b -> a)
-  -> TypeInformation a -> TypeInformation b
-parseTypeInformation to from TypeInformation {encode, decode, typeName} =
-  TypeInformation
-    { encode = encode . from
-    , decode = Hasql.refine (first Text.pack . to) decode
-    , typeName
-    }
 
 
 type DBType :: Type -> Constraint
@@ -266,3 +239,13 @@ instance DBType Value where
     , decode = Hasql.jsonb
     , typeName = "jsonb"
     }
+
+
+instance
+  ( KnownEmptiability emptiability
+  , KnownNullability nullability
+  , DBType a
+  ) => DBType (Array emptiability nullability a)
+ where
+  typeInformation =
+    arrayTypeInformation emptiabilitySing nullabilitySing typeInformation

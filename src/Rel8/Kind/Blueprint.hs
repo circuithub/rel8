@@ -38,8 +38,9 @@ import Rel8.Kind.Nullability
   , KnownNullability, nullabilitySing
   )
 import Rel8.Schema.Value ( FromValue, GetNullability, GetValue )
-import Rel8.Type ( DBType, TypeInformation, typeInformation )
+import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( Array(..), arrayTypeInformation )
+import Rel8.Type.Information ( TypeInformation )
 
 
 type Blueprint :: Type

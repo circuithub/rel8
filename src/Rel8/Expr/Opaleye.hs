@@ -29,7 +29,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Kind.Blueprint ( IsArray )
 import Rel8.Kind.Bool ( SBool( SFalse, STrue ), KnownBool, boolSing )
-import Rel8.Type ( DBType, TypeInformation(..), typeInformation )
+import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type.Information ( TypeInformation(..) )
 
 
 castExpr :: DBType a => Expr nullability a -> Expr nullability a

@@ -140,6 +140,7 @@ library
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Eq
+    Rel8.Type.Information
     Rel8.Type.Monoid
     Rel8.Type.Num
     Rel8.Type.Ord
