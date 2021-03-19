@@ -19,18 +19,16 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( not_ )
-import Rel8.Expr.Opaleye ( exprToColumn )
+import Rel8.Expr.Bool ( boolExpr, not_ )
+import Rel8.Expr.Opaleye ( exprToColumn, litPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
 import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
-import Rel8.Table.Bool ( bool )
 import Rel8.Table.Either ( EitherTable( EitherTable ) )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ) )
 import Rel8.Table.Opaleye ( unpackspec )
-import Rel8.Table.Serialize ( lit )
 import Rel8.Table.These
   ( TheseTable( TheseTable )
   , isThisTable, isThatTable, isThoseTable
@@ -100,4 +98,6 @@ keepThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
 loseThoseTable :: TheseTable a b -> Query (EitherTable a b)
 loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where_ $ not_ $ isThoseTable t
-  pure $ EitherTable (bool (lit IsLeft) (lit IsRight) (isThatTable t)) a b
+  pure $ EitherTable tag a b
+  where
+    tag = boolExpr (litPrimExpr IsLeft) (litPrimExpr IsRight) (isThatTable t)
