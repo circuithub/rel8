@@ -44,6 +44,4 @@ instance KnownSpec spec => HTable (HIdentity spec) where
   htabulate f = HIdentity $ f HIdentityField
   hdicts = HIdentity Dict
   hspecs = HIdentity specSing
-
-  htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> HIdentity spec (H f) -> m (HIdentity spec (H g))
-  htraverse f (HIdentity a) = HIdentity <$> f (a :: f spec)
+  htraverse f (HIdentity a) = HIdentity <$> f a

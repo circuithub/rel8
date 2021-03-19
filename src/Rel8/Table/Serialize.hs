@@ -74,6 +74,9 @@ import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 import Rel8.Type.Array ( Array )
 
+-- semigroupoids
+import Data.Functor.Apply ( WrappedApplicative(..) )
+
 -- these
 import Data.These ( These )
 
@@ -476,8 +479,8 @@ litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
 
 
 parseTable :: Table Result a => Hasql.Row a
-parseTable = fmap fromColumns $ htabulateA $ \field ->
-  case hfield hspecs field of
+parseTable = fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
+  WrapApplicative $ case hfield hspecs field of
     SSpec _ _ nullability blueprint ->
       Result <$> sparseValue nullability blueprint info
       where

@@ -41,6 +41,9 @@ import Rel8.Schema.Spec ( Spec, SSpec, Context )
 import Rel8.Schema.HTable.Context ( HKTable, H )
 import Rel8.Schema.HTable.Pair ( HPair( HPair ) )
 
+-- semigroupoids
+import Data.Functor.Apply ( Apply, (<.>) )
+
 
 type HTable :: HKTable -> Constraint
 class HTable t where
@@ -49,7 +52,7 @@ class HTable t where
 
   hfield :: t (H context) -> HField t spec -> context spec
   htabulate :: (forall spec. HField t spec -> context spec) -> t (H context)
-  htraverse :: Applicative m => (forall spec. f spec -> m (g spec)) -> t (H f) -> m (t (H g))
+  htraverse :: Apply m => (forall spec. f spec -> m (g spec)) -> t (H f) -> m (t (H g))
   hdicts :: HConstrainTable t c => t (H (Dict c))
   hspecs :: t (H SSpec)
 
@@ -76,7 +79,7 @@ class HTable t where
 
   default htraverse
     :: forall f g m
-     . ( Applicative m
+     . ( Apply m
        , Generic (t (H f)), GHTable f (Rep (t (H f)))
        , Generic (t (H g)), GHTable g (Rep (t (H g)))
        , GHColumns (Rep (t (H f))) ~ GHColumns (Rep (t (H g)))
@@ -106,18 +109,18 @@ hmap :: HTable t => (forall spec. f spec -> g spec) -> t (H f) -> t (H g)
 hmap f t = htabulate $ f <$> hfield t
 
 
-htabulateA :: (HTable t, Applicative m)
+htabulateA :: (HTable t, Apply m)
   => (forall spec. HField t spec -> m (context spec))
   -> m (t (H context))
 htabulateA f = htraverse getCompose $ htabulate $ Compose . f
 
 
 hzipWith :: HTable t => (forall spec. f spec -> g spec -> h spec) -> t (H f) -> t (H g) -> t (H h)
-hzipWith f t u = htabulate $ f <$> hfield t <*> hfield u
+hzipWith f t u = htabulate $ f <$> hfield t <.> hfield u
 
 
 hzipWith3 :: HTable t => (forall spec. f spec -> g spec -> h spec -> i spec) -> t (H f) -> t (H g) -> t (H h) -> t (H i)
-hzipWith3 f t u v = htabulate $ f <$> hfield t <*> hfield u <*> hfield v
+hzipWith3 f t u v = htabulate $ f <$> hfield t <.> hfield u <.> hfield v
 
 
 type GHField :: HKTable -> Context
@@ -165,6 +168,6 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
     HSnd i -> hfield r i
 
   htabulate f = HPair (htabulate (f . HFst)) (htabulate (f . HSnd))
-  htraverse f (HPair x y) = HPair <$> htraverse f x <*> htraverse f y
+  htraverse f (HPair x y) = HPair <$> htraverse f x <.> htraverse f y
   hdicts = HPair hdicts hdicts
   hspecs = HPair hspecs hspecs

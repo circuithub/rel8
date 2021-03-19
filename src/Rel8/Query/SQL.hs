@@ -60,14 +60,13 @@ selectFrom :: MapTable Name DB names exprs
   => names -> exprs -> Opaleye.PrimQuery' Void -> Opaleye.Select
 selectFrom (toColumns -> names) (toColumns -> exprs) query =
   Opaleye.SelectFrom $ Opaleye.newSelect
-    { Opaleye.attrs = Opaleye.SelectAttrs $ Opaleye.ensureColumns $
-        attributes
+    { Opaleye.attrs = Opaleye.SelectAttrs attributes
     , Opaleye.tables = Opaleye.oneTable select
     }
   where
     select = Opaleye.foldPrimQuery Opaleye.sqlQueryGenerator query
     attributes = getConst $ htabulateA $ \field -> case hfield names field of
       Name name -> case hfield exprs field of
-        DB (unsafeToPrimExpr -> expr) -> Const [makeAttr name expr]
+        DB (unsafeToPrimExpr -> expr) -> Const (pure (makeAttr name expr))
     makeAttr label expr =
       (Opaleye.sqlExpr expr, Just (Opaleye.SqlColumn label))

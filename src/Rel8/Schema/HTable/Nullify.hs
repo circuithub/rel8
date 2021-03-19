@@ -35,6 +35,9 @@ import Rel8.Schema.HTable
 import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec( SSpec ) )
 
+-- semigroupoids
+import Data.Functor.Apply ( Apply )
+
 
 type HNullify :: HKTable -> HKTable
 data HNullify table context where
@@ -121,7 +124,7 @@ hnullify nullifier a = HNullify $ htabulate $ \field ->
     spec@SSpec {} -> NullifySpec (nullifier spec (hfield a field))
 
 
-hunnullify :: (HTable t, Applicative m)
+hunnullify :: (HTable t, Apply m)
   => (forall labels necessity nullability blueprint. ()
     => SSpec ('Spec labels necessity nullability blueprint)
     -> context ('Spec labels necessity 'Nullable blueprint)

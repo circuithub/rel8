@@ -52,11 +52,15 @@ import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
 
+-- semigroupoids
+import Data.Functor.Apply ( WrappedApplicative(..) )
+
 
 aggregator :: MapTable Aggregation DB aggregates exprs
   => Opaleye.Aggregator aggregates exprs
 aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
+  unwrapApplicative .
   htraverse (\(Aggregation aggregate) -> case aggregate of
     Aggregate {aggregator = maggregator, input, output} ->
       let
@@ -64,23 +68,25 @@ aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
           \Aggregator {operation, ordering, distinction} ->
             (operation, ordering, distinction)
       in
-        DB . output <$> f (aggregator', input)) .
+        WrapApplicative $ DB . output <$> f (aggregator', input)) .
   toColumns
 
 
 binaryspec :: Table DB a => Opaleye.Binaryspec a a
 binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
-  fmap fromColumns $ htabulateA $ \field ->
-    case (hfield (toColumns as) field, hfield (toColumns bs) field) of
-      (DB a, DB b) -> DB . unsafeFromPrimExpr <$>
-        f (unsafeToPrimExpr a, unsafeToPrimExpr b)
+  fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
+    WrapApplicative $
+      case (hfield (toColumns as) field, hfield (toColumns bs) field) of
+        (DB a, DB b) -> DB . unsafeFromPrimExpr <$>
+          f (unsafeToPrimExpr a, unsafeToPrimExpr b)
 
 
 distinctspec :: Table DB a => Opaleye.Distinctspec a a
 distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
     fmap fromColumns .
-    htraverse (\(DB a) -> DB . unsafeFromPrimExpr <$> f (Nothing, unsafeToPrimExpr a)) .
+    unwrapApplicative .
+    htraverse (\(DB a) -> WrapApplicative $ DB . unsafeFromPrimExpr <$> f (Nothing, unsafeToPrimExpr a)) .
     toColumns
 
 
@@ -103,9 +109,10 @@ tableFields ::
   )
   => names -> Opaleye.TableFields inserts exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
-  htabulateA $ \field -> case hfield hspecs field of
-    specs -> case hfield names field of
-      name -> lmap (`hfield` field) (go specs name)
+  unwrapApplicative $ htabulateA $ \field -> WrapApplicative $
+    case hfield hspecs field of
+      specs -> case hfield names field of
+        name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
     go (SSpec _ necessity _ blueprint) (Name name) = case necessity of
@@ -121,7 +128,8 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
 unpackspec :: Table DB a => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
-  htraverse (\(DB a) -> DB <$> unsafeTraversePrimExpr f a) .
+  unwrapApplicative .
+  htraverse (\(DB a) -> WrapApplicative $ DB <$> unsafeTraversePrimExpr f a) .
   toColumns
 
 
@@ -133,5 +141,6 @@ toPackMap :: Table DB a
   => a -> Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $
-  htraverse (\(DB a) -> DB <$> unsafeTraversePrimExpr f a) $
+  unwrapApplicative .
+  htraverse (\(DB a) -> WrapApplicative $ DB <$> unsafeTraversePrimExpr f a) $
   toColumns as
