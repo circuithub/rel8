@@ -1,5 +1,8 @@
 module Rel8.Query.Maybe
   ( optional
+  , catMaybeTable
+  , bindMaybeTable
+  , traverseMaybeTable
   )
 where
 
@@ -15,10 +18,12 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 
 -- rel8
 import Rel8.Expr.Bool ( true )
+import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( unsafeToPrimExpr )
 import Rel8.Query ( Query )
+import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ) )
+import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 import Rel8.Table.Opaleye ( unpackspec )
 
 
@@ -33,3 +38,22 @@ optional = mapOpaleye $ Opaleye.QueryArr . go
           Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
         join = Opaleye.Join Opaleye.LeftJoin condition [] bindings left right
         condition = unsafeToPrimExpr true
+
+
+catMaybeTable :: MaybeTable a -> Query a
+catMaybeTable ma@(MaybeTable _ a) = do
+  where_ $ isJustTable ma
+  pure a
+
+
+bindMaybeTable :: (a -> Query (MaybeTable b)) -> MaybeTable a -> Query (MaybeTable b)
+bindMaybeTable query (MaybeTable input a) = do
+  MaybeTable output b <- query a
+  pure $ MaybeTable (input <> output) b
+
+
+traverseMaybeTable :: (a -> Query b) -> MaybeTable a -> Query (MaybeTable b)
+traverseMaybeTable query ma@(MaybeTable input _) = do
+  MaybeTable output b <- optional (query =<< catMaybeTable ma)
+  where_ $ output ==. input
+  pure $ MaybeTable input b
