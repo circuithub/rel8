@@ -20,8 +20,8 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( Aggregate )
 import Rel8.Kind.Blueprint
   ( KnownBlueprint
   , FromDBType, ToDBType
@@ -31,11 +31,11 @@ import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
-  , DB( DB )
+  , DB( DB ), unDB
   , Result( Result )
   )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
@@ -43,7 +43,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
-import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Value ( Value )
 
@@ -75,20 +75,15 @@ instance KnownSpec spec => Table context (context spec) where
   fromColumns = unHIdentity
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  ) =>
-  Table Aggregation (Aggregate nullability a)
- where
-  type Columns (Aggregate nullability a) =
-    HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
-  type Context (Aggregate nullability a) = Aggregation
+instance Table DB a => Table Aggregation (Aggregate a) where
+  type Columns (Aggregate a) = Columns a
+  type Context (Aggregate a) = Aggregation
 
-  toColumns a = HIdentity (Aggregation a)
-  fromColumns (HIdentity (Aggregation a)) = a
+  toColumns a = htabulate $ \field -> case hfield hspecs field of
+    SSpec {} -> Aggregation $ unDB . (`hfield` field) . toColumns <$> a
+  fromColumns as = fmap fromColumns $ htabulateA $ \field ->
+    case hfield as field of
+      Aggregation a -> DB <$> a
 
 
 instance

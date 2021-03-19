@@ -42,6 +42,7 @@ library
   hs-source-dirs:
     src
   exposed-modules:
+    Rel8.Aggregate
 
     Rel8.Expr
     Rel8.Expr.Aggregate

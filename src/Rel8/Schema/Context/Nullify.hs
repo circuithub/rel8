@@ -15,20 +15,23 @@ module Rel8.Schema.Context.Nullify
 where
 
 -- base
+import Control.Applicative ( empty )
 import Data.Foldable ( fold )
 import Data.Kind ( Constraint )
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Monoid ( getAlt )
 import Prelude hiding ( null )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Aggregate ( Aggregate, foldInputs, mapInputs )
 import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Aggregate ( Aggregate(..), groupByExpr )
+import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( unsafeToPrimExpr )
+import Rel8.Expr.Opaleye ( unsafeFromPrimExpr, unsafeToPrimExpr )
 import Rel8.Kind.Blueprint ( Blueprint( Scalar ) )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
@@ -71,19 +74,12 @@ instance Nullifiable Aggregation where
   encodeTag = Aggregation . groupByExpr
   decodeTag (Aggregation aggregate) = fold $ undoGroupBy aggregate
 
-  nullifier tag _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {aggregator, input, output} -> Aggregate
-      { aggregator
-      , input = unsafeToPrimExpr $ runTag tag (Expr input)
-      , output = nullify . output
-      }
+  nullifier tag _ (Aggregation aggregate) = Aggregation $
+    mapInputs (unsafeToPrimExpr . runTag tag . unsafeFromPrimExpr) $
+    nullify <$> aggregate
 
-  unnullifier _ _ (Aggregation aggregate) = Aggregation $ case aggregate of
-    Aggregate {aggregator, input, output} ->
-      Aggregate
-        { aggregator, input
-        , output = unsafeUnnullify . output
-        }
+  unnullifier _ _ (Aggregation aggregate) =
+    Aggregation $ fmap unsafeUnnullify aggregate
 
 
 instance Nullifiable DB where
@@ -125,9 +121,11 @@ runTag tag a = boolExpr null (nullify a) tag
 
 
 -- HACK
-undoGroupBy :: Aggregate _nullability _a -> Maybe (Expr nullability a)
-undoGroupBy Aggregate {aggregator = Nothing, input} = Just (Expr input)
-undoGroupBy _ = Nothing
+undoGroupBy :: Aggregate (Expr _nullability _a) -> Maybe (Expr nullability a)
+undoGroupBy = getAlt . foldInputs go
+  where
+    go Nothing a = pure (Expr a)
+    go _ _ = empty
 
 
 nameFromLabel :: forall labels necessity nullability blueprint.

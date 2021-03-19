@@ -17,7 +17,6 @@ module Rel8.Table.Opaleye
 where
 
 -- base
-import Data.Functor ( (<&>) )
 import Prelude hiding ( undefined )
 
 -- opaleye
@@ -34,8 +33,7 @@ import qualified Opaleye.Internal.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Expr.Aggregate ( Aggregate( Aggregate ), Aggregator( Aggregator ) )
-import qualified Rel8.Expr.Aggregate
+import Rel8.Aggregate ( Aggregate( Aggregate ) )
 import Rel8.Expr.Opaleye
   ( scastExpr
   , unsafeFromPrimExpr, unsafeToPrimExpr
@@ -44,7 +42,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.Context ( Aggregation(..), DB(..), Insert(..), Name(..) )
+import Rel8.Schema.Context ( DB(..), Insert(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -56,20 +54,9 @@ import Rel8.Table.Undefined ( undefined )
 import Data.Functor.Apply ( WrappedApplicative(..) )
 
 
-aggregator :: MapTable Aggregation DB aggregates exprs
-  => Opaleye.Aggregator aggregates exprs
-aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
-  fmap fromColumns .
-  unwrapApplicative .
-  htraverse (\(Aggregation aggregate) -> case aggregate of
-    Aggregate {aggregator = maggregator, input, output} ->
-      let
-        aggregator' = maggregator <&>
-          \Aggregator {operation, ordering, distinction} ->
-            (operation, ordering, distinction)
-      in
-        WrapApplicative $ DB . output <$> f (aggregator', input)) .
-  toColumns
+aggregator :: Opaleye.Aggregator (Aggregate exprs) exprs
+aggregator = Opaleye.Aggregator $ Opaleye.PackMap $
+  \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner))) -> inner f ()
 
 
 binaryspec :: Table DB a => Opaleye.Binaryspec a a

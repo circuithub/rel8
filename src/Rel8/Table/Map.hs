@@ -16,8 +16,8 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( Aggregate )
 import Rel8.Kind.Blueprint
   ( KnownBlueprint
   , FromDBType, ToDBType
@@ -57,7 +57,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  MapTable Aggregation Aggregation (Aggregate nullability a) (Aggregate nullability a)
+  MapTable Aggregation Aggregation (Aggregate (Expr nullability a)) (Aggregate (Expr nullability a))
 
 
 instance
@@ -67,7 +67,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  MapTable Aggregation DB (Aggregate nullability a) (Expr nullability a)
+  MapTable Aggregation DB (Aggregate (Expr nullability a)) (Expr nullability a)
 
 
 instance
@@ -79,7 +79,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  MapTable Aggregation Result (Aggregate nullability dbType) (Value nullability a)
+  MapTable Aggregation Result (Aggregate (Expr nullability dbType)) (Value nullability a)
 
 
 instance
@@ -89,7 +89,7 @@ instance
   , ToDBType blueprint ~ a
   , DBType a
   ) =>
-  MapTable DB Aggregation (Expr nullability a) (Aggregate nullability a)
+  MapTable DB Aggregation (Expr nullability a) (Aggregate (Expr nullability a))
 
 
 instance
@@ -123,7 +123,7 @@ instance
   , ToDBType blueprint ~ dbType
   , DBType dbType
   ) =>
-  MapTable Result Aggregation (Value nullability a) (Aggregate nullability dbType)
+  MapTable Result Aggregation (Value nullability a) (Aggregate (Expr nullability dbType))
 
 
 instance

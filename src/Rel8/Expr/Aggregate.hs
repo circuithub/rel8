@@ -1,35 +1,28 @@
 {-# language DataKinds #-}
-{-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Aggregate
-  ( Aggregate(..)
-  , count, countDistinct, countStar, countWhere
+  ( count, countDistinct, countStar, countWhere
   , and, or
   , min, max
   , sum, sumWhere
   , stringAgg
   , groupByExpr
   , listAggExpr, nonEmptyAggExpr
-  , Aggregator(..)
-  , unsafeMakeAggregate
   )
 where
 
 -- base
 import Data.Int ( Int64 )
-import Data.Kind ( Type )
 import Prelude hiding ( and, max, min, or, sum )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Aggregate ( Aggregate, Aggregator(..), unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( caseExpr, mcaseExpr )
 import Rel8.Expr.Opaleye
@@ -49,8 +42,8 @@ import Rel8.Type.String ( DBString )
 import Rel8.Type.Sum ( DBSum )
 
 
-count :: Expr nullability a -> Aggregate 'NonNullable Int64
-count = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+count :: Expr nullability a -> Aggregate (Expr 'NonNullable Int64)
+count = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
     , ordering = []
@@ -58,8 +51,8 @@ count = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-countDistinct :: DBEq a => Expr nullability a -> Aggregate 'NonNullable Int64
-countDistinct = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+countDistinct :: DBEq a => Expr nullability a -> Aggregate (Expr 'NonNullable Int64)
+countDistinct = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
     , ordering = []
@@ -67,16 +60,16 @@ countDistinct = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-countStar :: Aggregate 'NonNullable Int64
+countStar :: Aggregate (Expr 'NonNullable Int64)
 countStar = count (litPrimExpr True)
 
 
-countWhere :: Expr nullability Bool -> Aggregate 'NonNullable Int64
+countWhere :: Expr nullability Bool -> Aggregate (Expr 'NonNullable Int64)
 countWhere condition = count (mcaseExpr [(condition, litPrimExpr @Int64 0)])
 
 
-and :: Expr 'NonNullable Bool -> Aggregate 'NonNullable Bool
-and = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+and :: Expr 'NonNullable Bool -> Aggregate (Expr 'NonNullable Bool)
+and = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolAnd
     , ordering = []
@@ -84,8 +77,8 @@ and = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-or :: Expr 'NonNullable Bool -> Aggregate 'NonNullable Bool
-or = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+or :: Expr 'NonNullable Bool -> Aggregate (Expr 'NonNullable Bool)
+or = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolOr
     , ordering = []
@@ -93,8 +86,8 @@ or = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-max :: DBMax a => Expr nullability a -> Aggregate nullability a
-max = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+max :: DBMax a => Expr nullability a -> Aggregate (Expr nullability a)
+max = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -102,8 +95,8 @@ max = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-min :: DBMin a => Expr nullability a -> Aggregate nullability a
-min = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
+min :: DBMin a => Expr nullability a -> Aggregate (Expr nullability a)
+min = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -111,8 +104,8 @@ min = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr $
     }
 
 
-sum :: DBSum a => Expr nullability a -> Aggregate nullability a
-sum = unsafeMakeAggregate (castExpr . unsafeFromPrimExpr) unsafeToPrimExpr $
+sum :: DBSum a => Expr nullability a -> Aggregate (Expr nullability a)
+sum = unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -121,14 +114,14 @@ sum = unsafeMakeAggregate (castExpr . unsafeFromPrimExpr) unsafeToPrimExpr $
 
 
 sumWhere :: (DBNum a, DBSum a)
-  => Expr nullable Bool -> Expr nullability a -> Aggregate nullability a
+  => Expr nullable Bool -> Expr nullability a -> Aggregate (Expr nullability a)
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 
 
 stringAgg :: DBString a
-  => Expr 'NonNullable a -> Expr nullability a -> Aggregate nullability a
+  => Expr 'NonNullable a -> Expr nullability a -> Aggregate (Expr nullability a)
 stringAgg delimiter =
-  unsafeMakeAggregate (castExpr . unsafeFromPrimExpr) unsafeToPrimExpr $
+  unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
     Just Aggregator
       { operation = Opaleye.AggrStringAggr (unsafeToPrimExpr delimiter)
       , ordering = []
@@ -136,29 +129,14 @@ stringAgg delimiter =
       }
 
 
-type Aggregate :: Nullability -> Type -> Type
-data Aggregate nullability a = Aggregate
-  { aggregator :: Maybe Aggregator
-  , input :: Opaleye.PrimExpr
-  , output :: Opaleye.PrimExpr -> Expr nullability a
-  }
-
-
-data Aggregator = Aggregator
-  { operation :: Opaleye.AggrOp
-  , ordering :: [Opaleye.OrderExpr]
-  , distinction :: Opaleye.AggrDistinct
-  }
-
-
-groupByExpr :: DBEq a => Expr nullability a -> Aggregate nullability a
-groupByExpr = unsafeMakeAggregate unsafeFromPrimExpr unsafeToPrimExpr Nothing
+groupByExpr :: DBEq a => Expr nullability a -> Aggregate (Expr nullability a)
+groupByExpr = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr Nothing
 
 
 listAggExpr :: ()
   => Expr nullability a
-  -> Aggregate 'NonNullable (Array 'Emptiable nullability a)
-listAggExpr = unsafeMakeAggregate fromPrimExpr unsafeToPrimExpr $ Just
+  -> Aggregate (Expr 'NonNullable (Array 'Emptiable nullability a))
+listAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
@@ -168,24 +146,10 @@ listAggExpr = unsafeMakeAggregate fromPrimExpr unsafeToPrimExpr $ Just
 
 nonEmptyAggExpr :: ()
   => Expr nullability a
-  -> Aggregate 'NonNullable (Array 'NonEmptiable nullability a)
-nonEmptyAggExpr = unsafeMakeAggregate fromPrimExpr unsafeToPrimExpr $ Just
+  -> Aggregate (Expr 'NonNullable (Array 'NonEmptiable nullability a))
+nonEmptyAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
-    }
-
-
-unsafeMakeAggregate :: ()
-  => (Opaleye.PrimExpr -> Expr nullability a)
-  -> (Expr _nullability _a -> Opaleye.PrimExpr)
-  -> Maybe Aggregator
-  -> Expr _nullability _a
-  -> Aggregate nullability a
-unsafeMakeAggregate output prime aggregator input =
-  Aggregate
-    { aggregator
-    , input = prime input
-    , output
     }

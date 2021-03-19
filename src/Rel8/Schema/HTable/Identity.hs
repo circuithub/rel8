@@ -1,8 +1,5 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language InstanceSigs #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 

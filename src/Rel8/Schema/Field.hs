@@ -13,8 +13,8 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( Aggregate )
 import Rel8.Kind.Blueprint ( Blueprint, ToDBType, ToType )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
@@ -35,7 +35,7 @@ type family IField isSpecialContext labels context necessity nullability bluepri
   IField 'True  DB          _labels _necessity nullability  blueprint = Expr nullability (ToDBType blueprint)
   IField 'True  Insert      _labels 'Required  nullability  blueprint = Expr nullability (ToDBType blueprint)
   IField 'True  Insert      _labels 'Optional  nullability  blueprint = Maybe (Expr nullability (ToDBType blueprint))
-  IField 'True  Aggregation _labels _necessity nullability  blueprint = Aggregate nullability (ToDBType blueprint)
+  IField 'True  Aggregation _labels _necessity nullability  blueprint = Aggregate (Expr nullability (ToDBType blueprint))
   IField 'True  Structure   labels necessity  nullability  blueprint = Shape1 'Column ('Spec labels necessity nullability blueprint)
 
 

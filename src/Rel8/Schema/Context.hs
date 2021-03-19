@@ -27,8 +27,8 @@ import Data.String ( IsString )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( Aggregate )
 import Rel8.Kind.Blueprint ( ToDBType, ToType )
 import Rel8.Kind.Necessity
   ( Necessity( Optional, Required )
@@ -46,7 +46,7 @@ import Rel8.Type.Semigroup ( DBSemigroup )
 type Aggregation :: Context
 data Aggregation spec where
   Aggregation :: ()
-    => Aggregate nullability (ToDBType blueprint)
+    => Aggregate (Expr nullability (ToDBType blueprint))
     -> Aggregation ('Spec labels necessity nullability blueprint)
 
 
