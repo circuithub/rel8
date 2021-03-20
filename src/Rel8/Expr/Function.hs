@@ -27,8 +27,6 @@ import Rel8.Expr.Opaleye
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   , unsafeZipPrimExprsWith
   )
-import Rel8.Kind.Blueprint ( IsArray )
-import Rel8.Kind.Bool ( KnownBool )
 import Rel8.Type ( DBType )
 
 
@@ -37,20 +35,15 @@ class Function arg res where
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
 
 
-instance
-  ( KnownBool (IsArray a)
-  , KnownBool (IsArray b)
-  , arg ~ Expr nullability a
-  , DBType b
-  ) => Function arg (Expr nullability b) where
+instance (arg ~ Expr nullability a, DBType a, DBType b) =>
+  Function arg (Expr nullability b)
+ where
   applyArgument f a = castExpr $ fromPrimExpr $ f [toPrimExpr a]
 
 
-instance
-  ( KnownBool (IsArray a)
-  , arg ~ Expr nullability a
-  , Function args res
-  ) => Function arg (args -> res) where
+instance (arg ~ Expr nullability a, DBType a, Function args res) =>
+  Function arg (args -> res)
+ where
   applyArgument f a = applyArgument (f . (toPrimExpr a :))
 
 
@@ -62,10 +55,7 @@ nullaryFunction :: DBType a => String -> Expr nullability a
 nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
 
-binaryOperator ::
-  ( KnownBool (IsArray a), KnownBool (IsArray b), KnownBool (IsArray c)
-  , DBType c
-  )
+binaryOperator :: (DBType a, DBType b, DBType c)
   => String
   -> Expr nullabilityA a -> Expr nullabilityB b -> Expr nullabilityC c
 binaryOperator operator a b =

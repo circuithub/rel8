@@ -13,6 +13,7 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude ()
 
 -- bytestring
@@ -29,9 +30,10 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Kind.Emptiability ( KnownEmptiability )
-import Rel8.Kind.Nullability ( KnownNullability )
-import Rel8.Type ( DBType )
+import Rel8.Kind.Blueprint ( blueprintRoundtripsViaDBType )
+import Rel8.Kind.Emptiability ( KnownEmptiability, emptiabilitySing )
+import Rel8.Kind.Nullability ( KnownNullability, nullabilitySing )
+import Rel8.Type ( DBType, blueprintForDBType )
 import Rel8.Type.Array ( Array )
 
 -- text
@@ -54,7 +56,9 @@ instance
   , DBType a
   ) => DBSemigroup (Array emptiability nullability a)
  where
-  (<>.) = sappend
+  (<>.) = case blueprintForDBType @a of
+    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
+      Refl -> sappend emptiabilitySing nullabilitySing blueprint
 
 
 instance DBSemigroup DiffTime where

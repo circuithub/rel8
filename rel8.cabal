@@ -60,7 +60,6 @@ library
     Rel8.Expr.Time
 
     Rel8.Kind.Blueprint
-    Rel8.Kind.Bool
     Rel8.Kind.Emptiability
     Rel8.Kind.Labels
     Rel8.Kind.Necessity

@@ -19,21 +19,32 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Opaleye ( unsafeFromPrimExpr, zipPrimExprsWith )
+import Rel8.Expr.Opaleye ( sfromPrimExpr, stoPrimExpr, unsafeFromPrimExpr )
+import Rel8.Kind.Blueprint ( SBlueprint( SVector ), ToDBType )
 import Rel8.Kind.Emptiability
   ( Emptiability( Emptiable, NonEmptiable )
+  , SEmptiability
   )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ), SNullability )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( Array, array )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
-sappend :: ()
-  => Expr nullability' (Array emptiability nullability a)
+sappend :: a ~ ToDBType blueprint
+  => SEmptiability emptiability
+  -> SNullability nullability
+  -> SBlueprint blueprint
   -> Expr nullability' (Array emptiability nullability a)
   -> Expr nullability' (Array emptiability nullability a)
-sappend = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+  -> Expr nullability' (Array emptiability nullability a)
+sappend emptiability nullability blueprint a b =
+  sfromPrimExpr blueprint'
+    (Opaleye.BinExpr (Opaleye.:||)
+      (stoPrimExpr blueprint' a)
+      (stoPrimExpr blueprint' b))
+  where
+    blueprint' = SVector emptiability nullability blueprint
 
 
 sempty :: ()

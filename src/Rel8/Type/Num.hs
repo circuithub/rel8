@@ -1,5 +1,3 @@
-{-# language DataKinds #-}
-{-# language TypeFamilies #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Type.Num
@@ -13,7 +11,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Blueprint ( IsArray )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -21,7 +18,7 @@ import Data.Scientific ( Scientific )
 
 
 type DBNum :: Type -> Constraint
-class (DBType a, IsArray a ~ 'False) => DBNum a
+class DBType a => DBNum a
 instance DBNum Int16
 instance DBNum Int32
 instance DBNum Int64
