@@ -70,7 +70,6 @@ module Rel8
   , HTable
   , HigherKindedTable
   , Congruent
-  , KContext
   , Context
 
     -- ** Table schemas
@@ -240,7 +239,7 @@ import Rel8.Aggregate
   , nonEmptyAgg
   , some
   )
-import Rel8.Context ( Context, KContext )
+import Rel8.Context ( Context )
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DBType.DBEq ( DBEq( (==.), (/=.) ), in_ )
 import Rel8.DBType.DBMax ( DBMax( max ) )

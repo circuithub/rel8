@@ -7,30 +7,30 @@
 
 module Rel8.Statement.Insert ( Insert(..), OnConflict(..), insert ) where
 
--- base
-import Control.Exception ( throwIO )
-import Control.Monad.IO.Class ( MonadIO( liftIO ) )
-import Data.Kind ( Type )
-import Data.List.NonEmpty ( NonEmpty( (:|) ) )
-
--- hasql
+-- 
 import Hasql.Connection ( Connection )
 import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
+-- base
+import Control.Exception ( throwIO )
+import Control.Monad.IO.Class ( MonadIO( liftIO ) )
+import Data.Kind ( Type )
+import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+
 -- rel8
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
-import Rel8.Expr ( column )
+import Rel8.Expr ( column, Column( ExprColumn ) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, ddlTable, writer )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )
+import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ), fromColumnSchemaColumn )
 
 -- text
 import Data.Text ( pack )
@@ -92,7 +92,7 @@ insert conn Insert{ into, rows, onConflict, returning } = liftIO
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeInsertManyReturningSql unpackspec table neRows f maybeOnConflict where
-            f  = p . mapTable (column . columnName)
+            f  = p . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
             table = ddlTable into (writer into)
             neRows = x :| xs
 

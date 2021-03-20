@@ -1,33 +1,32 @@
+{-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.HTable.HIdentity ( HIdentity(..) ) where
 
+-- base
+import Data.Kind (Type)
+import Data.Type.Equality ( type (:~:)(Refl) ) 
+
 -- rel8
-import Rel8.Context ( Context )
+import Rel8.Context ( Meta( Meta ) )
 import Rel8.HTable ( HTable( HField, htabulate, htraverse, hfield, hdbtype ) )
-import Rel8.Info ( HasInfo( info ) )
+import Rel8.Info ( HasInfo( info ), Column (InfoColumn) )
 
 
 -- | A single-column higher-kinded table. This is primarily useful for
 -- facilitating generic-deriving of higher kinded tables.
-data HIdentity a context where
-  HIdentity :: { unHIdentity :: f a } -> HIdentity a (Context f)
+newtype HIdentity a (f :: Meta -> Type) = HIdentity { unHIdentity :: f a }
 
 
-data HIdentityField x y where
-  HIdentityField :: HIdentityField x x
+instance (a ~ 'Meta x, HasInfo x) => HTable (HIdentity a) where
+  type HField (HIdentity a) = (:~:) a
 
-
-instance HasInfo a => HTable (HIdentity a) where
-  type HField (HIdentity a) = HIdentityField a
-
-  hfield (HIdentity a) HIdentityField = a
-  htabulate f = HIdentity $ f HIdentityField
-  hdbtype = HIdentity info
-
-  htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> HIdentity a (Context f) -> m (HIdentity a (Context g))
-  htraverse f (HIdentity a) = HIdentity <$> f (a :: f a)
+  hfield (HIdentity a) Refl = a
+  htabulate f = HIdentity $ f Refl
+  hdbtype = HIdentity $ InfoColumn info
+  htraverse f (HIdentity a) = HIdentity <$> f a

@@ -23,15 +23,16 @@ import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics ( Generic( Rep, from, to ), K1(K1), M1(M1, unM1), type (:*:)((:*:))) 
 
 -- rel8
-import Rel8.Context ( Context, KContext )
+import Rel8.Context ()
+import qualified Rel8.Context as C
 import Rel8.Expr ( Expr )
 import Rel8.HTable ( HTable ) 
 import Rel8.HTable.HMapTable ( HMapTable )
-import Rel8.Table.MaybeTable ( HMaybeTable )
 import Rel8.HTable.HPair ( HPair(HPair) )
 import Rel8.Serializable ( Serializable, ExprFor( unpack, pack ) )
 import Rel8.Table ( Table(Columns, fromColumns, toColumns) )
 import Rel8.Table.ListTable ( ListTable, ListOf )
+import Rel8.Table.MaybeTable ( HMaybeTable )
 import Rel8.Table.MaybeTable ( MaybeTable )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable, NonEmptyList )
 import Rel8.Table.Selects ( Selects )
@@ -76,19 +77,19 @@ type family Column (context :: (Type -> Type)) (a :: Type) :: Type where
 type family HMaybe (context :: Type -> Type) (a :: Type) :: Type where
   HMaybe Identity a = Maybe a
   HMaybe Expr a     = MaybeTable a
-  HMaybe f a        = HMaybeTable (Columns a) (Context f)
+  HMaybe f a        = HMaybeTable (Columns a) (C.Column f)
 
 
 type family HList (context :: Type -> Type) (a :: Type) :: Type where
   HList Identity a = [a]
   HList Expr a     = ListTable a
-  HList f a        = HMapTable ListOf (Columns a) (Context f)
+  HList f a        = HMapTable ListOf (Columns a) (C.Column f)
 
 
 type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
   HNonEmpty Identity a = NonEmpty a
   HNonEmpty Expr a     = NonEmptyTable a
-  HNonEmpty f a        = HMapTable NonEmptyList (Columns a) (Context f)
+  HNonEmpty f a        = HMapTable NonEmptyList (Columns a) (C.Column f)
 
 
 -- | Higher-kinded data types.
@@ -135,18 +136,18 @@ type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
 --   deriving ( GHC.Generics.Generic, HigherKindedTable )
 -- @
 class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
-  type GRep t :: KContext -> Type
+  type GRep t :: (C.Meta -> Type) -> Type
   type GRep t = GColumns (Rep (t Expr))
 
-  toExprs :: t Expr -> GRep t (Context Expr)
-  fromExprs :: GRep t (Context Expr) -> t Expr
+  toExprs :: t Expr -> GRep t (C.Column Expr)
+  fromExprs :: GRep t (C.Column Expr) -> t Expr
 
   default toExprs
     :: ( GColumns (Rep (t Expr)) ~ GRep t
        , HigherKindedTableImpl Expr (Rep (t Expr))
        , Generic (t Expr)
        )
-    => t Expr -> GRep t (Context Expr)
+    => t Expr -> GRep t (C.Column Expr)
   toExprs = ghigherKindedTo @Expr @(Rep (t Expr)) . GHC.Generics.from @_ @()
 
   default fromExprs
@@ -154,18 +155,18 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
        , HigherKindedTableImpl Expr (Rep (t Expr))
        , Generic (t Expr)
        )
-    => GRep t (Context Expr) -> t Expr
+    => GRep t (C.Column Expr) -> t Expr
   fromExprs = to @_ @() . ghigherKindedFrom @Expr @(Rep (t Expr))
 
-  toColumnSchemas :: t ColumnSchema -> GRep t (Context ColumnSchema)
-  fromColumnSchemas :: GRep t (Context ColumnSchema) -> t ColumnSchema
+  toColumnSchemas :: t ColumnSchema -> GRep t (C.Column ColumnSchema)
+  fromColumnSchemas :: GRep t (C.Column ColumnSchema) -> t ColumnSchema
 
   default toColumnSchemas
     :: ( GColumns (Rep (t ColumnSchema)) ~ GRep t
        , HigherKindedTableImpl ColumnSchema (Rep (t ColumnSchema))
        , Generic (t ColumnSchema)
        )
-    => t ColumnSchema -> GRep t (Context ColumnSchema)
+    => t ColumnSchema -> GRep t (C.Column ColumnSchema)
   toColumnSchemas = ghigherKindedTo @ColumnSchema @(Rep (t ColumnSchema)) . GHC.Generics.from @_ @()
 
   default fromColumnSchemas
@@ -173,18 +174,18 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
        , HigherKindedTableImpl ColumnSchema (Rep (t ColumnSchema))
        , Generic (t ColumnSchema)
        )
-    => GRep t (Context ColumnSchema) -> t ColumnSchema
+    => GRep t (C.Column ColumnSchema) -> t ColumnSchema
   fromColumnSchemas = to @_ @() . ghigherKindedFrom @ColumnSchema @(Rep (t ColumnSchema))
 
-  gpack :: GRep t (Context Identity) -> t Identity 
-  gunpack :: t Identity -> GRep t (Context Identity)
+  gpack :: GRep t (C.Column Identity) -> t Identity 
+  gunpack :: t Identity -> GRep t (C.Column Identity)
 
   default gpack 
     :: ( Generic (t Identity)
        , GPack (Rep (t Expr)) (Rep (t Identity))
        , GColumns (Rep (t Expr)) ~ GRep t 
        ) 
-    => GRep t (Context Identity) -> t Identity 
+    => GRep t (C.Column Identity) -> t Identity 
   gpack = to @_ @() . gpackImpl @(Rep (t Expr)) @(Rep (t Identity))
 
   default gunpack 
@@ -192,13 +193,13 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
        , GPack (Rep (t Expr)) (Rep (t Identity)) 
        , GColumns (Rep (t Expr)) ~ GRep t 
        ) 
-    => t Identity -> GRep t (Context Identity)
+    => t Identity -> GRep t (C.Column Identity)
   gunpack = gunpackImpl @(Rep (t Expr)) @(Rep (t Identity)) . from @_ @()
 
 
 class GPack f g where
-  gpackImpl :: GColumns f (Context Identity) -> g x
-  gunpackImpl :: g x -> GColumns f (Context Identity)
+  gpackImpl :: GColumns f (C.Column Identity) -> g x
+  gunpackImpl :: g x -> GColumns f (C.Column Identity)
 
 
 instance GPack f g => GPack (M1 i c f) (M1 i' c' g) where
@@ -217,9 +218,9 @@ instance Serializable a a' => GPack (K1 i a) (K1 i' a') where
 
 
 class HigherKindedTableImpl (context :: Type -> Type) (rep :: Type -> Type) where
-  type GColumns rep :: KContext -> Type
-  ghigherKindedTo :: rep x -> GColumns rep (Context context)
-  ghigherKindedFrom :: GColumns rep (Context context) -> rep x
+  type GColumns rep :: (C.Meta -> Type) -> Type
+  ghigherKindedTo :: rep x -> GColumns rep (C.Column context)
+  ghigherKindedFrom :: GColumns rep (C.Column context) -> rep x
 
 
 instance HigherKindedTableImpl context f => HigherKindedTableImpl context (M1 i c f) where
@@ -247,8 +248,8 @@ instance (x ~ f, HigherKindedTable t, Helper f t) => Table f (t x) where
 
 
 class Helper f t where
-  helperTo :: t f -> GRep t (Context f)
-  helperFrom :: GRep t (Context f) -> t f
+  helperTo :: t f -> GRep t (C.Column f)
+  helperFrom :: GRep t (C.Column f) -> t f
 
 
 instance HigherKindedTable t => Helper Expr t where

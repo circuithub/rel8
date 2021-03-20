@@ -16,7 +16,7 @@ module Rel8.HTable.HMapTable ( HMapTable(..), Exp, Eval, MapInfo(..), Precompose
 import Data.Kind ( Type )
 
 -- rel8
-import Rel8.Context ( Context, KContext )
+import Rel8.Context ( Column, Meta )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse )
 import Rel8.Info ( Info )
 
@@ -30,15 +30,15 @@ type Exp a = a -> Type
 type family Eval (e :: Exp a) :: a
 
 
-data HMapTable :: (Type -> Exp Type) -> (KContext -> Type) -> KContext -> Type where
-  HMapTable :: { unHMapTable :: t (Context (Precompose f g)) } -> HMapTable f t (Context g)
+data HMapTable :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> (Meta -> Type) -> Type where
+  HMapTable :: { unHMapTable :: t (Precompose f g) } -> HMapTable f t g
 
 
-newtype Precompose :: (Type -> Exp Type) -> (Type -> Type) -> Type -> Type where
+newtype Precompose :: (Meta -> Exp Meta) -> (Meta -> Type) -> Meta -> Type where
   Precompose :: { precomposed :: g (Eval (f x)) } -> Precompose f g x
 
 
-data HMapTableField :: (Type -> Exp Type) -> (KContext -> Type) -> Type -> Type where
+data HMapTableField :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> Meta -> Type where
   HMapTableField :: HField t a -> HMapTableField f t (Eval (f a))
 
 
@@ -52,16 +52,16 @@ instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
   htabulate f = HMapTable $ htabulate (Precompose . f . HMapTableField)
 
   htraverse :: forall g h m. Applicative m
-    => (forall x. g x -> m (h x)) -> HMapTable f t (Context g) -> m (HMapTable f t (Context h))
+    => (forall x. g x -> m (h x)) -> HMapTable f t g -> m (HMapTable f t h)
   htraverse f (HMapTable x) = HMapTable <$> htraverse go x
     where
       go :: forall x. Precompose f g x -> m (Precompose f h x)
       go (Precompose a) = Precompose <$> f a
 
-  hdbtype = HMapTable $ htabulate \i ->
+  hdbtype = HMapTable $ htabulate \i -> 
     case hfield (hdbtype @t) i of
       x -> Precompose (mapInfo @f x)
 
 
 class MapInfo f where
-  mapInfo :: Info x -> Info (Eval (f x))
+  mapInfo :: Column Info x -> Column Info (Eval (f x))

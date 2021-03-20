@@ -13,8 +13,8 @@ module Rel8.Table ( Table(..) ) where
 import Data.Kind ( Type )
 
 -- rel8
-import Rel8.Context ( Context, KContext )
-import Rel8.Expr ( Expr )
+import Rel8.Context ( Column, Meta( Meta ) )
+import Rel8.Expr ( Column( ExprColumn, fromExprColumn ), Expr )
 import Rel8.HTable ( HTable )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
@@ -27,20 +27,20 @@ import Rel8.Info ( HasInfo )
 -- writing higher-kinded data types is usually more convenient. See also:
 -- 'HigherKindedTable'.
 class HTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> context where
-  type Columns t :: KContext -> Type
+  type Columns t :: (Meta -> Type) -> Type
 
-  toColumns :: t -> Columns t (Context context)
-  fromColumns :: Columns t (Context context) -> t
+  toColumns :: t -> Columns t (Column context)
+  fromColumns :: Columns t (Column context) -> t
 
 
 instance (HasInfo a, expr ~ Expr) => Table expr (Expr a) where
-  type Columns (Expr a) = HIdentity a
-  toColumns = HIdentity
-  fromColumns = unHIdentity
+  type Columns (Expr a) = HIdentity ('Meta a)
+  toColumns = HIdentity . ExprColumn
+  fromColumns = fromExprColumn . unHIdentity
 
 
-instance (HTable t, f ~ g) => Table f (t (Context g)) where
-  type Columns (t (Context g)) = t
+instance (HTable t, Column f ~ g) => Table f (t g) where
+  type Columns (t g) = t
   toColumns = id
   fromColumns = id
 

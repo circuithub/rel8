@@ -7,28 +7,28 @@
 
 module Rel8.Statement.Update ( Update(..), update ) where
 
--- base
-import Control.Exception ( throwIO )
-import Control.Monad.IO.Class ( MonadIO( liftIO ) )
-
--- hasql
+-- 
 import Hasql.Connection ( Connection )
 import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
+-- base
+import Control.Exception ( throwIO )
+import Control.Monad.IO.Class ( MonadIO( liftIO ) )
+
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
-import Rel8.Expr ( Expr( toPrimExpr ), column )
+import Rel8.Expr ( Expr( toPrimExpr ), column, Column( ExprColumn ) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, ddlTable, writer )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )
+import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ), Column (fromColumnSchemaColumn) )
 
 -- text
 import Data.Text ( pack )
@@ -79,16 +79,16 @@ update conn Update{ target, set, updateWhere, returning } = liftIO
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateSql table g f where
-            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
-            g = set . mapTable (column . columnName)
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
+            g = set . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
 
     Projection p -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeUpdateReturningSql unpackspec table g f h where
-            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (column . columnName)
-            g = set . mapTable (column . columnName)
-            h = p . mapTable (column . columnName)
+            f = Opaleye.Column . toPrimExpr . updateWhere . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
+            g = set . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
+            h = p . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
 
           mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
           mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)

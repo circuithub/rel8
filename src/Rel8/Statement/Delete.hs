@@ -7,28 +7,28 @@
 
 module Rel8.Statement.Delete ( Delete(..), delete ) where
 
--- base
-import Control.Exception ( throwIO )
-import Control.Monad.IO.Class ( MonadIO( liftIO ) )
-
--- hasql
+-- 
 import Hasql.Connection ( Connection )
 import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
+-- base
+import Control.Exception ( throwIO )
+import Control.Monad.IO.Class ( MonadIO( liftIO ) )
+
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
-import Rel8.Expr ( Expr( toPrimExpr ), column )
+import Rel8.Expr ( Expr( toPrimExpr ), column, Column (ExprColumn) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, ddlTable, writer )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ) )
+import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ), fromColumnSchemaColumn )
 
 -- text
 import Data.Text ( pack )
@@ -75,16 +75,16 @@ delete conn Delete{ from = deleteFrom, deleteWhere, returning } = liftIO
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams Hasql.rowsAffected False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteSql table f where
-            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
+            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
             table = ddlTable deleteFrom (writer deleteFrom)
 
     Projection p -> Hasql.run session conn >>= either throwIO return where
       session = Hasql.statement () statement where
         statement = Hasql.Statement q Hasql.noParams (mkDecoder p) False where
           q = encodeUtf8 $ pack $ Opaleye.arrangeDeleteReturningSql unpackspec table f g where
-            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (column . columnName)
+            f = Opaleye.Column . toPrimExpr . deleteWhere . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
             table = ddlTable deleteFrom (writer deleteFrom)
-            g = p . mapTable (column . columnName)
+            g = p . mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn)
 
           mkDecoder :: forall row projection a. Serializable projection a => (row -> projection) -> Hasql.Result [a]
           mkDecoder _ = Hasql.rowList (hasqlRowDecoder @projection)

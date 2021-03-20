@@ -1,5 +1,6 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language GADTs #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language RankNTypes #-}
 
@@ -16,7 +17,6 @@ module Rel8.Query.Order
   ) where
 
 -- base
-import Control.Applicative ( Const( Const ), getConst )
 import Data.Bifunctor ( first )
 import Data.Functor.Contravariant ( Contravariant )
 
@@ -30,8 +30,8 @@ import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy )
-import Rel8.Expr ( Expr( Expr ), unsafeCoerceExpr )
-import Rel8.HTable ( htraverse )
+import Rel8.Expr ( Expr( Expr ), fromExprColumn, unsafeCoerceExpr )
+import Rel8.HTable.HIdentity ( HIdentity( unHIdentity ) )
 import Rel8.Info ( HasInfo )
 import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye )
 import Rel8.Table ( Table, toColumns )
@@ -62,10 +62,10 @@ newtype Order a = Order (Opaleye.Order a)
 -- >>> select c $ orderBy asc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [1,2,3,4,5]
 asc :: HasInfo a => Order (Expr a)
-asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
+asc = Order $ Opaleye.Order (f . fromExprColumn . unHIdentity . toColumns)
   where
-    f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)
-    f (Expr primExpr) = Const [(orderOp, primExpr)]
+    f :: forall x. Expr x -> [(Opaleye.OrderOp, Opaleye.PrimExpr)]
+    f (Expr primExpr) = [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp
@@ -79,10 +79,10 @@ asc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
 -- >>> select c $ orderBy desc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [5,4,3,2,1]
 desc :: HasInfo a => Order (Expr a)
-desc = Order $ Opaleye.Order (getConst . htraverse f . toColumns)
+desc = Order $ Opaleye.Order (f . fromExprColumn . unHIdentity . toColumns)
   where
-    f :: forall x. Expr x -> Const [(Opaleye.OrderOp, Opaleye.PrimExpr)] (Expr x)
-    f (Expr primExpr) = Const [(orderOp, primExpr)]
+    f :: forall x. Expr x -> [(Opaleye.OrderOp, Opaleye.PrimExpr)]
+    f (Expr primExpr) = [(orderOp, primExpr)]
 
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp

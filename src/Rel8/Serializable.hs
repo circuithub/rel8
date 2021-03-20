@@ -17,17 +17,17 @@ module Rel8.Serializable ( ExprFor(..), Serializable, hasqlRowDecoder, lit ) whe
 import qualified Hasql.Decoders as Hasql
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ), runIdentity )
+import Data.Functor.Identity ( Identity )
 
 -- rel8
-import Rel8.Context ( Context )
+import Rel8.Context ( Column( I, unI, ColumnDecoder ), fromColumnDecoder )
 import Rel8.DBType ( DBType )
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Column( ExprColumn ) )
 import Rel8.Expr.Opaleye ( litExprWith )
-import Rel8.HTable ( HTable( htraverse, htabulate, hdbtype, hfield ) )
+import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( HasInfo, decodeWith )
+import Rel8.Info ( HasInfo, decodeWith, Column( fromInfoColumn ) )
 import Rel8.Table ( Columns, Table, fromColumns )
 
 
@@ -49,18 +49,18 @@ class ExprFor expr haskell => Serializable expr haskell | expr -> haskell where
 -- @Maybe a@, we may allow expressions to be either @MaybeTable a'@ (where
 -- @ExprFor a' a@), or just @Expr (Maybe a)@ (if @a@ is a single column).
 class Table Expr expr => ExprFor expr haskell where
-  unpack :: haskell -> Columns expr (Context Identity)
-  pack :: Columns expr (Context Identity) -> haskell
+  unpack :: haskell -> Columns expr (Column Identity)
+  pack :: Columns expr (Column Identity) -> haskell
 
 
 instance {-# OVERLAPPABLE #-} (HasInfo b, a ~ Expr b) => ExprFor a b where
-  unpack = HIdentity . pure
-  pack (HIdentity a) = runIdentity a
+  unpack = HIdentity . I 
+  pack (HIdentity a) = unI a
 
 
 instance DBType a => ExprFor (Expr (Maybe a)) (Maybe a) where
-  unpack = HIdentity . pure
-  pack (HIdentity a) = runIdentity a
+  unpack = HIdentity . I
+  pack (HIdentity a) = unI a
 
 
 instance (a ~ (a1, a2), ExprFor a1 b1, ExprFor a2 b2) => ExprFor a (b1, b2) where
@@ -78,14 +78,14 @@ instance (a ~ (a1, a2, a3, a4), ExprFor a1 b1, ExprFor a2 b2, ExprFor a3 b3, Exp
   pack (HPair (HPair a b) (HPair c d)) = (pack @a1 a, pack @a2 b, pack @a3 c, pack @a4 d)
 
 
-instance (HTable t, a ~ t (Context Expr), identity ~ Context Identity) => ExprFor a (t identity) where
+instance (HTable t, a ~ t (Column Expr), identity ~ Column Identity) => ExprFor a (t identity) where
   unpack = id
   pack = id
 
 
 -- | Any higher-kinded records can be @SELECT@ed, as long as we know how to
 -- decode all of the records constituent part's.
-instance (s ~ t, expr ~ Context Expr, identity ~ Context Identity, HTable t) => Serializable (s expr) (t identity) where
+instance (s ~ t, expr ~ Column Expr, identity ~ Column Identity, HTable t) => Serializable (s expr) (t identity) where
 
 
 instance (a ~ b, HasInfo b) => Serializable (Expr a) b where
@@ -101,14 +101,14 @@ instance (Serializable a1 b1, Serializable a2 b2, Serializable a3 b3, Serializab
 
 
 lit :: forall exprs haskell. Serializable exprs haskell => haskell -> exprs
-lit x = fromColumns $ htabulate \i ->
-  litExprWith (hfield hdbtype i) $ runIdentity $ hfield unpacked i
+lit x = fromColumns $ htabulateMeta \i ->
+  ExprColumn $ litExprWith (fromInfoColumn (hfield hdbtype i)) $ unI $ hfield unpacked i
   where
     unpacked = unpack @exprs x
 
 
 hasqlRowDecoder :: forall exprs haskell. Serializable exprs haskell => Hasql.Row haskell
-hasqlRowDecoder = pack @exprs <$> htraverse (fmap Identity) decoders
+hasqlRowDecoder = pack @exprs <$> htraverseMeta (fmap I . fromColumnDecoder) decoders
   where
-    decoders :: Columns exprs (Context Hasql.Row)
-    decoders = htabulate (decodeWith . hfield hdbtype)
+    decoders :: Columns exprs (Column Hasql.Row)
+    decoders = htabulateMeta (ColumnDecoder . decodeWith . fromInfoColumn . hfield hdbtype)

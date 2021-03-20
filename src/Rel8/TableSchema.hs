@@ -1,6 +1,7 @@
 {-# language BlockArguments #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
+{-# language GADTs #-}
 {-# language KindSignatures #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -10,19 +11,19 @@ module Rel8.TableSchema ( TableSchema(..), toOpaleyeTable, ddlTable, writer, sel
 
 -- base
 import Control.Monad ( void )
-import Data.Functor.Compose ( Compose( Compose, getCompose ) )
 import Data.Kind ( Type )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
-import Rel8.Expr ( Expr( toPrimExpr ), column )
-import Rel8.HTable ( HTable( hfield, htraverse, htabulate ) )
-import Rel8.Table ( Table( toColumns, Columns ) )
+import Rel8.Context ( Column( ComposedColumn ), decompose )
+import Rel8.Expr ( Column( ExprColumn ), Expr( toPrimExpr ), column, fromExprColumn )
+import Rel8.HTable ( hfield, htabulateMeta, htraverseMeta )
+import Rel8.Table ( Table( toColumns ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Selects ( Selects )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( ColumnSchema, columnName ) )
+import Rel8.TableSchema.ColumnSchema ( Column( ColumnSchemaColumn ), ColumnSchema( ColumnSchema, columnName ), fromColumnSchemaColumn )
 
 
 -- | The schema for a table. This is used to specify the name and schema that a
@@ -89,13 +90,13 @@ writer into_ =
       -> f ()
     go f xs =
       void $
-        htraverse @(Columns schema) @_ @Expr getCompose $
-          htabulate @(Columns schema) @(Compose f Expr) \i ->
+        htraverseMeta decompose $
+          htabulateMeta \i ->
             case hfield (toColumns (tableColumns into_)) i of
-              ColumnSchema{ columnName } ->
-                Compose $
-                  column columnName <$
-                  f ( toPrimExpr . flip hfield i . toColumns <$> xs
+              ColumnSchemaColumn ColumnSchema{ columnName } ->
+                ComposedColumn $
+                  ExprColumn (column columnName) <$
+                  f ( toPrimExpr . fromExprColumn . flip hfield i . toColumns <$> xs
                     , columnName
                     )
 
@@ -110,4 +111,4 @@ selectSchema schema = toOpaleyeTable schema noWriter view
     noWriter = Opaleye.Writer $ Opaleye.PackMap \_ _ -> pure ()
 
     view :: Opaleye.View row
-    view = Opaleye.View $ mapTable (column . columnName) (tableColumns schema)
+    view = Opaleye.View $ mapTable (ExprColumn . column . columnName . fromColumnSchemaColumn) (tableColumns schema)

@@ -5,12 +5,10 @@
 
 module Rel8.Table.Bool ( ifThenElse_, case_ ) where
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
-import Rel8.Expr ( Expr( toPrimExpr ), fromPrimExpr )
-import Rel8.HTable ( HTable( hfield, htabulate ) )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Expr ( Column( ExprColumn ), Expr( toPrimExpr ), fromExprColumn, fromPrimExpr )
+import Rel8.HTable ( hfield, htabulateMeta )
 import Rel8.Table ( Columns, Table, fromColumns, toColumns )
 
 
@@ -37,7 +35,7 @@ ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
 
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
-  fromColumns $ htabulate @(Columns a) \x -> fromPrimExpr $
+  fromColumns $ htabulateMeta @(Columns a) \x -> ExprColumn $ fromPrimExpr $
     Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
-        ( toPrimExpr $ hfield (toColumns def) x )
+        [ ( toPrimExpr bool, toPrimExpr $ fromExprColumn $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
+        ( toPrimExpr $ fromExprColumn $ hfield (toColumns def) x )

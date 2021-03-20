@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
@@ -10,11 +11,11 @@ module Rel8.Table.Congruent ( Congruent, mapTable, zipTablesWithM, traverseTable
 
 -- base
 import Control.Applicative ( Applicative( liftA2 ) )
-import Data.Functor.Compose ( Compose( Compose, getCompose ) )
 import Data.Functor.Identity ( Identity( runIdentity ) )
 
 -- rel8
-import Rel8.HTable ( HTable( htraverse, htabulate, hfield ) )
+import Rel8.Context ( Column( ComposedColumn ), Meta( Meta ), decompose )
+import Rel8.HTable ( hfield, htabulateMeta, htraverseMeta )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 
 
@@ -30,22 +31,22 @@ instance (Columns a ~ Columns b) => Congruent a b
 
 mapTable
   :: (Congruent s t, Table f s, Table g t)
-  => (forall x. f x -> g x) -> s -> t
-mapTable f = fromColumns . runIdentity . htraverse (pure . f) . toColumns
+  => (forall x. Column f ('Meta x) -> Column g ('Meta x)) -> s -> t
+mapTable f = fromColumns . runIdentity . htraverseMeta (pure . f) . toColumns
 
 
 zipTablesWithM
   :: forall x y z f g h m
    . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
-  => (forall a. f a -> g a -> m (h a)) -> x -> y -> m z
+  => (forall a. Column f ('Meta a) -> Column g ('Meta a) -> m (Column h ('Meta a))) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
-    htraverse getCompose $
-      htabulate @_ @(Compose m h) $
-        Compose . liftA2 f (hfield x) (hfield y)
+    htraverseMeta decompose $
+      htabulateMeta $
+        ComposedColumn . liftA2 f (hfield x) (hfield y)
 
 
 traverseTable
   :: (Congruent x y, Table f x, Table g y, Applicative m)
-  => (forall a. f a -> m (g a)) -> x -> m y
-traverseTable f = fmap fromColumns . htraverse f . toColumns
+  => (forall a. Column f ('Meta a) -> m (Column g ('Meta a))) -> x -> m y
+traverseTable f = fmap fromColumns . htraverseMeta f . toColumns

@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language KindSignatures #-}
@@ -5,13 +6,14 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.TableSchema.ColumnSchema ( ColumnSchema(..) ) where
+module Rel8.TableSchema.ColumnSchema ( ColumnSchema(..), Column( ColumnSchemaColumn, fromColumnSchemaColumn ) ) where
 
 -- base
 import Data.Kind ( Type )
 import Data.String ( IsString( fromString ) )
 
 -- rel8
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.Info ( HasInfo )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
@@ -45,6 +47,11 @@ instance IsString (ColumnSchema a) where
 
 
 instance (HasInfo a, f ~ ColumnSchema) => Table f (ColumnSchema a) where
-  type Columns (ColumnSchema a) = HIdentity a
-  toColumns = HIdentity
-  fromColumns = unHIdentity
+  type Columns (ColumnSchema a) = HIdentity ('Meta a)
+  toColumns = HIdentity . ColumnSchemaColumn
+  fromColumns = fromColumnSchemaColumn . unHIdentity
+
+
+instance Context ColumnSchema where
+  data Column ColumnSchema :: Meta -> Type where
+    ColumnSchemaColumn :: { fromColumnSchemaColumn :: ColumnSchema a } -> Column ColumnSchema ('Meta a)

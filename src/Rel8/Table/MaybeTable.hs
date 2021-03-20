@@ -28,8 +28,6 @@ module Rel8.Table.MaybeTable
   ) where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
-import Data.Kind ( Type )
 import GHC.Generics ( Generic )
 import Prelude
   ( Applicative( (<*>), pure )
@@ -54,12 +52,14 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
+import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ) )
 import Rel8.DBType.DBEq ( (==.) )
+import Rel8.Expr ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr ( Expr, fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( (&&.), ifThenElse_, not_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
 import Rel8.Expr.Opaleye ( litExpr, litExprWith )
-import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htraverse )
+import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
   ( Eval
@@ -70,7 +70,7 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   , mapInfo
   )
-import Rel8.Info ( Info( Null, NotNull ), Nullify )
+import Rel8.Info ( Column( InfoColumn, fromInfoColumn ), Info( Null, NotNull ), Nullify )
 import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
@@ -114,62 +114,64 @@ instance Table Expr a => Table Expr (MaybeTable a) where
   type Columns (MaybeTable a) = HMaybeTable (Columns a)
 
   toColumns (MaybeTable x y) = HMaybeTable
-    { hnullTag = HIdentity x
-    , htable = HMapTable $ htabulate f
+    { hnullTag = HIdentity $ ExprColumn x
+    , htable = HMapTable $ htabulateMeta f
     }
     where
-      f :: forall x. HField (Columns a) x -> Precompose MakeNull Expr x
+      f :: forall x. HField (Columns a) ('Meta x) -> Precompose MakeNull (Column Expr) ('Meta x)
       f i = Precompose
         case hfield hdbtype i of
-          NotNull _ ->
+          InfoColumn (NotNull _) ->
+            ExprColumn $
             ifThenElse_
               (x ==. lit (Just True))
-              (unsafeCoerceExpr (hfield (toColumns y) i))
+              (unsafeCoerceExpr (fromExprColumn (hfield (toColumns y) i)))
               (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
 
-          Null _ ->
+          InfoColumn (Null _) ->
+            ExprColumn $
             ifThenElse_
               (x ==. lit (Just True))
-              (hfield (toColumns y) i)
+              (fromExprColumn (hfield (toColumns y) i))
               (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
 
   fromColumns (HMaybeTable (HIdentity x) (HMapTable y)) =
-    MaybeTable x (fromColumns (hmap (\(Precompose e) -> unsafeCoerceExpr e) y))
+    MaybeTable (fromExprColumn x) (fromColumns (hmap (\(Precompose e) -> ExprColumn (unsafeCoerceExpr (fromExprColumn e))) y))
 
 
 instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
-  pack HMaybeTable{ hnullTag = HIdentity (Identity nullTag), htable = HMapTable t } =
+  pack HMaybeTable{ hnullTag = HIdentity (I nullTag), htable = HMapTable t } =
     case nullTag of
       Just True -> Just $ pack @a $ htabulate \i ->
         case hfield hdbtype i of
-          NotNull _ ->
+          InfoColumn (NotNull _) ->
             case hfield t i of
-              Precompose (Identity Nothing)  -> error "Impossible"
-              Precompose (Identity (Just x)) -> pure x
+              Precompose (I Nothing)  -> error "Impossible"
+              Precompose (I (Just x)) -> I x
 
-          Null _ ->
+          InfoColumn (Null _) ->
             case hfield t i of
-              Precompose (Identity x) -> pure x
+              Precompose (I x) -> I x
 
       _ -> Nothing
 
   unpack = \case
     Just a -> HMaybeTable
-      { hnullTag = HIdentity (pure (Just True))
-      , htable = htabulate \(HMapTableField i) ->
+      { hnullTag = HIdentity (I (Just True))
+      , htable = htabulateMeta \(HMapTableField i) ->
           case hfield hdbtype i of
-            NotNull _ -> Just <$> hfield unpacked i
-            Null _    -> hfield unpacked i
+            InfoColumn (NotNull _) -> I $ Just $ unI $ hfield unpacked i
+            InfoColumn (Null _)    -> hfield unpacked i
       }
       where
         unpacked = unpack @a a
 
     Nothing -> HMaybeTable
-      { hnullTag = HIdentity (pure Nothing)
+      { hnullTag = HIdentity (I Nothing)
       , htable = htabulate \(HMapTableField i) ->
           case hfield hdbtype i of
-            NotNull _ -> pure Nothing
-            Null _    -> pure Nothing
+            InfoColumn (NotNull _) -> I Nothing
+            InfoColumn (Null _)    -> I Nothing
       }
 
 
@@ -310,34 +312,34 @@ isNothingTable = maybeTable (lit True) (const (lit False))
 noTable :: forall a. Table Expr a => MaybeTable a
 noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
-    f :: forall x. HField (Columns a) x -> Expr x
+    f :: forall x. HField (Columns a) x -> Column Expr x
     f i =
       case hfield hdbtype i of
-        NotNull{} -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)
-        Null{}    -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)
+        InfoColumn NotNull{} -> ExprColumn $ unsafeCoerceExpr (litExprWith (fromInfoColumn (mapInfo @MakeNull (hfield hdbtype i))) Nothing)
+        InfoColumn Null{}    -> ExprColumn $ unsafeCoerceExpr (litExprWith (fromInfoColumn (mapInfo @MakeNull (hfield hdbtype i))) Nothing)
 
 
-data MakeNull :: Type -> Exp Type
+data MakeNull :: Meta -> Exp Meta
 
 
-type instance Eval (MakeNull x) = Nullify x
+type instance Eval (MakeNull ('Meta x)) = 'Meta (Nullify x)
 
 
 instance MapInfo MakeNull where
   mapInfo = \case
-    NotNull t -> Null t
-    Null t    -> Null t
+    InfoColumn (NotNull t) -> InfoColumn $ Null t
+    InfoColumn (Null t)    -> InfoColumn $ Null t
 
 
 data HMaybeTable g f = HMaybeTable
-  { hnullTag :: HIdentity (Maybe Bool) f
+  { hnullTag :: HIdentity ('Meta (Maybe Bool)) f
   , htable :: HMapTable MakeNull g f
   }
   deriving stock Generic
 
 
 data HMaybeField g a where
-  HNullTag :: HMaybeField g (Maybe Bool)
+  HNullTag :: HMaybeField g ('Meta (Maybe Bool))
   HMaybeField :: HField (HMapTable MakeNull g) a -> HMaybeField g a
 
 

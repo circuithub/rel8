@@ -1,25 +1,28 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE LambdaCase #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language KindSignatures #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Info ( Info(..), HasInfo(..), Nullify ,decodeWith) where
+module Rel8.Info ( Info(..), HasInfo(..), Nullify, decodeWith, Column( InfoColumn, fromInfoColumn ) ) where
+
+-- 
+import qualified Hasql.Decoders as Hasql
 
 -- base
 import Data.Kind ( Type )
 
 -- rel8
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.DBType ( DBType( typeInformation ) )
-import Rel8.DatabaseType ( DatabaseType (decoder, DatabaseType, parser), listOfNotNull, listOfNull )
-import qualified Hasql.Decoders as Hasql
+import Rel8.DatabaseType ( DatabaseType( decoder, DatabaseType, parser ), listOfNotNull, listOfNull )
 
 
 data Info :: Type -> Type where
@@ -52,8 +55,13 @@ instance HasInfo a => DBType [a] where
 
 decodeWith :: Info a -> Hasql.Row a
 decodeWith = \case
-  Null DatabaseType{ parser, decoder } -> 
+  Null DatabaseType{ parser, decoder } ->
     Hasql.column $ Hasql.nullable $ Hasql.refine parser decoder
 
-  NotNull DatabaseType{ parser, decoder } -> 
+  NotNull DatabaseType{ parser, decoder } ->
     Hasql.column $ Hasql.nonNullable $ Hasql.refine parser decoder
+
+
+instance Context Info where
+  data Column Info :: Meta -> Type where
+    InfoColumn :: { fromInfoColumn :: Info a } -> Column Info ('Meta a)

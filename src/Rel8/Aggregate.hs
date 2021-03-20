@@ -1,6 +1,8 @@
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FunctionalDependencies #-}
+{-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
@@ -30,7 +32,8 @@ import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.Expr ( Column( ExprColumn ), Expr( Expr ) )
 import Rel8.HTable ( hmap, htraverse )
 import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
 import Rel8.Query ( Query, mapOpaleye )
@@ -65,8 +68,8 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
     aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
       fromColumns <$> htraverse (g f) (toColumns x)
 
-    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Expr x -> m (Expr x)
-    g f (Expr x) = Expr <$> traverseAggrExpr f x
+    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Column Expr x -> m (Column Expr x)
+    g f (ExprColumn (Expr x)) = ExprColumn . Expr <$> traverseAggrExpr f x
 
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
@@ -184,9 +187,9 @@ traverseAggrExpr f = \case
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Expr a -> Expr [a]
-    go (Expr a) =
-      Expr $
+    go :: Column Expr ('Meta a) -> Column Expr ('Meta [a])
+    go (ExprColumn (Expr a)) =
+      ExprColumn $ Expr $
         Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
@@ -194,8 +197,9 @@ listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = Aggregate . NonEmptyTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Expr a -> Expr (NonEmpty a)
-    go (Expr a) = Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
+    go :: Column Expr ('Meta a) -> Column Expr ('Meta (NonEmpty a))
+    go (ExprColumn (Expr a)) =
+      ExprColumn $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns

@@ -8,17 +8,18 @@
 module Rel8.HTable.HPair ( HPair(..) ) where
 
 -- base
+import Data.Kind ( Type )
 import GHC.Generics ( Generic )
 
 -- rel8
-import Rel8.Context ( KContext )
+import Rel8.Context ( Meta )
 import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ) )
 
 
 -- | Pair two higher-kinded tables. This is primarily used to facilitate
 -- generic deriving of higher-kinded tables with more than 1 field (it deals
 -- with the @:*:@ case).
-data HPair x y (f :: KContext) = HPair { hfst :: x f, hsnd :: y f }
+data HPair x y (f :: Meta -> Type) = HPair { hfst :: x f, hsnd :: y f }
   deriving stock (Generic)
 
 

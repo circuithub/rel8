@@ -14,15 +14,13 @@
 module Rel8.Table.ListTable ( ListTable( ListTable ), ListOf ) where
 
 -- base
-import Data.Functor.Identity ( Identity( runIdentity ) )
-import Data.Kind ( Type )
 
 -- rel8
-import Rel8.Context ( Context )
+import Rel8.Context ( Column( I ), Meta( Meta ), unI )
 import Rel8.DatabaseType ( listOfNotNull, listOfNull )
-import Rel8.Expr ( Expr, binaryOperator )
+import Rel8.Expr ( Column( ExprColumn, fromExprColumn ), Expr, binaryOperator )
 import Rel8.Expr.Opaleye ( litExprWith )
-import Rel8.HTable ( HTable( hdbtype, htabulate, hfield ), htraverse, hzipWith )
+import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable
   ( Eval
   , Exp
@@ -32,36 +30,42 @@ import Rel8.HTable.HMapTable
   , precomposed
   , unHMapTable
   )
-import Rel8.Info ( Info( NotNull, Null ) )
+import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
 import Rel8.Table ( Table( Columns, toColumns, fromColumns ) )
 
 
-data ListOf :: Type -> Exp Type
+data ListOf :: Meta -> Exp Meta
 
 
-type instance Eval (ListOf x) = [x]
+type instance Eval (ListOf ('Meta x)) = 'Meta [x]
 
 
 instance MapInfo ListOf where
-  mapInfo = \case
+  mapInfo (InfoColumn i) = InfoColumn $ case i of
     NotNull t -> NotNull $ listOfNotNull t
     Null t -> NotNull $ listOfNull t
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
 -- @ListTable@s with 'many' or 'listAgg'.
-newtype ListTable a = ListTable (HMapTable ListOf (Columns a) (Context Expr))
+newtype ListTable a = ListTable (HMapTable ListOf (Columns a) (Column Expr))
 
 
 instance Table Expr a => Semigroup (ListTable a) where
   ListTable a <> ListTable b =
-    ListTable (hzipWith (binaryOperator "||") a b)
+    ListTable (hzipWith (\x y -> ExprColumn $ binaryOperator "||" (fromExprColumn x) (fromExprColumn y)) a b)
 
 
 instance Table Expr a => Monoid (ListTable a) where
-  mempty = ListTable $ htabulate $ \i@HMapTableField {} ->
-    litExprWith (hfield hdbtype i) []
+  mempty = ListTable $ htabulateMeta \i ->
+    case hfield hdbtype i of
+      InfoColumn x ->
+        case i of
+          HMapTableField j ->
+            case hfield hdbtype j of
+              InfoColumn _ ->
+                ExprColumn $ litExprWith x []
 
 
 instance (f ~ Expr, Table f a) => Table f (ListTable a) where
@@ -73,10 +77,12 @@ instance (f ~ Expr, Table f a) => Table f (ListTable a) where
 
 instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b) => ExprFor a [b] where
   pack (unHMapTable -> xs) =
-    pack @x <$> htraverse (sequenceA . precomposed) xs
+    pack @x <$> htraverseMeta (fmap I . unI . precomposed) xs
 
-  unpack (fmap (unpack @x) -> xs) = htabulate \(HMapTableField i) ->
-    pure (fmap (runIdentity . flip hfield i) xs)
+  unpack (fmap (unpack @x) -> xs) = htabulateMeta \(HMapTableField j) ->
+    case hfield hdbtype j of
+      InfoColumn _ ->
+        I $ fmap (unI . flip hfield j) xs
 
 
 instance Serializable a b => Serializable (ListTable a) [b] where

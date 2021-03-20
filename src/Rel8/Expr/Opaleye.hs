@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}

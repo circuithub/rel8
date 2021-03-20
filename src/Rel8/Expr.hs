@@ -1,12 +1,15 @@
+{-# language DataKinds #-}
+{-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
-{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
 
 module Rel8.Expr
   ( Expr(..)
+  , Column( ExprColumn, fromExprColumn )
   , binaryOperator
   , fromPrimExpr
   , column
@@ -34,6 +37,7 @@ import Prelude
 import qualified Opaleye ( PGInt8 )
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, litExpr )
 import Rel8.Function ( function )
 import Rel8.Info ( HasInfo )
@@ -121,3 +125,7 @@ traversePrimExpr
 traversePrimExpr f =
   fmap fromPrimExpr . f . toPrimExpr
 
+
+instance Context Expr where
+  data Column Expr :: Meta -> Type where
+    ExprColumn :: { fromExprColumn :: Expr a } -> Column Expr ('Meta a)
