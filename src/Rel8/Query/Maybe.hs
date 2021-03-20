@@ -46,7 +46,8 @@ catMaybeTable ma@(MaybeTable _ a) = do
   pure a
 
 
-bindMaybeTable :: (a -> Query (MaybeTable b)) -> MaybeTable a -> Query (MaybeTable b)
+bindMaybeTable :: Monad m
+  => (a -> m (MaybeTable b)) -> MaybeTable a -> m (MaybeTable b)
 bindMaybeTable query (MaybeTable input a) = do
   MaybeTable output b <- query a
   pure $ MaybeTable (input <> output) b

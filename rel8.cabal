@@ -137,6 +137,8 @@ library
     Rel8.Table.These
     Rel8.Table.Undefined
 
+    Rel8.Tabulate
+
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Eq
