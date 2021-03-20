@@ -11,6 +11,7 @@ import Data.Aeson.Types ( parseEither )
 import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType
   ( DatabaseType( encode, decoder, typeName, DatabaseType )
+  , liftValue
   , parseDatabaseType
   )
 
@@ -22,7 +23,7 @@ newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
 instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
   typeInformation = parseDatabaseType f g DatabaseType
     { encode = encode typeInformation
-    , decoder = Hasql.jsonb
+    , decoder = liftValue Hasql.jsonb
     , typeName = "jsonb"
     }
     where

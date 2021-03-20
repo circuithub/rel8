@@ -1,3 +1,4 @@
+{-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
@@ -7,6 +8,9 @@
 
 module Rel8.DatabaseType
   ( DatabaseType(..)
+  , Yoneda(..)
+  , liftValue
+  , toValue
   , mapDatabaseType
   , parseDatabaseType
   , fromOpaleye
@@ -46,9 +50,25 @@ data DatabaseType a = DatabaseType
     -- ^ How to encode a single Haskell value as a SQL expression.
   , typeName :: String
     -- ^ The name of the SQL type.
-  , decoder :: Hasql.Value a
+  , decoder :: Yoneda Hasql.Value a
     -- ^ How to deserialize a single result back to Haskell.
   }
+
+
+data Yoneda f a where
+  Yoneda :: f a -> (a -> b) -> Yoneda f b
+
+
+instance Functor (Yoneda f) where
+  fmap g (Yoneda x f) = Yoneda x (g . f)
+
+
+liftValue :: f a -> Yoneda f a
+liftValue v = Yoneda v id
+
+
+toValue :: Functor f => Yoneda f a -> f a
+toValue (Yoneda x f) = f <$> x
 
 
 -- | Apply a parser to a 'DatabaseType'.
@@ -76,7 +96,8 @@ data DatabaseType a = DatabaseType
 parseDatabaseType :: (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
 parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = encode . bToA
-  , decoder = Hasql.refine (first pack . aToB) decoder
+  , decoder = case decoder of
+      Yoneda x f -> Yoneda (Hasql.refine (first pack . aToB) (f <$> x)) id
   , typeName
   }
 
@@ -102,7 +123,7 @@ fromOpaleye :: forall a b. IsSqlType b
 fromOpaleye f decoder =
   DatabaseType
     { encode = \x -> case f x of Opaleye.Column e -> e
-    , decoder
+    , decoder = Yoneda decoder id
     , typeName = showSqlType (Proxy @b)
     }
 
@@ -110,7 +131,10 @@ fromOpaleye f decoder =
 nonEmptyNotNull :: DatabaseType a -> DatabaseType (NonEmpty a)
 nonEmptyNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode . toList
-  , decoder = Hasql.refine parse $ compositeArrayOf $ Hasql.nonNullable decoder
+  , decoder =
+    case decoder of
+      Yoneda x f ->
+        Yoneda (Hasql.refine parse $ compositeArrayOf $ Hasql.nonNullable (f <$> x)) id
   , typeName = "record"
   }
   where
@@ -125,7 +149,10 @@ nonEmptyNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
 nonEmptyNull :: DatabaseType a -> DatabaseType (NonEmpty (Maybe a))
 nonEmptyNull DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map (maybe nullExpr encode) . toList
-  , decoder = Hasql.refine parse $ compositeArrayOf $ Hasql.nullable decoder
+  , decoder =
+      case decoder of
+        Yoneda x f ->
+          Yoneda (Hasql.refine parse $ compositeArrayOf $ Hasql.nullable (f <$> x)) id
   , typeName = "record"
   }
   where
@@ -142,7 +169,10 @@ nonEmptyNull DatabaseType{ encode, typeName, decoder } = DatabaseType
 listOfNotNull :: DatabaseType a -> DatabaseType [a]
 listOfNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode . toList
-  , decoder = compositeArrayOf $ Hasql.nonNullable decoder
+  , decoder =
+      case decoder of
+        Yoneda x f ->
+          Yoneda (compositeArrayOf $ Hasql.nonNullable (f <$> x)) id
   , typeName = "record"
   }
   where
@@ -153,7 +183,10 @@ listOfNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
 listOfNull :: DatabaseType a -> DatabaseType [Maybe a]
 listOfNull DatabaseType{ encode, typeName, decoder } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map (maybe nullExpr encode) . toList
-  , decoder = compositeArrayOf $ Hasql.nullable decoder
+  , decoder =
+      case decoder of
+        Yoneda x f ->
+          Yoneda (compositeArrayOf $ Hasql.nullable (f <$> x)) id
   , typeName = "record"
   }
   where

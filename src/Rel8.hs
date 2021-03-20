@@ -216,6 +216,9 @@ module Rel8
 
     -- ** @.. RETURNING@
   , Returning(..)
+
+    -- * TODO
+  , Nullify -- I don't think we have to export this if we add Nullify a ~ Maybe a to the context of DBType
   ) where
 
 -- base
@@ -265,7 +268,7 @@ import Rel8.Expr.Opaleye ( unsafeLiteral )
 import Rel8.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
-import Rel8.Info ( HasInfo )
+import Rel8.Info ( HasInfo, Nullify )
 import Rel8.Query
   ( Query
   , countRows
