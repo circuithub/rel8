@@ -33,21 +33,21 @@ class HTable (t :: (Meta -> Type) -> Type) where
   hdbtype :: t (Column Info)
 
 
-hmap :: HTable t => (forall x. f ('Meta x) -> g ('Meta x)) -> t f -> t g
+hmap :: HTable t => (forall y d x. x ~ 'Meta d y => f x -> g x) -> t f -> t g
 hmap f t = htabulateMeta $ f <$> hfield t
 
 
-hzipWith :: HTable t => (forall x. f ('Meta x) -> g ('Meta x) -> h ('Meta x)) -> t f -> t g -> t h
+hzipWith :: HTable t => (forall x d y. x ~ 'Meta d y => f x -> g x -> h x) -> t f -> t g -> t h
 hzipWith f t u = htabulateMeta $ f <$> hfield t <*> hfield u
 
 
-htabulateMeta :: HTable t => (forall x. HField t ('Meta x) -> f ('Meta x)) -> t f
+htabulateMeta :: HTable t => (forall x d y. x ~ 'Meta d y => HField t x -> f x) -> t f
 htabulateMeta f = htabulate \i ->
   case hfield hdbtype i of
     InfoColumn _ -> f i
 
 
-htraverseMeta :: (HTable t, Applicative m) => (forall x. f ('Meta x) -> m (g ('Meta x))) -> t f -> m (t g)
+htraverseMeta :: (HTable t, Applicative m) => (forall x d y. x ~ 'Meta d y => f x -> m (g x)) -> t f -> m (t g)
 htraverseMeta f x = htraverse getCompose $ htabulate \i ->
   case hfield hdbtype i of
     InfoColumn _ -> Compose $ f $ hfield x i

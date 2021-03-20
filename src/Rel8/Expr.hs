@@ -128,4 +128,4 @@ traversePrimExpr f =
 
 instance Context Expr where
   data Column Expr :: Meta -> Type where
-    ExprColumn :: { fromExprColumn :: Expr a } -> Column Expr ('Meta a)
+    ExprColumn :: { fromExprColumn :: Expr a } -> Column Expr ('Meta defaulting a)

@@ -1,5 +1,5 @@
-{-# LANGUAGE KindSignatures #-}
 {-# language GADTs #-}
+{-# language KindSignatures #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
@@ -18,15 +18,16 @@ module Rel8.DatabaseType
   , listOfNotNull
   ) where
 
--- 
-import qualified Hasql.Decoders as Hasql
-
 -- base
+import Control.Monad ( (>=>) )
 import Data.Bifunctor ( first )
 import Data.Data ( Proxy( Proxy ) )
 import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+
+-- hasql
+import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Opaleye ( Column, IsSqlType, showSqlType )
@@ -34,10 +35,7 @@ import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- text
-
--- text
-import Data.Text ( pack, Text )
-import Control.Monad ((>=>))
+import Data.Text ( Text, pack )
 
 
 -- | A @DatabaseType@ describes how to encode and decode a Haskell type to and
@@ -146,7 +144,7 @@ listOfNotNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
 listOfNull :: DatabaseType a -> DatabaseType [Maybe a]
 listOfNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map (maybe nullExpr encode) . toList
-  , decoder = compositeArrayOf $ Hasql.nullable $ Hasql.refine parser decoder 
+  , decoder = compositeArrayOf $ Hasql.nullable $ Hasql.refine parser decoder
   , typeName = "record"
   , parser = pure
   }

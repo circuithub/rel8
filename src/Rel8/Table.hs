@@ -13,7 +13,7 @@ module Rel8.Table ( Table(..) ) where
 import Data.Kind ( Type )
 
 -- rel8
-import Rel8.Context ( Column, Meta( Meta ) )
+import Rel8.Context ( Column, Meta( Meta ), Defaulting( NoDefault ) )
 import Rel8.Expr ( Column( ExprColumn, fromExprColumn ), Expr )
 import Rel8.HTable ( HTable )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
@@ -34,7 +34,7 @@ class HTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> c
 
 
 instance (HasInfo a, expr ~ Expr) => Table expr (Expr a) where
-  type Columns (Expr a) = HIdentity ('Meta a)
+  type Columns (Expr a) = HIdentity ('Meta 'NoDefault a)
   toColumns = HIdentity . ExprColumn
   fromColumns = fromExprColumn . unHIdentity
 

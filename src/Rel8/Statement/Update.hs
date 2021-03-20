@@ -7,16 +7,16 @@
 
 module Rel8.Statement.Update ( Update(..), update ) where
 
--- 
+-- base
+import Control.Exception ( throwIO )
+import Control.Monad.IO.Class ( MonadIO( liftIO ) )
+
+-- hasql
 import Hasql.Connection ( Connection )
 import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
-
--- base
-import Control.Exception ( throwIO )
-import Control.Monad.IO.Class ( MonadIO( liftIO ) )
 
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye

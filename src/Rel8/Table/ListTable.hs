@@ -38,7 +38,7 @@ import Rel8.Table ( Table( Columns, toColumns, fromColumns ) )
 data ListOf :: Meta -> Exp Meta
 
 
-type instance Eval (ListOf ('Meta x)) = 'Meta [x]
+type instance Eval (ListOf ('Meta defaulting x)) = 'Meta defaulting [x]
 
 
 instance MapInfo ListOf where

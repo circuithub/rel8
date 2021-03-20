@@ -16,10 +16,6 @@
 
 module Main (main) where
 
--- 
-import Hasql.Connection ( Connection,  acquire, release )
-import Hasql.Session ( sql, run )
-
 -- base
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Monad (void)
@@ -42,6 +38,10 @@ import Data.CaseInsensitive (mk)
 
 -- containers
 import qualified Data.Map.Strict as Map
+
+-- hasql
+import Hasql.Connection ( Connection,  acquire, release )
+import Hasql.Session ( sql, run )
 
 -- hedgehog
 import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
@@ -182,7 +182,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
       Rel8.insert connection
         Rel8.Insert
           { into = testTableSchema
-          , rows = map Rel8.lit rows
+          , rows = map (Rel8.insertExprs . Rel8.lit) rows
           , onConflict = Rel8.DoNothing
           , returning = Rel8.NumberOfRowsAffected
           }
@@ -594,7 +594,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
     void $Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit $ Map.keys rows
+        , rows = map (Rel8.insertExprs . Rel8.lit) $ Map.keys rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }
@@ -638,7 +638,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
     void $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit rows
+        , rows = map (Rel8.insertExprs . Rel8.lit) rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }

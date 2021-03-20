@@ -23,7 +23,7 @@ import Rel8.Info ( HasInfo( info ), Column (InfoColumn) )
 newtype HIdentity a (f :: Meta -> Type) = HIdentity { unHIdentity :: f a }
 
 
-instance (a ~ 'Meta x, HasInfo x) => HTable (HIdentity a) where
+instance (a ~ 'Meta d x, HasInfo x) => HTable (HIdentity a) where
   type HField (HIdentity a) = (:~:) a
 
   hfield (HIdentity a) Refl = a

@@ -4,9 +4,6 @@
 
 module Rel8.DBType ( DBType(..) ) where
 
--- 
-import qualified Hasql.Decoders as Hasql
-
 -- aeson
 import Data.Aeson ( Value )
 
@@ -23,10 +20,13 @@ import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive ( CI )
 import qualified Data.CaseInsensitive as CI
 
+-- hasql
+import qualified Hasql.Decoders as Hasql
+
 -- rel8
 import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, typeName, parser )
+import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, parser, typeName )
 
 -- scientific
 import Data.Scientific ( Scientific )

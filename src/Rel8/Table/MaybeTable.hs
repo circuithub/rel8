@@ -52,7 +52,7 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
-import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ) )
+import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ), Defaulting( NoDefault ) )
 import Rel8.DBType.DBEq ( (==.) )
 import Rel8.Expr ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr ( Expr, fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
@@ -118,7 +118,7 @@ instance Table Expr a => Table Expr (MaybeTable a) where
     , htable = HMapTable $ htabulateMeta f
     }
     where
-      f :: forall x. HField (Columns a) ('Meta x) -> Precompose MakeNull (Column Expr) ('Meta x)
+      f :: forall d x. HField (Columns a) ('Meta d x) -> Precompose MakeNull (Column Expr) ('Meta d x)
       f i = Precompose
         case hfield hdbtype i of
           InfoColumn (NotNull _) ->
@@ -322,7 +322,7 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
 data MakeNull :: Meta -> Exp Meta
 
 
-type instance Eval (MakeNull ('Meta x)) = 'Meta (Nullify x)
+type instance Eval (MakeNull ('Meta d x)) = 'Meta d (Nullify x)
 
 
 instance MapInfo MakeNull where
@@ -332,14 +332,14 @@ instance MapInfo MakeNull where
 
 
 data HMaybeTable g f = HMaybeTable
-  { hnullTag :: HIdentity ('Meta (Maybe Bool)) f
+  { hnullTag :: HIdentity ('Meta 'NoDefault (Maybe Bool)) f
   , htable :: HMapTable MakeNull g f
   }
   deriving stock Generic
 
 
 data HMaybeField g a where
-  HNullTag :: HMaybeField g ('Meta (Maybe Bool))
+  HNullTag :: HMaybeField g ('Meta 'NoDefault (Maybe Bool))
   HMaybeField :: HField (HMapTable MakeNull g) a -> HMaybeField g a
 
 

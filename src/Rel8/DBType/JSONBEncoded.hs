@@ -1,11 +1,11 @@
 module Rel8.DBType.JSONBEncoded ( JSONBEncoded(..) ) where
 
--- 
-import qualified Hasql.Decoders as Hasql
-
 -- aeson
 import Data.Aeson ( FromJSON, ToJSON, parseJSON, toJSON )
 import Data.Aeson.Types ( parseEither )
+
+-- hasql
+import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Rel8.DBType ( DBType( typeInformation ) )

@@ -13,11 +13,11 @@
 
 module Rel8.Info ( Info(..), HasInfo(..), Nullify, decodeWith, Column( InfoColumn, fromInfoColumn ) ) where
 
--- 
-import qualified Hasql.Decoders as Hasql
-
 -- base
 import Data.Kind ( Type )
+
+-- hasql
+import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
@@ -64,4 +64,4 @@ decodeWith = \case
 
 instance Context Info where
   data Column Info :: Meta -> Type where
-    InfoColumn :: { fromInfoColumn :: Info a } -> Column Info ('Meta a)
+    InfoColumn :: { fromInfoColumn :: Info a } -> Column Info ('Meta defaulting a)

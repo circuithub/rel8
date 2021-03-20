@@ -9,7 +9,7 @@ module Rel8.Optimize ( optimize ) where
 import Control.Applicative ( Applicative( liftA2 ) )
 import Data.Functor.Identity ( Identity( Identity, runIdentity ) )
 
--- opaleye
+-- rel8
 import Opaleye.Internal.HaskellDB.PrimQuery
   ( AggrOp( AggrStringAggr )
   , BinOp( (:&&), (:||) )

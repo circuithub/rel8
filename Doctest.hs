@@ -3,11 +3,6 @@
 
 module Main where
 
--- 
-import Build_doctests ( flags, module_sources, pkgs )
-import Hasql.Connection ( acquire, release )
-import Hasql.Session ( run, sql )
-
 -- base
 import Control.Exception ( bracket, throwIO )
 import Data.Foldable ( traverse_ )
@@ -21,6 +16,13 @@ import Data.ByteString.Char8 ( unpack )
 
 -- doctest
 import Test.DocTest ( doctest )
+
+-- hasql
+import Hasql.Connection ( acquire, release )
+import Hasql.Session ( run, sql )
+
+-- rel8
+import Build_doctests ( flags, module_sources, pkgs )
 
 -- tmp-postgres
 import Database.Postgres.Temp ( toConnectionString, verboseConfig, with, withConfig )

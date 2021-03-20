@@ -31,14 +31,14 @@ instance (Columns a ~ Columns b) => Congruent a b
 
 mapTable
   :: (Congruent s t, Table f s, Table g t)
-  => (forall x. Column f ('Meta x) -> Column g ('Meta x)) -> s -> t
+  => (forall x d y. x ~ 'Meta d y => Column f x -> Column g x) -> s -> t
 mapTable f = fromColumns . runIdentity . htraverseMeta (pure . f) . toColumns
 
 
 zipTablesWithM
   :: forall x y z f g h m
    . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
-  => (forall a. Column f ('Meta a) -> Column g ('Meta a) -> m (Column h ('Meta a))) -> x -> y -> m z
+  => (forall a d b. a ~ 'Meta d b => Column f a -> Column g a -> m (Column h a)) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
     htraverseMeta decompose $
@@ -48,5 +48,5 @@ zipTablesWithM f (toColumns -> x) (toColumns -> y) =
 
 traverseTable
   :: (Congruent x y, Table f x, Table g y, Applicative m)
-  => (forall a. Column f ('Meta a) -> m (Column g ('Meta a))) -> x -> m y
+  => (forall a d b. 'Meta d b ~ a => Column f a -> m (Column g a)) -> x -> m y
 traverseTable f = fmap fromColumns . htraverseMeta f . toColumns

@@ -6,7 +6,7 @@ module Rel8.Function ( Function, function, nullaryFunction ) where
 
 import {-# source #-} Rel8.Expr ( Expr( Expr ) )
 
--- opaleye
+-- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 

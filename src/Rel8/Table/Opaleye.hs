@@ -33,7 +33,7 @@ unpackspec =
     addCasts :: forall f. HTable f => f (Column Expr) -> f (Column Expr)
     addCasts columns = htabulateMeta go
       where
-        go :: forall x. HField f ('Meta x) -> Column Expr ('Meta x)
+        go :: forall d x. HField f ('Meta d x) -> Column Expr ('Meta d x)
         go i = ExprColumn $ case fromInfoColumn (hfield hdbtype i) of
           NotNull t -> unsafeCastExpr (typeName t) (fromExprColumn (hfield columns i))
           Null t -> unsafeCastExpr (typeName t) (fromExprColumn (hfield columns i))

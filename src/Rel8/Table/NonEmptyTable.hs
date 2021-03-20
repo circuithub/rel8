@@ -33,7 +33,7 @@ import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 data NonEmptyList :: Meta -> Exp Meta
 
 
-type instance Eval (NonEmptyList ('Meta a)) = 'Meta (NonEmpty a)
+type instance Eval (NonEmptyList ('Meta defaulting a)) = 'Meta defaulting (NonEmpty a)
 
 
 instance MapInfo NonEmptyList where

@@ -74,6 +74,7 @@ module Rel8
 
     -- ** Table schemas
   , Column
+  , ColumnWithDefault
   , TableSchema(..)
   , ColumnSchema
 
@@ -201,9 +202,11 @@ module Rel8
 
     -- ** @INSERT@
   , Insert(..)
+  , Inserts
   , OnConflict(..)
   , insert
   , defaultValue
+  , insertExprs
 
     -- ** @DELETE@
   , Delete(..)
@@ -265,7 +268,7 @@ import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
 import Rel8.Expr.Null ( catMaybe, fromNull, isNull, liftNull, mapNull, null, nullExpr )
 import Rel8.Expr.Opaleye ( unsafeLiteral )
 import Rel8.Function ( Function, function, nullaryFunction )
-import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable )
+import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable, ColumnWithDefault )
 import Rel8.HTable ( HTable )
 import Rel8.Info ( HasInfo, Nullify )
 import Rel8.Query
@@ -292,7 +295,7 @@ import Rel8.Query
 import Rel8.Query.Order ( Order, asc, desc, distinctOnBy, nullsFirst, nullsLast, orderBy )
 import Rel8.Serializable ( ExprFor, Serializable, lit )
 import Rel8.Statement.Delete ( Delete( Delete, from, deleteWhere, returning ), delete )
-import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict ), OnConflict( Abort, DoNothing ), insert )
+import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict ), Inserts, OnConflict( Abort, DoNothing ), insert, insertExprs )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Statement.Select ( select, showQuery )
 import Rel8.Statement.Update ( Update( Update, target, updateWhere, set, returning ), update )

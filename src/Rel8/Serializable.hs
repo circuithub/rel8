@@ -13,11 +13,11 @@
 
 module Rel8.Serializable ( ExprFor(..), Serializable, hasqlRowDecoder, lit ) where
 
--- 
-import qualified Hasql.Decoders as Hasql
-
 -- base
 import Data.Functor.Identity ( Identity )
+
+-- hasql
+import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Rel8.Context ( Column( I, unI, ColumnDecoder ), fromColumnDecoder )

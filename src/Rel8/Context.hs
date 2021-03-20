@@ -9,21 +9,25 @@ module Rel8.Context
   ( Context( Column )
   , Meta( Meta )
   , Column( I, ColumnDecoder, ComposedColumn )
+  , Defaulting(..)
   , decompose
   , fromColumnDecoder
   , unI
   ) where
-
--- 
-import qualified Hasql.Decoders as Hasql
 
 -- base
 import Data.Functor.Compose ( Compose )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Type )
 
+-- hasql
+import qualified Hasql.Decoders as Hasql
 
-newtype Meta = Meta Type
+
+data Meta = Meta Defaulting Type
+
+
+data Defaulting = HasDefault | NoDefault
 
 
 class Context (f :: Type -> Type) where
@@ -32,12 +36,12 @@ class Context (f :: Type -> Type) where
 
 instance Context Identity where
   data Column Identity :: Meta -> Type where
-    I :: { unI :: a } -> Column Identity ('Meta a)
+    I :: { unI :: a } -> Column Identity ('Meta defaulting a)
 
 
 instance Context Hasql.Row where
   data Column Hasql.Row :: Meta -> Type where
-    ColumnDecoder :: { fromColumnDecoder :: Hasql.Row a } -> Column Hasql.Row ('Meta a)
+    ColumnDecoder :: { fromColumnDecoder :: Hasql.Row a } -> Column Hasql.Row ('Meta defaulting a)
 
 
 instance Context (Compose f g) where

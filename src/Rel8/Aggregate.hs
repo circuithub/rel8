@@ -187,7 +187,7 @@ traverseAggrExpr f = \case
 listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Column Expr ('Meta a) -> Column Expr ('Meta [a])
+    go :: Column Expr ('Meta d a) -> Column Expr ('Meta d [a])
     go (ExprColumn (Expr a)) =
       ExprColumn $ Expr $
         Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
@@ -197,7 +197,7 @@ listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
 nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg = Aggregate . NonEmptyTable . HMapTable . hmap (Precompose . go) . toColumns
   where
-    go :: Column Expr ('Meta a) -> Column Expr ('Meta (NonEmpty a))
+    go :: Column Expr ('Meta d a) -> Column Expr ('Meta d (NonEmpty a))
     go (ExprColumn (Expr a)) =
       ExprColumn $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
 
