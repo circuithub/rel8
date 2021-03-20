@@ -16,8 +16,8 @@ import Data.Kind ( Type )
 import Rel8.Context ( Context, KContext )
 import Rel8.Expr ( Expr )
 import Rel8.HTable ( HTable )
+import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.HTable.Identity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.Info ( HasInfo )
 
 

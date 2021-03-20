@@ -60,6 +60,7 @@ import Rel8.Expr.Bool ( (&&.), ifThenElse_, not_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
 import Rel8.Expr.Opaleye ( litExpr, litExprWith )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htraverse )
+import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
   ( Eval
   , Exp
@@ -69,7 +70,6 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   , mapInfo
   )
-import Rel8.HTable.Identity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.Info ( Info( Null, NotNull ), Nullify )
 import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )

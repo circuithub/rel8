@@ -12,7 +12,7 @@ import Data.Kind ( Type )
 import Data.String ( IsString( fromString ) )
 
 -- rel8
-import Rel8.HTable.Identity ( HIdentity( HIdentity, unHIdentity ) )
+import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.Info ( HasInfo )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 

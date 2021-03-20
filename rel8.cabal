@@ -62,9 +62,9 @@ library
     Rel8.Function
     Rel8.Generic
     Rel8.HTable
+    Rel8.HTable.HIdentity
     Rel8.HTable.HMapTable
     Rel8.HTable.HPair
-    Rel8.HTable.Identity
     Rel8.Info
     Rel8.Optimize
     Rel8.Query

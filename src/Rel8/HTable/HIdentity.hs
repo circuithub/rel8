@@ -4,7 +4,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
 
-module Rel8.HTable.Identity ( HIdentity(..) ) where
+module Rel8.HTable.HIdentity ( HIdentity(..) ) where
 
 -- rel8
 import Rel8.Context ( Context )
