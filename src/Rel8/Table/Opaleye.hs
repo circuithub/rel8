@@ -118,6 +118,7 @@ unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   unwrapApplicative .
   htraverse (\(DB a) -> WrapApplicative $ DB <$> unsafeTraversePrimExpr f a) .
   toColumns
+{-# INLINABLE unpackspec #-}
 
 
 valuesspec :: Table DB a => Opaleye.ValuesspecSafe a a

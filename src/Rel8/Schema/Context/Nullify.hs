@@ -19,7 +19,7 @@ import Control.Applicative ( empty )
 import Data.Foldable ( fold )
 import Data.Kind ( Constraint )
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Monoid ( getAlt )
+import Data.Monoid ( First( First ), getFirst )
 import Prelude hiding ( null )
 
 -- opaleye
@@ -81,12 +81,22 @@ instance Nullifiable Aggregation where
   unnullifier _ _ (Aggregation aggregate) =
     Aggregation $ fmap unsafeUnnullify aggregate
 
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
 
 instance Nullifiable DB where
   encodeTag = DB
   decodeTag (DB a) = a
   nullifier tag _ (DB a) = DB $ runTag tag a
   unnullifier tag _ (DB a) = DB $ unsafeUnnullify $ runTag tag a
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
 
 
 instance Nullifiable Insert where
@@ -101,12 +111,22 @@ instance Nullifiable Insert where
     RequiredInsert a -> RequiredInsert $ unsafeUnnullify $ runTag tag a
     OptionalInsert ma -> OptionalInsert $ unsafeUnnullify . runTag tag <$> ma
 
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
 
 instance Nullifiable Name where
   encodeTag _ = nameFromLabel
   decodeTag _ = mempty
   nullifier _ _ (Name name) = Name name
   unnullifier _ _ (Name name) = Name name
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
 
 
 type NullifiableEq :: Context -> Context -> Constraint
@@ -122,10 +142,10 @@ runTag tag a = boolExpr null (nullify a) tag
 
 -- HACK
 undoGroupBy :: Aggregate (Expr _nullability _a) -> Maybe (Expr nullability a)
-undoGroupBy = getAlt . foldInputs go
+undoGroupBy = getFirst . foldInputs go
   where
     go Nothing a = pure (Expr a)
-    go _ _ = empty
+    go _ _ = First empty
 
 
 nameFromLabel :: forall labels necessity nullability blueprint.

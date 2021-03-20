@@ -61,6 +61,7 @@ instance HTable table => HTable (HNullify table) where
 
   htabulate f = HNullify $ htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> NullifySpec (f (HNullifyField field))
+
   htraverse f (HNullify t) = HNullify <$> htraverse (traverseNullifySpec f) t
 
   hdicts :: forall c. HConstrainTable table (NullifySpecC c)
@@ -72,6 +73,13 @@ instance HTable table => HTable (HNullify table) where
   hspecs = HNullify $ htabulate $ \field -> case hfield hspecs field of
     SSpec labels necessity  _ blueprint ->
       NullifySpec (SSpec labels necessity SNullable blueprint)
+
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}
+
 
 
 type NullifyingSpec :: Type -> Type
@@ -110,6 +118,7 @@ hnulls :: HTable t
   -> HNullify t (H context)
 hnulls null = HNullify $ htabulate $ \field -> case hfield hspecs field of
   SSpec {} -> NullifySpec null
+{-# INLINABLE hnulls #-}
 
 
 hnullify :: HTable t
@@ -122,6 +131,7 @@ hnullify :: HTable t
 hnullify nullifier a = HNullify $ htabulate $ \field ->
   case hfield hspecs field of
     spec@SSpec {} -> NullifySpec (nullifier spec (hfield a field))
+{-# INLINABLE hnullify #-}
 
 
 hunnullify :: (HTable t, Apply m)
@@ -135,3 +145,4 @@ hunnullify unnullifier (HNullify as) =
   htabulateA $ \field -> case hfield hspecs field of
     spec@SSpec {} -> case hfield as field of
       NullifySpec a -> unnullifier spec a
+{-# INLINABLE hunnullify #-}

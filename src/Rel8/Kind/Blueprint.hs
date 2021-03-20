@@ -31,7 +31,6 @@ where
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Data.Type.Equality ( (:~:)( Refl ) )
-import GHC.TypeLits ( TypeError, ErrorMessage( Text ) )
 import Prelude
 import Unsafe.Coerce ( unsafeCoerce )
 
@@ -149,12 +148,6 @@ type family ToDBType blueprint where
   ToDBType ('Scalar a) = a
   ToDBType ('Vector emptiability nullability a) =
     Array emptiability nullability (ToDBType a)
-
-
-type GuardScalar :: Nullability -> Type -> Type
-type family GuardScalar nullability scalar where
-  GuardScalar 'Nullable _ = TypeError ('Text "Maybe is not a valid Scalar")
-  GuardScalar 'NonNullable a = a
 
 
 fromDBType :: forall a dbType blueprint.

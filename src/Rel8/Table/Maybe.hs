@@ -26,7 +26,7 @@ import Prelude hiding ( null, repeat, undefined, zipWith )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Expr.Opaleye ( litPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
@@ -86,7 +86,7 @@ instance Monad MaybeTable where
 
 instance AltTable MaybeTable where
   ma@(MaybeTable tag a) <|>: MaybeTable tag' b = MaybeTable
-    { tag = bool tag tag' condition
+    { tag = boolExpr tag tag' condition
     , just = bool a b condition
     }
     where
@@ -123,6 +123,9 @@ instance Table1 MaybeTable where
     }
     where
       tag = decodeTag htag
+
+  {-# INLINABLE fromColumns1 #-}
+  {-# INLINABLE toColumns1 #-}
 
 
 instance
@@ -161,7 +164,7 @@ nothingTable = MaybeTable null undefined
 
 
 justTable :: a -> MaybeTable a
-justTable = MaybeTable (nullify (litExpr IsJust))
+justTable = MaybeTable (nullify (litPrimExpr IsJust))
 
 
 ($?) :: DBType b

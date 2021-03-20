@@ -101,6 +101,12 @@ instance (HTable table, KnownEmptiability emptiability) =>
         , sblueprint = SVector emptiabilitySing nullability blueprint
         }
 
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}
+
 
 type VectorizingSpec :: Type -> Type
 type VectorizingSpec r = Emptiability -> (Spec -> r) -> Spec -> r
@@ -161,6 +167,7 @@ hvectorize :: (HTable t, Unzip f)
 hvectorize vectorizer as = HVectorize $ htabulate $ \field ->
   case hfield hspecs field of
     spec@SSpec {} -> VectorizeSpec (vectorizer spec (fmap (`hfield` field) as))
+{-# INLINABLE hvectorize #-}
 
 
 hunvectorize :: (HTable t, Repeat f)
@@ -177,6 +184,7 @@ hunvectorize unvectorizer (HVectorize table) =
   getZippy $ htabulateA $ \field -> case hfield hspecs field of
     spec -> case hfield table field of
       VectorizeSpec a -> Zippy (unvectorizer spec a)
+{-# INLINABLE hunvectorize #-}
 
 
 happend :: HTable t =>

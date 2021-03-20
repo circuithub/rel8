@@ -58,6 +58,7 @@ toHEitherTable = either hleft hright
       , hleft = hnulls null
       , hright = hnullify (const nullifier) table
       }
+{-# INLINABLE toHEitherTable #-}
 
 
 fromHEitherTable :: (HTable t, HTable u)
@@ -69,14 +70,17 @@ fromHEitherTable HEitherTable {htag, hleft, hright} = case htag of
     IsRight -> maybe err Right $ hunnullify unnullifier hright
   where
     err = error "fromHEitherTable: mismatch between tag and data"
+{-# INLINABLE fromHEitherTable #-}
 
 
 toHListTable :: HTable t => [t (H Result)] -> HListTable t (H Result)
 toHListTable = hvectorize vectorizer
+{-# INLINABLE toHListTable #-}
 
 
 fromHListTable :: HTable t => HListTable t (H Result) -> [t (H Result)]
 fromHListTable = hunvectorize unvectorizer
+{-# INLINABLE fromHListTable #-}
 
 
 toHMaybeTable :: HTable t => Maybe (t (H Result)) -> HMaybeTable t (H Result)
@@ -90,20 +94,24 @@ toHMaybeTable = maybe hnothing hjust
       { htag = HIdentity (Result (NullableValue (Just IsJust)))
       , hjust = hnullify (const nullifier) table
       }
+{-# INLINABLE toHMaybeTable #-}
 
 
 fromHMaybeTable :: HTable t => HMaybeTable t (H Result) -> Maybe (t (H Result))
 fromHMaybeTable HMaybeTable {htag, hjust} = case htag of
   HIdentity (Result (NullableValue tag)) ->
     tag *> hunnullify unnullifier hjust
+{-# INLINABLE fromHMaybeTable #-}
 
 
 toHNonEmptyTable :: HTable t => NonEmpty (t (H Result)) -> HNonEmptyTable t (H Result)
 toHNonEmptyTable = hvectorize vectorizer1
+{-# INLINABLE toHNonEmptyTable #-}
 
 
 fromHNonEmptyTable :: HTable t => HNonEmptyTable t (H Result) -> NonEmpty (t (H Result))
 fromHNonEmptyTable = hunvectorize unvectorizer1
+{-# INLINABLE fromHNonEmptyTable #-}
 
 
 toHTheseTable :: (HTable t, HTable u)
@@ -124,6 +132,7 @@ toHTheseTable tables = HTheseTable
       { htag = hthereTag
       , hjust = hthere
       } = toHMaybeTable (justThere tables)
+{-# INLINABLE toHTheseTable #-}
 
 
 fromHTheseTable :: (HTable t, HTable u)
@@ -144,6 +153,7 @@ fromHTheseTable HTheseTable {hhereTag, hhere, hthereTag, hthere} =
       { htag = relabel hthereTag
       , hjust = hthere
       }
+{-# INLINABLE fromHTheseTable #-}
 
 
 null :: Result ('Spec labels necessity 'Nullable a)

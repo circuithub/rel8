@@ -350,6 +350,8 @@ instance
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -358,6 +360,8 @@ instance
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -366,6 +370,8 @@ instance
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -374,6 +380,8 @@ instance
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -387,6 +395,8 @@ instance
   toK1Columns a = HIdentity $ case necessitySing @necessity of
     SRequired -> RequiredInsert a
     SOptional -> OptionalInsert a
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -400,6 +410,8 @@ instance
   toK1Columns a = HIdentity $ case necessitySing @necessity of
     SRequired -> RequiredInsert a
     SOptional -> OptionalInsert a
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -413,6 +425,8 @@ instance
   toK1Columns a = HIdentity $ Result $ case nullabilitySing @nullability of
     SNullable -> NullableValue a
     SNonNullable -> NonNullableValue a
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -426,6 +440,8 @@ instance
   toK1Columns a = HIdentity $ Result $ case nullabilitySing @nullability of
     SNullable -> NullableValue a
     SNonNullable -> NonNullableValue a
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -435,6 +451,8 @@ instance
  where
   fromK1Columns = unHIdentity
   toK1Columns = HIdentity
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -445,6 +463,8 @@ instance
  where
   fromK1Columns = unlabeler . unHIdentity
   toK1Columns = HIdentity . labeler
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 instance
   ( HTable (K1Columns "Left" structure1)
@@ -464,6 +484,8 @@ instance
     toColumns2
       (toK1Columns @"Left" @_ @_ @_ @structure1)
       (toK1Columns @"Right" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -484,6 +506,8 @@ instance
     toColumns2
       (toK1Columns @"Left" @_ @_ @_ @structure1)
       (toK1Columns @"Right" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -504,6 +528,8 @@ instance
     toColumns2
       (toK1Columns @"Left" @_ @_ @_ @structure1)
       (toK1Columns @"Right" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -526,6 +552,8 @@ instance
     . bimap
         (toK1Columns @"Left" @_ @_ @_ @structure1)
         (toK1Columns @"Right" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -549,6 +577,8 @@ instance
     toColumns2
       (toK1Columns @"Left" @_ @_ @_ @structure1)
       (toK1Columns @"Right" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -560,6 +590,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -571,6 +603,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -582,6 +616,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -592,6 +628,8 @@ instance
  where
   fromK1Columns = fmap (fromK1Columns @label @'True @Result @_ @structure) . fromHListTable
   toK1Columns = toHListTable . fmap (toK1Columns @label @'True @Result @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -605,6 +643,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -619,6 +659,8 @@ instance
   toK1Columns =
     hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -633,6 +675,8 @@ instance
   toK1Columns =
     hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -647,6 +691,8 @@ instance
   toK1Columns =
     hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -663,6 +709,8 @@ instance
     = hlabel labeler
     . toHMaybeTable
     . fmap (toK1Columns @"Just" @_ @_ @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -680,6 +728,8 @@ instance
   toK1Columns =
     hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -691,6 +741,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -702,6 +754,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -713,6 +767,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -723,6 +779,8 @@ instance
  where
   fromK1Columns = fmap (fromK1Columns @label @'True @Result @_ @structure) . fromHNonEmptyTable
   toK1Columns = toHNonEmptyTable . fmap (toK1Columns @label @'True @Result @_ @structure)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -736,6 +794,8 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -756,6 +816,8 @@ instance
     toColumns2
       (toK1Columns @"Here" @_ @_ @_ @structure1)
       (toK1Columns @"There" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -776,6 +838,8 @@ instance
     toColumns2
       (toK1Columns @"Here" @_ @_ @_ @structure1)
       (toK1Columns @"There" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -796,6 +860,8 @@ instance
     toColumns2
       (toK1Columns @"Here" @_ @_ @_ @structure1)
       (toK1Columns @"There" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -818,6 +884,8 @@ instance
     . bimap
         (toK1Columns @"Here" @_ @_ @_ @structure1)
         (toK1Columns @"There" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -841,6 +909,8 @@ instance
     toColumns2
       (toK1Columns @"Here" @_ @_ @_ @structure1)
       (toK1Columns @"There" @_ @_ @_ @structure2)
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 
@@ -861,6 +931,8 @@ instance
     { hfst = toK1Columns @"fst" @_ @_ @_ @structure1 a
     , hsnd = toK1Columns @"snd" @_ @_ @_ @structure2 b
     }
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -884,6 +956,8 @@ instance
     , hsnd = toK1Columns @"snd" @_ @_ @_ @structure2 b
     , htrd = toK1Columns @"trd" @_ @_ @_ @structure3 c
     }
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -911,6 +985,8 @@ instance
     , htrd = toK1Columns @"trd" @_ @_ @_ @structure3 c
     , hfrt = toK1Columns @"frt" @_ @_ @_ @structure4 d
     }
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -942,6 +1018,8 @@ instance
     , hfrt = toK1Columns @"frt" @_ @_ @_ @structure4 d
     , hfft = toK1Columns @"fft" @_ @_ @_ @structure5 e
     }
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}
 
 
 instance
@@ -955,3 +1033,5 @@ instance
  where
   fromK1Columns = fromColumns . hunlabel unlabeler
   toK1Columns = hlabel labeler . toColumns
+  {-# INLINABLE fromK1Columns #-}
+  {-# INLINABLE toK1Columns #-}

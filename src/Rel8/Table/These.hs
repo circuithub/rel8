@@ -145,6 +145,9 @@ instance Table2 TheseTable where
               }
       }
 
+  {-# INLINABLE fromColumns2 #-}
+  {-# INLINABLE toColumns2 #-}
+
 
 instance Table context a => Table1 (TheseTable a) where
   type Columns1 (TheseTable a) = HTheseTable (Columns a)

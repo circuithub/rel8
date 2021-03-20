@@ -70,6 +70,12 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
     SSpec labels necessity nullability blueprint ->
       LabelSpec (SSpec (SLabels Proxy labels) necessity nullability blueprint)
 
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}
+
 
 type LabelingSpec :: Type -> Type
 type LabelingSpec r = Symbol -> (Spec -> r) -> Spec -> r
@@ -110,6 +116,7 @@ hlabel :: HTable t
 hlabel labeler a = HLabel $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {} -> LabelSpec (labeler (hfield a field))
+{-# INLINABLE hlabel #-}
 
 
 hunlabel :: HTable t
@@ -121,3 +128,4 @@ hunlabel :: HTable t
 hunlabel unlabler (HLabel as) =
   htabulate $ \field -> case hfield as field of
       LabelSpec a -> unlabler a
+{-# INLINABLE hunlabel #-}

@@ -24,8 +24,7 @@ import Prelude hiding ( undefined )
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Expr.Opaleye ( litPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
@@ -68,7 +67,7 @@ instance Bifunctor EitherTable where
 
 instance Table DB a => Apply (EitherTable a) where
   EitherTable tag l1 f <.> EitherTable tag' l2 a =
-    EitherTable (tag <> tag') (bool l1 l2 (tag ==. litExpr IsLeft)) (f a)
+    EitherTable (tag <> tag') (bool l1 l2 (isLeft tag)) (f a)
 
 
 instance Table DB a => Applicative (EitherTable a) where
@@ -79,7 +78,7 @@ instance Table DB a => Applicative (EitherTable a) where
 instance Table DB a => Bind (EitherTable a) where
   EitherTable tag l1 a >>- f = case f a of
     EitherTable tag' l2 b ->
-      EitherTable (tag <> tag') (bool l1 l2 (tag ==. litExpr IsLeft)) b
+      EitherTable (tag <> tag') (bool l1 l2 (isRight tag)) b
 
 
 instance Table DB a => Monad (EitherTable a) where
@@ -112,6 +111,9 @@ instance Table2 EitherTable where
       }
     where
       tag = decodeTag $ unHIdentity htag
+
+  {-# INLINABLE fromColumns2 #-}
+  {-# INLINABLE toColumns2 #-}
 
 
 instance Table context a => Table1 (EitherTable a) where
@@ -166,8 +168,8 @@ eitherTable f g EitherTable {tag, left, right} =
 
 
 leftTable :: Table DB b => a -> EitherTable a b
-leftTable a = EitherTable (litExpr IsLeft) a undefined
+leftTable a = EitherTable (litPrimExpr IsLeft) a undefined
 
 
 rightTable :: Table DB a => b -> EitherTable a b
-rightTable = EitherTable (litExpr IsRight) undefined
+rightTable = EitherTable (litPrimExpr IsRight) undefined

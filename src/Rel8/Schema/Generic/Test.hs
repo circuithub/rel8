@@ -4,6 +4,8 @@
 {-# language DerivingStrategies #-}
 {-# language DuplicateRecordFields #-}
 
+{-# options_ghc -O0 #-}
+
 module Rel8.Schema.Generic.Test
   ( module Rel8.Schema.Generic.Test
   )

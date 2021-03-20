@@ -17,7 +17,7 @@
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
-  , hmap, htabulateA, hzipWith, hzipWith3
+  , htabulateA
 
   , HPair(..)
   )
@@ -104,23 +104,18 @@ class HTable t where
     => t (H SSpec)
   hspecs = to $ fromGHColumns hspecs
 
-
-hmap :: HTable t => (forall spec. f spec -> g spec) -> t (H f) -> t (H g)
-hmap f t = htabulate $ f <$> hfield t
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}
 
 
 htabulateA :: (HTable t, Apply m)
   => (forall spec. HField t spec -> m (context spec))
   -> m (t (H context))
 htabulateA f = htraverse getCompose $ htabulate $ Compose . f
-
-
-hzipWith :: HTable t => (forall spec. f spec -> g spec -> h spec) -> t (H f) -> t (H g) -> t (H h)
-hzipWith f t u = htabulate $ f <$> hfield t <.> hfield u
-
-
-hzipWith3 :: HTable t => (forall spec. f spec -> g spec -> h spec -> i spec) -> t (H f) -> t (H g) -> t (H h) -> t (H i)
-hzipWith3 f t u v = htabulate $ f <$> hfield t <.> hfield u <.> hfield v
+{-# INLINABLE htabulateA #-}
 
 
 type GHField :: HKTable -> Context
@@ -171,3 +166,9 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
   htraverse f (HPair x y) = HPair <$> htraverse f x <.> htraverse f y
   hdicts = HPair hdicts hdicts
   hspecs = HPair hspecs hspecs
+
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}
