@@ -1,3 +1,4 @@
+{-# LANGUAGE KindSignatures #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
@@ -8,9 +9,6 @@
 
 module Rel8.DatabaseType
   ( DatabaseType(..)
-  , Yoneda(..)
-  , liftValue
-  , toValue
   , mapDatabaseType
   , parseDatabaseType
   , fromOpaleye
@@ -36,39 +34,26 @@ import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- text
-import Data.Text ( pack )
+
+-- text
+import Data.Text ( pack, Text )
+import Control.Monad ((>=>))
 
 
 -- | A @DatabaseType@ describes how to encode and decode a Haskell type to and
 -- from database queries. The @typeName@ is the name of the type in the
 -- database, which is used to accurately type literals. 
-type DatabaseType :: Type -> Type
-
-
-data DatabaseType a = DatabaseType
-  { encode :: a -> Opaleye.PrimExpr
-    -- ^ How to encode a single Haskell value as a SQL expression.
-  , typeName :: String
-    -- ^ The name of the SQL type.
-  , decoder :: Yoneda Hasql.Value a
-    -- ^ How to deserialize a single result back to Haskell.
-  }
-
-
-data Yoneda f a where
-  Yoneda :: f a -> (a -> b) -> Yoneda f b
-
-
-instance Functor (Yoneda f) where
-  fmap g (Yoneda x f) = Yoneda x (g . f)
-
-
-liftValue :: f a -> Yoneda f a
-liftValue v = Yoneda v id
-
-
-toValue :: Functor f => Yoneda f a -> f a
-toValue (Yoneda x f) = f <$> x
+data DatabaseType :: Type -> Type where
+  DatabaseType ::
+    { encode :: b -> Opaleye.PrimExpr
+      -- ^ How to encode a single Haskell value as a SQL expression.
+    , typeName :: String
+      -- ^ The name of the SQL type.
+    , decoder :: Hasql.Value a
+      -- ^ How to deserialize a single result back to Haskell.
+    , parser :: a -> Either Text b
+      -- ^ How to parse SQL values.
+    } -> DatabaseType b
 
 
 -- | Apply a parser to a 'DatabaseType'.
@@ -94,11 +79,11 @@ toValue (Yoneda x f) = f <$> x
 --       toLegacy Green = "green"
 -- :}
 parseDatabaseType :: (a -> Either String b) -> (b -> a) -> DatabaseType a -> DatabaseType b
-parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
+parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = encode . bToA
-  , decoder = case decoder of
-      Yoneda x f -> Yoneda (Hasql.refine (first pack . aToB) (f <$> x)) id
+  , decoder = decoder
   , typeName
+  , parser = parser >=> fmap (first pack) aToB
   }
 
 
@@ -109,11 +94,7 @@ parseDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = Database
 -- The mapping is required to be total. If you have a partial mapping, see
 -- 'parseDatabaseType'.
 mapDatabaseType :: (a -> b) -> (b -> a) -> DatabaseType a -> DatabaseType b
-mapDatabaseType aToB bToA DatabaseType{ encode, typeName, decoder } = DatabaseType
-  { encode = encode . bToA
-  , decoder = aToB <$> decoder
-  , typeName
-  }
+mapDatabaseType aToB = parseDatabaseType (pure . aToB)
 
 
 fromOpaleye :: forall a b. IsSqlType b
@@ -123,74 +104,57 @@ fromOpaleye :: forall a b. IsSqlType b
 fromOpaleye f decoder =
   DatabaseType
     { encode = \x -> case f x of Opaleye.Column e -> e
-    , decoder = Yoneda decoder id
+    , decoder = decoder
     , typeName = showSqlType (Proxy @b)
+    , parser = pure
     }
 
 
 nonEmptyNotNull :: DatabaseType a -> DatabaseType (NonEmpty a)
-nonEmptyNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
+nonEmptyNotNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode . toList
-  , decoder =
-    case decoder of
-      Yoneda x f ->
-        Yoneda (Hasql.refine parse $ compositeArrayOf $ Hasql.nonNullable (f <$> x)) id
+  , decoder = compositeArrayOf $ Hasql.nonNullable $ Hasql.refine parser decoder
   , typeName = "record"
+  , parser = parseNonEmpty
   }
-  where
-    parse = \case
-      []   -> Left "Unexpected empty list"
-      x:xs -> Right (x :| xs)
-
-    compositeArrayOf =
-      Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray
 
 
 nonEmptyNull :: DatabaseType a -> DatabaseType (NonEmpty (Maybe a))
-nonEmptyNull DatabaseType{ encode, typeName, decoder } = DatabaseType
+nonEmptyNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map (maybe nullExpr encode) . toList
-  , decoder =
-      case decoder of
-        Yoneda x f ->
-          Yoneda (Hasql.refine parse $ compositeArrayOf $ Hasql.nullable (f <$> x)) id
+  , decoder = compositeArrayOf $ Hasql.nullable $ Hasql.refine parser decoder
   , typeName = "record"
+  , parser = parseNonEmpty
   }
-  where
-    nullExpr = Opaleye.ConstExpr Opaleye.NullLit
 
-    parse = \case
-      []   -> Left "Unexpected empty list"
-      x:xs -> Right (x :| xs)
 
-    compositeArrayOf =
-      Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray
+parseNonEmpty :: [a] -> Either Text (NonEmpty a)
+parseNonEmpty = \case
+  []   -> Left "Unexpected empty list"
+  x:xs -> Right (x :| xs)
 
 
 listOfNotNull :: DatabaseType a -> DatabaseType [a]
-listOfNotNull DatabaseType{ encode, typeName, decoder } = DatabaseType
+listOfNotNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map encode . toList
-  , decoder =
-      case decoder of
-        Yoneda x f ->
-          Yoneda (compositeArrayOf $ Hasql.nonNullable (f <$> x)) id
+  , decoder = compositeArrayOf $ Hasql.nonNullable $ Hasql.refine parser decoder
   , typeName = "record"
+  , parser = pure
   }
-  where
-    compositeArrayOf =
-      Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray
 
 
 listOfNull :: DatabaseType a -> DatabaseType [Maybe a]
-listOfNull DatabaseType{ encode, typeName, decoder } = DatabaseType
+listOfNull DatabaseType{ encode, typeName, decoder, parser } = DatabaseType
   { encode = Opaleye.FunExpr "row" . pure . Opaleye.CastExpr (typeName <> "[]") . Opaleye.ArrayExpr . map (maybe nullExpr encode) . toList
-  , decoder =
-      case decoder of
-        Yoneda x f ->
-          Yoneda (compositeArrayOf $ Hasql.nullable (f <$> x)) id
+  , decoder = compositeArrayOf $ Hasql.nullable $ Hasql.refine parser decoder 
   , typeName = "record"
+  , parser = pure
   }
-  where
-    nullExpr = Opaleye.ConstExpr Opaleye.NullLit
 
-    compositeArrayOf =
-      Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray
+
+nullExpr :: Opaleye.PrimExpr
+nullExpr = Opaleye.ConstExpr Opaleye.NullLit
+
+
+compositeArrayOf :: Hasql.NullableOrNot Hasql.Value a -> Hasql.Value [a]
+compositeArrayOf = Hasql.composite . Hasql.field . Hasql.nonNullable . Hasql.listArray

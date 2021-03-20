@@ -22,13 +22,12 @@ import Data.Functor.Identity ( Identity( Identity ), runIdentity )
 -- rel8
 import Rel8.Context ( Context )
 import Rel8.DBType ( DBType )
-import Rel8.DatabaseType ( DatabaseType( decoder ), toValue )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( litExprWith )
 import Rel8.HTable ( HTable( htraverse, htabulate, hdbtype, hfield ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Info ( HasInfo, Info( Null, NotNull ) )
+import Rel8.Info ( HasInfo, decodeWith )
 import Rel8.Table ( Columns, Table, fromColumns )
 
 
@@ -112,7 +111,4 @@ hasqlRowDecoder :: forall exprs haskell. Serializable exprs haskell => Hasql.Row
 hasqlRowDecoder = pack @exprs <$> htraverse (fmap Identity) decoders
   where
     decoders :: Columns exprs (Context Hasql.Row)
-    decoders = htabulate \i ->
-      case hfield hdbtype i of
-        NotNull t -> Hasql.column (Hasql.nonNullable (toValue (decoder t)))
-        Null t    -> Hasql.column (Hasql.nullable (toValue (decoder t)))
+    decoders = htabulate (decodeWith . hfield hdbtype)

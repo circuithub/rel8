@@ -26,7 +26,7 @@ import qualified Data.CaseInsensitive as CI
 -- rel8
 import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, liftValue, mapDatabaseType, typeName )
+import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, typeName, parser )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -109,8 +109,9 @@ instance DBType Int64 where
 instance DBType Float where
   typeInformation = DatabaseType
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decoder = liftValue Hasql.float4
+    , decoder = Hasql.float4
     , typeName = "float4"
+    , parser = pure
     }
 
 
@@ -161,3 +162,5 @@ instance DBType (CI Text) where
 
 instance DBType (CI Data.Text.Lazy.Text) where
   typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
+
+
