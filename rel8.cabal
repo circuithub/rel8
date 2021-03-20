@@ -98,6 +98,7 @@ library
     Rel8.Schema.Generic.Test
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Context
+    Rel8.Schema.HTable.DBType
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity
     Rel8.Schema.HTable.Label
@@ -144,6 +145,7 @@ library
     Rel8.Type.Monoid
     Rel8.Type.Num
     Rel8.Type.Ord
+    Rel8.Type.Scalar
     Rel8.Type.Semigroup
     Rel8.Type.String
     Rel8.Type.Sum

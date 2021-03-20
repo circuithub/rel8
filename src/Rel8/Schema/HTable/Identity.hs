@@ -18,7 +18,7 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.Spec ( Context, Spec, KnownSpec( specSing ) )
+import Rel8.Schema.Spec ( Context, Spec, KnownSpec, specSing )
 
 
 type HIdentity :: Spec -> HKTable
@@ -39,6 +39,6 @@ instance KnownSpec spec => HTable (HIdentity spec) where
 
   hfield (HIdentity a) HIdentityField = a
   htabulate f = HIdentity $ f HIdentityField
+  htraverse f (HIdentity a) = HIdentity <$> f a
   hdicts = HIdentity Dict
   hspecs = HIdentity specSing
-  htraverse f (HIdentity a) = HIdentity <$> f a

@@ -40,7 +40,6 @@ import Rel8.Expr.Opaleye
   , unsafeTraversePrimExpr
   , columnToExpr, exprToColumn
   )
-import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( DB(..), Insert(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
@@ -49,6 +48,7 @@ import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Undefined ( undefined )
+import Rel8.Type ( typeInformationFromBlueprint )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )

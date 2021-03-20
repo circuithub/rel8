@@ -32,10 +32,8 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Kind.Blueprint
   ( Blueprint( Scalar )
-  , KnownBlueprint
   , FromDBType, ToDBType
   , FromType, ToType
-  , typeInformationFromBlueprint
   )
 import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
 import Rel8.Kind.Nullability
@@ -52,8 +50,8 @@ import Rel8.Schema.Context.Result
   , fromHTheseTable, toHTheseTable
   )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
+import Rel8.Schema.HTable.DBType ( HDBType(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
-import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
@@ -155,65 +153,61 @@ class (Table DB exprs, isTabular ~ IsTabular a) =>
 
 
 instance
-  ( exprs ~ Expr 'NonNullable a
+  ( exprs ~ Expr 'NonNullable dbType
+  , ToDBType (FromType a) ~ dbType
+  , ToType (FromDBType dbType) ~ a
+  , DBType dbType
   , FromDBType a ~ 'Scalar a
   , IsTabular a ~ 'False
-  , DBType a
   ) => ExprsFor 'True 'False a exprs
  where
-  fromResults (HIdentity (Result (NonNullableValue a))) = a
-  toResults = HIdentity . Result . NonNullableValue
+  fromResults (HDBType (Result (NonNullableValue a))) = a
+  toResults = HDBType . Result . NonNullableValue
 
 
 instance
   ( '(nullability, a) ~ ToValue ma
   , FromValue nullability a ~ ma
-  , blueprint ~ FromDBType dbType
-  , blueprint ~ FromType a
-  , ToDBType blueprint ~ dbType
-  , ToType blueprint ~ a
-  , KnownBlueprint blueprint
+  , ToDBType (FromType a) ~ dbType
+  , ToType (FromDBType dbType) ~ a
+  , DBType dbType
   , KnownNullability nullability
   , IsListTabular ma ~ 'False
   , x ~ Array 'Emptiable nullability dbType
   , outerNullability ~ 'NonNullable
   ) => ExprsFor 'False 'False [ma] (Expr outerNullability x)
  where
-  fromResults (HIdentity (Result (NonNullableValue a))) = a
-  toResults = HIdentity . Result . NonNullableValue
+  fromResults (HDBType (Result (NonNullableValue a))) = a
+  toResults = HDBType . Result . NonNullableValue
 
 
 instance
   ( nullability ~ 'Nullable
-  , blueprint ~ FromDBType dbType
-  , blueprint ~ FromType a
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
-  , KnownBlueprint blueprint
+  , ToDBType (FromType a) ~ dbType
+  , ToType (FromDBType dbType) ~ a
+  , DBType dbType
   , isTabular ~ 'False
   , IsMaybeTabular a ~ 'False
   ) => ExprsFor 'False 'False (Maybe a) (Expr nullability dbType)
  where
-  fromResults (HIdentity (Result (NullableValue a))) = a
-  toResults = HIdentity . Result . NullableValue
+  fromResults (HDBType (Result (NullableValue a))) = a
+  toResults = HDBType . Result . NullableValue
 
 
 instance
   ( '(nullability, a) ~ ToValue ma
   , FromValue nullability a ~ ma
-  , blueprint ~ FromDBType dbType
-  , blueprint ~ FromType a
-  , ToDBType blueprint ~ dbType
-  , ToType blueprint ~ a
-  , KnownBlueprint blueprint
+  , ToDBType (FromType a) ~ dbType
+  , ToType (FromDBType dbType) ~ a
+  , DBType dbType
   , KnownNullability nullability
   , IsListTabular ma ~ 'False
   , x ~ Array 'NonEmptiable nullability dbType
   , outerNullability ~ 'NonNullable
   ) => ExprsFor 'False 'False (NonEmpty ma) (Expr outerNullability x)
  where
-  fromResults (HIdentity (Result (NonNullableValue a))) = a
-  toResults = HIdentity . Result . NonNullableValue
+  fromResults (HDBType (Result (NonNullableValue a))) = a
+  toResults = HDBType . Result . NonNullableValue
 
 
 instance
@@ -473,15 +467,11 @@ litTable :: MapTable Result DB a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec _ _ _ blueprint -> case hfield as field of
-      Result value -> DB (slitExpr blueprint info value)
-      where
-        info = typeInformationFromBlueprint blueprint
+      Result value -> DB (slitExpr blueprint value)
 
 
 parseTable :: Table Result a => Hasql.Row a
 parseTable = fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
     SSpec _ _ nullability blueprint ->
-      Result <$> sparseValue nullability blueprint info
-      where
-        info = typeInformationFromBlueprint blueprint
+      Result <$> sparseValue nullability blueprint

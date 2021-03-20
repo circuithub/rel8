@@ -15,6 +15,7 @@ module Rel8.Expr.Serialize
 where
 
 -- base
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude hiding ( null )
 
 -- hasql
@@ -28,10 +29,10 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Kind.Blueprint
   ( SBlueprint
-  , KnownBlueprint, blueprintSing
   , FromDBType, ToDBType
   , FromType, ToType
   , stoDBType, sfromDBType
+  , blueprintRoundtripsViaDBType
   )
 import Rel8.Kind.Nullability
   ( SNullability( SNullable, SNonNullable )
@@ -42,36 +43,34 @@ import Rel8.Schema.Value
   , FromValue, ToValue
   , toValue
   )
-import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type ( DBType, blueprintForDBType, typeInformationFromBlueprint )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
-litExpr :: forall value nullability dbType a blueprint.
-  ( KnownBlueprint blueprint
-  , KnownNullability nullability
+litExpr :: forall value nullability dbType a.
+  ( KnownNullability nullability
   , '(nullability, value) ~ ToValue a
   , a ~ FromValue nullability value
-  , blueprint ~ FromType value
-  , blueprint ~ FromDBType dbType
-  , value ~ ToType blueprint
-  , dbType ~ ToDBType blueprint
+  , value ~ ToType (FromDBType dbType)
+  , dbType ~ ToDBType (FromType value)
   , DBType dbType
   )
   => a -> Expr nullability dbType
-litExpr a = slitExpr blueprint typeInformation (toValue a)
+litExpr a = case blueprintRoundtripsViaDBType @dbType blueprint of
+  Refl -> slitExpr blueprint (toValue a)
   where
-    blueprint = blueprintSing @blueprint
+    blueprint = blueprintForDBType @dbType
 
 
 slitExpr :: ()
   => SBlueprint blueprint
-  -> TypeInformation (ToDBType blueprint)
   -> Value nullability (ToType blueprint)
   -> Expr nullability (ToDBType blueprint)
-slitExpr blueprint info = scastExpr info . Expr . \case
+slitExpr blueprint = scastExpr info . Expr . \case
   NullableValue ma -> maybe null (encode . stoDBType blueprint) ma
   NonNullableValue a -> encode $ stoDBType blueprint a
   where
+    info = typeInformationFromBlueprint blueprint
     TypeInformation {encode} = info
     null = Opaleye.ConstExpr Opaleye.NullLit
 
@@ -79,12 +78,11 @@ slitExpr blueprint info = scastExpr info . Expr . \case
 sparseValue :: ()
   => SNullability nullability
   -> SBlueprint blueprint
-  -> TypeInformation (ToDBType blueprint)
   -> Hasql.Row (Value nullability (ToType blueprint))
-sparseValue nullability blueprint info = case nullability of
+sparseValue nullability blueprint = case nullability of
   SNullable -> fmap NullableValue $ Hasql.column $ Hasql.nullable $
     sfromDBType blueprint <$> decode
   SNonNullable -> fmap NonNullableValue $ Hasql.column $ Hasql.nonNullable $
     sfromDBType blueprint <$> decode
   where
-    TypeInformation {decode} = info
+    TypeInformation {decode} = typeInformationFromBlueprint blueprint

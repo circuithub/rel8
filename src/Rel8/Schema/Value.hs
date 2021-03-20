@@ -16,6 +16,7 @@ module Rel8.Schema.Value
   , FromValue, ToValue
   , fromValue, toValue
   , GetNullability, GetValue
+  , nullableMaybeLemma
   )
 where
 
@@ -76,7 +77,7 @@ toValue :: forall a nullability value.
   )
   => a -> Value nullability value
 toValue a = case nullabilitySing @nullability of
-  SNullable -> case proof @a of
+  SNullable -> case nullableMaybeLemma @a of
     Refl -> NullableValue a
   SNonNullable -> NonNullableValue a
 
@@ -93,5 +94,6 @@ type family GetValue nullability a where
   GetValue 'NonNullable a = a
 
 
-proof :: GetNullability a ~ 'Nullable => a :~: Maybe (GetValue 'Nullable a)
-proof = unsafeCoerce Refl
+nullableMaybeLemma :: GetNullability a ~ 'Nullable
+  => a :~: Maybe (GetValue 'Nullable a)
+nullableMaybeLemma = unsafeCoerce Refl

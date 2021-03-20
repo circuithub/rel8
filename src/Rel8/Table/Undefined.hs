@@ -11,11 +11,11 @@ import Prelude hiding ( undefined )
 
 -- rel8
 import Rel8.Expr.Null ( snull, unsafeUnnullify )
-import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Table ( Table, fromColumns )
+import Rel8.Type ( typeInformationFromBlueprint )
 
 
 undefined :: Table DB a => a

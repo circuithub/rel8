@@ -4,7 +4,9 @@
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -17,17 +19,20 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Blueprint
-  ( KnownBlueprint
-  , FromDBType, ToDBType
-  , FromType, ToType
+  ( ToDBType
+  , FromType
+  , blueprintRoundtripsViaDBType
+  , blueprintRoundtripsViaType
+  , dbTypeRoundtripsViaBlueprint
+  , simplifyDBTypeBlueprint
   )
-import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
@@ -37,15 +42,17 @@ import Rel8.Schema.Context
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.DBType ( HDBType( HDBType ) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec ), KnownSpec )
+import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Value ( Value )
+import Rel8.Type ( DBType, blueprintForDBType )
 
 
 type Table :: Kind.Context -> Type -> Constraint
@@ -86,36 +93,40 @@ instance Table DB a => Table Aggregation (Aggregate a) where
       Aggregation a -> DB <$> a
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  ) =>
+instance (KnownNullability nullability, DBType a) =>
   Table DB (Expr nullability a)
  where
-  type Columns (Expr nullability a) =
-    HIdentity ('Spec '[""] 'Required nullability (FromDBType a))
+  type Columns (Expr nullability a) = HDBType nullability a
   type Context (Expr nullability a) = DB
 
-  toColumns a = HIdentity (DB a)
-  fromColumns (HIdentity (DB a)) = a
+  toColumns a = case blueprintForDBType @a of
+    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
+      Refl -> HDBType (DB a)
+  fromColumns (HDBType (DB a)) = case blueprintForDBType @a of
+    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
+      Refl -> a
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , ToType blueprint ~ a
-  ) =>
+instance (KnownNullability nullability, DBType (ToDBType (FromType a))) =>
   Table Result (Value nullability a)
  where
   type Columns (Value nullability a) =
-    HIdentity ('Spec '[""] 'Required nullability (FromType a))
+    HDBType nullability (ToDBType (FromType a))
   type Context (Value nullability a) = Result
 
-  toColumns a = HIdentity (Result a)
-  fromColumns (HIdentity (Result a)) = a
+  toColumns a = case blueprintForDBType @(ToDBType (FromType a)) of
+    blueprint -> case simplifyDBTypeBlueprint blueprint of
+      blueprint' ->
+        case dbTypeRoundtripsViaBlueprint @(FromType a) blueprint' of
+          Refl -> case blueprintRoundtripsViaType @a blueprint of
+            Refl -> HDBType $ Result a
+  fromColumns (HDBType (Result a)) =
+    case blueprintForDBType @(ToDBType (FromType a)) of
+      blueprint -> case simplifyDBTypeBlueprint blueprint of
+        blueprint' ->
+          case dbTypeRoundtripsViaBlueprint @(FromType a) blueprint' of
+            Refl -> case blueprintRoundtripsViaType @a blueprint of
+              Refl -> a
 
 
 instance

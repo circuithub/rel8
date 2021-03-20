@@ -19,8 +19,7 @@ import Prelude ()
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Blueprint
-  ( KnownBlueprint
-  , FromDBType, ToDBType
+  ( FromDBType, ToDBType
   , FromType, ToType
   )
 import Rel8.Kind.Nullability ( KnownNullability )
@@ -50,101 +49,61 @@ class
     , b from -> a
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  , DBType a
-  ) =>
+instance (KnownNullability nullability, DBType a) =>
   MapTable Aggregation Aggregation (Aggregate (Expr nullability a)) (Aggregate (Expr nullability a))
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  , DBType a
-  ) =>
+instance (KnownNullability nullability, DBType a) =>
   MapTable Aggregation DB (Aggregate (Expr nullability a)) (Expr nullability a)
 
 
 instance
   ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , blueprint ~ FromDBType dbType
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
   , DBType dbType
+  , a ~ ToType (FromDBType dbType)
+  , dbType ~ ToDBType (FromType a)
   ) =>
   MapTable Aggregation Result (Aggregate (Expr nullability dbType)) (Value nullability a)
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  , DBType a
-  ) =>
+instance (KnownNullability nullability, DBType a) =>
   MapTable DB Aggregation (Expr nullability a) (Aggregate (Expr nullability a))
 
 
-instance
-  ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromDBType a
-  , ToDBType blueprint ~ a
-  , DBType a
-  ) =>
+instance (KnownNullability nullability, DBType a) =>
   MapTable DB DB (Expr nullability a) (Expr nullability a)
 
 
 instance
   ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , blueprint ~ FromDBType dbType
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
   , DBType dbType
+  , a ~ ToType (FromDBType dbType)
+  , dbType ~ ToDBType (FromType a)
   ) =>
   MapTable DB Result (Expr nullability dbType) (Value nullability a)
 
 
 instance
   ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , blueprint ~ FromDBType dbType
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
   , DBType dbType
+  , a ~ ToType (FromDBType dbType)
+  , dbType ~ ToDBType (FromType a)
   ) =>
   MapTable Result Aggregation (Value nullability a) (Aggregate (Expr nullability dbType))
 
 
 instance
   ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , blueprint ~ FromDBType dbType
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
   , DBType dbType
+  , a ~ ToType (FromDBType dbType)
+  , dbType ~ ToDBType (FromType a)
   ) =>
   MapTable Result DB (Value nullability a) (Expr nullability dbType)
 
 
 instance
   ( KnownNullability nullability
-  , KnownBlueprint blueprint
-  , blueprint ~ FromType a
-  , ToType blueprint ~ a
-  , ToDBType blueprint ~ dbType
-  , DBType dbType
+  , DBType (ToDBType (FromType a))
   ) =>
   MapTable Result Result (Value nullability a) (Value nullability a)
 

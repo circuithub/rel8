@@ -16,7 +16,6 @@ import Prelude
 
 -- rel8
 import Rel8.Expr.Array ( sappend, sempty )
-import Rel8.Kind.Blueprint ( typeInformationFromBlueprint )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.List ( HListTable )
@@ -27,6 +26,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Map ( MapTable )
+import Rel8.Type ( typeInformationFromBlueprint )
 
 
 type ListTable :: Type -> Type

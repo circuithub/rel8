@@ -23,23 +23,24 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( litPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
-import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type ( DBType )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( mapTypeInformation, parseTypeInformation )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Ord ( DBOrd )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+import Rel8.Type.Scalar ( DBScalar, scalarInformation )
 
 
 type EitherTag :: Type
 data EitherTag = IsLeft | IsRight
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min EitherTag)
-  deriving anyclass (DBEq, DBOrd)
+  deriving anyclass (DBEq, DBOrd, DBType)
 
 
-instance DBType EitherTag where
-  typeInformation = mapTypeInformation to from typeInformation
+instance DBScalar EitherTag where
+  scalarInformation = mapTypeInformation to from scalarInformation
     where
       to = bool IsLeft IsRight
       from IsLeft = False
@@ -66,11 +67,11 @@ type MaybeTag :: Type
 data MaybeTag = IsJust
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min MaybeTag)
-  deriving anyclass (DBEq, DBOrd)
+  deriving anyclass (DBEq, DBOrd, DBType)
 
 
-instance DBType MaybeTag where
-  typeInformation = parseTypeInformation to from typeInformation
+instance DBScalar MaybeTag where
+  scalarInformation = parseTypeInformation to from scalarInformation
     where
       to False = Left "MaybeTag can't be false"
       to True = Right IsJust
