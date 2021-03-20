@@ -18,6 +18,7 @@ where
 import Data.Foldable ( foldl' )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
+import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Prelude hiding ( seq )
 
 -- rel8
@@ -51,11 +52,11 @@ instance
 
 (==:) :: forall a. EqTable a => a -> a -> Expr 'NonNullable Bool
 (toColumns -> as) ==: (toColumns -> bs) =
-  foldl' @[] (&&.) true $ getConst $ htabulateA $ \field ->
+  foldl1' (&&.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ -> Const [seq nullability a b]
+          SSpec _ _ nullability _ -> Const (pure (seq nullability a b))
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
@@ -64,12 +65,16 @@ infix 4 ==:
 
 (/=:) :: forall a. EqTable a => a -> a -> Expr 'NonNullable Bool
 (toColumns -> as) /=: (toColumns -> bs) =
-  foldl' @[] (||.) false $ getConst $ htabulateA $ \field ->
+  foldl1' (||.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ -> Const [sne nullability a b]
+          SSpec _ _ nullability _ -> Const (pure (sne nullability a b))
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
     specs = hspecs @(Columns a)
 infix 4 /=:
+
+
+foldl1' :: (a -> a -> a) -> NonEmpty a -> a
+foldl1' f (a :| as) = foldl' f a as
