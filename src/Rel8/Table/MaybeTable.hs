@@ -1,5 +1,7 @@
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language DeriveFunctor #-}
+{-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
@@ -15,6 +17,7 @@
 
 module Rel8.Table.MaybeTable
   ( MaybeTable(..)
+  , HMaybeTable(..)
   , maybeTable
   , optional
   , isNothingTable
@@ -26,6 +29,8 @@ module Rel8.Table.MaybeTable
 
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Kind ( Type )
+import GHC.Generics ( Generic )
 import Prelude
   ( Applicative( (<*>), pure )
   , Bool( True, False )
@@ -51,20 +56,21 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import Rel8.DBType.DBEq ( (==.) )
 import Rel8.Expr ( Expr, fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
-import Rel8.Expr.Bool ( (&&.), not_ )
-import Rel8.Expr.Bool ( ifThenElse_ )
+import Rel8.Expr.Bool ( (&&.), ifThenElse_, not_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
 import Rel8.Expr.Opaleye ( litExpr, litExprWith )
-import Rel8.HTable ( HTable( htabulate, HField, hfield, hdbtype ), hmap )
+import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htraverse )
 import Rel8.HTable.HMapTable
-  ( HMapTable( HMapTable )
+  ( Eval
+  , Exp
+  , HMapTable( HMapTable )
   , HMapTableField( HMapTableField )
+  , MapInfo( mapInfo )
   , Precompose( Precompose )
   , mapInfo
   )
-import Rel8.HTable.HMaybeTable ( HMaybeTable( HMaybeTable, hnullTag, htable ), MakeNull )
-import Rel8.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Info ( Info( Null, NotNull ) )
+import Rel8.HTable.Identity ( HIdentity( HIdentity ), unHIdentity )
+import Rel8.Info ( Info( Null, NotNull ), Nullify )
 import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
@@ -309,3 +315,42 @@ noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
       case hfield hdbtype i of
         NotNull{} -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)
         Null{}    -> unsafeCoerceExpr (litExprWith (mapInfo @MakeNull (hfield hdbtype i)) Nothing)
+
+
+data MakeNull :: Type -> Exp Type
+
+
+type instance Eval (MakeNull x) = Nullify x
+
+
+instance MapInfo MakeNull where
+  mapInfo = \case
+    NotNull t -> Null t
+    Null t    -> Null t
+
+
+data HMaybeTable g f = HMaybeTable
+  { hnullTag :: HIdentity (Maybe Bool) f
+  , htable :: HMapTable MakeNull g f
+  }
+  deriving stock Generic
+
+
+data HMaybeField g a where
+  HNullTag :: HMaybeField g (Maybe Bool)
+  HMaybeField :: HField (HMapTable MakeNull g) a -> HMaybeField g a
+
+
+instance HTable g => HTable (HMaybeTable g) where
+  type HField (HMaybeTable g) = HMaybeField g
+
+  hfield HMaybeTable{ hnullTag, htable } = \case
+    HNullTag      -> unHIdentity hnullTag
+    HMaybeField i -> hfield htable i
+
+  htabulate f = HMaybeTable (HIdentity (f HNullTag)) (htabulate (f . HMaybeField))
+
+  htraverse f HMaybeTable{ hnullTag, htable } =
+    HMaybeTable <$> htraverse f hnullTag <*> htraverse f htable
+
+  hdbtype = HMaybeTable hdbtype hdbtype
