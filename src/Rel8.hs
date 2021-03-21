@@ -159,11 +159,15 @@ module Rel8
   , optional
   , maybeTable
   , isNothingTable
-  , noTable
+  , nothingTable
   , catMaybeTable
-  , exists
   , bindMaybeTable
   , traverseMaybeTable
+  , exists
+  , with
+  , withBy
+  , without
+  , withoutBy
 
     -- ** Aggregation
   , Aggregate
@@ -292,6 +296,10 @@ import Rel8.Query
   , whereExists
   , whereNotExists
   , where_
+  , with
+  , withBy
+  , without
+  , withoutBy
   )
 import Rel8.Query.Order ( Order, asc, desc, distinctOnBy, nullsFirst, nullsLast, orderBy )
 import Rel8.Serializable ( ExprFor, Serializable, lit )
@@ -310,7 +318,7 @@ import Rel8.Table.MaybeTable
   , catMaybeTable
   , isNothingTable
   , maybeTable
-  , noTable
+  , nothingTable
   , optional
   , traverseMaybeTable
   )

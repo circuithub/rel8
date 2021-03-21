@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
@@ -8,16 +9,18 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.Table ( Table(..), AllColumns ) where
+module Rel8.Table ( Table(..), AllColumns, nullTable ) where
 
 -- base
 import Data.Kind ( Constraint, Type )
 
 -- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
-import Rel8.HTable ( HAllColumns, HTable )
+import Rel8.Expr.Opaleye ( fromPrimExpr )
+import Rel8.HTable ( HAllColumns, HTable, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( HasInfo )
@@ -71,3 +74,10 @@ instance (Table f a, Table f b, Table f c, Table f d) => Table f (a, b, c, d) wh
 
   toColumns (a, b, c, d) = HPair (HPair (toColumns a) (toColumns b)) (HPair (toColumns c) (toColumns d))
   fromColumns (HPair (HPair a b) (HPair c d)) = (fromColumns a, fromColumns b, fromColumns c, fromColumns d)
+
+
+nullTable :: Table Expr a => a
+nullTable =
+  fromColumns $
+    htabulateMeta \_ ->
+      ExprColumn $ fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit

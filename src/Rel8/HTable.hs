@@ -1,4 +1,5 @@
 {-# language BlockArguments #-}
+{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
@@ -13,7 +14,7 @@
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
-module Rel8.HTable ( HTable(..), hmap, hzipWith, htabulateMeta, htraverseMeta ) where
+module Rel8.HTable ( HTable(..), hmap, hzipWith, htabulateMeta, htraverseMeta, Dict, hdict, Column( DictColumn ) ) where
 
 -- base
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
@@ -35,6 +36,7 @@ class HTable (t :: (Meta -> Type) -> Type) where
   htabulate :: forall f. (forall x. HField t x -> f x) -> t f
   htraverse :: forall f g m. Apply m => (forall x. f x -> m (g x)) -> t f -> m (t g)
   hdbtype :: t (Column Info)
+  hdict :: HAllColumns t c => t (Column (Dict c))
 
 
 hmap :: HTable t => (forall y d x. x ~ 'Meta d y => f x -> g x) -> t f -> t g
@@ -55,3 +57,11 @@ htraverseMeta :: (HTable t, Apply m) => (forall x d y. x ~ 'Meta d y => f x -> m
 htraverseMeta f x = htraverse getCompose $ htabulate \i ->
   case hfield hdbtype i of
     InfoColumn _ -> Compose $ f $ hfield x i
+
+
+data Dict :: (Type -> Constraint) -> Type -> Type where
+
+
+instance Context (Dict c) where
+  data Column (Dict c) :: Meta -> Type where
+    DictColumn :: c a => Column (Dict c) ('Meta d a)

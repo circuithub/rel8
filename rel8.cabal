@@ -27,6 +27,7 @@ library
     , scientific
     , semigroupoids
     , text
+    , these
     , time
     , uuid
 
@@ -40,6 +41,7 @@ library
   hs-source-dirs:   src
   exposed-modules:
     Rel8
+    Rel8.Tabulate
     Rel8.Text
     Rel8.Time
 
@@ -51,20 +53,19 @@ library
     Rel8.DBType.DBEq
     Rel8.DBType.DBMax
     Rel8.DBType.DBMin
+    Rel8.DBType.DBMonoid
     Rel8.DBType.DBOrd
+    Rel8.DBType.DBSemigroup
     Rel8.DBType.DBSum
     Rel8.DBType.JSONBEncoded
     Rel8.DBType.JSONEncoded
-    Rel8.DBType.DBSemigroup
-    Rel8.DBType.DBMonoid
     Rel8.DBType.ReadShow
     Rel8.Expr
     Rel8.Expr.Bool
+    Rel8.Expr.Function
     Rel8.Expr.Instances
     Rel8.Expr.Null
     Rel8.Expr.Opaleye
-    Rel8.Expr.Instances
-    Rel8.Expr.Function
     Rel8.Generic
     Rel8.HTable
     Rel8.HTable.HIdentity
@@ -83,11 +84,14 @@ library
     Rel8.Table
     Rel8.Table.Bool
     Rel8.Table.Congruent
+    Rel8.Table.EitherTable
+    Rel8.Table.EqTable
     Rel8.Table.ListTable
     Rel8.Table.MaybeTable
     Rel8.Table.NonEmptyTable
     Rel8.Table.Opaleye
     Rel8.Table.Selects
+    Rel8.Table.TheseTable
     Rel8.TableSchema
     Rel8.TableSchema.ColumnSchema
 

@@ -3,7 +3,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-module Rel8.Table.Bool ( ifThenElse_, case_ ) where
+module Rel8.Table.Bool ( ifThenElse_, case_, bool ) where
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -32,12 +32,16 @@ import Rel8.Table ( Columns, Table, fromColumns, toColumns )
 -- :}
 -- [("C","D")]
 ifThenElse_ :: Table Expr a => Expr Bool -> a -> a -> a
-ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
+ifThenElse_ p whenTrue = case_ [(p, whenTrue)]
+
+
+bool :: Table Expr a => a -> a -> Expr Bool -> a
+bool whenFalse whenTrue x = ifThenElse_ x whenTrue whenFalse
 
 
 case_ :: forall a. Table Expr a => [ ( Expr Bool, a ) ] -> a -> a
 case_ alts def =
   fromColumns $ htabulateMeta @(Columns a) \x -> ExprColumn $ fromPrimExpr $
     Opaleye.CaseExpr
-        [ ( toPrimExpr bool, toPrimExpr $ fromExprColumn $ hfield (toColumns alt) x ) | ( bool, alt ) <- alts ]
+        [ ( toPrimExpr p, toPrimExpr $ fromExprColumn $ hfield (toColumns alt) x ) | ( p, alt ) <- alts ]
         ( toPrimExpr $ fromExprColumn $ hfield (toColumns def) x )

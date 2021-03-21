@@ -10,6 +10,7 @@
 module Rel8.Query
   ( Query(..)
   , liftOpaleye
+  , zipOpaleyeWith
   , toOpaleye
   , countRows
   , where_
@@ -31,6 +32,10 @@ module Rel8.Query
   , filter
   , mapOpaleye
   , catMaybe
+  , with
+  , withBy
+  , without
+  , withoutBy
   ) where
 
 -- base
@@ -47,6 +52,7 @@ import Prelude
   , ($)
   , (.)
   , (<$)
+  , (>>=)
   , fromIntegral
   , return
   )
@@ -94,6 +100,12 @@ toOpaleye (Query q) = q
 
 mapOpaleye :: (Opaleye.Query a -> Opaleye.Query b) -> Query a -> Query b
 mapOpaleye f = liftOpaleye . f . toOpaleye
+
+
+zipOpaleyeWith
+  :: (Opaleye.Query a -> Opaleye.Query b -> Opaleye.Query c)
+  -> Query a -> Query b -> Query c
+zipOpaleyeWith f a b = liftOpaleye $ f (toOpaleye a) (toOpaleye b)
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
@@ -308,3 +320,19 @@ catMaybe :: Expr (Maybe a) -> Query (Expr a)
 catMaybe e = do
   where_ $ not_ $ isNull e
   return $ unsafeCoerceExpr e
+
+
+with :: (a -> Query b) -> a -> Query a
+with f a = a <$ whereExists (f a)
+
+
+withBy :: (a -> b -> Expr Bool) -> Query b -> a -> Query a
+withBy predicate bs = with $ \a -> bs >>= filter (predicate a)
+
+
+without :: (a -> Query b) -> a -> Query a
+without f a = a <$ whereNotExists (f a)
+
+
+withoutBy :: (a -> b -> Expr Bool) -> Query b -> a -> Query a
+withoutBy predicate bs = without $ \a -> bs >>= filter (predicate a)

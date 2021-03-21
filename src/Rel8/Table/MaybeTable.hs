@@ -20,10 +20,14 @@
 module Rel8.Table.MaybeTable
   ( MaybeTable(..)
   , HMaybeTable(..)
+  , MaybeTag(..)
+  , MakeNull
   , maybeTable
   , optional
   , isNothingTable
-  , noTable
+  , isJustTable
+  , nothingTable
+  , justTable
   , catMaybeTable
   , bindMaybeTable
   , traverseMaybeTable
@@ -102,6 +106,7 @@ import Rel8.Table.Opaleye ( unpackspec )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply( (<.>) ) )
+import Data.Functor.Bind ( Bind, (>>-) )
 
 
 -- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If
@@ -123,17 +128,30 @@ data MaybeTable t where
   deriving stock Functor
 
 
--- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
--- 'traverseMaybeTable'.
+instance (Table Expr a, Semigroup a) => Semigroup (MaybeTable a) where
+  ma <> mb = maybeTable mb (\a -> maybeTable ma (justTable . (a <>)) mb) ma
+
+
+instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
+  mempty = nothingTable
+
+
+instance Apply MaybeTable where
+  MaybeTable tag f <.> MaybeTable tag' a = MaybeTable (tag <> tag') (f a)
+
+
 instance Applicative MaybeTable where
-  pure = MaybeTable mempty
-  MaybeTable t f <*> MaybeTable t' a = MaybeTable (t <> t') (f a)
+  (<*>) = (<.>)
+  pure = justTable
 
 
--- | Has the same behavior as the @Monad@ instance for @Maybe@. See also: 'bindMaybeTable'.
+instance Bind MaybeTable where
+  MaybeTable tag a >>- f = case f a of
+    MaybeTable tag' b -> MaybeTable (tag <> tag') b
+
+
 instance Monad MaybeTable where
-  MaybeTable t a >>= f = case f a of
-    MaybeTable t' b -> MaybeTable (t <> t') b
+  (>>=) = (>>-)
 
 
 instance Table Expr a => Table Expr (MaybeTable a) where
@@ -208,14 +226,14 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
 -- > select c $ pure (pure (lit (Just True)) :: MaybeTable (Expr (Maybe Bool)))
 -- [Just (Just True)]
 --
--- > select c $ pure (noTable :: MaybeTable (Expr (Maybe Bool)))
+-- > select c $ pure (nothingTable :: MaybeTable (Expr (Maybe Bool)))
 -- [Nothing]
 instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
 
 
 -- | @bindMaybeTable f x@ is similar to the monadic bind (@>>=@) operation. It
 -- allows you to "extend" an optional query with another query. If either the
--- input or output are 'noTable', then the result is 'noTable'.
+-- input or output are 'nothingTable', then the result is 'nothingTable'.
 --
 -- This is similar to 'traverseMaybeTable', followed by a @join@ on the
 -- resulting @MaybeTable@s.
@@ -223,10 +241,10 @@ instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
 -- >>> select c $ bindMaybeTable (optional . values . pure . not_) =<< optional (values [lit True])
 -- [Just False]
 --
--- >>> select c $ bindMaybeTable (\_ -> return (noTable :: MaybeTable (Expr Bool))) =<< optional (values [lit True])
+-- >>> select c $ bindMaybeTable (\_ -> return (nothingTable :: MaybeTable (Expr Bool))) =<< optional (values [lit True])
 -- [Nothing]
 --
--- >>> select c $ bindMaybeTable (optional . values . pure . not_) =<< return (noTable :: MaybeTable (Expr Bool))
+-- >>> select c $ bindMaybeTable (optional . values . pure . not_) =<< return (nothingTable :: MaybeTable (Expr Bool))
 -- [Nothing]
 bindMaybeTable :: (a -> Query (MaybeTable b)) -> MaybeTable a -> Query (MaybeTable b)
 bindMaybeTable query (MaybeTable input a) = do
@@ -255,12 +273,12 @@ bindMaybeTable query (MaybeTable input a) = do
 -- []
 --
 -- However, regardless of the given @a -> Query b@ function, if the input is
--- @noTable@, you will always get exactly one @noTable@ back:
+-- @nothingTable@, you will always get exactly one @nothingTable@ back:
 --
--- >>> select c $ traverseMaybeTable duplicate (noTable :: MaybeTable (Expr Bool))
+-- >>> select c $ traverseMaybeTable duplicate (nothingTable :: MaybeTable (Expr Bool))
 -- [Nothing]
 --
--- >>> select c $ traverseMaybeTable (limit 0 . pure) (noTable :: MaybeTable (Expr Bool))
+-- >>> select c $ traverseMaybeTable (limit 0 . pure) (nothingTable :: MaybeTable (Expr Bool))
 -- [Nothing]
 traverseMaybeTable :: (a -> Query b) -> MaybeTable a -> Query (MaybeTable b)
 traverseMaybeTable query ma@(MaybeTable input _) = do
@@ -334,15 +352,24 @@ isNothingTable :: MaybeTable a -> Expr Bool
 isNothingTable = maybeTable (lit True) (const (lit False))
 
 
+isJustTable :: MaybeTable a -> Expr Bool
+isJustTable = not_ . isNothingTable
+
+
 -- | The null table. Like 'Nothing'.
-noTable :: forall a. Table Expr a => MaybeTable a
-noTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
+nothingTable :: forall a. Table Expr a => MaybeTable a
+nothingTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
   where
     f :: forall x. HField (Columns a) x -> Column Expr x
     f i =
       case hfield hdbtype i of
         InfoColumn NotNull{} -> ExprColumn $ unsafeCoerceExpr (litExprWith (fromInfoColumn (mapInfo @MakeNull (hfield hdbtype i))) Nothing)
         InfoColumn Null{}    -> ExprColumn $ unsafeCoerceExpr (litExprWith (fromInfoColumn (mapInfo @MakeNull (hfield hdbtype i))) Nothing)
+
+
+-- | Like 'Just'.
+justTable :: a -> MaybeTable a
+justTable = pure
 
 
 data MakeNull :: Meta -> Exp Meta
