@@ -17,6 +17,8 @@ import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import Rel8.Expr.Opaleye (columnToExpr, exprToColumn, litExpr)
 import Rel8.Expr.Function (function)
+import Rel8.DBType.DBSemigroup (DBSemigroup((<>.)))
+import Rel8.DBType.DBMonoid (DBMonoid(memptyExpr))
 
 
 instance Context Expr where
@@ -46,3 +48,11 @@ instance (HasInfo a, Fractional a) => Fractional (Expr a) where
 
 instance (IsString a, HasInfo a) => IsString (Expr a) where
   fromString = litExpr . fromString
+
+
+instance DBSemigroup a => Semigroup (Expr a) where
+  (<>) = (<>.)
+
+
+instance DBMonoid a => Monoid (Expr a) where
+  mempty = memptyExpr

@@ -54,6 +54,8 @@ library
     Rel8.DBType.DBSum
     Rel8.DBType.JSONBEncoded
     Rel8.DBType.JSONEncoded
+    Rel8.DBType.DBSemigroup
+    Rel8.DBType.DBMonoid
     Rel8.DBType.ReadShow
     Rel8.Expr
     Rel8.Expr.Bool

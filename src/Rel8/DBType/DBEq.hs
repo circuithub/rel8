@@ -15,9 +15,8 @@ import Data.CaseInsensitive ( CI )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), not_ )
-import Rel8.Expr.Opaleye ( binExpr )
+import Rel8.Expr.Opaleye ( binExpr, litExpr )
 import Rel8.Info ( HasInfo )
-import Rel8.Serializable ( lit )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -114,4 +113,4 @@ instance DBEq (CI Data.Text.Lazy.Text)
 -- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
 -- [False]
 in_ :: DBEq a => Expr a -> [Expr a] -> Expr Bool
-in_ x = foldl' (\b y -> b ||. x ==. y) (lit False)
+in_ x = foldl' (\b y -> b ||. x ==. y) (litExpr False)

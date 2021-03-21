@@ -30,7 +30,7 @@ module Rel8.Query
   , values
   , filter
   , mapOpaleye
-  ) where
+  ,catMaybe) where
 
 -- base
 import Data.Foldable ( toList )
@@ -45,7 +45,7 @@ import Prelude
   , ($)
   , (.)
   , (<$)
-  , fromIntegral
+  , fromIntegral, Maybe, return
   )
 
 -- profunctors
@@ -63,11 +63,13 @@ import qualified Opaleye.Operators as Opaleye hiding ( exists )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn )
+import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, unsafeCoerceExpr )
 import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( binaryspec, distinctspec, unpackspec, valuesspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, selectSchema )
+import Rel8.Expr.Bool (not_)
+import Rel8.Expr.Null (isNull)
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -277,3 +279,28 @@ values = liftOpaleye . Opaleye.valuesExplicit valuesspec . toList
 -- [4,5]
 filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = a <$ where_ (f a)
+
+
+-- | Filter a 'Query' that might return @null@ to a 'Query' without any
+-- @null@s.
+--
+-- Corresponds to 'Data.Maybe.catMaybes'.
+-- 
+-- >>> select c $ pure (nullExpr :: Expr (Maybe Bool))
+-- [Nothing]
+-- 
+-- >>> select c $ catMaybe (nullExpr :: Expr (Maybe Bool))
+-- []
+-- 
+-- >>> select c $ catMaybe (lit (Just True))
+-- [True]
+-- 
+-- Notice how in the last example a @Bool@ is returned (rather than @Maybe
+-- Bool@):
+-- 
+-- >>> :t catMaybe (lit (Just True))
+-- catMaybe (lit (Just True)) :: Query (Expr Bool)
+catMaybe :: Expr (Maybe a) -> Query (Expr a)
+catMaybe e = do
+  where_ $ not_ $ isNull e
+  return $ unsafeCoerceExpr e

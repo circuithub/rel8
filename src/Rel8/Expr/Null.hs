@@ -6,24 +6,19 @@ module Rel8.Expr.Null
   , nullExpr
   , liftNull
   , mapNull
-  , catMaybe
   , fromNull
   ) where
 
 -- base
-import Prelude ( Bool( False ), Maybe( Nothing ), ($), (.), id, return )
+import Prelude ( Bool( False ), Maybe( Nothing ), (.), id )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr ) 
-import Rel8.Expr.Bool ( not_ )
+import Rel8.Expr.Bool ( ifThenElse_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
-import Rel8.Info ( HasInfo )
-import Rel8.Query ( Query, where_ )
-import Rel8.Serializable ( lit )
-import Rel8.Table.Bool ( ifThenElse_ )
 
 
 -- | Like 'maybe', but to eliminate @null@.
@@ -33,7 +28,7 @@ import Rel8.Table.Bool ( ifThenElse_ )
 --
 -- >>> select c $ pure $ null 0 id (lit (Just 42) :: Expr (Maybe Int32))
 -- [42]
-null :: HasInfo b => Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+null :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 null whenNull f a = ifThenElse_ (isNull a) whenNull (f (unsafeCoerceExpr a))
 
 
@@ -50,7 +45,7 @@ isNull = mapPrimExpr ( Opaleye.UnExpr Opaleye.OpIsNull )
 
 -- | Corresponds to SQL @null@.
 nullExpr :: DBType a => Expr (Maybe a)
-nullExpr = lit Nothing
+nullExpr = litExpr Nothing
 
 
 -- | Lift an expression that's not null to a type that might be @null@. This is
@@ -71,33 +66,8 @@ mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNull f = unsafeCoerceExpr . f . unsafeCoerceExpr
 
 
-fromNull :: HasInfo a => Expr a -> Expr (Maybe a) -> Expr a
+fromNull :: Expr a -> Expr (Maybe a) -> Expr a
 fromNull x = null x id
-
-
--- | Filter a 'Query' that might return @null@ to a 'Query' without any
--- @null@s.
---
--- Corresponds to 'Data.Maybe.catMaybes'.
--- 
--- >>> select c $ pure (nullExpr :: Expr (Maybe Bool))
--- [Nothing]
--- 
--- >>> select c $ catMaybe (nullExpr :: Expr (Maybe Bool))
--- []
--- 
--- >>> select c $ catMaybe (lit (Just True))
--- [True]
--- 
--- Notice how in the last example a @Bool@ is returned (rather than @Maybe
--- Bool@):
--- 
--- >>> :t catMaybe (lit (Just True))
--- catMaybe (lit (Just True)) :: Query (Expr Bool)
-catMaybe :: Expr (Maybe a) -> Query (Expr a)
-catMaybe e = do
-  where_ $ not_ $ isNull e
-  return $ unsafeCoerceExpr e
 
 
 instance (DBType a, DBEq a) => DBEq (Maybe a) where
