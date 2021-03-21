@@ -123,6 +123,7 @@ library
     Rel8.Statement.Returning
     Rel8.Statement.Select
     Rel8.Statement.Update
+    Rel8.Statement.View
 
     Rel8.Table
     Rel8.Table.Aggregate
