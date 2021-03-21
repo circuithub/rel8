@@ -1,5 +1,4 @@
 {-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
 
 module Rel8.Query.Set
   ( union, unionAll

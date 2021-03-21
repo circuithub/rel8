@@ -40,6 +40,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- rel8
+import Rel8.Opaque ( Opaque )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 
 -- scientific
@@ -243,3 +244,7 @@ instance DBScalar Value where
     , decode = Hasql.jsonb
     , typeName = "jsonb"
     }
+
+
+instance DBScalar Opaque where
+  scalarInformation = error "opaque"

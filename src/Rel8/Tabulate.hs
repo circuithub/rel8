@@ -1,7 +1,6 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
 {-# language TupleSections #-}
 
 module Rel8.Tabulate

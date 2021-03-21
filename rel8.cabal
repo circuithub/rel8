@@ -161,6 +161,7 @@ library
     Rel8.Type.Tag
 
   other-modules:
+    Rel8.Opaque
     Rel8.Schema.Structure
 
 test-suite tests

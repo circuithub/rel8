@@ -22,6 +22,7 @@ import Data.CaseInsensitive ( CI )
 -- rel8
 import Rel8.Kind.Emptiability ( KnownEmptiability )
 import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Opaque ( Opaque )
 import Rel8.Type.Array ( Array )
 import Rel8.Type.Eq ( DBEq )
 
@@ -64,6 +65,7 @@ instance DBOrd (CI Lazy.Text)
 instance DBOrd ByteString
 instance DBOrd Lazy.ByteString
 instance DBOrd UUID
+instance DBOrd Opaque
 
 
 instance

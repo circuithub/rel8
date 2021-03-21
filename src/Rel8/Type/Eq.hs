@@ -24,6 +24,7 @@ import Data.CaseInsensitive ( CI )
 -- rel8
 import Rel8.Kind.Emptiability ( KnownEmptiability )
 import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Opaque ( Opaque )
 import Rel8.Type ( DBType )
 import Rel8.Type.Array ( Array )
 
@@ -69,6 +70,7 @@ instance DBEq ByteString
 instance DBEq Lazy.ByteString
 instance DBEq UUID
 instance DBEq Value
+instance DBEq Opaque
 
 
 instance

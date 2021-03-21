@@ -40,6 +40,7 @@ import Rel8.Kind.Nullability
   ( Nullability( Nullable, NonNullable )
   , KnownNullability
   )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( DB(..), Result(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.Context.Result
@@ -453,6 +454,7 @@ type family FromExprs a where
 
 class (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a | exprs -> a
 instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
+instance Serializable (Expr 'NonNullable Opaque) Opaque
 
 
 lit :: forall exprs a. Serializable exprs a => a -> exprs

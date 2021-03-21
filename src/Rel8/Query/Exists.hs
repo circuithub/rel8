@@ -1,5 +1,4 @@
 {-# language DataKinds #-}
-{-# language MonoLocalBinds #-}
 
 module Rel8.Query.Exists
   ( exists, inQuery

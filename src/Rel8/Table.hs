@@ -33,7 +33,8 @@ import Rel8.Kind.Blueprint
   , dbTypeRoundtripsViaBlueprint
   , simplifyDBTypeBlueprint
   )
-import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Kind.Nullability ( Nullability( NonNullable ), KnownNullability )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB ), unDB
@@ -231,6 +232,14 @@ instance
     , fromColumns $ hunlabel unlabeler d
     , fromColumns $ hunlabel unlabeler e
     )
+
+
+instance Table DB Opaque where
+  type Columns Opaque = HDBType 'NonNullable Opaque
+  type Context Opaque = DB
+
+  fromColumns = error "opaque"
+  toColumns = error "opaque"
 
 
 type Congruent :: Type -> Type -> Constraint

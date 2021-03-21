@@ -26,6 +26,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( seq, sne )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
@@ -48,6 +49,7 @@ instance
   ( Table DB a
   , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
+instance {-# OVERLAPPING #-} EqTable Opaque
 
 
 (==:) :: forall a. EqTable a => a -> a -> Expr 'NonNullable Bool

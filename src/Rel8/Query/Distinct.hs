@@ -1,5 +1,3 @@
-{-# language MonoLocalBinds #-}
-
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Query.Distinct

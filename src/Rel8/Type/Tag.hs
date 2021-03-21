@@ -23,7 +23,6 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( litPrimExpr )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
-import Rel8.Type ( DBType )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( mapTypeInformation, parseTypeInformation )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
@@ -36,7 +35,7 @@ type EitherTag :: Type
 data EitherTag = IsLeft | IsRight
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min EitherTag)
-  deriving anyclass (DBEq, DBOrd, DBType)
+  deriving anyclass (DBEq, DBOrd)
 
 
 instance DBScalar EitherTag where
@@ -67,7 +66,7 @@ type MaybeTag :: Type
 data MaybeTag = IsJust
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min MaybeTag)
-  deriving anyclass (DBEq, DBOrd, DBType)
+  deriving anyclass (DBEq, DBOrd)
 
 
 instance DBScalar MaybeTag where
