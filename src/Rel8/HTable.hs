@@ -17,14 +17,14 @@ module Rel8.HTable ( HTable(..), hmap, hzipWith, htabulateMeta, htraverseMeta ) 
 
 -- base
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
-import Data.Kind ( Type, Constraint )
+import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.Info ( Column( InfoColumn ), Info )
 
 -- semigroupoids
-import Data.Functor.Apply (Apply)
+import Data.Functor.Apply ( Apply )
 
 
 class HTable (t :: (Meta -> Type) -> Type) where

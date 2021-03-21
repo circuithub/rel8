@@ -14,10 +14,10 @@ module Rel8.Table ( Table(..), AllColumns ) where
 import Data.Kind ( Constraint, Type )
 
 -- rel8
-import Rel8.Context ( Column, Meta( Meta ), Defaulting( NoDefault ) )
-import Rel8.Expr (Expr)
-import Rel8.Expr.Instances (Column(ExprColumn, fromExprColumn))
-import Rel8.HTable ( HTable, HAllColumns )
+import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.HTable ( HAllColumns, HTable )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( HasInfo )

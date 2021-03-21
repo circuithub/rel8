@@ -23,14 +23,14 @@ import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
-import Rel8.Expr.Opaleye ( toPrimExpr, column )
+import Rel8.Expr.Opaleye ( column, toPrimExpr )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, ddlTable, writer )
-import Rel8.TableSchema.ColumnSchema ( ColumnSchema( columnName ), Column (fromColumnSchemaColumn) )
+import Rel8.TableSchema.ColumnSchema ( Column( fromColumnSchemaColumn ), ColumnSchema( columnName ) )
 
 -- text
 import Data.Text ( pack )

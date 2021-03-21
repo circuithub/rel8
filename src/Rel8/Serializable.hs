@@ -28,11 +28,11 @@ import Rel8.Expr.Opaleye ( litExprWith )
 import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( HasInfo, decodeWith, Column( fromInfoColumn ) )
+import Rel8.Info ( Column( fromInfoColumn ), HasInfo, decodeWith )
 import Rel8.Table ( Columns, Table, fromColumns )
 
 -- semigroupoids
-import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
+import Data.Functor.Apply ( WrappedApplicative( WrapApplicative, unwrapApplicative ) )
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
@@ -58,7 +58,7 @@ class Table Expr expr => ExprFor expr haskell where
 
 
 instance {-# OVERLAPPABLE #-} (HasInfo b, a ~ Expr b) => ExprFor a b where
-  unpack = HIdentity . I 
+  unpack = HIdentity . I
   pack (HIdentity a) = unI a
 
 

@@ -1,8 +1,8 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
+{-# language DerivingStrategies #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
@@ -14,11 +14,11 @@
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
-module Main (main) where
+module Main ( main ) where
 
 -- base
 import Control.Applicative ( liftA2, liftA3 )
-import Control.Monad (void)
+import Control.Monad ( void )
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Data.Bifunctor ( bimap )
 import Data.Char ( toLower )
@@ -28,29 +28,29 @@ import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
 import Data.Maybe ( catMaybes )
 import Data.String ( fromString )
-import Data.Word (Word32)
+import Data.Word ( Word32 )
 import GHC.Generics ( Generic )
 
 -- bytestring
 import qualified Data.ByteString.Lazy
 
 -- case-insensitive
-import Data.CaseInsensitive (mk)
+import Data.CaseInsensitive ( mk )
 
 -- containers
 import qualified Data.Map.Strict as Map
 
 -- hasql
-import Hasql.Connection ( Connection,  acquire, release )
-import Hasql.Session ( sql, run )
+import Hasql.Connection ( Connection, acquire, release )
+import Hasql.Session ( run, sql )
 
 -- hedgehog
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( Gen, PropertyT, TestT, (===), cover, diff, evalM, forAll, property, test )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 -- lifted-base
-import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
+import Control.Exception.Lifted ( bracket, bracket_, throwIO )
 
 -- monad-control
 import Control.Monad.Trans.Control ( MonadBaseControl )
@@ -68,7 +68,7 @@ import Test.Tasty
 import Test.Tasty.Hedgehog ( testProperty )
 
 -- text
-import Data.Text (Text, pack)
+import Data.Text ( Text, pack )
 import qualified Data.Text.Lazy
 
 -- time
@@ -158,7 +158,11 @@ data TestTable f = TestTable
 
 
 deriving stock instance Eq (TestTable Identity)
+
+
 deriving stock instance Ord (TestTable Identity)
+
+
 deriving stock instance Show (TestTable Identity)
 
 
@@ -167,7 +171,7 @@ testTableSchema =
   Rel8.TableSchema
     { tableName = "test_table"
     , tableSchema = Nothing
-    , tableColumns = Rel8.genericTableColumnsWith (lcfirst . drop (length @[] "testTable")) 
+    , tableColumns = Rel8.genericTableColumnsWith (lcfirst . drop (length @[] "testTable"))
     }
   where
     lcfirst []     = []
@@ -476,8 +480,6 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
 
 --     cover 1 "Equal" $ x == y
 --     cover 1 "Not Equal" $ x /= y
-
-
 testFromString :: IO TmpPostgres.DB -> TestTree
 testFromString = databasePropertyTest "FromString" \transaction -> do
   str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
@@ -528,12 +530,16 @@ data TwoTestTables f =
     { testTable1 :: TestTable f
     , testTable2 :: TestTable f
     }
-  deriving stock Generic 
+  deriving stock Generic
   deriving anyclass Rel8.HigherKindedTable
 
 
 deriving stock instance Eq (TwoTestTables Identity)
+
+
 deriving stock instance Ord (TwoTestTables Identity)
+
+
 deriving stock instance Show (TwoTestTables Identity)
 
 
@@ -571,12 +577,13 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
     genRows = forAll do
       Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
 
+
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
 rollingBack connection =
-  bracket_ 
-    (liftIO (run (sql "BEGIN") connection)) 
+  bracket_
+    (liftIO (run (sql "BEGIN") connection))
     (liftIO (run (sql "ROLLBACK") connection))
 
 
@@ -662,8 +669,13 @@ newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
   deriving anyclass Rel8.HigherKindedTable
 
+
 deriving stock instance Eq (HKNestedPair Identity)
+
+
 deriving stock instance Ord (HKNestedPair Identity)
+
+
 deriving stock instance Show (HKNestedPair Identity)
 
 
@@ -698,7 +710,11 @@ data NestedMaybeTable f = NestedMaybeTable
 
 
 deriving stock instance Eq (NestedMaybeTable Identity)
+
+
 deriving stock instance Ord (NestedMaybeTable Identity)
+
+
 deriving stock instance Show (NestedMaybeTable Identity)
 
 

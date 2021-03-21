@@ -22,7 +22,9 @@ module Rel8.Aggregate
   , count
   , countStar
   , countDistinct
+  , arrayAgg
   , listAgg
+  , nonEmptyArrayAgg
   , nonEmptyAgg
   , some
   , many
@@ -31,31 +33,30 @@ module Rel8.Aggregate
   ) where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Int ( Int64 )
 import Data.Kind ( Type )
-import Data.List.NonEmpty ( NonEmpty )
 
 -- rel8
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.Context ( Context( Column ), Meta )
 import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
-import Rel8.HTable ( hmap, htraverse )
-import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
+import Rel8.HTable ( htabulate, HField, hfield, HTable )
+import Rel8.HTable.HMapTable ( HMapTableField( HMapTableField ), HMapTable )
 import Rel8.Query ( Query, mapOpaleye )
-import Rel8.Table ( AllColumns, Table( toColumns ), fromColumns )
+import Rel8.Table ( AllColumns, Table( toColumns ), Columns )
 import Rel8.Table.Congruent ( Congruent, traverseTable )
-import Rel8.Table.ListTable ( ListTable( ListTable ) )
+import Rel8.Table.ListTable ( ListTable( ListTable ), ListOf )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
-import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
+import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ), NonEmptyList )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapApplicative ) )
+import Data.List.NonEmpty (NonEmpty)
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -63,13 +64,13 @@ import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapAp
 -- @Aggregate@ is an 'Applicative' functor, you can combine @Aggregate@s using
 -- the normal @Applicative@ combinators, or by working in @do@ notation with
 -- @ApplicativeDo@.
-newtype Aggregate a = Aggregate a
-  deriving (Functor, Apply) via Identity
+newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
+  deriving (Functor, Apply) via WrappedApplicative (Opaleye.Aggregator ())
 
 
 instance Context Aggregate where
-  data Column Aggregate :: Meta -> Type where
-    AggregateColumn :: Aggregate (Column Expr a) -> Column Aggregate a
+  newtype Column Aggregate :: Meta -> Type where
+    AggregateColumn :: { fromAggregateColumn :: Aggregate (Column Expr a) } -> Column Aggregate a
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
@@ -77,37 +78,48 @@ aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
 aggregate = mapOpaleye $ Opaleye.aggregate aggregator
   where
     aggregator :: Opaleye.Aggregator (Aggregate a) a
-    aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
-      unwrapApplicative $
-        fromColumns <$> htraverse (WrapApplicative . g f) (toColumns x)
-
-    g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Column Expr x -> m (Column Expr x)
-    g f (ExprColumn (Expr x)) = ExprColumn . Expr <$> traverseAggrExpr f x
-
+    aggregator = 
+      Opaleye.Aggregator $ 
+        Opaleye.PackMap \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap g))) ->
+          g f ()
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
 -- 'pure', but sometimes being explicit can help the readability of your code.
 groupBy :: (Table Expr a, AllColumns a DBEq) => a -> Aggregate a
-groupBy = Aggregate
+groupBy x = Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap \f () ->
+  unwrapApplicative $
+    traverseTable (\(ExprColumn (Expr e)) -> ExprColumn . Expr <$> WrapApplicative (f (Nothing, e))) x
 
 
 aggregateAllExprs :: Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
-aggregateAllExprs op (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll op a []
+aggregateAllExprs = aggregateSomeExprs Opaleye.AggrAll
+
+
+aggregateDistinctExprs :: Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
+aggregateDistinctExprs = aggregateSomeExprs Opaleye.AggrDistinct
+
+
+aggregateSomeExprs :: Opaleye.AggrDistinct -> Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
+aggregateSomeExprs which op (Expr a) = 
+  Aggregate $ 
+    Opaleye.Aggregator $
+      Opaleye.PackMap \f () ->
+        Expr <$> f (Just (op, [], which), a)
 
 
 -- | Corresponds to @bool_and@.
 boolAnd :: Expr Bool -> Aggregate (Expr Bool)
-boolAnd (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolAnd a []
+boolAnd = aggregateAllExprs Opaleye.AggrBoolAnd 
 
 
 -- | Corresponds to @bool_or@.
 boolOr :: Expr Bool -> Aggregate (Expr Bool)
-boolOr (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrBoolOr a []
+boolOr = aggregateAllExprs Opaleye.AggrBoolOr
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
 count :: Expr a -> Aggregate (Expr Int64)
-count (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrCount a []
+count = aggregateAllExprs Opaleye.AggrCount
 
 
 -- | Corresponds to @COUNT(*)@.
@@ -118,67 +130,15 @@ countStar = count (0 :: Expr Int64)
 -- | Count the number of distinct occurances of a single column. Corresponds to
 -- @COUNT(DISTINCT a)@
 countDistinct :: Expr a -> Aggregate (Expr Int64)
-countDistinct (Expr a) = Aggregate $ Expr $ Opaleye.AggrExpr Opaleye.AggrDistinct Opaleye.AggrCount a []
+countDistinct = aggregateDistinctExprs Opaleye.AggrCount
 
 
-traverseAggrExpr :: Applicative f
-  => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> f Opaleye.PrimExpr)
-  -> Opaleye.PrimExpr
-  -> f Opaleye.PrimExpr
-traverseAggrExpr f = \case
-  Opaleye.AggrExpr a b c d ->
-    f (Just (b, d, a), c)
+arrayAgg :: Expr a -> Aggregate (Expr [a])
+arrayAgg = aggregateAllExprs Opaleye.AggrArr
 
-  Opaleye.AttrExpr symbol ->
-    -- TODO Test me
-    f (Nothing, Opaleye.AttrExpr symbol)
 
-  Opaleye.BaseTableAttrExpr attribute ->
-    -- TODO Test me
-    f (Nothing, Opaleye.BaseTableAttrExpr attribute)
-
-  Opaleye.CompositeExpr primExpr x ->
-    Opaleye.CompositeExpr <$> traverseAggrExpr f primExpr <*> pure x
-
-  Opaleye.BinExpr x primExpr1 primExpr2 ->
-    Opaleye.BinExpr x <$> traverseAggrExpr f primExpr1 <*> traverseAggrExpr f primExpr2
-
-  Opaleye.UnExpr x primExpr ->
-    Opaleye.UnExpr x <$> traverseAggrExpr f primExpr
-
-  Opaleye.CaseExpr cases def ->
-    Opaleye.CaseExpr <$> traverse (traverseBoth (traverseAggrExpr f)) cases <*> traverseAggrExpr f def
-    where traverseBoth g (x, y) = (,) <$> g x <*> g y
-
-  Opaleye.ListExpr elems ->
-    Opaleye.ListExpr <$> traverse (traverseAggrExpr f) elems
-
-  Opaleye.ParamExpr p primExpr ->
-    Opaleye.ParamExpr p <$> traverseAggrExpr f primExpr
-
-  Opaleye.FunExpr name params ->
-    Opaleye.FunExpr name <$> traverse (traverseAggrExpr f) params
-
-  Opaleye.CastExpr t primExpr ->
-    Opaleye.CastExpr t <$> traverseAggrExpr f primExpr
-
-  Opaleye.ArrayExpr elems ->
-    Opaleye.ArrayExpr <$> traverse (traverseAggrExpr f) elems
-
-  Opaleye.RangeExpr a b c ->
-    Opaleye.RangeExpr a <$> traverseBoundExpr (traverseAggrExpr f) b <*> traverseBoundExpr (traverseAggrExpr f) c
-    where
-      traverseBoundExpr g = \case
-        Opaleye.Inclusive primExpr -> Opaleye.Inclusive <$> g primExpr
-        Opaleye.Exclusive primExpr -> Opaleye.Exclusive <$> g primExpr
-        other                      -> pure other
-
-  Opaleye.ArrayIndex x i ->
-    Opaleye.ArrayIndex <$> traverseAggrExpr f x <*> traverseAggrExpr f i
-
-  other ->
-    -- All other constructors that don't contain any PrimExpr's.
-    pure other
+nonEmptyArrayAgg :: Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyArrayAgg = aggregateAllExprs Opaleye.AggrArr
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
@@ -197,23 +157,23 @@ traverseAggrExpr f = \case
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
-listAgg = Aggregate . ListTable . HMapTable . hmap (Precompose . go) . toColumns
+listAgg :: forall exprs. Table Expr exprs => exprs -> Aggregate (ListTable exprs)
+listAgg exprs = fmap ListTable $ sequenceAggregate $ htabulate f
   where
-    go :: Column Expr ('Meta d a) -> Column Expr ('Meta d [a])
-    go (ExprColumn (Expr a)) =
-      ExprColumn $ Expr $
-        Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
+    f :: forall x. HField (HMapTable ListOf (Columns exprs)) x -> Column Aggregate x
+    f (HMapTableField i) =
+      case hfield (toColumns exprs) i of 
+        ExprColumn e -> AggregateColumn $ ExprColumn <$> arrayAgg e
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
-nonEmptyAgg = Aggregate . NonEmptyTable . HMapTable . hmap (Precompose . go) . toColumns
+nonEmptyAgg :: forall exprs. Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg exprs = fmap NonEmptyTable $ sequenceAggregate $ htabulate f
   where
-    go :: Column Expr ('Meta d a) -> Column Expr ('Meta d (NonEmpty a))
-    go (ExprColumn (Expr a)) =
-      ExprColumn $ Expr $ Opaleye.FunExpr "row" [Opaleye.AggrExpr Opaleye.AggrAll Opaleye.AggrArr a []]
-
+    f :: forall x. HField (HMapTable NonEmptyList (Columns exprs)) x -> Column Aggregate x
+    f (HMapTableField i) =
+      case hfield (toColumns exprs) i of 
+        ExprColumn e -> AggregateColumn $ ExprColumn <$> nonEmptyArrayAgg e
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
 -- 0 rows, this function will produce a 'Query' that is empty - that is, will
@@ -241,6 +201,8 @@ many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 class (Table Aggregate aggregates, Table Expr exprs, Congruent aggregates exprs) => SequenceAggregate aggregates exprs | aggregates -> exprs
 
 
+instance (HTable c, c ~ c', a ~ Column Aggregate, a' ~ Column Expr) => SequenceAggregate (c a) (c' a')
+
+
 sequenceAggregate :: SequenceAggregate aggregates exprs => aggregates -> Aggregate exprs
-sequenceAggregate = traverseTable \case
-  AggregateColumn a -> a
+sequenceAggregate = traverseTable fromAggregateColumn

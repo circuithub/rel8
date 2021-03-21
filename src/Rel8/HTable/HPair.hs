@@ -13,10 +13,10 @@ import GHC.Generics ( Generic )
 
 -- rel8
 import Rel8.Context ( Meta )
-import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ), HAllColumns )
+import Rel8.HTable ( HAllColumns, HTable( HField, hfield, htabulate, htraverse, hdbtype ) )
 
 -- semigroupoids
-import Data.Functor.Apply ((<.>))
+import Data.Functor.Apply ( (<.>) )
 
 
 -- | Pair two higher-kinded tables. This is primarily used to facilitate

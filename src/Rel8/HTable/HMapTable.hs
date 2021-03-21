@@ -1,31 +1,31 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
+{-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.HTable.HMapTable ( HMapTable(..), Exp, Eval, MapInfo(..), Precompose(..), HMapTableField(..) ) where
 
 -- base
 
 -- base
-import Data.Kind ( Type, Constraint )
+import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Column, Meta )
-import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse, HAllColumns )
+import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hfield, htabulate, htraverse )
 import Rel8.Info ( Info )
 
 -- semigroupoids
-import Data.Functor.Apply (Apply)
+import Data.Functor.Apply ( Apply )
 
 
 type Exp :: Type -> Type
@@ -48,6 +48,7 @@ newtype Precompose :: (Meta -> Exp Meta) -> (Meta -> Type) -> Meta -> Type where
 data HMapTableField :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> Meta -> Type where
   HMapTableField :: HField t a -> HMapTableField f t (Eval (f a))
 
+
 instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
   type HField (HMapTable f t) = HMapTableField f t
 
@@ -66,7 +67,7 @@ instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
       go :: forall x. Precompose f g x -> m (Precompose f h x)
       go (Precompose a) = Precompose <$> f a
 
-  hdbtype = HMapTable $ htabulate \i -> 
+  hdbtype = HMapTable $ htabulate \i ->
     case hfield (hdbtype @t) i of
       x -> Precompose (mapInfo @f x)
 
