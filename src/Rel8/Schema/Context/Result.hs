@@ -13,6 +13,7 @@ module Rel8.Schema.Context.Result
 where
 
 -- base
+import Data.Functor ( ($>) )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( null )
 
@@ -99,8 +100,10 @@ toHMaybeTable = maybe hnothing hjust
 
 fromHMaybeTable :: HTable t => HMaybeTable t (H Result) -> Maybe (t (H Result))
 fromHMaybeTable HMaybeTable {htag, hjust} = case htag of
-  HIdentity (Result (NullableValue tag)) ->
-    tag *> hunnullify unnullifier hjust
+  HIdentity (Result (NullableValue tag)) -> tag $>
+    case hunnullify unnullifier hjust of
+      Nothing -> error "fromHMaybeTable: mismatch between tag and data"
+      Just just -> just
 {-# INLINABLE fromHMaybeTable #-}
 
 
