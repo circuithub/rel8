@@ -1,56 +1,118 @@
-{-# LANGUAGE DerivingStrategies #-}
+{-# language BlockArguments #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
+{-# language DerivingStrategies #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language QuasiQuotes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
-{-# options -Weverything -Wno-prepositive-qualified-module -Wno-unsafe -Wno-missing-import-lists -Wno-missing-safe-haskell-mode -Wno-implicit-prelude #-}
+{-# options_ghc -fno-warn-redundant-constraints #-}
 
-module Main (main) where
+module Main
+  ( main
+  )
+where
 
+-- base
 import Control.Applicative ( liftA2, liftA3 )
-import Control.Exception.Lifted ( bracket, throwIO, finally )
+import Control.Monad (void)
 import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Control.Monad.Trans.Control ( MonadBaseControl, liftBaseOp_ )
-import qualified Data.ByteString.Lazy
-import Data.CaseInsensitive (mk)
-import Data.Foldable ( for_ )
-import Data.Functor.Identity ( Identity )
-import Data.Function ( on )
-import Data.Int ( Int32, Int64 )
 import Data.Bifunctor ( bimap )
+import Data.Foldable ( for_ )
+import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
-import qualified Data.Map.Strict as Map
 import Data.Maybe ( catMaybes )
-import Data.Scientific ( Scientific )
 import Data.String ( fromString )
-import qualified Data.Text.Lazy
-import Data.Time
-import qualified Data.UUID
-import Database.PostgreSQL.Simple ( Connection, connectPostgreSQL, close, withTransaction, execute_, executeMany, rollback )
-import Database.PostgreSQL.Simple.SqlQQ ( sql )
-import qualified Database.Postgres.Temp as TmpPostgres
+import Data.Word (Word32)
 import GHC.Generics ( Generic )
+
+-- bytestring
+import qualified Data.ByteString.Lazy
+
+-- case-insensitive
+import Data.CaseInsensitive (mk)
+
+-- containers
+import qualified Data.Map.Strict as Map
+
+-- hasql
+import Hasql.Connection ( Connection,  acquire, release )
+import Hasql.Session ( sql, run )
+
+-- hedgehog
 import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import qualified Rel8
+
+-- lifted-base
+import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
+
+-- monad-control
+import Control.Monad.Trans.Control ( MonadBaseControl )
+
+-- rel8
+import qualified Rel8.Expr as Rel8
+import qualified Rel8.Expr.Bool as Rel8
+import qualified Rel8.Expr.Eq as Rel8
+import qualified Rel8.Kind.Nullability as Rel8
+import qualified Rel8.Query.Aggregate as Rel8
+import qualified Rel8.Query.Distinct as Rel8
+import qualified Rel8.Query.Each as Rel8
+import qualified Rel8.Query.Exists as Rel8
+import qualified Rel8.Query.Filter as Rel8
+import qualified Rel8.Query.Limit as Rel8
+import qualified Rel8.Query.Maybe as Rel8
+import qualified Rel8.Query.Null as Rel8
+import qualified Rel8.Query.Set as Rel8
+import qualified Rel8.Query.Values as Rel8
+import qualified Rel8.Schema.Column as Rel8
+import qualified Rel8.Schema.Context as Rel8
+import qualified Rel8.Schema.Generic as Rel8
+import qualified Rel8.Schema.Table as Rel8
+import qualified Rel8.Schema.Value as Rel8
+import qualified Rel8.Statement.Delete as Rel8
+import qualified Rel8.Statement.Insert as Rel8
+import qualified Rel8.Statement.Returning as Rel8
+import qualified Rel8.Statement.Select as Rel8
+import qualified Rel8.Statement.Update as Rel8
+import qualified Rel8.Table.Aggregate as Rel8
+import qualified Rel8.Table.Bool as Rel8
+import qualified Rel8.Table.Eq as Rel8
+import qualified Rel8.Table.Insert as Rel8
+import qualified Rel8.Table.Maybe as Rel8
+import qualified Rel8.Table.Serialize as Rel8
+import qualified Rel8.Type.Eq as Rel8
+
+-- scientific
+import Data.Scientific ( Scientific )
+
+-- tasty
 import Test.Tasty
+
+-- tasty-hedgehog
 import Test.Tasty.Hedgehog ( testProperty )
-import Control.Monad (void)
-import Data.Word (Word32)
+
+-- text
 import Data.Text (Text, pack)
+import qualified Data.Text.Lazy
+
+-- time
+import Data.Time
+
+-- tmp-postgres
+import qualified Database.Postgres.Temp as TmpPostgres
+
+-- uuid
+import qualified Data.UUID
 
 
 main :: IO ()
@@ -72,11 +134,11 @@ tests =
     , testAnd getTestDatabase
     , testOr getTestDatabase
     , testNot getTestDatabase
-    , testIfThenElse getTestDatabase
+    , testBool getTestDatabase
     , testAp getTestDatabase
     , testDBType getTestDatabase
     , testDBEq getTestDatabase
-    -- , TODO testTableEquality getTestDatabase
+    , testTableEquality getTestDatabase
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testCatMaybe getTestDatabase
@@ -96,11 +158,10 @@ tests =
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
-      bracket (connectPostgreSQL (TmpPostgres.toConnectionString db)) close \conn -> void do
-        execute_ conn [sql|
-          CREATE EXTENSION citext;
-          CREATE TABLE test_table ( column1 text not null, column2 bool not null );
-        |]
+      bracket (either (error . show) return =<< acquire (TmpPostgres.toConnectionString db)) release \conn -> void do
+        flip run conn do
+          sql "CREATE EXTENSION citext"
+          sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
 
       return db
 
@@ -112,14 +173,14 @@ databasePropertyTest
   -> (((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ())
   -> IO TmpPostgres.DB -> TestTree
 databasePropertyTest testName f getTestDatabase =
-  withResource connect close $ \c ->
+  withResource connect release $ \c ->
   testProperty testName $ property do
     connection <- liftIO c
     f \g -> test $ rollingBack connection $ g connection
 
   where
 
-    connect = connectPostgreSQL . TmpPostgres.toConnectionString =<< getTestDatabase
+    connect = either (error . show) return =<< acquire . TmpPostgres.toConnectionString =<< getTestDatabase
 
 
 data TestTable f = TestTable
@@ -127,20 +188,20 @@ data TestTable f = TestTable
   , testTableColumn2 :: Rel8.Column f Bool
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
-deriving stock instance Eq (TestTable Identity)
-deriving stock instance Ord (TestTable Identity)
-deriving stock instance Show (TestTable Identity)
+deriving stock instance Eq (TestTable Rel8.Result)
+deriving stock instance Ord (TestTable Rel8.Result)
+deriving stock instance Show (TestTable Rel8.Result)
 
 
-testTableSchema :: Rel8.TableSchema (TestTable Rel8.ColumnSchema)
+testTableSchema :: Rel8.TableSchema (TestTable Rel8.Name)
 testTableSchema =
   Rel8.TableSchema
-    { tableName = "test_table"
-    , tableSchema = Nothing
-    , tableColumns = TestTable
+    { name = "test_table"
+    , schema = Nothing
+    , columns = TestTable
         { testTableColumn1 = "column1"
         , testTableColumn2 = "column2"
         }
@@ -153,15 +214,15 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
 
   transaction \connection -> do
     void do
-      Rel8.insert connection
+      testing Rel8.insert connection
         Rel8.Insert
           { into = testTableSchema
-          , rows = map Rel8.lit rows
+          , rows = map (Rel8.toInsert . Rel8.lit) rows
           , onConflict = Rel8.DoNothing
-          , returning = Rel8.NumberOfRowsInserted
+          , returning = Rel8.NumberOfRowsAffected
           }
 
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.each testTableSchema
 
     sort selected === sort rows
@@ -180,7 +241,7 @@ testWhere_ = databasePropertyTest "WHERE (Rel8.where_)" \transaction -> do
   let expected = filter (\t -> testTableColumn2 t == magicBool) rows
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       t <- Rel8.values $ Rel8.lit <$> rows
       Rel8.where_ $ testTableColumn2 t Rel8.==. Rel8.lit magicBool
       return t
@@ -199,7 +260,7 @@ testFilter = databasePropertyTest "filter" \transaction -> do
   transaction \connection -> do
     let expected = filter testTableColumn2 rows
 
-    selected <- Rel8.select connection
+    selected <- testing Rel8.select connection
       $ Rel8.filter testTableColumn2 =<< Rel8.values (Rel8.lit <$> rows)
 
     sort selected === sort expected
@@ -216,7 +277,7 @@ testLimit = databasePropertyTest "LIMIT (Rel8.limit)" \transaction -> do
   n <- forAll $ Gen.integral (Range.linear 0 10)
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.limit n $ Rel8.values (Rel8.lit <$> rows)
 
     diff (length selected) (<=) (fromIntegral n)
@@ -236,7 +297,7 @@ testUnion = databasePropertyTest "UNION (Rel8.union)" \transaction -> evalM do
   right <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.values (Rel8.lit <$> nub left) `Rel8.union` Rel8.values (Rel8.lit <$> nub right)
 
     sort selected === sort (nub (left ++ right))
@@ -247,7 +308,7 @@ testDistinct = databasePropertyTest "DISTINCT (Rel8.distinct)" \transaction -> d
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection $ Rel8.distinct do
+    selected <- testing Rel8.select connection $ Rel8.distinct do
       Rel8.values (Rel8.lit <$> rows)
 
     sort selected === nub (sort rows)
@@ -262,7 +323,7 @@ testExists = databasePropertyTest "EXISTS (Rel8.exists)" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    exists <- Rel8.select connection $ Rel8.exists $ Rel8.values $ Rel8.lit <$> rows
+    exists <- testing Rel8.select connection $ Rel8.exists $ Rel8.values $ Rel8.lit <$> rows
 
     case rows of
       [] -> exists === [False]
@@ -274,13 +335,8 @@ testOptional = databasePropertyTest "Rel8.optional" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    void $ liftIO do
-      executeMany connection
-        [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-        [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
-
-    selected <- Rel8.select connection do
-      Rel8.optional $ Rel8.each testTableSchema
+    selected <- testing Rel8.select connection do
+      Rel8.optional $ Rel8.values (Rel8.lit <$> rows)
 
     case rows of
       [] -> selected === [Nothing]
@@ -292,7 +348,7 @@ testAnd = databasePropertyTest "AND (&&.)" \transaction -> do
   (x, y) <- forAll $ liftA2 (,) Gen.bool Gen.bool
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $
+    [result] <- testing Rel8.select connection $ pure $
       Rel8.lit x Rel8.&&. Rel8.lit y
 
     result === (x && y)
@@ -303,7 +359,7 @@ testOr = databasePropertyTest "OR (||.)" \transaction -> do
   (x, y) <- forAll $ liftA2 (,) Gen.bool Gen.bool
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $
+    [result] <- testing Rel8.select connection $ pure $
       Rel8.lit x Rel8.||. Rel8.lit y
 
     result === (x || y)
@@ -314,7 +370,7 @@ testLogicalFixities = databasePropertyTest "Logical operator fixities" \transact
   (u, v, w, x) <- forAll $ (,,,) <$> Gen.bool <*> Gen.bool <*> Gen.bool <*> Gen.bool
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $
+    [result] <- testing Rel8.select connection $ pure $
       Rel8.lit u Rel8.||. Rel8.lit v Rel8.&&. Rel8.lit w Rel8.==. Rel8.lit x
 
     result === (u || v && w == x)
@@ -325,19 +381,19 @@ testNot = databasePropertyTest "NOT (not_)" \transaction -> do
   x <- forAll Gen.bool
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $
+    [result] <- testing Rel8.select connection $ pure $
       Rel8.not_ $ Rel8.lit x
 
     result === not x
 
 
-testIfThenElse :: IO TmpPostgres.DB -> TestTree
-testIfThenElse = databasePropertyTest "ifThenElse_" \transaction -> do
+testBool :: IO TmpPostgres.DB -> TestTree
+testBool = databasePropertyTest "ifThenElse_" \transaction -> do
   (x, y, z) <- forAll $ liftA3 (,,) Gen.bool Gen.bool Gen.bool
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $
-      Rel8.ifThenElse_ (Rel8.lit x) (Rel8.lit y) (Rel8.lit z)
+    [result] <- testing Rel8.select connection $ pure $
+      Rel8.bool (Rel8.lit z) (Rel8.lit y) (Rel8.lit x)
 
     result === if x then y else z
 
@@ -350,7 +406,7 @@ testAp = databasePropertyTest "Cartesian product (<*>)" \transaction -> do
       (Gen.list (Range.linear 1 10) genTestTable)
 
   transaction \connection -> do
-    result <- Rel8.select connection $ do
+    result <- testing Rel8.select connection $ do
       liftA2 (,) (Rel8.values (Rel8.lit <$> rows1)) (Rel8.values (Rel8.lit <$> rows2))
 
     sort result === sort (liftA2 (,) rows1 rows2)
@@ -375,33 +431,37 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
-  , dbTypeTestEq ((==) `on` zonedTimeToUTC) "ZonedTime" $ ZonedTime <$> genLocalTime <*> genTimeZone
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.DBType a, Rel8.ExprFor (Rel8.Expr a) a, Show a) => TestName -> Gen a -> TestTree
+    dbTypeTest ::
+      ( Eq a, Show a
+      , ' ('Rel8.NonNullable, a) ~ Rel8.ToValue a
+      , Rel8.Serializable (Rel8.Expr 'Rel8.NonNullable a) a
+      , Rel8.Serializable (Rel8.Expr 'Rel8.Nullable a) (Maybe a)
+      )
+      => TestName
+      -> Gen a
+      -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    dbTypeTestEq f name generator = testGroup name
-      [ databasePropertyTest name (t f generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (maybeEq f) (Gen.maybe generator)) getTestDatabase
-      ]
-
-    maybeEq :: (x -> y -> Bool) -> Maybe x -> Maybe y -> Bool
-    maybeEq _ Nothing Nothing = True
-    maybeEq _ Just{} Nothing = False
-    maybeEq _ Nothing Just{} = False
-    maybeEq f (Just x) (Just y) = f x y
-
-    t :: forall a b. (Rel8.DBType a, Show a, Rel8.ExprFor (Rel8.Expr a) a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b nullability value.
+      ( Show a
+      , '(nullability, value) ~ Rel8.ToValue a
+      , Rel8.Serializable (Rel8.Expr nullability value) a
+      )
+      => (a -> a -> Bool)
+      -> Gen a
+      -> ((Connection -> TestT IO ()) -> PropertyT IO b)
+      -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
       transaction \connection -> do
-        [res] <- Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr a)
+        [res] <- testing Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr nullability value)
         diff res eq x
 
     genDay :: Gen Day
@@ -423,9 +483,6 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genLocalTime = LocalTime <$> genDay <*> genTimeOfDay
 
-    genTimeZone :: Gen TimeZone
-    genTimeZone = hoursToTimeZone <$> Gen.integral (Range.linear (-6) 6)
-
     genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
 
@@ -439,36 +496,54 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest :: (Eq a, Show a, Rel8.ExprFor (Rel8.Expr a) a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
+    dbEqTest ::
+      ( Eq a, Show a, Rel8.DBEq a
+      , ' ('Rel8.NonNullable, a) ~ Rel8.ToValue a
+      , Rel8.Serializable (Rel8.Expr 'Rel8.NonNullable a) a
+      , Rel8.Serializable (Rel8.Expr 'Rel8.Nullable a) (Maybe a)
+      )
+      => TestName
+      -> Gen a
+      -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a. (Eq a, Show a, Rel8.DBEq a, Rel8.ExprFor (Rel8.Expr a) a) => Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO ()) -> PropertyT IO ()
+    t :: forall a nullability value.
+      ( Eq a
+      , Show a
+      , '(nullability, value) ~ Rel8.ToValue a
+      , Rel8.Serializable (Rel8.Expr nullability value) a
+      , Rel8.KnownNullability nullability
+      , Rel8.DBEq value
+      )
+      => Gen a
+      -> ((Connection -> TestT IO ()) -> PropertyT IO ())
+      -> PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
       transaction \connection -> do
-        [res] <- Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr a) x Rel8.==. Rel8.lit y
+        [res] <- testing Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr nullability value) x Rel8.==. Rel8.lit y
         res === (x == y)
 
         cover 1 "Equal" $ x == y
         cover 1 "Not Equal" $ x /= y
 
 
--- testTableEquality :: IO TmpPostgres.DB -> TestTree
--- testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
---   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
+testTableEquality :: IO TmpPostgres.DB -> TestTree
+testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
+   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
 
---   transaction \connection -> do
---     [eq] <- Rel8.select connection do
---       pure $ Rel8.lit x Rel8.==. Rel8.lit y
+   transaction \connection -> do
+     [eq] <- testing Rel8.select connection do
+       pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
---     eq === (x == y)
+     eq === (x == y)
 
---     cover 1 "Equal" $ x == y
---     cover 1 "Not Equal" $ x /= y
+     cover 1 "Equal" $ x == y
+     cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
@@ -476,7 +551,7 @@ testFromString = databasePropertyTest "FromString" \transaction -> do
   str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
 
   transaction \connection -> do
-    [result] <- Rel8.select connection $ pure $ fromString str
+    [result] <- testing Rel8.select connection $ pure $ fromString str
     result === pack str
 
 
@@ -485,9 +560,9 @@ testCatMaybeTable = databasePropertyTest "catMaybeTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       testTable <- Rel8.values $ Rel8.lit <$> rows
-      Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.noTable
+      Rel8.catMaybeTable $ Rel8.bool Rel8.nothingTable (pure testTable) (testTableColumn2 testTable)
 
     sort selected === sort (filter testTableColumn2 rows)
 
@@ -497,8 +572,8 @@ testCatMaybe = databasePropertyTest "catMaybe" \transaction -> evalM do
   rows <- forAll $ Gen.list (Range.linear 0 10) $ Gen.maybe Gen.bool
 
   transaction \connection -> do
-    selected <- evalM $ Rel8.select connection do
-      Rel8.catMaybe =<< Rel8.values (map Rel8.lit rows)
+    selected <- evalM $ testing Rel8.select connection do
+      Rel8.catNullable =<< Rel8.values (map Rel8.lit rows)
 
     sort selected === sort (catMaybes rows)
 
@@ -508,12 +583,8 @@ testMaybeTable = databasePropertyTest "maybeTable" \transaction -> evalM do
   (rows, def) <- forAll $ liftA2 (,) (Gen.list (Range.linear 0 10) genTestTable) genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ executeMany connection
-      [sql| INSERT INTO test_table (column1, column2) VALUES (?, ?) |]
-      [ ( testTableColumn1, testTableColumn2 ) | TestTable{..} <- rows ]
-
-    selected <- Rel8.select connection $
-      Rel8.maybeTable (Rel8.lit def) id <$> Rel8.optional (Rel8.each testTableSchema)
+    selected <- testing Rel8.select connection $
+      Rel8.maybeTable (Rel8.lit def) id <$> Rel8.optional (Rel8.values (Rel8.lit <$> rows))
 
     case rows of
       [] -> selected === [def]
@@ -526,12 +597,12 @@ data TwoTestTables f =
     , testTable2 :: TestTable f
     }
   deriving stock Generic 
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
-deriving stock instance Eq (TwoTestTables Identity)
-deriving stock instance Ord (TwoTestTables Identity)
-deriving stock instance Show (TwoTestTables Identity)
+deriving stock instance Eq (TwoTestTables Rel8.Result)
+deriving stock instance Ord (TwoTestTables Rel8.Result)
+deriving stock instance Show (TwoTestTables Rel8.Result)
 
 
 testNestedTables :: IO TmpPostgres.DB -> TestTree
@@ -541,7 +612,7 @@ testNestedTables = databasePropertyTest "Nested TestTables" \transaction -> eval
       liftA2 TwoTestTables genTestTable genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.values (Rel8.lit <$> rows)
 
     sort selected === sort rows
@@ -553,7 +624,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
   rows2 <- genRows
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       as <- Rel8.optional (Rel8.values (Rel8.lit <$> rows1))
       bs <- Rel8.optional (Rel8.values (Rel8.lit <$> rows2))
       pure $ liftA2 (,) as bs
@@ -564,19 +635,20 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
       (as, []) -> selected === (Nothing <$ as)
       (as, bs) -> sort selected === sort (Just <$> liftA2 (,) as bs)
   where
-    genRows :: PropertyT IO [TestTable Identity]
+    genRows :: PropertyT IO [TestTable Rel8.Result]
     genRows = forAll do
       Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
 
 rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
-rollingBack connection m =
-  liftBaseOp_ (withTransaction connection) do
-    m `finally` liftIO (rollback connection)
+rollingBack connection =
+  bracket_ 
+    (liftIO (run (sql "BEGIN") connection)) 
+    (liftIO (run (sql "ROLLBACK") connection))
 
 
-genTestTable :: Gen (TestTable Identity)
+genTestTable :: Gen (TestTable Rel8.Result)
 genTestTable = do
   testTableColumn1 <- Gen.text (Range.linear 0 5) Gen.alphaNum
   testTableColumn2 <- Gen.bool
@@ -588,15 +660,15 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
   rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    void $Rel8.insert connection
+    void $ testing Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit $ Map.keys rows
+        , rows = map (Rel8.toInsert . Rel8.lit) $ Map.keys rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
-    void $ Rel8.update connection
+    void $ testing Rel8.update connection
       Rel8.Update
         { target = testTableSchema
         , set = \r ->
@@ -604,20 +676,20 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
             in
             foldl
               ( \e (x, y) ->
-                  Rel8.ifThenElse_
+                  Rel8.bool
+                    e
+                    y
                     ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
                       testTableColumn2 r Rel8.==. testTableColumn2 x
                     )
-                    y
-                    e
               )
               r
               updates
         , updateWhere = \_ -> Rel8.lit True
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.each testTableSchema
 
     sort selected === sort (Map.elems rows)
@@ -632,23 +704,23 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
 
   transaction \connection -> do
-    void $ Rel8.insert connection
+    void $ testing Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit rows
+        , rows = map (Rel8.toInsert . Rel8.lit) rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsInserted
+        , returning = Rel8.NumberOfRowsAffected
         }
 
     deleted <-
-      Rel8.delete connection
+      testing Rel8.delete connection
         Rel8.Delete
           { from = testTableSchema
           , deleteWhere = testTableColumn2
           , returning = Rel8.Projection id
           }
 
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.each testTableSchema
 
     sort (deleted <> selected) === sort rows
@@ -656,11 +728,11 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
-deriving stock instance Eq (HKNestedPair Identity)
-deriving stock instance Ord (HKNestedPair Identity)
-deriving stock instance Show (HKNestedPair Identity)
+deriving stock instance Eq (HKNestedPair Rel8.Result)
+deriving stock instance Ord (HKNestedPair Rel8.Result)
+deriving stock instance Show (HKNestedPair Rel8.Result)
 
 
 testSelectNestedPairs :: IO TmpPostgres.DB -> TestTree
@@ -668,7 +740,7 @@ testSelectNestedPairs = databasePropertyTest "Can SELECT nested pairs" \transact
   rows <- forAll $ Gen.list (Range.linear 0 10) $ HKNestedPair <$> liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       Rel8.values $ map Rel8.lit rows
 
     sort selected === sort rows
@@ -679,7 +751,7 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
   rows <- forAll $ Gen.list (Range.linear 1 10) Gen.bool
 
   transaction \connection -> do
-    selected <- Rel8.select connection $ Rel8.aggregate do
+    selected <- testing Rel8.select connection $ Rel8.aggregate do
       Rel8.listAgg <$> Rel8.values (map Rel8.lit rows)
 
     selected === [foldMap pure rows]
@@ -690,12 +762,12 @@ data NestedMaybeTable f = NestedMaybeTable
   , nmt2 :: Rel8.HMaybe f (TestTable f)
   }
   deriving stock Generic
-  deriving anyclass Rel8.GHigherKindedTable
+  deriving anyclass Rel8.Rel8able
 
 
-deriving stock instance Eq (NestedMaybeTable Identity)
-deriving stock instance Ord (NestedMaybeTable Identity)
-deriving stock instance Show (NestedMaybeTable Identity)
+deriving stock instance Eq (NestedMaybeTable Rel8.Result)
+deriving stock instance Ord (NestedMaybeTable Rel8.Result)
+deriving stock instance Show (NestedMaybeTable Rel8.Result)
 
 
 testNestedMaybeTable :: IO TmpPostgres.DB -> TestTree
@@ -703,9 +775,12 @@ testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other ta
   let example = NestedMaybeTable { nmt1 = True, nmt2 = Just (TestTable "Hi" True) }
 
   transaction \connection -> do
-    selected <- Rel8.select connection do
+    selected <- testing Rel8.select connection do
       x <- Rel8.values [Rel8.lit example]
       pure $ Rel8.maybeTable (Rel8.lit False) (\_ -> Rel8.lit True) (nmt2 x)
 
     selected === [True]
 
+
+testing :: MonadIO m => (a -> Connection -> IO b) -> Connection -> a -> m b
+testing f connection a = liftIO $ f a connection
