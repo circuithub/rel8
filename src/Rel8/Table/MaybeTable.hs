@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DeriveFunctor #-}
@@ -41,7 +43,7 @@ import Prelude
   , (=<<)
   , const
   , error
-  , id
+  , Eq, Ord, Read, Show, Enum, Bounded, Monoid, Either (Right, Left), (<>), mempty
   )
 
 -- rel8
@@ -53,13 +55,17 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ), Defaulting( NoDefault ) )
-import Rel8.DBType.DBEq ( (==.) )
+import Rel8.DBType.DBEq ( (==.), DBEq )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
-import Rel8.Expr.Bool ( (&&.), ifThenElse_, not_ )
-import Rel8.Expr.Null ( isNull, isNull, null )
-import Rel8.Expr.Opaleye ( litExpr, litExprWith )
+import Rel8.Expr.Opaleye
+    ( fromPrimExpr,
+      toPrimExpr,
+      unsafeCoerceExpr,
+      litExpr,
+      litExprWith )
+import Rel8.Expr.Bool ( ifThenElse_, not_ )
+import Rel8.Expr.Null ( isNull, isNull)
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
@@ -77,6 +83,12 @@ import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 import qualified Rel8.Table.Bool as T
 import Rel8.Table.Opaleye ( unpackspec )
+import Data.Semigroup ( Semigroup, Min(Min) )
+import Rel8.DBType.DBOrd (DBOrd)
+import Rel8.DBType (DBType( typeInformation ))
+import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
+import Rel8.DBType.DBMonoid ( DBMonoid(memptyExpr) )
+import Rel8.DatabaseType (parseDatabaseType)
 
 
 -- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If
@@ -91,7 +103,7 @@ data MaybeTable t where
   MaybeTable
     :: { -- | Check if this @MaybeTable@ is null. In other words, check if an outer
          -- join matched any rows.
-         nullTag :: Expr (Maybe Bool)
+         nullTag :: Expr (Maybe MaybeTag)
        , table :: t
        }
     -> MaybeTable t
@@ -101,14 +113,14 @@ data MaybeTable t where
 -- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
 -- 'traverseMaybeTable'.
 instance Applicative MaybeTable where
-  pure = MaybeTable (litExpr (Just True))
-  MaybeTable t f <*> MaybeTable t' a = MaybeTable (liftOpNull (&&.) t t') (f a)
+  pure = MaybeTable (litExpr mempty)
+  MaybeTable t f <*> MaybeTable t' a = MaybeTable (t <> t') (f a)
 
 
 -- | Has the same behavior as the @Monad@ instance for @Maybe@. See also: 'bindMaybeTable'.
 instance Monad MaybeTable where
   MaybeTable t a >>= f = case f a of
-    MaybeTable t' b -> MaybeTable (liftOpNull (&&.) t t') b
+    MaybeTable t' b -> MaybeTable (t <> t') b
 
 
 instance Table Expr a => Table Expr (MaybeTable a) where
@@ -125,14 +137,14 @@ instance Table Expr a => Table Expr (MaybeTable a) where
           InfoColumn (NotNull _) ->
             ExprColumn $
             ifThenElse_
-              (x ==. lit (Just True))
+              (x ==. lit (Just IsJust))
               (unsafeCoerceExpr (fromExprColumn (hfield (toColumns y) i)))
               (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
 
           InfoColumn (Null _) ->
             ExprColumn $
             ifThenElse_
-              (x ==. lit (Just True))
+              (x ==. lit (Just IsJust))
               (fromExprColumn (hfield (toColumns y) i))
               (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
 
@@ -143,7 +155,7 @@ instance Table Expr a => Table Expr (MaybeTable a) where
 instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
   pack HMaybeTable{ hnullTag = HIdentity (I nullTag), htable = HMapTable t } =
     case nullTag of
-      Just True -> Just $ pack @a $ htabulate \i ->
+      Just IsJust -> Just $ pack @a $ htabulate \i ->
         case hfield hdbtype i of
           InfoColumn (NotNull _) ->
             case hfield t i of
@@ -158,7 +170,7 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
 
   unpack = \case
     Just a -> HMaybeTable
-      { hnullTag = HIdentity (I (Just True))
+      { hnullTag = HIdentity (I (Just IsJust))
       , htable = htabulateMeta \(HMapTableField i) ->
           case hfield hdbtype i of
             InfoColumn (NotNull _) -> I $ Just $ unI $ hfield unpacked i
@@ -206,7 +218,7 @@ instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
 bindMaybeTable :: (a -> Query (MaybeTable b)) -> MaybeTable a -> Query (MaybeTable b)
 bindMaybeTable query (MaybeTable input a) = do
   MaybeTable output b <- query a
-  return $ MaybeTable (liftOpNull (&&.) input output) b
+  return $ MaybeTable (input <> output) b
 
 
 -- | Extend an optional query with another query.  This is useful if you want
@@ -302,7 +314,7 @@ maybeTable
   :: Table Expr b
   => b -> (a -> b) -> MaybeTable a -> b
 maybeTable def f MaybeTable{ nullTag, table } =
-  T.ifThenElse_ (null (lit False) id nullTag) (f table) def
+  T.ifThenElse_ (nullTag ==. lit (Just IsJust)) (f table) def
 
 
 isNothingTable :: MaybeTable a -> Expr Bool
@@ -333,14 +345,14 @@ instance MapInfo MakeNull where
 
 
 data HMaybeTable g f = HMaybeTable
-  { hnullTag :: HIdentity ('Meta 'NoDefault (Maybe Bool)) f
+  { hnullTag :: HIdentity ('Meta 'NoDefault (Maybe MaybeTag)) f
   , htable :: HMapTable MakeNull g f
   }
   deriving stock Generic
 
 
 data HMaybeField g a where
-  HNullTag :: HMaybeField g ('Meta 'NoDefault (Maybe Bool))
+  HNullTag :: HMaybeField g ('Meta 'NoDefault (Maybe MaybeTag))
   HMaybeField :: HField (HMapTable MakeNull g) a -> HMaybeField g a
 
 
@@ -357,3 +369,25 @@ instance HTable g => HTable (HMaybeTable g) where
     HMaybeTable <$> htraverse f hnullTag <*> htraverse f htable
 
   hdbtype = HMaybeTable hdbtype hdbtype
+
+
+data MaybeTag = IsJust
+  deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
+  deriving (Semigroup, Monoid) via (Min MaybeTag)
+  deriving anyclass (DBEq, DBOrd)
+
+
+instance DBType MaybeTag where
+  typeInformation = parseDatabaseType to from typeInformation
+    where
+      to False = Left "MaybeTag can't be false"
+      to True = Right IsJust
+      from _ = True
+
+
+instance DBSemigroup MaybeTag where
+  _ <>. _ = lit IsJust
+
+
+instance DBMonoid MaybeTag where
+  memptyExpr = lit IsJust
