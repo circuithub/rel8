@@ -18,8 +18,9 @@ module Rel8.Table.ListTable ( ListTable( ListTable ), ListOf ) where
 -- rel8
 import Rel8.Context ( Column( I ), Meta( Meta ), unI )
 import Rel8.DatabaseType ( listOfNotNull, listOfNull )
-import Rel8.Expr ( Column( ExprColumn, fromExprColumn ), Expr, binaryOperator )
-import Rel8.Expr.Opaleye ( litExprWith )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( litExprWith, binaryOperator )
 import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable
   ( Eval

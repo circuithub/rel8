@@ -205,7 +205,6 @@ module Rel8
   , Inserts
   , OnConflict(..)
   , insert
-  , defaultValue
   , insertExprs
 
     -- ** @DELETE@
@@ -227,7 +226,6 @@ module Rel8
 import Prelude ()
 
 -- rel8
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Aggregate
   ( Aggregate
   , aggregate
@@ -257,17 +255,11 @@ import Rel8.DatabaseType
   , mapDatabaseType
   , parseDatabaseType
   )
-import Rel8.Expr
-  ( Expr( Expr )
-  , binaryOperator
-  , liftOpNull
-  , unsafeCastExpr
-  , unsafeCoerceExpr
-  )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
 import Rel8.Expr.Null ( catMaybe, fromNull, isNull, liftNull, mapNull, null, nullExpr )
-import Rel8.Expr.Opaleye ( unsafeLiteral )
-import Rel8.Function ( Function, function, nullaryFunction )
+import Rel8.Expr.Opaleye ( unsafeLiteral, unsafeCastExpr, unsafeCoerceExpr, liftOpNull )
+import Rel8.Expr.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable, ColumnWithDefault )
 import Rel8.HTable ( HTable )
 import Rel8.Info ( HasInfo, Nullify )
@@ -317,6 +309,7 @@ import Rel8.Table.NonEmptyTable ( NonEmptyTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema( TableSchema, tableName, tableSchema, tableColumns ) )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
+import Rel8.Expr.Opaleye ( binaryOperator )
 
 
 -- $setup
@@ -675,10 +668,3 @@ import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
 -- ("Ollie",["rel8"])
 -- ("Bryan O'Sullivan",["aeson","text"])
 -- ("Emily Pillmore",[])
-
-
--- | Corresponds to the SQL @DEFAULT@ keyword.
---
--- Use with care, as Rel8 will not check that @DEFAULT@ can actually be used!
-defaultValue :: Expr a
-defaultValue = Expr Opaleye.DefaultInsertExpr

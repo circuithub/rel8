@@ -33,7 +33,8 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
-import Rel8.Expr ( Column( ExprColumn ), Expr( Expr ) )
+import Rel8.Expr.Instances ( Column( ExprColumn ) )
+import Rel8.Expr ( Expr( Expr ) )
 import Rel8.HTable ( hmap, htraverse )
 import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
 import Rel8.Query ( Query, mapOpaleye )

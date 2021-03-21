@@ -2,9 +2,9 @@
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
 
-module Rel8.Function ( Function, function, nullaryFunction ) where
+module Rel8.Expr.Function ( Function, function, nullaryFunction ) where
 
-import {-# source #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr( Expr ) )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -71,4 +71,3 @@ function = applyArgument . Opaleye.FunExpr
 -- [3.141592653589793]
 nullaryFunction :: String -> Expr a
 nullaryFunction name = Expr (Opaleye.FunExpr name [])
-

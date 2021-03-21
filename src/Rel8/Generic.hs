@@ -27,7 +27,7 @@ import GHC.Generics ( Generic( Rep, from, to ), K1(K1), M1(M1, unM1), type (:*:)
 import Rel8.Context (unI)
 import qualified Rel8.Context as C
 import Rel8.Expr ( Expr )
-import qualified Rel8.Expr as E
+import qualified Rel8.Expr.Instances as E
 import Rel8.HTable ( HTable )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HMapTable ( HMapTable )

@@ -22,7 +22,8 @@ import qualified Hasql.Decoders as Hasql
 -- rel8
 import Rel8.Context ( Column( I, unI, ColumnDecoder ), fromColumnDecoder )
 import Rel8.DBType ( DBType )
-import Rel8.Expr ( Expr, Column( ExprColumn ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Instances ( Column( ExprColumn ) )
 import Rel8.Expr.Opaleye ( litExprWith )
 import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )

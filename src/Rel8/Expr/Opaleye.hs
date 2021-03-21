@@ -6,7 +6,9 @@
 {-# language TypeApplications #-}
 
 module Rel8.Expr.Opaleye
-  ( binExpr
+  ( toPrimExpr
+  , fromPrimExpr
+  , binExpr
   , exprToColumn
   , columnToExpr
   , zipPrimExprsWith
@@ -14,6 +16,12 @@ module Rel8.Expr.Opaleye
   , unsafeLiteral
   , litExprWith
   , litExpr
+  , traversePrimExpr
+  , unsafeCastExpr
+  , binaryOperator
+  , column
+  , unsafeCoerceExpr
+  , liftOpNull
   ) where
 
 -- rel8
@@ -21,7 +29,7 @@ import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
 import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
-import {-# source #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr( Expr, toPrimExpr ) )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
@@ -65,3 +73,48 @@ litExprWith :: Info a -> a -> Expr a
 litExprWith = \case
   NotNull DatabaseType{ encode, typeName } -> Expr . Opaleye.CastExpr typeName . encode
   Null DatabaseType{ encode, typeName }    -> Expr . Opaleye.CastExpr typeName . maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
+
+
+-- | Cast an @Expr@ from one type to another.
+unsafeCastExpr :: String -> Expr a -> Expr b
+unsafeCastExpr t (Expr x) = Expr $ Opaleye.CastExpr t x
+
+
+-- | Unsafely treat an 'Expr' that returns @a@s as returning @b@s.
+unsafeCoerceExpr :: Expr a -> Expr b
+unsafeCoerceExpr (Expr x) = Expr x
+
+
+-- | Construct an expression by applying an infix binary operator to two
+-- operands.
+binaryOperator :: String -> Expr a -> Expr b -> Expr c
+binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
+
+
+-- | Lift a binary operation on non-@null@ expressions to an equivalent binary
+-- operator on possibly @null@ expressions.
+-- 
+-- Similar to @mapNull@, it is assumed that this binary operator will return
+-- @null@ if either of its operands are @null@.
+-- 
+-- >>> select c $ pure $ liftOpNull (&&.) (lit (Just True)) (lit (Just False))
+-- [Just False]
+-- 
+-- >>> select c $ pure $ liftOpNull (&&.) nullExpr (lit (Just False))
+-- [Nothing]
+-- 
+-- This function can be thought of like 'liftA2'.
+liftOpNull :: (Expr a -> Expr b -> Expr c) -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
+liftOpNull f a b = unsafeCoerceExpr (f (unsafeCoerceExpr a) (unsafeCoerceExpr b))
+
+
+column :: String -> Expr a
+column columnName =
+  Expr ( Opaleye.BaseTableAttrExpr columnName )
+
+
+traversePrimExpr
+  :: Applicative f
+  => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr a -> f ( Expr a )
+traversePrimExpr f =
+  fmap fromPrimExpr . f . toPrimExpr

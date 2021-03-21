@@ -38,7 +38,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
 import Rel8.Context ( Column, Context, Defaulting( HasDefault ), Meta( Meta ) )
-import Rel8.Expr ( Column( ExprColumn, fromExprColumn ), Expr, column, fromPrimExpr )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Expr.Opaleye ( column, fromPrimExpr )
 import Rel8.HTable ( hmap )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )

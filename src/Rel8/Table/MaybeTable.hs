@@ -54,8 +54,9 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ), Defaulting( NoDefault ) )
 import Rel8.DBType.DBEq ( (==.) )
-import Rel8.Expr ( Column( ExprColumn, fromExprColumn ) )
-import Rel8.Expr ( Expr, fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( fromPrimExpr, liftOpNull, toPrimExpr, unsafeCoerceExpr )
 import Rel8.Expr.Bool ( (&&.), ifThenElse_, not_ )
 import Rel8.Expr.Null ( isNull, isNull, null )
 import Rel8.Expr.Opaleye ( litExpr, litExprWith )

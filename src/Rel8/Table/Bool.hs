@@ -7,7 +7,9 @@ module Rel8.Table.Bool ( ifThenElse_, case_ ) where
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr ( Column( ExprColumn ), Expr( toPrimExpr ), fromExprColumn, fromPrimExpr )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( toPrimExpr, fromPrimExpr )
 import Rel8.HTable ( hfield, htabulateMeta )
 import Rel8.Table ( Columns, Table, fromColumns, toColumns )
 

@@ -30,7 +30,9 @@ import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy )
-import Rel8.Expr ( Expr( Expr ), fromExprColumn, unsafeCoerceExpr )
+import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Instances ( fromExprColumn )
+import Rel8.Expr.Opaleye ( unsafeCoerceExpr )
 import Rel8.HTable.HIdentity ( HIdentity( unHIdentity ) )
 import Rel8.Info ( HasInfo )
 import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye )

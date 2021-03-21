@@ -21,7 +21,9 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
-import Rel8.Expr ( Expr( toPrimExpr ), column, Column (ExprColumn) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( toPrimExpr, column )
+import Rel8.Expr.Instances ( Column (ExprColumn) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Table.Congruent ( mapTable )

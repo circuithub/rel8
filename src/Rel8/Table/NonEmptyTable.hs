@@ -22,7 +22,9 @@ import qualified Data.List.NonEmpty as NonEmpty
 -- rel8
 import Rel8.Context ( Meta( Meta ), Column (I), unI )
 import Rel8.DatabaseType ( nonEmptyNotNull, nonEmptyNull )
-import Rel8.Expr ( Expr, binaryOperator, Column( ExprColumn ), fromExprColumn )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( binaryOperator )
+import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
 import Rel8.HTable ( HTable( hfield ), hzipWith, htraverseMeta, htabulateMeta, hdbtype )
 import Rel8.HTable.HMapTable ( Eval, Exp, HMapTable, HMapTableField( HMapTableField ), MapInfo( mapInfo ), precomposed, unHMapTable )
 import Rel8.Info ( Info( NotNull, Null ), Column (InfoColumn) )

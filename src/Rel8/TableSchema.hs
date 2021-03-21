@@ -18,7 +18,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Table as Opaleye
 import Rel8.Context ( Column( ComposedColumn ), decompose )
-import Rel8.Expr ( Column( ExprColumn ), Expr( toPrimExpr ), column, fromExprColumn )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn  ) )
+import Rel8.Expr.Opaleye ( toPrimExpr, column )
 import Rel8.HTable ( hfield, htabulateMeta, htraverseMeta )
 import Rel8.Table ( Table( toColumns ) )
 import Rel8.Table.Congruent ( mapTable )

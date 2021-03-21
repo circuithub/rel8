@@ -12,8 +12,8 @@ import Data.Foldable ( foldl' )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr ( Expr, fromPrimExpr, toPrimExpr )
-import Rel8.Expr.Opaleye ( binExpr, mapPrimExpr )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( binExpr, mapPrimExpr, fromPrimExpr, toPrimExpr )
 import Rel8.Serializable ( lit )
 
 
