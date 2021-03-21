@@ -1,4 +1,3 @@
-{-# language DerivingStrategies #-}
 {-# language DerivingVia #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language NamedFieldPuns #-}

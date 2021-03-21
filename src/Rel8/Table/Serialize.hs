@@ -4,7 +4,6 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
-{-# language MultiParamTypeClasses #-}
 {-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -461,7 +460,7 @@ lit :: forall exprs a. Serializable exprs a => a -> exprs
 lit = fromColumns . litTable . toResults' @exprs
 
 
-parse :: forall a exprs. Serializable exprs a => Hasql.Row a
+parse :: forall exprs a. Serializable exprs a => Hasql.Row a
 parse = fromResults' @exprs <$> parseTable
 
 

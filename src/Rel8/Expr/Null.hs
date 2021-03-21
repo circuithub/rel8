@@ -2,7 +2,6 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language ViewPatterns #-}
 
 module Rel8.Expr.Null
   ( null, snull, nullable, nullableOf

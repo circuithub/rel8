@@ -1,11 +1,8 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language OverloadedStrings #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Type.Monoid
   ( DBMonoid( memptyExpr )

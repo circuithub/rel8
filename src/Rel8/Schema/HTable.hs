@@ -5,7 +5,6 @@
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language LambdaCase #-}
-{-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}

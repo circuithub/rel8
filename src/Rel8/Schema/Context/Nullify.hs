@@ -2,7 +2,6 @@
 {-# language LambdaCase #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}

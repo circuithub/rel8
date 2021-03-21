@@ -1,5 +1,4 @@
 {-# language DataKinds #-}
-{-# language TypeFamilies #-}
 {-# language TypeFamilyDependencies #-}
 {-# language StandaloneKindSignatures #-}
 

@@ -4,7 +4,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Type.Semigroup
   ( DBSemigroup( (<>.))

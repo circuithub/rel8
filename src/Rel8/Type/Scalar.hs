@@ -1,13 +1,6 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language DefaultSignatures #-}
-{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Type.Scalar
   ( DBScalar( scalarInformation )

@@ -1,6 +1,5 @@
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}

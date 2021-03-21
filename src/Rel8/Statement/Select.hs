@@ -40,7 +40,7 @@ select query = case sqlForQuery query of
       statement = Hasql.Statement bytes params decode prepare
       bytes = encodeUtf8 (Text.pack sql)
       params = Hasql.noParams
-      decode = Hasql.rowList (parse @a @exprs)
+      decode = Hasql.rowList (parse @exprs @a)
       prepare = False
 
 
@@ -57,5 +57,5 @@ selectWithNames names query = case sqlForQueryWithNames names query of
       statement = Hasql.Statement bytes params decode prepare
       bytes = encodeUtf8 (Text.pack sql)
       params = Hasql.noParams
-      decode = Hasql.rowList (parse @a @exprs)
+      decode = Hasql.rowList (parse @exprs @a)
       prepare = False

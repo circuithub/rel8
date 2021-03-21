@@ -1,9 +1,7 @@
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
-{-# language DerivingVia #-}
-{-# language DataKinds #-}
-{-# language NamedFieldPuns #-}
+{-# language DerivingStrategies #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.HTable.These

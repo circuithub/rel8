@@ -97,4 +97,4 @@ update Update {target, set, updateWhere, returning} =
   where
     decoder :: forall exprs projection a. Serializable projection a
       => (exprs -> projection) -> Hasql.Result [a]
-    decoder _ = Hasql.rowList (parse @a @projection)
+    decoder _ = Hasql.rowList (parse @projection @a)
