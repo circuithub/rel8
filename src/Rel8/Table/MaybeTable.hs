@@ -113,7 +113,7 @@ data MaybeTable t where
 -- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
 -- 'traverseMaybeTable'.
 instance Applicative MaybeTable where
-  pure = MaybeTable (litExpr mempty)
+  pure = MaybeTable mempty
   MaybeTable t f <*> MaybeTable t' a = MaybeTable (t <> t') (f a)
 
 
