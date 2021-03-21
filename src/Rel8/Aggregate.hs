@@ -1,3 +1,7 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
@@ -21,6 +25,7 @@ module Rel8.Aggregate
   , some
   , many
   , aggregateAllExprs
+  , sequenceAggregate
   ) where
 
 -- base
@@ -42,7 +47,10 @@ import Rel8.Table ( Table( toColumns ), fromColumns )
 import Rel8.Table.ListTable ( ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
-import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
+import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative), Apply )
+import Rel8.Table.Congruent (Congruent, traverseTable)
+import Data.Functor.Identity (Identity( Identity ))
+import Data.Kind (Type)
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -51,15 +59,12 @@ import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicativ
 -- the normal @Applicative@ combinators, or by working in @do@ notation with
 -- @ApplicativeDo@.
 newtype Aggregate a = Aggregate a
+  deriving (Functor, Apply) via Identity
 
 
-instance Functor Aggregate where
-  fmap f (Aggregate a) = Aggregate $ f a
-
-
-instance Applicative Aggregate where
-  pure = Aggregate
-  Aggregate f <*> Aggregate a = Aggregate $ f a
+instance Context Aggregate where
+  data Column Aggregate :: Meta -> Type where
+    AggregateColumn :: Aggregate (Column Expr a) -> Column Aggregate a
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
@@ -77,8 +82,8 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
 -- 'pure', but sometimes being explicit can help the readability of your code.
-groupBy :: a -> Aggregate a
-groupBy = pure
+groupBy :: Table Expr a => a -> Aggregate a
+groupBy = Aggregate
 
 
 aggregateAllExprs :: Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
@@ -226,3 +231,11 @@ some = aggregate . fmap nonEmptyAgg
 -- @Control.Applicative@.
 many :: Table Expr exprs => Query exprs -> Query (ListTable exprs)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
+
+
+class (Table Aggregate aggregates, Table Expr exprs, Congruent aggregates exprs) => SequenceAggregate aggregates exprs | aggregates -> exprs
+
+
+sequenceAggregate :: SequenceAggregate aggregates exprs => aggregates -> Aggregate exprs
+sequenceAggregate = traverseTable \case
+  AggregateColumn a -> a
