@@ -14,7 +14,7 @@
 module Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB, unDB )
-  , Insert( RequiredInsert, OptionalInsert )
+  , Insertion( RequiredInsert, OptionalInsert )
   , Name( Name )
   , Result( Result )
   , IsSpecialContext
@@ -76,22 +76,22 @@ instance
   mempty = DB mempty
 
 
-type Insert :: Context
-data Insert spec where
+type Insertion :: Context
+data Insertion spec where
   RequiredInsert :: ()
     => Expr nullability (ToDBType blueprint)
-    -> Insert ('Spec labels 'Required nullability blueprint)
+    -> Insertion ('Spec labels 'Required nullability blueprint)
   OptionalInsert :: ()
     => Maybe (Expr nullability (ToDBType blueprint))
-    -> Insert ('Spec labels 'Optional nullability blueprint)
-deriving stock instance Show (Insert spec)
+    -> Insertion ('Spec labels 'Optional nullability blueprint)
+deriving stock instance Show (Insertion spec)
 
 
 instance
   ( spec ~ 'Spec labels necessity nullability blueprint
   , DBSemigroup (ToDBType blueprint)
   ) =>
-  Semigroup (Insert spec)
+  Semigroup (Insertion spec)
  where
   RequiredInsert a <> RequiredInsert b = RequiredInsert (a <> b)
   OptionalInsert ma <> OptionalInsert mb = OptionalInsert (liftA2 (<>) ma mb)
@@ -101,7 +101,7 @@ instance
   ( spec ~ 'Spec labels necessity nullability blueprint
   , KnownNecessity necessity
   , DBMonoid (ToDBType blueprint)
-  ) => Monoid (Insert spec)
+  ) => Monoid (Insertion spec)
  where
   mempty = case necessitySing @necessity of
     SRequired -> RequiredInsert mempty
@@ -145,7 +145,7 @@ type IsSpecialContext :: Context -> Bool
 type family IsSpecialContext context where
   IsSpecialContext Aggregation = 'True
   IsSpecialContext DB = 'True
-  IsSpecialContext Insert = 'True
+  IsSpecialContext Insertion = 'True
   IsSpecialContext Result = 'True
   IsSpecialContext Structure = 'True
   IsSpecialContext _ = 'False

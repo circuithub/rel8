@@ -39,7 +39,7 @@ import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
-  , Insert( RequiredInsert, OptionalInsert )
+  , Insertion( RequiredInsert, OptionalInsert )
   , Name( Name )
   )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec )
@@ -99,7 +99,7 @@ instance Nullifiable DB where
   {-# INLINABLE unnullifier #-}
 
 
-instance Nullifiable Insert where
+instance Nullifiable Insertion where
   encodeTag = RequiredInsert
   decodeTag (RequiredInsert a) = a
 

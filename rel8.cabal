@@ -118,12 +118,19 @@ library
     Rel8.Schema.Table
     Rel8.Schema.Value
 
+    Rel8.Statement.Delete
+    Rel8.Statement.Insert
+    Rel8.Statement.Returning
+    Rel8.Statement.Select
+    Rel8.Statement.Update
+
     Rel8.Table
     Rel8.Table.Aggregate
     Rel8.Table.Alternative
     Rel8.Table.Bool
     Rel8.Table.Either
     Rel8.Table.Eq
+    Rel8.Table.Insert
     Rel8.Table.Lifted
     Rel8.Table.List
     Rel8.Table.Map

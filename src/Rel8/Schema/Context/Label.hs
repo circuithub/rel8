@@ -20,7 +20,7 @@ import Prelude hiding ( null )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
-  , Insert( RequiredInsert, OptionalInsert )
+  , Insertion( RequiredInsert, OptionalInsert )
   , Name( Name )
   , Result( Result )
   )
@@ -48,7 +48,7 @@ instance Labelable DB where
   unlabeler (DB a) = DB a
 
 
-instance Labelable Insert where
+instance Labelable Insertion where
   labeler = \case
     RequiredInsert a -> RequiredInsert a
     OptionalInsert ma -> OptionalInsert ma

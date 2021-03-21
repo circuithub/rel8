@@ -48,7 +48,7 @@ import Rel8.Kind.Nullability
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
-  , Insert( RequiredInsert, OptionalInsert )
+  , Insertion( RequiredInsert, OptionalInsert )
   , Result( Result )
   , IsSpecialContext
   )
@@ -127,9 +127,9 @@ instance TableHelper 'True DB where
   gtoColumns = toDBColumns
 
 
-instance TableHelper 'True Insert where
-  gfromColumns = fromInsertColumns
-  gtoColumns = toInsertColumns
+instance TableHelper 'True Insertion where
+  gfromColumns = fromInsertionColumns
+  gtoColumns = toInsertionColumns
 
 
 instance TableHelper 'True Result where
@@ -154,8 +154,8 @@ class HTable (GRep t) => Rel8able t where
   fromDBColumns :: GRep t (H DB) -> t DB
   toDBColumns :: t DB -> GRep t (H DB)
 
-  fromInsertColumns :: GRep t (H Insert) -> t Insert
-  toInsertColumns :: t Insert -> GRep t (H Insert)
+  fromInsertionColumns :: GRep t (H Insertion) -> t Insertion
+  toInsertionColumns :: t Insertion -> GRep t (H Insertion)
 
   fromResultColumns :: GRep t (H Result) -> t Result
   toResultColumns :: t Result -> GRep t (H Result)
@@ -201,19 +201,19 @@ class HTable (GRep t) => Rel8able t where
     ) => t DB -> GRep t (H DB)
   toDBColumns = toGColumns @_ @(Rep (t Structure)) . from
 
-  default fromInsertColumns ::
-    ( Generic (t Insert)
+  default fromInsertionColumns ::
+    ( Generic (t Insertion)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Insert (Rep (t Structure)) (Rep (t Insert))
-    ) => GRep t (H Insert) -> t Insert
-  fromInsertColumns = to . fromGColumns @_ @(Rep (t Structure))
+    , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
+    ) => GRep t (H Insertion) -> t Insertion
+  fromInsertionColumns = to . fromGColumns @_ @(Rep (t Structure))
 
-  default toInsertColumns ::
-    ( Generic (t Insert)
+  default toInsertionColumns ::
+    ( Generic (t Insertion)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Insert (Rep (t Structure)) (Rep (t Insert))
-    ) => t Insert -> GRep t (H Insert)
-  toInsertColumns = toGColumns @_ @(Rep (t Structure)) . from
+    , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
+    ) => t Insertion -> GRep t (H Insertion)
+  toInsertionColumns = toGColumns @_ @(Rep (t Structure)) . from
 
   default fromResultColumns ::
     ( Generic (t Result)
@@ -385,9 +385,9 @@ instance
 
 
 instance
-  ( a ~ Field Insert '[] necessity nullability blueprint
+  ( a ~ Field Insertion '[] necessity nullability blueprint
   , KnownNecessity necessity
-  ) => K1Table label 'True Insert 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ) => K1Table label 'True Insertion 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -400,9 +400,9 @@ instance
 
 
 instance
-  ( a ~ Field Insert (label ': labels) necessity nullability blueprint
+  ( a ~ Field Insertion (label ': labels) necessity nullability blueprint
   , KnownNecessity necessity
-  ) => K1Table _label 'True Insert 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  ) => K1Table _label 'True Insertion 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -513,10 +513,10 @@ instance
 instance
   ( HTable (K1Columns "Left" structure1)
   , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" 'True Insert (IsStructure structure1) structure1 a
-  , K1Table "Right" 'True Insert (IsStructure structure2) structure2 b
+  , K1Table "Left" 'True Insertion (IsStructure structure1) structure1 a
+  , K1Table "Right" 'True Insertion (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
-  ) => K1Table label 'True Insert 'True (Shape2 'Either structure1 structure2) e
+  ) => K1Table label 'True Insertion 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -608,11 +608,11 @@ instance
 
 
 instance
-  ( K1Table label 'True Insert (IsStructure structure) structure a
-  , Table Insert a
+  ( K1Table label 'True Insertion (IsStructure structure) structure a
+  , Table Insertion a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
-  ) => K1Table label 'True Insert 'True (Shape1 'List structure) as
+  ) => K1Table label 'True Insertion 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
@@ -681,9 +681,9 @@ instance
 
 instance
   ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" 'True Insert (IsStructure structure) structure a
+  , K1Table "Just" 'True Insertion (IsStructure structure) structure a
   , ma ~ MaybeTable a
-  ) => K1Table label 'True Insert 'True (Shape1 'Maybe structure) ma
+  ) => K1Table label 'True Insertion 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
@@ -759,11 +759,11 @@ instance
 
 
 instance
-  ( K1Table label 'True Insert (IsStructure structure) structure a
-  , Table Insert a
+  ( K1Table label 'True Insertion (IsStructure structure) structure a
+  , Table Insertion a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
-  ) => K1Table label 'True Insert 'True (Shape1 'NonEmpty structure) as
+  ) => K1Table label 'True Insertion 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
   toK1Columns = hrelabel (hlabel labeler) . toColumns
@@ -845,10 +845,10 @@ instance
 instance
   ( HTable (K1Columns "Here" structure1)
   , HTable (K1Columns "There" structure2)
-  , K1Table "Here" 'True Insert (IsStructure structure1) structure1 a
-  , K1Table "There" 'True Insert (IsStructure structure2) structure2 b
+  , K1Table "Here" 'True Insertion (IsStructure structure1) structure1 a
+  , K1Table "There" 'True Insertion (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
-  ) => K1Table label 'True Insert 'True (Shape2 'These structure1 structure2) e
+  ) => K1Table label 'True Insertion 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2

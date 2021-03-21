@@ -23,7 +23,7 @@ import Prelude hiding ( seq )
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (||.), (&&.), false, true )
+import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( seq, sne )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB( DB ) )

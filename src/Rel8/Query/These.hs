@@ -20,7 +20,7 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr, not_ )
-import Rel8.Expr.Opaleye ( exprToColumn, litPrimExpr )
+import Rel8.Expr.Opaleye ( litPrimExpr, toColumn, toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
@@ -46,7 +46,7 @@ alignBy condition as bs =
       Opaleye.joinExplicit unpackspec unpackspec pure pure full a b on
       where
         full = Opaleye.FullJoin
-        on = exprToColumn . uncurry condition
+        on = toColumn . toPrimExpr . uncurry condition
 
 
 keepHereTable :: TheseTable a b -> Query (a, MaybeTable b)

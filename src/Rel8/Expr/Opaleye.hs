@@ -16,8 +16,7 @@ module Rel8.Expr.Opaleye
   , unsafeZipPrimExprsWith, unsafeTraversePrimExpr
   , sfromPrimExpr, stoPrimExpr
   , fromPrimExpr, toPrimExpr, mapPrimExpr, zipPrimExprsWith
-  , exprToColumn
-  , columnToExpr
+  , toColumn, fromColumn
   )
 where
 
@@ -147,9 +146,9 @@ zipPrimExprsWith :: (DBType a, DBType b, DBType c)
 zipPrimExprsWith f a b = fromPrimExpr (f (toPrimExpr a) (toPrimExpr b))
 
 
-exprToColumn :: Expr nullability a -> Opaleye.Column b
-exprToColumn (Expr a) = Opaleye.Column a
+toColumn :: Opaleye.PrimExpr -> Opaleye.Column b
+toColumn = Opaleye.Column
 
 
-columnToExpr :: Opaleye.Column b -> Expr nullability a
-columnToExpr (Opaleye.Column a) = Expr a
+fromColumn :: Opaleye.Column b -> Opaleye.PrimExpr
+fromColumn (Opaleye.Column a) = a

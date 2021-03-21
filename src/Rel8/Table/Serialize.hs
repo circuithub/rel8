@@ -459,7 +459,7 @@ lit :: forall exprs a. Serializable exprs a => a -> exprs
 lit = fromColumns . litTable . toResults' @exprs
 
 
-parse :: forall exprs a. Serializable exprs a => Hasql.Row a
+parse :: forall a exprs. Serializable exprs a => Hasql.Row a
 parse = fromResults' @exprs <$> parseTable
 
 

@@ -38,10 +38,11 @@ import Rel8.Expr.Opaleye
   ( scastExpr
   , unsafeFromPrimExpr, unsafeToPrimExpr
   , unsafeTraversePrimExpr
-  , columnToExpr, exprToColumn
+  , sfromPrimExpr, stoPrimExpr
+  , fromColumn, toColumn
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.Context ( DB(..), Insert(..), Name(..) )
+import Rel8.Schema.Context ( DB(..), Insertion(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -79,7 +80,7 @@ distinctspec =
 
 table ::
   ( MapTable Name DB names exprs
-  , MapTable Name Insert names inserts
+  , MapTable Name Insertion names inserts
   )
   => TableSchema names -> Opaleye.Table inserts exprs
 table (TableSchema name schema columns) =
@@ -92,7 +93,7 @@ table (TableSchema name schema columns) =
 
 tableFields ::
   ( MapTable Name DB names exprs
-  , MapTable Name Insert names inserts
+  , MapTable Name Insertion names inserts
   )
   => names -> Opaleye.TableFields inserts exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
@@ -101,13 +102,16 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       specs -> case hfield names field of
         name -> lmap (`hfield` field) (go specs name)
   where
-    go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insert spec) (DB spec)
+    go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insertion spec) (DB spec)
     go (SSpec _ necessity _ blueprint) (Name name) = case necessity of
       SRequired ->
-        lmap (\(RequiredInsert a) -> exprToColumn a) $
-        DB . scastExpr info . columnToExpr <$> Opaleye.requiredTableField name
-      SOptional -> lmap (\(OptionalInsert ma) -> exprToColumn <$> ma) $
-        DB . scastExpr info . columnToExpr <$> Opaleye.optionalTableField name
+        lmap (\(RequiredInsert a) -> toColumn $ stoPrimExpr blueprint a) $
+        DB . scastExpr info . sfromPrimExpr blueprint . fromColumn <$>
+          Opaleye.requiredTableField name
+      SOptional ->
+        lmap (\(OptionalInsert ma) -> toColumn . stoPrimExpr blueprint <$> ma) $
+        DB . scastExpr info . sfromPrimExpr blueprint . fromColumn <$>
+          Opaleye.optionalTableField name
       where
         info = typeInformationFromBlueprint blueprint
 
