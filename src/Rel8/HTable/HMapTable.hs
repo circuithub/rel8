@@ -23,6 +23,8 @@ import Data.Kind ( Type, Constraint )
 import Rel8.Context ( Column, Meta )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse, HAllColumns )
 import Rel8.Info ( Info )
+
+-- semigroupoids
 import Data.Functor.Apply (Apply)
 
 

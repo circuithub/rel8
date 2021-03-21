@@ -30,7 +30,8 @@ module Rel8.Query
   , values
   , filter
   , mapOpaleye
-  ,catMaybe) where
+  , catMaybe
+  ) where
 
 -- base
 import Data.Foldable ( toList )
@@ -41,11 +42,13 @@ import Prelude
   , Bool
   , Foldable
   , Functor( fmap )
+  , Maybe
   , Monad
   , ($)
   , (.)
   , (<$)
-  , fromIntegral, Maybe, return
+  , fromIntegral
+  , return
   )
 
 -- profunctors
@@ -62,15 +65,15 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Operators as Opaleye hiding ( exists )
 import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
+import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Bool ( not_ )
+import Rel8.Expr.Null ( isNull )
 import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, unsafeCoerceExpr )
-import Rel8.Table ( Table, AllColumns )
+import Rel8.Table ( AllColumns, Table )
 import Rel8.Table.Opaleye ( binaryspec, distinctspec, unpackspec, valuesspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, selectSchema )
-import Rel8.Expr.Bool (not_)
-import Rel8.Expr.Null (isNull)
-import Rel8.DBType.DBEq (DBEq)
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use

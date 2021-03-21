@@ -14,6 +14,8 @@ import GHC.Generics ( Generic )
 -- rel8
 import Rel8.Context ( Meta )
 import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ), HAllColumns )
+
+-- semigroupoids
 import Data.Functor.Apply ((<.>))
 
 

@@ -13,8 +13,11 @@
 module Rel8.TableSchema ( TableSchema(..), genericTableColumns, genericTableColumnsWith, toOpaleyeTable, ddlTable, writer, selectSchema ) where
 
 -- base
+import Control.Applicative (liftA2)
 import Control.Monad ( void )
+import Data.Data (Proxy)
 import Data.Kind ( Type )
+import Data.String (fromString)
 import GHC.Generics
     ( Generic(Rep, to),
       Selector(selName),
@@ -37,10 +40,9 @@ import Rel8.Table ( Table( toColumns ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema.ColumnSchema ( Column( ColumnSchemaColumn ), ColumnSchema( ColumnSchema, columnName ), fromColumnSchemaColumn )
+
+-- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
-import Data.Data (Proxy)
-import Data.String (fromString)
-import Control.Applicative (liftA2)
 
 
 -- | The schema for a table. This is used to specify the name and schema that a

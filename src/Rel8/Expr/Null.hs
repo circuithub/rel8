@@ -17,7 +17,7 @@ import Prelude ( Bool( False ), Maybe( Nothing ), (.), id )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
-import Rel8.Expr ( Expr ) 
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), ifThenElse_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
 
@@ -89,14 +89,14 @@ instance (DBType a, DBEq a) => DBEq (Maybe a) where
 -- [Nothing]
 -- 
 -- This function can be thought of like 'liftA2'.
-liftOpNull 
-  :: DBType c 
-  => (Expr a -> Expr b -> Expr c) 
-  -> Expr (Maybe a) 
-  -> Expr (Maybe b) 
+liftOpNull
+  :: DBType c
+  => (Expr a -> Expr b -> Expr c)
+  -> Expr (Maybe a)
+  -> Expr (Maybe b)
   -> Expr (Maybe c)
-liftOpNull f a b = 
-  ifThenElse_ 
-    (isNull a ||. isNull b) 
-    nullExpr 
+liftOpNull f a b =
+  ifThenElse_
+    (isNull a ||. isNull b)
+    nullExpr
     (unsafeCoerceExpr (f (unsafeCoerceExpr a) (unsafeCoerceExpr b)))

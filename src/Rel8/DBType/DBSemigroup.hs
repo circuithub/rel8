@@ -1,9 +1,10 @@
 module Rel8.DBType.DBSemigroup ( DBSemigroup(..) ) where
 
-import Rel8.Info ( HasInfo )
+-- rel8
+import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( liftOpNull )
-import Rel8.DBType (DBType)
+import Rel8.Info ( HasInfo )
 
 
 class HasInfo a => DBSemigroup a where

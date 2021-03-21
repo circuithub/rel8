@@ -17,7 +17,9 @@ import Data.Functor.Identity ( Identity( runIdentity ) )
 import Rel8.Context ( Column( ComposedColumn ), Meta( Meta ), decompose )
 import Rel8.HTable ( hfield, htabulateMeta, htraverseMeta )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
-import Data.Functor.Apply (Apply)
+
+-- semigroupoids
+import Data.Functor.Apply ( Apply )
 
 
 -- | We say that two 'Table's are congruent if they have the same set of

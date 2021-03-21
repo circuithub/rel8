@@ -1,10 +1,10 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingVia #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language DeriveAnyClass #-}
 {-# language DeriveFunctor #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
@@ -30,19 +30,30 @@ module Rel8.Table.MaybeTable
   ) where
 
 -- base
+import Data.Semigroup ( Min( Min ), Semigroup )
 import GHC.Generics ( Generic )
 import Prelude
   ( Applicative( (<*>), pure )
   , Bool( True, False )
+  , Bounded
+  , Either( Right, Left )
+  , Enum
+  , Eq
+  , Functor
   , Maybe( Just, Nothing )
   , Monad( return, (>>=) )
+  , Monoid
+  , Ord
+  , Read
+  , Show
   , ($)
   , (.)
+  , (<$>)
+  , (<>)
   , (=<<)
   , const
   , error
-  , Eq, Ord, Read, Show, Enum, Bounded, Monoid, Either (Right, Left), (<>), mempty
-  , Functor, (<$>)
+  , mempty
   )
 
 -- rel8
@@ -53,19 +64,25 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
-import Rel8.Context ( Column( I, unI ), Context( Column ), Meta( Meta ), Defaulting( NoDefault ) )
-import Rel8.DBType.DBEq ( (==.), DBEq )
-import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Context ( Column( I, unI ), Context( Column ), Defaulting( NoDefault ), Meta( Meta ) )
+import Rel8.DBType ( DBType( typeInformation ) )
+import Rel8.DBType.DBEq ( DBEq, (==.) )
+import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
+import Rel8.DBType.DBOrd ( DBOrd )
+import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
+import Rel8.DatabaseType ( parseDatabaseType )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye
-    ( fromPrimExpr,
-      toPrimExpr,
-      unsafeCoerceExpr,
-      litExpr,
-      litExprWith )
 import Rel8.Expr.Bool ( ifThenElse_, not_ )
-import Rel8.Expr.Null ( isNull, isNull)
-import Rel8.HTable ( HField, HAllColumns, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
+import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
+import Rel8.Expr.Null ( isNull, isNull )
+import Rel8.Expr.Opaleye
+  ( fromPrimExpr
+  , litExpr
+  , litExprWith
+  , toPrimExpr
+  , unsafeCoerceExpr
+  )
+import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
   ( Eval
@@ -82,13 +99,9 @@ import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 import qualified Rel8.Table.Bool as T
 import Rel8.Table.Opaleye ( unpackspec )
-import Data.Semigroup ( Semigroup, Min(Min) )
-import Rel8.DBType.DBOrd (DBOrd)
-import Rel8.DBType (DBType( typeInformation ))
-import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
-import Rel8.DBType.DBMonoid ( DBMonoid(memptyExpr) )
-import Rel8.DatabaseType (parseDatabaseType)
-import Data.Functor.Apply ( Apply((<.>)) )
+
+-- semigroupoids
+import Data.Functor.Apply ( Apply( (<.>) ) )
 
 
 -- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If

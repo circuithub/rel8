@@ -27,8 +27,8 @@ module Rel8.Expr.Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
-import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
 import Rel8.Expr ( Expr( Expr, toPrimExpr ) )
+import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b

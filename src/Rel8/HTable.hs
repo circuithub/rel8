@@ -22,6 +22,8 @@ import Data.Kind ( Type, Constraint )
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.Info ( Column( InfoColumn ), Info )
+
+-- semigroupoids
 import Data.Functor.Apply (Apply)
 
 

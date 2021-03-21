@@ -30,6 +30,8 @@ import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( HasInfo, decodeWith, Column( fromInfoColumn ) )
 import Rel8.Table ( Columns, Table, fromColumns )
+
+-- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
 
 

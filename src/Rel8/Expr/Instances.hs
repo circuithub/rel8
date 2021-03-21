@@ -1,24 +1,27 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# language DataKinds #-}
+{-# language GADTs #-}
 {-# language TypeApplications #-}
+{-# language TypeFamilies #-}
 
 {-# options -Wno-orphans #-}
 
 module Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) ) where
 
-import Rel8.Context ( Context( Column ), Meta( Meta ) )
-import Rel8.Expr ( Expr )
-import Data.Kind (Type)
-import Rel8.Info (HasInfo)
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+-- base
+import Data.Kind ( Type )
 import Data.String ( IsString( fromString ) )
+
+-- rel8
 import qualified Opaleye
 import qualified Opaleye.Internal.Column as Opaleye
-import Rel8.Expr.Opaleye (columnToExpr, exprToColumn, litExpr)
-import Rel8.Expr.Function (function)
-import Rel8.DBType.DBSemigroup (DBSemigroup((<>.)))
-import Rel8.DBType.DBMonoid (DBMonoid(memptyExpr))
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
+import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Function ( function )
+import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, litExpr )
+import Rel8.Info ( HasInfo )
 
 
 instance Context Expr where

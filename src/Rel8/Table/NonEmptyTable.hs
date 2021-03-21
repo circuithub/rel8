@@ -20,14 +20,14 @@ import Data.List.NonEmpty ( NonEmpty, toList )
 import qualified Data.List.NonEmpty as NonEmpty
 
 -- rel8
-import Rel8.Context ( Meta( Meta ), Column (I), unI )
+import Rel8.Context ( Column( I ), Meta( Meta ), unI )
 import Rel8.DatabaseType ( nonEmptyNotNull, nonEmptyNull )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( binaryOperator )
 import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
-import Rel8.HTable ( hfield, hzipWith, htraverseMeta, htabulateMeta, hdbtype )
+import Rel8.Expr.Opaleye ( binaryOperator )
+import Rel8.HTable ( hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable ( Eval, Exp, HMapTable, HMapTableField( HMapTableField ), MapInfo( mapInfo ), precomposed, unHMapTable )
-import Rel8.Info ( Info( NotNull, Null ), Column (InfoColumn) )
+import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 
@@ -57,14 +57,14 @@ instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
 
 
 instance (Serializable x b, a ~ NonEmptyTable x, Table Expr (NonEmptyTable x)) => ExprFor a (NonEmpty b) where
-  pack (unHMapTable -> xs) = 
-    NonEmpty.fromList $ 
-      getZipList $ 
+  pack (unHMapTable -> xs) =
+    NonEmpty.fromList $
+      getZipList $
         pack @x <$> htraverseMeta (fmap I . ZipList . toList . unI . precomposed) xs
 
   unpack (fmap (unpack @x) -> xs) = htabulateMeta \(HMapTableField i) ->
     case hfield hdbtype i of
-      InfoColumn _ -> 
+      InfoColumn _ ->
         I (fmap (unI . flip hfield i) xs)
 
 

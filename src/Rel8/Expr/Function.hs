@@ -4,10 +4,9 @@
 
 module Rel8.Expr.Function ( Function, function, nullaryFunction ) where
 
-import Rel8.Expr ( Expr( Expr ) )
-
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.Expr ( Expr( Expr ) )
 
 
 -- | The @Function@ type class is an implementation detail that allows

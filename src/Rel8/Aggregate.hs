@@ -1,16 +1,17 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
+
+{-# options_ghc -Wno-redundant-constraints #-}
 
 module Rel8.Aggregate
   ( Aggregate(..)
@@ -30,7 +31,9 @@ module Rel8.Aggregate
   ) where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Int ( Int64 )
+import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 
 -- rel8
@@ -39,20 +42,20 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
-import Rel8.Expr.Instances ( Column( ExprColumn ) )
+import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Instances ( Column( ExprColumn ) )
 import Rel8.HTable ( hmap, htraverse )
 import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
 import Rel8.Query ( Query, mapOpaleye )
-import Rel8.Table ( Table( toColumns ), fromColumns, AllColumns )
+import Rel8.Table ( AllColumns, Table( toColumns ), fromColumns )
+import Rel8.Table.Congruent ( Congruent, traverseTable )
 import Rel8.Table.ListTable ( ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
-import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative), Apply )
-import Rel8.Table.Congruent (Congruent, traverseTable)
-import Data.Functor.Identity (Identity( Identity ))
-import Data.Kind (Type)
-import Rel8.DBType.DBEq (DBEq)
+
+-- semigroupoids
+import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapApplicative ) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can

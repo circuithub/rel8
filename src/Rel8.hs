@@ -250,7 +250,9 @@ import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DBType.DBEq ( DBEq( (==.), (/=.) ), in_ )
 import Rel8.DBType.DBMax ( DBMax( max ) )
 import Rel8.DBType.DBMin ( DBMin( min ) )
+import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
 import Rel8.DBType.DBOrd ( DBOrd( (<.), (<=.), (>.), (>=.) ) )
+import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
 import Rel8.DBType.DBSum ( DBSum( sum ) )
 import Rel8.DBType.JSONBEncoded ( JSONBEncoded( JSONBEncoded ) )
 import Rel8.DBType.JSONEncoded ( JSONEncoded( JSONEncoded ) )
@@ -262,14 +264,16 @@ import Rel8.DatabaseType
   )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
-import Rel8.Expr.Null ( fromNull, isNull, liftNull, mapNull, null, nullExpr, liftOpNull )
-import Rel8.Expr.Opaleye ( unsafeLiteral, unsafeCastExpr, unsafeCoerceExpr )
 import Rel8.Expr.Function ( Function, function, nullaryFunction )
-import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable, ColumnWithDefault )
+import Rel8.Expr.Null ( fromNull, isNull, liftNull, liftOpNull, mapNull, null, nullExpr )
+import Rel8.Expr.Opaleye ( unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral )
+import Rel8.Expr.Opaleye ( binaryOperator )
+import Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
 import Rel8.Info ( HasInfo, Nullify )
 import Rel8.Query
   ( Query
+  , catMaybe
   , countRows
   , distinct
   , distinctOn
@@ -287,7 +291,7 @@ import Rel8.Query
   , values
   , whereExists
   , whereNotExists
-  , where_, catMaybe
+  , where_
   )
 import Rel8.Query.Order ( Order, asc, desc, distinctOnBy, nullsFirst, nullsLast, orderBy )
 import Rel8.Serializable ( ExprFor, Serializable, lit )
@@ -296,7 +300,7 @@ import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Statement.Select ( select, showQuery )
 import Rel8.Statement.Update ( Update( Update, target, updateWhere, set, returning ), update )
-import Rel8.Table ( Table, AllColumns, Columns, fromColumns, toColumns )
+import Rel8.Table ( AllColumns, Columns, Table, fromColumns, toColumns )
 import Rel8.Table.Bool ( case_, ifThenElse_ )
 import Rel8.Table.Congruent ( Congruent )
 import Rel8.Table.ListTable ( ListTable )
@@ -314,9 +318,6 @@ import Rel8.Table.NonEmptyTable ( NonEmptyTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema( TableSchema, tableName, tableSchema, tableColumns ), genericTableColumns, genericTableColumnsWith )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
-import Rel8.Expr.Opaleye ( binaryOperator )
-import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
-import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
 
 
 -- $setup

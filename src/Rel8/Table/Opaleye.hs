@@ -21,11 +21,13 @@ import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
-import Rel8.HTable ( HTable, HField, hfield, hdbtype, htabulateMeta, htraverseMeta )
+import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulateMeta, htraverseMeta )
 import Rel8.Info ( Info( Null, NotNull ), fromInfoColumn )
 import Rel8.Table ( Table( toColumns, fromColumns ) )
 import Rel8.Table.Congruent ( traverseTable, zipTablesWithM )
-import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
+
+-- semigroupoids
+import Data.Functor.Apply ( WrappedApplicative( WrapApplicative, unwrapApplicative ) )
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
@@ -61,7 +63,7 @@ valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
   where
     packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
     packmap = Opaleye.PackMap \f () ->
-      unwrapApplicative $ 
+      unwrapApplicative $
         fmap fromColumns $
           htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) $
             htabulateMeta \i ->

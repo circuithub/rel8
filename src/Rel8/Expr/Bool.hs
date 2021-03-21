@@ -14,7 +14,7 @@ import Data.Foldable ( foldl' )
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( binExpr, mapPrimExpr, fromPrimExpr, toPrimExpr, litExpr )
+import Rel8.Expr.Opaleye ( binExpr, fromPrimExpr, litExpr, mapPrimExpr, toPrimExpr )
 
 
 -- | The SQL @AND@ operator.
