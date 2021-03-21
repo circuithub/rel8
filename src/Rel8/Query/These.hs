@@ -7,10 +7,13 @@ module Rel8.Query.These
   , keepThisTable, loseThisTable
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
+  , bindTheseTable
+  , bitraverseTheseTable
   )
 where
 
 -- base
+import Data.Bifunctor ( bimap )
 import Prelude
 
 -- opaleye
@@ -19,15 +22,16 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( boolExpr, not_ )
+import Rel8.Expr.Bool ( (&&.), boolExpr, not_ )
 import Rel8.Expr.Opaleye ( litPrimExpr, toColumn, toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
+import Rel8.Query.Maybe ( traverseMaybeTable )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
 import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
 import Rel8.Table.Either ( EitherTable( EitherTable ) )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ) )
+import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.These
   ( TheseTable( TheseTable )
@@ -101,3 +105,24 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   pure $ EitherTable tag a b
   where
     tag = boolExpr (litPrimExpr IsLeft) (litPrimExpr IsRight) (isThatTable t)
+
+
+bindTheseTable :: (Table DB a, Semigroup a, Monad m)
+  => (i -> m (TheseTable a b)) -> TheseTable a i -> m (TheseTable a b)
+bindTheseTable query (TheseTable here (MaybeTable input i)) = do
+  TheseTable here' (MaybeTable output b) <- query i
+  pure $ TheseTable (here <> here') (MaybeTable (input <> output) b)
+
+
+bitraverseTheseTable :: (Table DB c, Table DB d)
+  => (a -> Query c)
+  -> (b -> Query d)
+  -> TheseTable a b
+  -> Query (TheseTable c d)
+bitraverseTheseTable f g (TheseTable here there) =
+  bimap fromJustTable fromJustTable <$>
+    alignBy (\l r -> isJustTable l &&. isJustTable r)
+      (traverseMaybeTable f here)
+      (traverseMaybeTable g there)
+  where
+    fromJustTable (MaybeTable _ a) = a
