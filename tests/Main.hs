@@ -21,6 +21,7 @@ import Control.Applicative ( liftA2, liftA3 )
 import Control.Monad (void)
 import Control.Monad.IO.Class ( MonadIO, liftIO )
 import Data.Bifunctor ( bimap )
+import Data.Char ( toLower )
 import Data.Foldable ( for_ )
 import Data.Functor.Identity ( Identity )
 import Data.Int ( Int32, Int64 )
@@ -166,11 +167,11 @@ testTableSchema =
   Rel8.TableSchema
     { tableName = "test_table"
     , tableSchema = Nothing
-    , tableColumns = TestTable
-        { testTableColumn1 = "column1"
-        , testTableColumn2 = "column2"
-        }
+    , tableColumns = Rel8.genericTableColumnsWith (lcfirst . drop (length @[] "testTable")) 
     }
+  where
+    lcfirst []     = []
+    lcfirst (x:xs) = toLower x : xs
 
 
 testSelectTestTable :: IO TmpPostgres.DB -> TestTree

@@ -80,6 +80,8 @@ module Rel8
   , ColumnWithDefault
   , TableSchema(..)
   , ColumnSchema
+  , genericTableColumns
+  , genericTableColumnsWith
 
     -- * Expressions
   , Expr
@@ -310,7 +312,7 @@ import Rel8.Table.MaybeTable
   )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable )
 import Rel8.Table.Selects ( Selects )
-import Rel8.TableSchema ( TableSchema( TableSchema, tableName, tableSchema, tableColumns ) )
+import Rel8.TableSchema ( TableSchema( TableSchema, tableName, tableSchema, tableColumns ), genericTableColumns, genericTableColumnsWith )
 import Rel8.TableSchema.ColumnSchema ( ColumnSchema )
 import Rel8.Expr.Opaleye ( binaryOperator )
 import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )

@@ -1,17 +1,29 @@
+{-# LANGUAGE TypeOperators #-}
 {-# language BlockArguments #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language KindSignatures #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-module Rel8.TableSchema ( TableSchema(..), toOpaleyeTable, ddlTable, writer, selectSchema ) where
+module Rel8.TableSchema ( TableSchema(..), genericTableColumns, genericTableColumnsWith, toOpaleyeTable, ddlTable, writer, selectSchema ) where
 
 -- base
 import Control.Monad ( void )
 import Data.Kind ( Type )
+import GHC.Generics
+    ( Generic(Rep, to),
+      Selector(selName),
+      K1(K1),
+      M1(M1),
+      type (:*:)( (:*:) ),
+      D,
+      C,
+      S ) 
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -26,6 +38,9 @@ import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema.ColumnSchema ( Column( ColumnSchemaColumn ), ColumnSchema( ColumnSchema, columnName ), fromColumnSchemaColumn )
 import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
+import Data.Data (Proxy)
+import Data.String (fromString)
+import Control.Applicative (liftA2)
 
 
 -- | The schema for a table. This is used to specify the name and schema that a
@@ -57,6 +72,37 @@ data TableSchema (schema :: Type) = TableSchema
     -- ^ The columns of the table. Typically you would use a a higher-kinded
     -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
   } deriving stock Functor
+
+
+
+-- | Derive a 'TableSchema' generically, based on the names of the fields in
+-- the table type definition.
+genericTableColumns :: (Table ColumnSchema a, GTableColumns (Rep a), Generic a) => a
+genericTableColumns = to (gtableColumns id)
+
+
+genericTableColumnsWith :: (Table ColumnSchema a, GTableColumns (Rep a), Generic a) => (String -> String) -> a
+genericTableColumnsWith = to . gtableColumns
+
+
+class GTableColumns (rep :: Type -> Type) where
+  gtableColumns :: (String -> String) -> rep a
+
+
+instance GTableColumns f => GTableColumns (M1 D c f) where
+  gtableColumns = M1 . gtableColumns
+
+
+instance GTableColumns f => GTableColumns (M1 C c f) where
+  gtableColumns = M1 . gtableColumns
+
+
+instance (GTableColumns f, GTableColumns g) => GTableColumns (f :*: g) where
+  gtableColumns = liftA2 (:*:) gtableColumns gtableColumns
+
+
+instance Selector c => GTableColumns (M1 S c (K1 i (ColumnSchema a))) where
+  gtableColumns f = M1 $ K1 $ fromString $ f $ selName (pure () :: M1 S c Proxy ())
 
 
 toOpaleyeTable
