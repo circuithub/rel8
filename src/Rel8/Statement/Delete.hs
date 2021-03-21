@@ -1,4 +1,3 @@
-{-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -30,12 +29,11 @@ import qualified Opaleye.Internal.Manipulation as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
-import Rel8.Schema.Context ( DB, Name )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Recontextualize ( Selects )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -45,7 +43,7 @@ import Data.Text.Encoding ( encodeUtf8 )
 
 type Delete :: Type -> Type
 data Delete a where
-  Delete :: MapTable Name DB names exprs =>
+  Delete :: Selects names exprs =>
     { from :: TableSchema names
     , deleteWhere :: exprs -> Expr nullability Bool
     , returning :: Returning names a

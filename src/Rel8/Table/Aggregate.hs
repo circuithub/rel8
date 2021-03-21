@@ -28,8 +28,8 @@ import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.List ( ListTable )
-import Rel8.Table.Map ( MapTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.Recontextualize ( Aggregates )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -58,6 +58,5 @@ nonEmptyAgg (toColumns -> exprs) = fromColumns $
     (pure exprs)
 
 
-runAggregation :: MapTable Aggregation DB aggregates exprs
-  => aggregates -> Aggregate exprs
+runAggregation :: Aggregates aggregates exprs => aggregates -> Aggregate exprs
 runAggregation = fromColumns . toColumns

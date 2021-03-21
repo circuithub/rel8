@@ -1,7 +1,9 @@
+{-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Opaque
   ( Opaque
+  , Opaque1
   )
 where
 
@@ -12,3 +14,7 @@ import Prelude ()
 
 type Opaque :: Type
 data Opaque
+
+
+type Opaque1 :: k -> Type -> Type
+data Opaque1 a x

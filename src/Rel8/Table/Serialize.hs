@@ -66,9 +66,9 @@ import Rel8.Schema.Value
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
-import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.Recontextualize ( Encodes )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 import Rel8.Type.Array ( Array )
@@ -412,7 +412,7 @@ instance
 
 
 instance
-  ( MapTable DB Result (t DB) (t Result)
+  ( Encodes (t Result) (t DB)
   , isTabular ~ 'True
   , result ~ Result
   , x ~ t DB
@@ -465,7 +465,7 @@ parse :: forall a exprs. Serializable exprs a => Hasql.Row a
 parse = fromResults' @exprs <$> parseTable
 
 
-litTable :: MapTable Result DB a b => a -> b
+litTable :: Encodes a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec _ _ _ blueprint -> case hfield as field of

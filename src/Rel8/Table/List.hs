@@ -26,7 +26,7 @@ import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( typeInformationFromBlueprint )
 
 
@@ -42,7 +42,8 @@ instance Table context a => Table context (ListTable a) where
   toColumns (ListTable a) = a
 
 
-instance MapTable from to a b => MapTable from to (ListTable a) (ListTable b)
+instance Recontextualize from to a b =>
+  Recontextualize from to (ListTable a) (ListTable b)
 
 
 instance AltTable ListTable where

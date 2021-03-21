@@ -47,7 +47,7 @@ import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Selects, Inserts )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( typeInformationFromBlueprint )
 
@@ -78,10 +78,7 @@ distinctspec =
     toColumns
 
 
-table ::
-  ( MapTable Name DB names exprs
-  , MapTable Name Insertion names inserts
-  )
+table ::(Selects names exprs, Inserts exprs inserts)
   => TableSchema names -> Opaleye.Table inserts exprs
 table (TableSchema name schema columns) =
   Opaleye.Table qualified (tableFields columns)
@@ -91,10 +88,7 @@ table (TableSchema name schema columns) =
       Just qualifier -> qualifier <> "." <> name
 
 
-tableFields ::
-  ( MapTable Name DB names exprs
-  , MapTable Name Insertion names inserts
-  )
+tableFields :: (Selects names exprs, Inserts exprs inserts)
   => names -> Opaleye.TableFields inserts exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
   unwrapApplicative $ htabulateA $ \field -> WrapApplicative $

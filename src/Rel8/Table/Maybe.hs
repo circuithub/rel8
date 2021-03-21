@@ -48,7 +48,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( MaybeTag( IsJust ) )
@@ -143,8 +143,8 @@ instance
 instance
   ( Labelable from, Nullifiable from
   , Labelable to, Nullifiable to
-  , MapTable from to a b
-  ) => MapTable from to (MaybeTable a) (MaybeTable b)
+  , Recontextualize from to a b
+  ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
 isNothingTable :: MaybeTable a -> Expr 'NonNullable Bool

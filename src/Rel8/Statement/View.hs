@@ -22,17 +22,16 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import Rel8.Query ( Query )
 import Rel8.Query.SQL ( sqlForQueryWithNames )
-import Rel8.Schema.Context ( Name, DB )
 import Rel8.Schema.Table ( TableSchema( TableSchema ) )
 import Rel8.Table.Alternative ( emptyTable )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Selects )
 
 -- text
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
-createView :: MapTable Name DB names exprs
+createView :: Selects names exprs
   => TableSchema names -> Query exprs -> Connection -> IO ()
 createView (TableSchema name mschema names) query =
   Hasql.run session >=> either throwIO pure

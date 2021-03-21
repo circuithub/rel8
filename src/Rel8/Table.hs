@@ -34,7 +34,7 @@ import Rel8.Kind.Blueprint
   , simplifyDBTypeBlueprint
   )
 import Rel8.Kind.Nullability ( Nullability( NonNullable ), KnownNullability )
-import Rel8.Opaque ( Opaque )
+import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB ), unDB
@@ -237,6 +237,14 @@ instance
 instance Table DB Opaque where
   type Columns Opaque = HDBType 'NonNullable Opaque
   type Context Opaque = DB
+
+  fromColumns = error "opaque"
+  toColumns = error "opaque"
+
+
+instance Table context (Opaque1 context a) where
+  type Columns (Opaque1 context a) = HDBType 'NonNullable Opaque
+  type Context (Opaque1 context a) = context
 
   fromColumns = error "opaque"
   toColumns = error "opaque"

@@ -1,4 +1,3 @@
-{-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
@@ -23,8 +22,7 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import Rel8.Query ( Query )
 import Rel8.Query.SQL ( sqlForQuery, sqlForQueryWithNames )
-import Rel8.Schema.Context ( Name, DB )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Selects )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -47,7 +45,7 @@ select query = case sqlForQuery query of
 
 
 selectWithNames :: forall exprs a names.
-  ( MapTable Name DB names exprs
+  ( Selects names exprs
   , Serializable exprs a
   )
   => names -> Query exprs -> Connection -> IO [a]

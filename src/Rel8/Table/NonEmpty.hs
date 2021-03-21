@@ -24,7 +24,7 @@ import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Recontextualize )
 
 
 type NonEmptyTable :: Type -> Type
@@ -40,8 +40,8 @@ instance Table context a => Table context (NonEmptyTable a) where
   toColumns (NonEmptyTable a) = a
 
 
-instance MapTable from to a b =>
-  MapTable from to (NonEmptyTable a) (NonEmptyTable b)
+instance Recontextualize from to a b =>
+  Recontextualize from to (NonEmptyTable a) (NonEmptyTable b)
 
 
 instance AltTable NonEmptyTable where

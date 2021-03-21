@@ -29,12 +29,11 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
-import Rel8.Schema.Context ( Insertion, Name )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Recontextualize ( Inserts, Selects )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -44,7 +43,7 @@ import Data.Text.Encoding ( encodeUtf8 )
 
 type Insert :: Type -> Type
 data Insert a where
-  Insert :: MapTable Name Insertion names inserts =>
+  Insert :: (Selects names exprs, Inserts exprs inserts) =>
     { into :: TableSchema names
     , rows :: [inserts]
     , onConflict :: OnConflict

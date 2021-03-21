@@ -17,10 +17,10 @@ import Rel8.Schema.Context ( DB(..), Insertion(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Map ( MapTable )
+import Rel8.Table.Recontextualize ( Inserts )
 
 
-toInsert :: MapTable DB Insertion exprs inserts => exprs -> inserts
+toInsert :: Inserts exprs inserts => exprs -> inserts
 toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec _ necessity _ _ -> case hfield exprs field of
@@ -29,8 +29,7 @@ toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
         SOptional -> OptionalInsert (Just expr)
 
 
-toInsertDefaults :: MapTable DB Insertion exprs inserts
-  => exprs -> inserts
+toInsertDefaults :: Inserts exprs inserts => exprs -> inserts
 toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec _ necessity _ _ -> case hfield exprs field of

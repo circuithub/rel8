@@ -46,12 +46,12 @@ import Rel8.Table.Lifted
   ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
   , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
   )
-import Rel8.Table.Map ( MapTable )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
   )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
@@ -179,10 +179,10 @@ instance
 instance
   ( Labelable from, Nullifiable from
   , Labelable to, Nullifiable to
-  , MapTable from to a1 b1
-  , MapTable from to a2 b2
+  , Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
   ) =>
-  MapTable from to (TheseTable a1 a2) (TheseTable b1 b2)
+  Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
 
 
 isThisTable :: TheseTable a b -> Expr 'NonNullable Bool
