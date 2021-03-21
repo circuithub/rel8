@@ -64,12 +64,13 @@ import qualified Opaleye.Order as Opaleye ( limit, offset )
 import qualified Opaleye.Table as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, unsafeCoerceExpr )
-import Rel8.Table ( Table )
+import Rel8.Table ( Table, AllColumns )
 import Rel8.Table.Opaleye ( binaryspec, distinctspec, unpackspec, valuesspec )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema ( TableSchema, selectSchema )
 import Rel8.Expr.Bool (not_)
 import Rel8.Expr.Null (isNull)
+import Rel8.DBType.DBEq (DBEq)
 
 
 -- | The type of @SELECT@able queries. You generally will not explicitly use
@@ -176,7 +177,7 @@ each = liftOpaleye . Opaleye.selectTableExplicit unpackspec . selectSchema
 --
 -- >>> select c $ values [lit True, lit True, lit False] `union` values [lit True]
 -- [False,True]
-union :: Table Expr a => Query a -> Query a -> Query a
+union :: (Table Expr a, AllColumns a DBEq) => Query a -> Query a -> Query a
 union l r = liftOpaleye $ Opaleye.unionExplicit binaryspec (toOpaleye l) (toOpaleye r)
 
 
@@ -194,7 +195,7 @@ unionAll l r = liftOpaleye $ Opaleye.unionAllExplicit binaryspec (toOpaleye l) (
 --
 -- >>> select c $ values [lit True, lit True, lit False] `intersect` values [lit True]
 -- [True]
-intersect :: Table Expr a => Query a -> Query a -> Query a
+intersect :: (Table Expr a, AllColumns a DBEq) => Query a -> Query a -> Query a
 intersect l r = liftOpaleye $ Opaleye.intersectExplicit binaryspec (toOpaleye l) (toOpaleye r)
 
 
@@ -212,7 +213,7 @@ intersectAll l r = liftOpaleye $ Opaleye.intersectAllExplicit binaryspec (toOpal
 --
 -- >>> select c $ values [lit True, lit False, lit False] `except` values [lit True]
 -- [False]
-except :: Table Expr a => Query a -> Query a -> Query a
+except :: (Table Expr a, AllColumns a DBEq) => Query a -> Query a -> Query a
 except l r = liftOpaleye $ Opaleye.exceptExplicit binaryspec (toOpaleye l) (toOpaleye r)
 
 
@@ -230,11 +231,11 @@ exceptAll l r = liftOpaleye $ Opaleye.exceptAllExplicit binaryspec (toOpaleye l)
 --
 -- >>> select c $ distinct $ values [ lit True, lit True, lit False ]
 -- [False,True]
-distinct :: Table Expr a => Query a -> Query a
+distinct :: (Table Expr a, AllColumns a DBEq) => Query a -> Query a
 distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
 
 
-distinctOn :: Table Expr b => (a -> b) -> Query a -> Query a
+distinctOn :: (Table Expr b, AllColumns b DBEq) => (a -> b) -> Query a -> Query a
 distinctOn proj =
   mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOn unpackspec proj . Opaleye.runSimpleQueryArr q))
 

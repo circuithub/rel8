@@ -17,7 +17,7 @@ module Rel8.HTable ( HTable(..), hmap, hzipWith, htabulateMeta, htraverseMeta ) 
 
 -- base
 import Data.Functor.Compose ( Compose( Compose, getCompose ) )
-import Data.Kind ( Type )
+import Data.Kind ( Type, Constraint )
 
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
@@ -27,6 +27,7 @@ import Data.Functor.Apply (Apply)
 
 class HTable (t :: (Meta -> Type) -> Type) where
   type HField t = (field :: Meta -> Type) | field -> t
+  type HAllColumns t (c :: Type -> Constraint) :: Constraint
 
   hfield :: t f -> HField t x -> f x
   htabulate :: forall f. (forall x. HField t x -> f x) -> t f

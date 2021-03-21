@@ -13,7 +13,7 @@ import GHC.Generics ( Generic )
 
 -- rel8
 import Rel8.Context ( Meta )
-import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ) )
+import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ), HAllColumns )
 import Data.Functor.Apply ((<.>))
 
 
@@ -32,6 +32,7 @@ data HPairField x y a where
 
 instance (HTable x, HTable y) => HTable (HPair x y) where
   type HField (HPair x y) = HPairField x y
+  type HAllColumns (HPair x y) c = (HAllColumns x c, HAllColumns y c)
 
   hfield (HPair l r) = \case
     HPairFst i -> hfield l i

@@ -65,7 +65,7 @@ import Rel8.Expr.Opaleye
       litExprWith )
 import Rel8.Expr.Bool ( ifThenElse_, not_ )
 import Rel8.Expr.Null ( isNull, isNull)
-import Rel8.HTable ( HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
+import Rel8.HTable ( HField, HAllColumns, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
   ( Eval
@@ -358,6 +358,8 @@ data HMaybeField g a where
 
 instance HTable g => HTable (HMaybeTable g) where
   type HField (HMaybeTable g) = HMaybeField g
+
+  type HAllColumns (HMaybeTable g) c = (c (Maybe MaybeTag), HAllColumns g c)
 
   hfield HMaybeTable{ hnullTag, htable } = \case
     HNullTag      -> unHIdentity hnullTag

@@ -19,7 +19,7 @@ module Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, Highe
 
 -- base
 import Data.Functor.Identity ( Identity )
-import Data.Kind (Type)
+import Data.Kind (Type, Constraint)
 import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics ( Generic( Rep, from, to ), K1(K1), M1(M1, unM1), type (:*:)((:*:)), unK1)
 
@@ -35,7 +35,7 @@ import Rel8.HTable.HPair ( HPair(HPair) )
 import Rel8.Serializable ( Serializable, ExprFor( unpack, pack ) )
 import Rel8.Statement.Insert (Insert, Inserts)
 import qualified Rel8.Statement.Insert as I
-import Rel8.Table ( Table(Columns, fromColumns, toColumns) )
+import Rel8.Table ( Table(Columns, fromColumns, toColumns), AllColumns )
 import Rel8.Table.ListTable ( ListTable, ListOf )
 import Rel8.Table.MaybeTable ( HMaybeTable, MaybeTable )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable, NonEmptyList )
@@ -266,6 +266,13 @@ type family GColumns (shape :: Type -> Type) :: (C.Meta -> Type) -> Type where
   GColumns (K1 _ a)                = Columns a
 
 
+type family GRepAll (f :: Type -> Type) (c :: Type -> Constraint) :: Constraint where
+  GRepAll (M1 _ _ f) c            = GRepAll f c
+  GRepAll (f :*: g) c             = (GRepAll f c, GRepAll g c)
+  GRepAll (K1 _ (Expr a)) c       = c a
+  GRepAll (K1 _ a) c              = AllColumns a c
+
+
 class HigherKindedTableImpl (context :: Type -> Type) (shape :: Type -> Type) (rep :: Type -> Type) where
   ghigherKindedTo :: rep x -> GColumns shape (C.Column context)
   ghigherKindedFrom :: GColumns shape (C.Column context) -> rep x
@@ -330,6 +337,7 @@ instance (Table ColumnSchema a', GColumns (K1 i a) ~ Columns a') => HigherKinded
 
 instance (x ~ f, HigherKindedTable t, Helper f t) => Table f (t x) where
   type Columns (t x) = GRep t
+
   toColumns = helperTo
   fromColumns = helperFrom
 
@@ -355,7 +363,6 @@ instance HigherKindedTable t => Helper Insert t where
 
 
 instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) => Selects (s columnSchema) (t expr)
-
 
 
 instance (s ~ t, t ~ u, HigherKindedTable t, columnSchema ~ ColumnSchema, insert ~ Insert, expr ~ Expr) => Inserts (s columnSchema) (s insert) (u expr)

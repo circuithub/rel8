@@ -13,15 +13,13 @@
 
 module Rel8.Table.ListTable ( ListTable( ListTable ), ListOf ) where
 
--- base
-
 -- rel8
 import Rel8.Context ( Column( I ), Meta( Meta ), unI )
 import Rel8.DatabaseType ( listOfNotNull, listOfNull )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( litExprWith, binaryOperator )
-import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta, hzipWith )
+import Rel8.HTable ( hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable
   ( Eval
   , Exp
@@ -33,7 +31,7 @@ import Rel8.HTable.HMapTable
   )
 import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
-import Rel8.Table ( Table( Columns, toColumns, fromColumns ) )
+import Rel8.Table ( Table, Columns, toColumns, fromColumns )
 
 
 data ListOf :: Meta -> Exp Meta

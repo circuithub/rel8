@@ -7,6 +7,7 @@ module Rel8.Expr.Null
   , liftNull
   , mapNull
   , fromNull
+  , liftOpNull
   ) where
 
 -- base
@@ -17,7 +18,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr ) 
-import Rel8.Expr.Bool ( ifThenElse_ )
+import Rel8.Expr.Bool ( (||.), ifThenElse_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
 
 
@@ -73,3 +74,29 @@ fromNull x = null x id
 instance (DBType a, DBEq a) => DBEq (Maybe a) where
   a ==. b =
     null ( isNull b ) ( \a' -> null ( litExpr False ) ( a' ==. ) b ) a
+
+
+-- | Lift a binary operation on non-@null@ expressions to an equivalent binary
+-- operator on possibly @null@ expressions.
+-- 
+-- Similar to @mapNull@, it is assumed that this binary operator will return
+-- @null@ if either of its operands are @null@.
+-- 
+-- >>> select c $ pure $ liftOpNull (&&.) (lit (Just True)) (lit (Just False))
+-- [Just False]
+-- 
+-- >>> select c $ pure $ liftOpNull (&&.) nullExpr (lit (Just False))
+-- [Nothing]
+-- 
+-- This function can be thought of like 'liftA2'.
+liftOpNull 
+  :: DBType c 
+  => (Expr a -> Expr b -> Expr c) 
+  -> Expr (Maybe a) 
+  -> Expr (Maybe b) 
+  -> Expr (Maybe c)
+liftOpNull f a b = 
+  ifThenElse_ 
+    (isNull a ||. isNull b) 
+    nullExpr 
+    (unsafeCoerceExpr (f (unsafeCoerceExpr a) (unsafeCoerceExpr b)))

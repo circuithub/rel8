@@ -10,6 +10,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Rel8.Aggregate
   ( Aggregate(..)
@@ -43,7 +44,7 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.HTable ( hmap, htraverse )
 import Rel8.HTable.HMapTable ( HMapTable( HMapTable ), Precompose( Precompose ) )
 import Rel8.Query ( Query, mapOpaleye )
-import Rel8.Table ( Table( toColumns ), fromColumns )
+import Rel8.Table ( Table( toColumns ), fromColumns, AllColumns )
 import Rel8.Table.ListTable ( ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
@@ -51,6 +52,7 @@ import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicativ
 import Rel8.Table.Congruent (Congruent, traverseTable)
 import Data.Functor.Identity (Identity( Identity ))
 import Data.Kind (Type)
+import Rel8.DBType.DBEq (DBEq)
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -82,7 +84,7 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
 -- 'pure', but sometimes being explicit can help the readability of your code.
-groupBy :: Table Expr a => a -> Aggregate a
+groupBy :: (Table Expr a, AllColumns a DBEq) => a -> Aggregate a
 groupBy = Aggregate
 
 

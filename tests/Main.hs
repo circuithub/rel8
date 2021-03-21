@@ -711,4 +711,3 @@ testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other ta
       pure $ Rel8.maybeTable (Rel8.lit False) (\_ -> Rel8.lit True) (nmt2 x)
 
     selected === [True]
-

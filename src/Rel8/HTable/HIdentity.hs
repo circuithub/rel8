@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
@@ -14,7 +15,7 @@ import Data.Type.Equality ( type (:~:)(Refl) )
 
 -- rel8
 import Rel8.Context ( Meta( Meta ) )
-import Rel8.HTable ( HTable( HField, htabulate, htraverse, hfield, hdbtype ) )
+import Rel8.HTable ( HTable( HField, htabulate, htraverse, hfield, hdbtype ), HAllColumns )
 import Rel8.Info ( HasInfo( info ), Column (InfoColumn) )
 
 
@@ -23,8 +24,9 @@ import Rel8.Info ( HasInfo( info ), Column (InfoColumn) )
 newtype HIdentity a (f :: Meta -> Type) = HIdentity { unHIdentity :: f a }
 
 
-instance (a ~ 'Meta d x, HasInfo x) => HTable (HIdentity a) where
-  type HField (HIdentity a) = (:~:) a
+instance HasInfo a => HTable (HIdentity ('Meta d a)) where
+  type HField (HIdentity ('Meta d a)) = (:~:) ('Meta d a)
+  type HAllColumns (HIdentity ('Meta d a)) c = c a
 
   hfield (HIdentity a) Refl = a
   htabulate f = HIdentity $ f Refl

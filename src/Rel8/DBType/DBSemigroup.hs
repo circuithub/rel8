@@ -2,7 +2,7 @@ module Rel8.DBType.DBSemigroup ( DBSemigroup(..) ) where
 
 import Rel8.Info ( HasInfo )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( liftOpNull )
+import Rel8.Expr.Null ( liftOpNull )
 import Rel8.DBType (DBType)
 
 

@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
@@ -13,11 +15,13 @@
 module Rel8.HTable.HMapTable ( HMapTable(..), Exp, Eval, MapInfo(..), Precompose(..), HMapTableField(..) ) where
 
 -- base
-import Data.Kind ( Type )
+
+-- base
+import Data.Kind ( Type, Constraint )
 
 -- rel8
 import Rel8.Context ( Column, Meta )
-import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse )
+import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse, HAllColumns )
 import Rel8.Info ( Info )
 import Data.Functor.Apply (Apply)
 
@@ -42,9 +46,10 @@ newtype Precompose :: (Meta -> Exp Meta) -> (Meta -> Type) -> Meta -> Type where
 data HMapTableField :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> Meta -> Type where
   HMapTableField :: HField t a -> HMapTableField f t (Eval (f a))
 
-
 instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
   type HField (HMapTable f t) = HMapTableField f t
+
+  type HAllColumns (HMapTable f t) c = HAllColumns t (ComposeConstraint f c)
 
   hfield (HMapTable x) (HMapTableField i) =
     case hfield x i of
@@ -66,3 +71,6 @@ instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
 
 class MapInfo f where
   mapInfo :: Column Info x -> Column Info (Eval (f x))
+
+
+class ComposeConstraint (f :: Meta -> Exp Meta) (c :: Type -> Constraint) (a :: Type)

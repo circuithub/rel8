@@ -69,6 +69,7 @@ module Rel8
 
     -- * Tables and higher-kinded tables
   , Table(..)
+  , AllColumns
   , HTable
   , HigherKindedTable
   , Congruent
@@ -259,8 +260,8 @@ import Rel8.DatabaseType
   )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
-import Rel8.Expr.Null ( fromNull, isNull, liftNull, mapNull, null, nullExpr )
-import Rel8.Expr.Opaleye ( unsafeLiteral, unsafeCastExpr, unsafeCoerceExpr, liftOpNull )
+import Rel8.Expr.Null ( fromNull, isNull, liftNull, mapNull, null, nullExpr, liftOpNull )
+import Rel8.Expr.Opaleye ( unsafeLiteral, unsafeCastExpr, unsafeCoerceExpr )
 import Rel8.Expr.Function ( Function, function, nullaryFunction )
 import Rel8.Generic ( Column, HList, HMaybe, HNonEmpty, HigherKindedTable, ColumnWithDefault )
 import Rel8.HTable ( HTable )
@@ -293,7 +294,7 @@ import Rel8.Statement.Insert ( Insert( Insert, into, rows, returning, onConflict
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Statement.Select ( select, showQuery )
 import Rel8.Statement.Update ( Update( Update, target, updateWhere, set, returning ), update )
-import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
+import Rel8.Table ( Table, AllColumns, Columns, fromColumns, toColumns )
 import Rel8.Table.Bool ( case_, ifThenElse_ )
 import Rel8.Table.Congruent ( Congruent )
 import Rel8.Table.ListTable ( ListTable )

@@ -21,7 +21,6 @@ module Rel8.Expr.Opaleye
   , binaryOperator
   , column
   , unsafeCoerceExpr
-  , liftOpNull
   ) where
 
 -- rel8
@@ -89,23 +88,6 @@ unsafeCoerceExpr (Expr x) = Expr x
 -- operands.
 binaryOperator :: String -> Expr a -> Expr b -> Expr c
 binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op) a b
-
-
--- | Lift a binary operation on non-@null@ expressions to an equivalent binary
--- operator on possibly @null@ expressions.
--- 
--- Similar to @mapNull@, it is assumed that this binary operator will return
--- @null@ if either of its operands are @null@.
--- 
--- >>> select c $ pure $ liftOpNull (&&.) (lit (Just True)) (lit (Just False))
--- [Just False]
--- 
--- >>> select c $ pure $ liftOpNull (&&.) nullExpr (lit (Just False))
--- [Nothing]
--- 
--- This function can be thought of like 'liftA2'.
-liftOpNull :: (Expr a -> Expr b -> Expr c) -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
-liftOpNull f a b = unsafeCoerceExpr (f (unsafeCoerceExpr a) (unsafeCoerceExpr b))
 
 
 column :: String -> Expr a
