@@ -19,6 +19,7 @@ import Data.Kind ( Type )
 import Rel8.Context ( Column, Meta )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulate, htraverse )
 import Rel8.Info ( Info )
+import Data.Functor.Apply (Apply)
 
 
 type Exp :: Type -> Type
@@ -51,7 +52,7 @@ instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
 
   htabulate f = HMapTable $ htabulate (Precompose . f . HMapTableField)
 
-  htraverse :: forall g h m. Applicative m
+  htraverse :: forall g h m. Apply m
     => (forall x. g x -> m (h x)) -> HMapTable f t g -> m (HMapTable f t h)
   htraverse f (HMapTable x) = HMapTable <$> htraverse go x
     where

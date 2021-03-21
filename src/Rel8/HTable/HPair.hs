@@ -14,6 +14,7 @@ import GHC.Generics ( Generic )
 -- rel8
 import Rel8.Context ( Meta )
 import Rel8.HTable ( HTable( HField, hfield, htabulate, htraverse, hdbtype ) )
+import Data.Functor.Apply ((<.>))
 
 
 -- | Pair two higher-kinded tables. This is primarily used to facilitate
@@ -38,6 +39,6 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
 
   htabulate f = HPair (htabulate (f . HPairFst)) (htabulate (f . HPairSnd))
 
-  htraverse f (HPair x y) = HPair <$> htraverse f x <*> htraverse f y
+  htraverse f (HPair x y) = HPair <$> htraverse f x <.> htraverse f y
 
   hdbtype = HPair hdbtype hdbtype

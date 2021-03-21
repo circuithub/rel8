@@ -17,6 +17,7 @@ import Data.Functor.Identity ( Identity( runIdentity ) )
 import Rel8.Context ( Column( ComposedColumn ), Meta( Meta ), decompose )
 import Rel8.HTable ( hfield, htabulateMeta, htraverseMeta )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
+import Data.Functor.Apply (Apply)
 
 
 -- | We say that two 'Table's are congruent if they have the same set of
@@ -37,7 +38,7 @@ mapTable f = fromColumns . runIdentity . htraverseMeta (pure . f) . toColumns
 
 zipTablesWithM
   :: forall x y z f g h m
-   . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Applicative m)
+   . (Congruent x y, Columns y ~ Columns z, Table f x, Table g y, Table h z, Apply m)
   => (forall a d b. a ~ 'Meta d b => Column f a -> Column g a -> m (Column h a)) -> x -> y -> m z
 zipTablesWithM f (toColumns -> x) (toColumns -> y) =
   fmap fromColumns $
@@ -47,6 +48,6 @@ zipTablesWithM f (toColumns -> x) (toColumns -> y) =
 
 
 traverseTable
-  :: (Congruent x y, Table f x, Table g y, Applicative m)
+  :: (Congruent x y, Table f x, Table g y, Apply m)
   => (forall a d b. 'Meta d b ~ a => Column f a -> m (Column g a)) -> x -> m y
 traverseTable f = fmap fromColumns . htraverseMeta f . toColumns

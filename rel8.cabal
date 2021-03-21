@@ -25,6 +25,7 @@ library
     , opaleye           ^>=0.7.0.0
     , profunctors
     , scientific
+    , semigroupoids
     , text
     , time
     , uuid

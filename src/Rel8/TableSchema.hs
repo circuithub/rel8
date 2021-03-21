@@ -25,6 +25,7 @@ import Rel8.Table ( Table( toColumns ) )
 import Rel8.Table.Congruent ( mapTable )
 import Rel8.Table.Selects ( Selects )
 import Rel8.TableSchema.ColumnSchema ( Column( ColumnSchemaColumn ), ColumnSchema( ColumnSchema, columnName ), fromColumnSchemaColumn )
+import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
 
 
 -- | The schema for a table. This is used to specify the name and schema that a
@@ -91,15 +92,17 @@ writer into_ =
       -> f ()
     go f xs =
       void $
-        htraverseMeta decompose $
-          htabulateMeta \i ->
-            case hfield (toColumns (tableColumns into_)) i of
-              ColumnSchemaColumn ColumnSchema{ columnName } ->
-                ComposedColumn $
-                  ExprColumn (column columnName) <$
-                  f ( toPrimExpr . fromExprColumn . flip hfield i . toColumns <$> xs
-                    , columnName
-                    )
+        unwrapApplicative $
+          htraverseMeta decompose $
+            htabulateMeta \i -> 
+              case hfield (toColumns (tableColumns into_)) i of
+                ColumnSchemaColumn ColumnSchema{ columnName } ->
+                  ComposedColumn $
+                    WrapApplicative $
+                      ExprColumn (column columnName) <$
+                      f ( toPrimExpr . fromExprColumn . flip hfield i . toColumns <$> xs
+                        , columnName
+                        )
 
   in
   Opaleye.Writer ( Opaleye.PackMap go )

@@ -25,12 +25,13 @@ import Rel8.HTable ( HTable, HField, hfield, hdbtype, htabulateMeta, htraverseMe
 import Rel8.Info ( Info( Null, NotNull ), fromInfoColumn )
 import Rel8.Table ( Table( toColumns, fromColumns ) )
 import Rel8.Table.Congruent ( traverseTable, zipTablesWithM )
+import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
 
 
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    fmap fromColumns . htraverseMeta (fmap ExprColumn . traversePrimExpr f . fromExprColumn) . addCasts . toColumns
+    unwrapApplicative . fmap fromColumns . htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) . addCasts . toColumns
   where
     addCasts :: forall f. HTable f => f (Column Expr) -> f (Column Expr)
     addCasts columns = htabulateMeta go
@@ -44,13 +45,15 @@ unpackspec =
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a
 binaryspec =
   Opaleye.Binaryspec $ Opaleye.PackMap \f (a, b) ->
-    zipTablesWithM (\x y -> ExprColumn . fromPrimExpr <$> f (toPrimExpr (fromExprColumn x), toPrimExpr (fromExprColumn y))) a b
+    unwrapApplicative $
+      zipTablesWithM (\x y -> WrapApplicative $ ExprColumn . fromPrimExpr <$> f (toPrimExpr (fromExprColumn x), toPrimExpr (fromExprColumn y))) a b
 
 
 distinctspec :: Table Expr a => Opaleye.Distinctspec a a
 distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap \f ->
-    traverseTable (\x -> ExprColumn . fromPrimExpr <$> f (Nothing, toPrimExpr (fromExprColumn x)))
+    unwrapApplicative .
+      traverseTable (\x -> WrapApplicative $ ExprColumn . fromPrimExpr <$> f (Nothing, toPrimExpr (fromExprColumn x)))
 
 
 valuesspec :: forall expr. Table Expr expr => Opaleye.Valuesspec expr expr
@@ -58,13 +61,14 @@ valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
   where
     packmap :: Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () expr
     packmap = Opaleye.PackMap \f () ->
-      fmap fromColumns $
-        htraverseMeta (fmap ExprColumn . traversePrimExpr f . fromExprColumn) $
-          htabulateMeta \i ->
-            case fromInfoColumn (hfield hdbtype i) of
-              NotNull databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
-              Null databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
-        where
-          nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
-          nullPrimExpr DatabaseType{ typeName } =
-            Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+      unwrapApplicative $ 
+        fmap fromColumns $
+          htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) $
+            htabulateMeta \i ->
+              case fromInfoColumn (hfield hdbtype i) of
+                NotNull databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
+                Null databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
+          where
+            nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
+            nullPrimExpr DatabaseType{ typeName } =
+              Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)

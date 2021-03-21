@@ -30,6 +30,7 @@ import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( HasInfo, decodeWith, Column( fromInfoColumn ) )
 import Rel8.Table ( Columns, Table, fromColumns )
+import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
@@ -109,7 +110,7 @@ lit x = fromColumns $ htabulateMeta \i ->
 
 
 hasqlRowDecoder :: forall exprs haskell. Serializable exprs haskell => Hasql.Row haskell
-hasqlRowDecoder = pack @exprs <$> htraverseMeta (fmap I . fromColumnDecoder) decoders
+hasqlRowDecoder = unwrapApplicative $ pack @exprs <$> htraverseMeta (WrapApplicative . fmap I . fromColumnDecoder) decoders
   where
     decoders :: Columns exprs (Column Hasql.Row)
     decoders = htabulateMeta (ColumnDecoder . decodeWith . fromInfoColumn . hfield hdbtype)

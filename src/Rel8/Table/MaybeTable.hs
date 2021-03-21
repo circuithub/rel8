@@ -34,16 +34,15 @@ import GHC.Generics ( Generic )
 import Prelude
   ( Applicative( (<*>), pure )
   , Bool( True, False )
-  , Functor
   , Maybe( Just, Nothing )
   , Monad( return, (>>=) )
   , ($)
   , (.)
-  , (<$>)
   , (=<<)
   , const
   , error
   , Eq, Ord, Read, Show, Enum, Bounded, Monoid, Either (Right, Left), (<>), mempty
+  , Functor, (<$>)
   )
 
 -- rel8
@@ -89,6 +88,7 @@ import Rel8.DBType (DBType( typeInformation ))
 import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
 import Rel8.DBType.DBMonoid ( DBMonoid(memptyExpr) )
 import Rel8.DatabaseType (parseDatabaseType)
+import Data.Functor.Apply ( Apply((<.>)) )
 
 
 -- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If
@@ -366,7 +366,7 @@ instance HTable g => HTable (HMaybeTable g) where
   htabulate f = HMaybeTable (HIdentity (f HNullTag)) (htabulate (f . HMaybeField))
 
   htraverse f HMaybeTable{ hnullTag, htable } =
-    HMaybeTable <$> htraverse f hnullTag <*> htraverse f htable
+    HMaybeTable <$> htraverse f hnullTag <.> htraverse f htable
 
   hdbtype = HMaybeTable hdbtype hdbtype
 

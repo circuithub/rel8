@@ -22,6 +22,7 @@ import Data.Kind ( Type )
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.Info ( Column( InfoColumn ), Info )
+import Data.Functor.Apply (Apply)
 
 
 class HTable (t :: (Meta -> Type) -> Type) where
@@ -29,7 +30,7 @@ class HTable (t :: (Meta -> Type) -> Type) where
 
   hfield :: t f -> HField t x -> f x
   htabulate :: forall f. (forall x. HField t x -> f x) -> t f
-  htraverse :: forall f g m. Applicative m => (forall x. f x -> m (g x)) -> t f -> m (t g)
+  htraverse :: forall f g m. Apply m => (forall x. f x -> m (g x)) -> t f -> m (t g)
   hdbtype :: t (Column Info)
 
 
@@ -47,7 +48,7 @@ htabulateMeta f = htabulate \i ->
     InfoColumn _ -> f i
 
 
-htraverseMeta :: (HTable t, Applicative m) => (forall x d y. x ~ 'Meta d y => f x -> m (g x)) -> t f -> m (t g)
+htraverseMeta :: (HTable t, Apply m) => (forall x d y. x ~ 'Meta d y => f x -> m (g x)) -> t f -> m (t g)
 htraverseMeta f x = htraverse getCompose $ htabulate \i ->
   case hfield hdbtype i of
     InfoColumn _ -> Compose $ f $ hfield x i

@@ -42,6 +42,7 @@ import Rel8.Table ( Table( toColumns ), fromColumns )
 import Rel8.Table.ListTable ( ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ) )
+import Data.Functor.Apply ( WrappedApplicative(WrapApplicative, unwrapApplicative) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -67,7 +68,8 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
   where
     aggregator :: Opaleye.Aggregator (Aggregate a) a
     aggregator = Opaleye.Aggregator $ Opaleye.PackMap \f (Aggregate x) ->
-      fromColumns <$> htraverse (g f) (toColumns x)
+      unwrapApplicative $
+        fromColumns <$> htraverse (WrapApplicative . g f) (toColumns x)
 
     g :: forall m x. Applicative m => ((Maybe (Opaleye.AggrOp, [Opaleye.OrderExpr], Opaleye.AggrDistinct), Opaleye.PrimExpr) -> m Opaleye.PrimExpr) -> Column Expr x -> m (Column Expr x)
     g f (ExprColumn (Expr x)) = ExprColumn . Expr <$> traverseAggrExpr f x
