@@ -32,15 +32,7 @@ import Data.Functor.Apply ( WrappedApplicative( WrapApplicative, unwrapApplicati
 unpackspec :: Table Expr row => Opaleye.Unpackspec row row
 unpackspec =
   Opaleye.Unpackspec $ Opaleye.PackMap \f ->
-    unwrapApplicative . fmap fromColumns . htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) . addCasts . toColumns
-  where
-    addCasts :: forall f. HTable f => f (Column Expr) -> f (Column Expr)
-    addCasts columns = htabulateMeta go
-      where
-        go :: forall d x. HField f ('Meta d x) -> Column Expr ('Meta d x)
-        go i = ExprColumn $ case fromInfoColumn (hfield hdbtype i) of
-          NotNull t -> unsafeCastExpr (typeName t) (fromExprColumn (hfield columns i))
-          Null t -> unsafeCastExpr (typeName t) (fromExprColumn (hfield columns i))
+    unwrapApplicative . fmap fromColumns . htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) . toColumns
 
 
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a
