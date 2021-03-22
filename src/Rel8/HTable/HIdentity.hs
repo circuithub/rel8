@@ -14,8 +14,8 @@ import Data.Type.Equality ( type (:~:)(Refl) )
 
 -- rel8
 import Rel8.Context ( Meta( Meta ) )
+import Rel8.DBType ( DBType )
 import Rel8.HTable ( HTable, HField, htabulate, htraverse, hfield, hdict, HAllColumns, Column( DictColumn ) )
-import Rel8.Info ( HasInfo )
 
 
 -- | A single-column higher-kinded table. This is primarily useful for
@@ -23,7 +23,7 @@ import Rel8.Info ( HasInfo )
 newtype HIdentity a (f :: Meta -> Type) = HIdentity { unHIdentity :: f a }
 
 
-instance HasInfo a => HTable (HIdentity ('Meta d a)) where
+instance DBType a => HTable (HIdentity ('Meta d a)) where
   type HField (HIdentity ('Meta d a)) = (:~:) ('Meta d a)
   type HAllColumns (HIdentity ('Meta d a)) c = c ('Meta d a)
 

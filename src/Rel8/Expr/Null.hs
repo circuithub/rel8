@@ -20,6 +20,7 @@ import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), ifThenElse_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
+import Rel8.PrimitiveType ( PrimitiveType )
 
 
 -- | Like 'maybe', but to eliminate @null@.
@@ -49,7 +50,7 @@ isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
 -- | Corresponds to SQL @null@.
-nullExpr :: DBType a => Expr (Maybe a)
+nullExpr :: PrimitiveType a => Expr (Maybe a)
 nullExpr = litExpr Nothing
 
 
@@ -75,7 +76,7 @@ fromNull :: Expr a -> Expr (Maybe a) -> Expr a
 fromNull x = null x id
 
 
-instance (DBType a, DBEq a) => DBEq (Maybe a) where
+instance (PrimitiveType a, DBEq a) => DBEq (Maybe a) where
   a ==. b = (isNull a &&. isNull b) ||. (unsafeFromJust a ==. unsafeFromJust b)
 
 
@@ -93,7 +94,7 @@ instance (DBType a, DBEq a) => DBEq (Maybe a) where
 -- 
 -- This function can be thought of like 'liftA2'.
 liftOpNull
-  :: DBType c
+  :: PrimitiveType c
   => (Expr a -> Expr b -> Expr c)
   -> Expr (Maybe a)
   -> Expr (Maybe b)

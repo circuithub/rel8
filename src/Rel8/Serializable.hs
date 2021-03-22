@@ -20,14 +20,14 @@ import qualified Hasql.Decoders as Hasql
 
 -- rel8
 import Rel8.Context ( Column( I, unI, ColumnDecoder ), fromColumnDecoder )
-import Rel8.DBType ( DBType )
+import Rel8.DBType ( Column( fromInfoColumn ), DBType, decodeWith )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
 import Rel8.Expr.Opaleye ( litExprWith )
 import Rel8.HTable ( HTable, hdbtype, hfield, htabulateMeta, htraverseMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( Column( fromInfoColumn ), HasInfo, decodeWith )
+import Rel8.PrimitiveType ( PrimitiveType )
 import Rel8.Table ( Columns, Table, fromColumns )
 
 -- semigroupoids
@@ -56,12 +56,12 @@ class Table Expr expr => ExprFor expr haskell where
   pack :: Columns expr (Column Identity) -> haskell
 
 
-instance {-# OVERLAPPABLE #-} (HasInfo b, a ~ Expr b) => ExprFor a b where
+instance {-# OVERLAPPABLE #-} (DBType b, a ~ Expr b) => ExprFor a b where
   unpack = HIdentity . I
   pack (HIdentity a) = unI a
 
 
-instance DBType a => ExprFor (Expr (Maybe a)) (Maybe a) where
+instance PrimitiveType a => ExprFor (Expr (Maybe a)) (Maybe a) where
   unpack = HIdentity . I
   pack (HIdentity a) = unI a
 
@@ -91,7 +91,7 @@ instance (HTable t, a ~ t (Column Expr), identity ~ Column Identity) => ExprFor 
 instance (s ~ t, expr ~ Column Expr, identity ~ Column Identity, HTable t) => Serializable (s expr) (t identity) where
 
 
-instance (a ~ b, HasInfo b) => Serializable (Expr a) b where
+instance (a ~ b, DBType b) => Serializable (Expr a) b where
 
 
 instance (Serializable a1 b1, Serializable a2 b2) => Serializable (a1, a2) (b1, b2) where

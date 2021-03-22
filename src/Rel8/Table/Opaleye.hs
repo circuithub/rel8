@@ -16,12 +16,12 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.DBType ( Info( Null, NotNull ), fromInfoColumn )
 import Rel8.DatabaseType ( typeName )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulateMeta, htraverseMeta )
-import Rel8.Info ( Info( Null, NotNull ), fromInfoColumn )
 import Rel8.Table ( Table( toColumns, fromColumns ), nullTable )
 import Rel8.Table.Congruent ( traverseTable, zipTablesWithM )
 

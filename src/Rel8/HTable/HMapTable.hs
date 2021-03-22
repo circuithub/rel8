@@ -21,8 +21,8 @@ import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Column, Meta )
+import Rel8.DBType ( Info )
 import Rel8.HTable ( Column( DictColumn ), Dict, HAllColumns, HField, HTable, hdbtype, hdict, hfield, htabulate, htabulateMeta, htraverse )
-import Rel8.Info ( Info )
 
 
 type Exp :: Type -> Type

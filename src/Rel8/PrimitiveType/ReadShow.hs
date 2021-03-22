@@ -1,11 +1,11 @@
-module Rel8.DBType.ReadShow ( ReadShow(..) ) where
+module Rel8.PrimitiveType.ReadShow ( ReadShow(..) ) where
 
 -- base
 import Text.Read ( readEither )
 
 -- rel8
-import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( parseDatabaseType )
+import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
 
 -- text
 import qualified Data.Text as Text
@@ -19,7 +19,7 @@ import qualified Data.Text as Text
 -- >>> :{
 -- data Color = Red | Green | Blue
 --   deriving (Read, Show)
---   deriving DBType via ReadShow Color
+--   deriving PrimitiveType via ReadShow Color
 -- :}
 -- 
 -- will allow you to store @Color@ values in a single SQL column (stored as
@@ -27,15 +27,15 @@ import qualified Data.Text as Text
 newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
--- | The 'DBType' instance for 'ReadShow' allows you to serialize a type using
+-- | The 'PrimitiveType' instance for 'ReadShow' allows you to serialize a type using
 -- Haskell's 'Read' and 'Show' instances:
 --
 -- @
 -- data Color = Red | Green | Blue
 --   deriving (Read, Show)
---   deriving DBType via ReadShow Color
+--   deriving PrimitiveType via ReadShow Color
 -- @
-instance (Read a, Show a) => DBType (ReadShow a) where
+instance (Read a, Show a) => PrimitiveType (ReadShow a) where
   typeInformation = parseDatabaseType parser printer typeInformation
     where
       parser = fmap ReadShow . readEither . Text.unpack

@@ -1,4 +1,4 @@
-module Rel8.DBType.JSONBEncoded ( JSONBEncoded(..) ) where
+module Rel8.PrimitiveType.JSONBEncoded ( JSONBEncoded(..) ) where
 
 -- aeson
 import Data.Aeson ( FromJSON, ToJSON, parseJSON, toJSON )
@@ -11,8 +11,8 @@ import Data.Bifunctor ( first )
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.DBType ( DBType( typeInformation ) )
 import Rel8.DatabaseType ( DatabaseType( encode, decoder, typeName, DatabaseType, parser ) )
+import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
 
 -- text
 import Data.Text ( pack )
@@ -22,7 +22,7 @@ import Data.Text ( pack )
 newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
 
 
-instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
+instance (FromJSON a, ToJSON a) => PrimitiveType (JSONBEncoded a) where
   typeInformation = DatabaseType
     { encode = encode typeInformation . toJSON . fromJSONBEncoded
     , decoder = Hasql.jsonb

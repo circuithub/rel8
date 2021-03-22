@@ -15,13 +15,13 @@ import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
+import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( unsafeNullExpr )
 import Rel8.HTable ( ColType, HAllColumns, HTable, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( HasInfo )
 
 
 -- | Types that represent SQL tables.
@@ -39,7 +39,7 @@ class HTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> c
 type AllColumns (t :: Type) (c :: Type -> Constraint) = HAllColumns (Columns t) (ColType c)
 
 
-instance (HasInfo a, expr ~ Expr) => Table expr (Expr a) where
+instance (DBType a, expr ~ Expr) => Table expr (Expr a) where
   type Columns (Expr a) = HIdentity ('Meta 'NoDefault a)
 
   toColumns = HIdentity . ExprColumn

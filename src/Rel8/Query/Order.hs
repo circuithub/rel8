@@ -30,11 +30,11 @@ import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy )
+import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Instances ( fromExprColumn )
 import Rel8.Expr.Opaleye ( unsafeCoerceExpr )
 import Rel8.HTable.HIdentity ( HIdentity( unHIdentity ) )
-import Rel8.Info ( HasInfo )
 import Rel8.Query ( Query, liftOpaleye, mapOpaleye, toOpaleye )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Opaleye ( unpackspec )
@@ -63,7 +63,7 @@ newtype Order a = Order (Opaleye.Order a)
 --
 -- >>> select c $ orderBy asc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [1,2,3,4,5]
-asc :: HasInfo a => Order (Expr a)
+asc :: DBType a => Order (Expr a)
 asc = Order $ Opaleye.Order (f . fromExprColumn . unHIdentity . toColumns)
   where
     f :: forall x. Expr x -> [(Opaleye.OrderOp, Opaleye.PrimExpr)]
@@ -80,7 +80,7 @@ asc = Order $ Opaleye.Order (f . fromExprColumn . unHIdentity . toColumns)
 --
 -- >>> select c $ orderBy desc $ values [ lit x | x <- [1..5 :: Int32] ]
 -- [5,4,3,2,1]
-desc :: HasInfo a => Order (Expr a)
+desc :: DBType a => Order (Expr a)
 desc = Order $ Opaleye.Order (f . fromExprColumn . unHIdentity . toColumns)
   where
     f :: forall x. Expr x -> [(Opaleye.OrderOp, Opaleye.PrimExpr)]

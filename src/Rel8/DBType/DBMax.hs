@@ -8,7 +8,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Aggregate ( Aggregate, aggregateAllExprs )
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
-import Rel8.Info ( HasInfo )
+import Rel8.PrimitiveType ( PrimitiveType )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -24,7 +24,7 @@ import Data.Time ( UTCTime )
 --
 -- If you have a custom type that you know supports @max@, you can use
 -- @DeriveAnyClass@ to derive a default implementation that calls @max@.
-class HasInfo a => DBMax a where
+class DBType a => DBMax a where
   -- | Produce an aggregation for @Expr a@ using the @max@ function.
   max :: Expr a -> Aggregate (Expr a)
   max = aggregateAllExprs Opaleye.AggrMax
@@ -54,4 +54,4 @@ instance DBMax Text
 instance DBMax UTCTime
 
 
-instance DBType a => DBMax (Maybe a)
+instance PrimitiveType a => DBMax (Maybe a)

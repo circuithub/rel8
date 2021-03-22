@@ -4,12 +4,12 @@ module Rel8.DBType.DBSemigroup ( DBSemigroup(..) ) where
 import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( liftOpNull )
-import Rel8.Info ( HasInfo )
+import Rel8.PrimitiveType ( PrimitiveType )
 
 
-class HasInfo a => DBSemigroup a where
+class DBType a => DBSemigroup a where
   (<>.) :: Expr a -> Expr a -> Expr a
 
 
-instance (DBType a, DBSemigroup a) => DBSemigroup (Maybe a) where
+instance (PrimitiveType a, DBSemigroup a) => DBSemigroup (Maybe a) where
   (<>.) = liftOpNull (<>.)

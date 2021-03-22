@@ -13,9 +13,8 @@ module Rel8
     -- $guideAggregation
 
     -- * Database types
-    -- ** @DBType@
-    DBType(..)
-  , HasInfo
+    -- ** @PrimitiveType@
+    PrimitiveType(..)
 
     -- *** Deriving-via helpers
     -- **** @JSONEncoded@
@@ -30,7 +29,8 @@ module Rel8
   , mapDatabaseType
   , parseDatabaseType
 
-    -- ** TODO
+    -- ** The @DBType@ hierarchy
+  , DBType
   , DBEq(..)
   , DBSemigroup(..)
   , DBMonoid(..)
@@ -218,7 +218,7 @@ import Rel8.Aggregate
   , some
   )
 import Rel8.Context ( Context )
-import Rel8.DBType ( DBType( typeInformation ) )
+import Rel8.DBType ( DBType, Nullify )
 import Rel8.DBType.DBEq ( DBEq( (==.), (/=.) ), in_ )
 import Rel8.DBType.DBMax ( DBMax( max ) )
 import Rel8.DBType.DBMin ( DBMin( min ) )
@@ -226,9 +226,6 @@ import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
 import Rel8.DBType.DBOrd ( DBOrd( (<.), (<=.), (>.), (>=.) ) )
 import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
 import Rel8.DBType.DBSum ( DBSum( sum ) )
-import Rel8.DBType.JSONBEncoded ( JSONBEncoded( JSONBEncoded ) )
-import Rel8.DBType.JSONEncoded ( JSONEncoded( JSONEncoded ) )
-import Rel8.DBType.ReadShow ( ReadShow( ReadShow ) )
 import Rel8.DatabaseType
   ( DatabaseType( DatabaseType, encode, decoder, typeName )
   , mapDatabaseType
@@ -241,7 +238,10 @@ import Rel8.Expr.Null ( fromNull, isNull, liftNull, liftOpNull, mapNull, null, n
 import Rel8.Expr.Opaleye ( binaryOperator, unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral )
 import Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
-import Rel8.Info ( HasInfo, Nullify )
+import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
+import Rel8.PrimitiveType.JSONBEncoded ( JSONBEncoded( JSONBEncoded ) )
+import Rel8.PrimitiveType.JSONEncoded ( JSONEncoded( JSONEncoded ) )
+import Rel8.PrimitiveType.ReadShow ( ReadShow( ReadShow ) )
 import Rel8.Query
   ( Query
   , catMaybe

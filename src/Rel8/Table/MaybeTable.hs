@@ -68,7 +68,7 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Lateral as Opaleye
 import Rel8.Context ( Column( I, unI ), Context( Column ), Defaulting( NoDefault ), Meta( Meta ) )
-import Rel8.DBType ( DBType( typeInformation ) )
+import Rel8.DBType ( Column( InfoColumn, fromInfoColumn ), Info( Null, NotNull ), Nullify, info )
 import Rel8.DBType.DBEq ( DBEq, (==.) )
 import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
 import Rel8.DBType.DBOrd ( DBOrd )
@@ -96,7 +96,7 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   , mapInfo
   )
-import Rel8.Info ( Column( InfoColumn, fromInfoColumn ), Info( Null, NotNull ), Nullify, info )
+import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
 import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
@@ -423,7 +423,7 @@ data MaybeTag = IsJust
   deriving anyclass (DBEq, DBOrd)
 
 
-instance DBType MaybeTag where
+instance PrimitiveType MaybeTag where
   typeInformation = parseDatabaseType to from typeInformation
     where
       to False = Left "MaybeTag can't be false"

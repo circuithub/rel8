@@ -13,12 +13,12 @@ import Data.String ( IsString( fromString ) )
 
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.DBType ( DBType )
 import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
 import Rel8.DBType.DBNum ( DBFractional( (/.), fromRationalExpr ), DBNum( (+.), (-.), (*.), absExpr, signumExpr, fromIntegerExpr, negateExpr ) )
 import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( litExpr )
-import Rel8.Info ( HasInfo )
 
 
 instance Context Expr where
@@ -46,7 +46,7 @@ instance DBFractional a => Fractional (Expr a) where
   fromRational = fromRationalExpr
 
 
-instance (IsString a, HasInfo a) => IsString (Expr a) where
+instance (IsString a, DBType a) => IsString (Expr a) where
   fromString = litExpr . fromString
 
 

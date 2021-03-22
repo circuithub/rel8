@@ -1,166 +1,72 @@
+{-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language StandaloneKindSignatures #-}
+{-# language GADTs #-}
+{-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
-module Rel8.DBType ( DBType(..) ) where
-
--- aeson
-import Data.Aeson ( Value )
+module Rel8.DBType
+  ( Info(..)
+  , DBType(..)
+  , Nullify
+  , decodeWith
+  , Column( InfoColumn, fromInfoColumn )
+  ) where
 
 -- base
-import Data.Int ( Int16, Int32, Int64 )
-import Data.Kind ( Constraint, Type )
-import Numeric.Natural ( Natural )
-
--- bytestring
-import qualified Data.ByteString
-import qualified Data.ByteString.Lazy
-
--- case-insensitive
-import Data.CaseInsensitive ( CI )
-import qualified Data.CaseInsensitive as CI
+import Data.Kind ( Type )
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, parser, typeName )
-
--- scientific
-import Data.Scientific ( Scientific )
-
--- text
-import Data.Text ( Text )
-import qualified Data.Text.Lazy
-
--- time
-import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime )
-
--- uuid
-import Data.UUID ( UUID )
+import Rel8.Context ( Context( Column ), Meta( Meta ) )
+import Rel8.DatabaseType ( DatabaseType( decoder, DatabaseType, parser ), listOfNotNull, listOfNull )
+import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
 
 
--- | Haskell types that can be represented as expressions in a database. There
--- should be an instance of @DBType@ for all column types in your database
--- schema (e.g., @int@, @timestamptz@, etc).
--- 
--- Rel8 comes with stock instances for all default types in PostgreSQL, so you
--- should only need to derive instances of this class for custom database
--- types, such as types defined in PostgreSQL extensions, or custom domain
--- types.
--- 
--- [ Creating @DBType@s using @newtype@ ]
--- 
--- Generalized newtype deriving can be used when you want use a @newtype@
--- around a database type for clarity and accuracy in your Haskell code. A
--- common example is to @newtype@ row id types:
--- 
--- >>> newtype UserId = UserId { toInt32 :: Int32 } deriving newtype (DBType)
--- 
--- You can now write queries using @UserId@ instead of @Int32@, which may help
--- avoid making bad joins. However, when SQL is generated, it will be as if you
--- just used integers (the type distinction does not impact query generation).
-type DBType :: Type -> Constraint
+data Info :: Type -> Type where
+  NotNull :: Nullify a ~ Maybe a => DatabaseType a -> Info a
+  Null :: DatabaseType a -> Info (Maybe a)
+
+
+type family Nullify (a :: Type) :: Type where
+  Nullify (Maybe a) = Maybe a
+  Nullify a         = Maybe a
 
 
 class DBType a where
-  -- | Lookup the type information for the type @a@.
-  typeInformation :: DatabaseType a
+  info :: Info a
 
 
--- | Corresponds to the @json@ PostgreSQL type.
-instance DBType Value where
-  typeInformation = fromOpaleye pgValueJSON Hasql.json
+instance {-# overlapping #-} PrimitiveType a => DBType (Maybe a) where
+  info = Null typeInformation
 
 
--- | Corresponds to the @text@ PostgreSQL type.
-instance DBType Text where
-  typeInformation = fromOpaleye pgStrictText Hasql.text
+instance (PrimitiveType a, Nullify a ~ Maybe a) => DBType a where
+  info = NotNull typeInformation
 
 
--- | Corresponds to the @text@ PostgreSQL type.
-instance DBType Data.Text.Lazy.Text where
-  typeInformation = mapDatabaseType Data.Text.Lazy.fromStrict Data.Text.Lazy.toStrict typeInformation
+instance DBType a => PrimitiveType [a] where
+  typeInformation = case info @a of
+    Null t    -> listOfNull t
+    NotNull t -> listOfNotNull t
 
 
--- | Corresponds to the @bool@ PostgreSQL type.
-instance DBType Bool where
-  typeInformation = fromOpaleye pgBool Hasql.bool
+decodeWith :: Info a -> Hasql.Row a
+decodeWith = \case
+  Null DatabaseType{ parser, decoder } ->
+    Hasql.column $ Hasql.nullable $ Hasql.refine parser decoder
+
+  NotNull DatabaseType{ parser, decoder } ->
+    Hasql.column $ Hasql.nonNullable $ Hasql.refine parser decoder
 
 
--- | Corresponds to the @int2@ PostgreSQL type.
-instance DBType Int16 where
-  typeInformation = (mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> Hasql.int2) -- TODO
-    { typeName = "int2" }
-
-
--- | Corresponds to the @int4@ PostgreSQL type.
-instance DBType Int32 where
-  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> Hasql.int4 -- TODO
-
-
--- | Corresponds to the @int8@ PostgreSQL type.
-instance DBType Int64 where
-  typeInformation = fromOpaleye pgInt8 Hasql.int8
-
-
-instance DBType Float where
-  typeInformation = DatabaseType
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
-    , decoder = Hasql.float4
-    , typeName = "float4"
-    , parser = pure
-    }
-
-
-instance DBType UTCTime where
-  typeInformation = fromOpaleye pgUTCTime Hasql.timestamptz
-
-
-instance DBType Data.ByteString.Lazy.ByteString where
-  typeInformation = mapDatabaseType Data.ByteString.Lazy.fromStrict Data.ByteString.Lazy.toStrict typeInformation
-
-
-instance DBType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString Hasql.bytea
-
-
-instance DBType Scientific where
-  typeInformation = fromOpaleye pgNumeric Hasql.numeric
-
-
--- TODO
-instance DBType Natural where
-  typeInformation = mapDatabaseType round fromIntegral $ fromOpaleye pgNumeric Hasql.numeric
-
-
-instance DBType Double where
-  typeInformation = fromOpaleye pgDouble Hasql.float8
-
-
-instance DBType UUID where
-  typeInformation = fromOpaleye pgUUID Hasql.uuid
-
-
-instance DBType Day where
-  typeInformation = fromOpaleye pgDay Hasql.date
-
-
-instance DBType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime Hasql.timestamp
-
-
-instance DBType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay Hasql.time
-
-
-instance DBType (CI Text) where
-  typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
-
-
-instance DBType (CI Data.Text.Lazy.Text) where
-  typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
-
-
+instance Context Info where
+  data Column Info :: Meta -> Type where
+    InfoColumn :: { fromInfoColumn :: Info a } -> Column Info ('Meta defaulting a)

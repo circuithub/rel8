@@ -8,8 +8,8 @@ import Data.Int ( Int16, Int32, Int64 )
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Aggregate ( Aggregate, aggregateAllExprs )
+import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
-import Rel8.Info ( HasInfo )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -18,7 +18,7 @@ import Data.Scientific ( Scientific )
 -- | The class of data types that can be aggregated under the @sum@ operation.
 -- This type class contains two parameters, as @sum@ can be a type-changing
 -- operation in PostgreSQL.
-class HasInfo a => DBSum a res | a -> res where
+class DBType a => DBSum a res | a -> res where
   -- | Corresponds to @sum@.
   sum :: Expr a -> Aggregate (Expr res)
   sum = aggregateAllExprs Opaleye.AggrSum

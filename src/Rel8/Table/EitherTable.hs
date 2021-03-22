@@ -36,7 +36,7 @@ import Data.Semigroup ( Min( Min ) )
 
 -- rel8
 import Rel8.Context ( Column( I ), Context( Column ), Defaulting( NoDefault ), Meta( Meta ), unI )
-import Rel8.DBType ( DBType, typeInformation )
+import Rel8.DBType ( Column( InfoColumn ), DBType, Info( Null, NotNull ) )
 import Rel8.DBType.DBEq ( DBEq, (==.) )
 import Rel8.DBType.DBMonoid ( DBMonoid, memptyExpr )
 import Rel8.DBType.DBOrd ( DBOrd )
@@ -54,7 +54,7 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( Column( InfoColumn ), HasInfo, Info( Null, NotNull ) )
+import Rel8.PrimitiveType ( PrimitiveType, typeInformation )
 import Rel8.Serializable ( ExprFor, Serializable, lit, pack, unpack )
 import Rel8.Table ( Columns, Table, fromColumns, nullTable, toColumns )
 import Rel8.Table.Bool ( bool )
@@ -104,7 +104,7 @@ instance (Table Expr (EitherTable a b), Table Expr a, Table Expr b) => Semigroup
   a <> b = bool a b (isRightTable a)
 
 
-instance (HAllColumns (Columns (EitherTable a b)) (ColType HasInfo), Table Expr a, Table Expr b) => Table Expr (EitherTable a b) where
+instance (HAllColumns (Columns (EitherTable a b)) (ColType DBType), Table Expr a, Table Expr b) => Table Expr (EitherTable a b) where
   type Columns (EitherTable a b) =
     HPair
       (HIdentity ('Meta 'NoDefault EitherTag))
@@ -219,7 +219,7 @@ data EitherTag = IsLeft | IsRight
   deriving anyclass (DBEq, DBOrd)
 
 
-instance DBType EitherTag where
+instance PrimitiveType EitherTag where
   typeInformation = mapDatabaseType to from typeInformation
     where
       to = Data.Bool.bool IsLeft IsRight

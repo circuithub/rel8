@@ -1,15 +1,21 @@
 module Rel8.DBType.DBNum ( DBNum(..), DBFractional(..) ) where
 
 
-import Rel8.Info (HasInfo)
-import Rel8.Expr (Expr)
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr.Opaleye (fromPrimExpr, mapPrimExpr, binExpr, recast)
-import Rel8.Expr.Function (function)
+-- base
 import Data.Int ( Int16, Int32, Int64 )
+
+-- rel8
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.DBType ( DBType )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Function ( function )
+import Rel8.Expr.Opaleye ( binExpr, fromPrimExpr, mapPrimExpr, recast )
+
+-- scientific
 import Data.Scientific ( Scientific )
 
-class HasInfo a => DBNum a where
+
+class DBType a => DBNum a where
   (+.) :: Expr a -> Expr a -> Expr a
   (-.) :: Expr a -> Expr a -> Expr a
   (*.) :: Expr a -> Expr a -> Expr a
@@ -18,9 +24,9 @@ class HasInfo a => DBNum a where
   fromIntegerExpr :: Integer -> Expr a
   negateExpr :: Expr a -> Expr a
 
-  (+.) = binExpr (Opaleye.:+) 
-  (-.) = binExpr (Opaleye.:-) 
-  (*.) = binExpr (Opaleye.:*) 
+  (+.) = binExpr (Opaleye.:+)
+  (-.) = binExpr (Opaleye.:-)
+  (*.) = binExpr (Opaleye.:*)
   absExpr = function "abs"
   signumExpr = mapPrimExpr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN"))
   negateExpr = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNegate)
@@ -36,13 +42,27 @@ class DBNum a => DBFractional a where
 
 
 instance DBNum Int16
+
+
 instance DBNum Int32
+
+
 instance DBNum Int64
+
+
 instance DBNum Float
+
+
 instance DBNum Double
+
+
 instance DBNum Scientific
 
 
 instance DBFractional Float
+
+
 instance DBFractional Double
+
+
 instance DBFractional Scientific

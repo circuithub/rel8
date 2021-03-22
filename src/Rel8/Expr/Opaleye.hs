@@ -29,13 +29,13 @@ module Rel8.Expr.Opaleye
 -- rel8
 import qualified Opaleye.Internal.Column as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Rel8.DBType ( DBType( info ), Info( NotNull, Null ) )
 import Rel8.DatabaseType ( DatabaseType( DatabaseType, encode, typeName ) )
 import Rel8.Expr ( Expr( Expr, toPrimExpr ) )
-import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
-binExpr op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr op a b 
+binExpr op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr op a b
 
 
 exprToColumn :: Expr a -> Opaleye.Column b
@@ -66,7 +66,7 @@ fromPrimExpr :: Opaleye.PrimExpr -> Expr a
 fromPrimExpr = Expr
 
 
-litExpr :: HasInfo a => a -> Expr a
+litExpr :: DBType a => a -> Expr a
 litExpr = litExprWith info
 
 
@@ -82,7 +82,7 @@ unsafeCastExpr t (Expr x) = Expr $ Opaleye.CastExpr t x
 
 
 -- | Add an explicit cast to an Expr.
-recast :: forall a. HasInfo a => Expr a -> Expr a
+recast :: forall a. DBType a => Expr a -> Expr a
 recast = unsafeCastExpr case info @a of
   NotNull DatabaseType{ typeName } -> typeName
   Null DatabaseType{ typeName } -> typeName
@@ -100,7 +100,7 @@ binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op
 
 
 column :: String -> Expr a
-column columnName = Expr $ Opaleye.BaseTableAttrExpr columnName 
+column columnName = Expr $ Opaleye.BaseTableAttrExpr columnName
 
 
 traversePrimExpr :: Applicative f => (Opaleye.PrimExpr -> f Opaleye.PrimExpr) -> Expr a -> f (Expr a)

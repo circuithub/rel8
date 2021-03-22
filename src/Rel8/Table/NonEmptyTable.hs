@@ -20,13 +20,13 @@ import qualified Data.List.NonEmpty as NonEmpty
 
 -- rel8
 import Rel8.Context ( Column( I ), Meta( Meta ), unI )
+import Rel8.DBType ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.DatabaseType ( nonEmptyNotNull, nonEmptyNull )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
 import Rel8.Expr.Opaleye ( binaryOperator )
 import Rel8.HTable ( HTable, hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable ( Eval, Exp, HMapTable, HMapTableField( HMapTableField ), MapInfo( mapInfo ), precomposed, unHMapTable )
-import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
 

@@ -14,6 +14,7 @@ module Rel8.Table.ListTable ( ListTable( ListTable ), ListOf ) where
 
 -- rel8
 import Rel8.Context ( Column( I ), Meta( Meta ), unI )
+import Rel8.DBType ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.DatabaseType ( listOfNotNull, listOfNull )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
@@ -28,7 +29,6 @@ import Rel8.HTable.HMapTable
   , precomposed
   , unHMapTable
   )
-import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
 import Rel8.Table ( Columns, Table, fromColumns, toColumns )
 

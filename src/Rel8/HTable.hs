@@ -31,7 +31,7 @@ import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
-import Rel8.Info ( Column( InfoColumn ), HasInfo, Info, info )
+import Rel8.DBType ( Column( InfoColumn ), DBType, Info, info )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply )
@@ -47,13 +47,13 @@ class HTable (t :: (Meta -> Type) -> Type) where
   hdict :: HAllColumns t c => t (Column (Dict c))
 
   hdbtype :: t (Column Info)
-  default hdbtype :: HAllColumns t (ColType HasInfo) => t (Column Info)
+  default hdbtype :: HAllColumns t (ColType DBType) => t (Column Info)
   hdbtype = htabulate f where
     f :: forall x. HField t x -> Column Info x
     f i =
-      case hfield (hdict @_ @(ColType HasInfo)) i of
+      case hfield (hdict @_ @(ColType DBType)) i of
         DictColumn ->
-          refine @HasInfo i $ InfoColumn info
+          refine @DBType i $ InfoColumn info
 
 
 hmap :: HTable t => (forall y d x. x ~ 'Meta d y => f x -> g x) -> t f -> t g
