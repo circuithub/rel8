@@ -8,7 +8,6 @@ module Rel8
     -- ** Joins
     -- $guideJoins
 
-
     -- ** Aggregation
     -- $guideAggregation
 
@@ -141,6 +140,7 @@ module Rel8
     -- ** Aggregation
   , Aggregate
   , aggregate
+  , sequenceAggregate
   , listAgg
   , nonEmptyAgg
   , groupBy
@@ -213,6 +213,7 @@ import Rel8.Aggregate
   , listAgg
   , many
   , nonEmptyAgg
+  , sequenceAggregate
   , some
   )
 import Rel8.Context ( Context )
