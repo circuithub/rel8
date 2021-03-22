@@ -7,7 +7,6 @@
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}

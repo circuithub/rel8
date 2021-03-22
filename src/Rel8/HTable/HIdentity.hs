@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language InstanceSigs #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}

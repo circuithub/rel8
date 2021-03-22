@@ -2,7 +2,6 @@
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveFunctor #-}
-{-# language DerivingStrategies #-}
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}

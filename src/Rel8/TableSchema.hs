@@ -8,7 +8,6 @@
 {-# language KindSignatures #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.TableSchema ( TableSchema(..), genericTableColumns, genericTableColumnsWith, toOpaleyeTable, ddlTable, writer, selectSchema ) where
 

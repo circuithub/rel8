@@ -1,35 +1,3 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language BlockArguments #-}
-{-# language ConstraintKinds #-}
-{-# language DataKinds #-}
-{-# language DefaultSignatures #-}
-{-# language DeriveAnyClass #-}
-{-# language DeriveFunctor #-}
-{-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
-{-# language DuplicateRecordFields #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language FunctionalDependencies #-}
-{-# language GADTs #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language InstanceSigs #-}
-{-# language LambdaCase #-}
-{-# language NamedFieldPuns #-}
-{-# language OverloadedStrings #-}
-{-# language RankNTypes #-}
-{-# language RoleAnnotations #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilyDependencies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
-{-# language ViewPatterns #-}
-
-{-# options -Wno-deprecations #-}
-
 module Rel8
   ( -- * Getting Started
     -- $setup
@@ -270,8 +238,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
 import Rel8.Expr.Function ( Function, function, nullaryFunction )
 import Rel8.Expr.Null ( fromNull, isNull, liftNull, liftOpNull, mapNull, null, nullExpr )
-import Rel8.Expr.Opaleye ( unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral )
-import Rel8.Expr.Opaleye ( binaryOperator )
+import Rel8.Expr.Opaleye ( binaryOperator, unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral )
 import Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )
 import Rel8.Info ( HasInfo, Nullify )

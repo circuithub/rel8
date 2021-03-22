@@ -3,7 +3,6 @@
 {-# language DeriveAnyClass #-}
 {-# language DeriveFunctor #-}
 {-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}

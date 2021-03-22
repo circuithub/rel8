@@ -4,7 +4,6 @@
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.Table.Opaleye ( unpackspec, binaryspec, distinctspec, valuesspec ) where
 

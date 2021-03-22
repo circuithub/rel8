@@ -3,7 +3,6 @@
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.Expr.Opaleye
   ( toPrimExpr

@@ -3,9 +3,7 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language GeneralizedNewtypeDeriving #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Rel8.Query
   ( Query(..)

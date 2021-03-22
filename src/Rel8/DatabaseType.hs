@@ -4,7 +4,6 @@
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 
 module Rel8.DatabaseType

@@ -5,8 +5,6 @@
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
-{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -35,6 +33,7 @@ module Rel8.Aggregate
 -- base
 import Data.Int ( Int64 )
 import Data.Kind ( Type )
+import Data.List.NonEmpty ( NonEmpty )
 
 -- rel8
 import qualified Opaleye.Aggregate as Opaleye
@@ -45,18 +44,17 @@ import Rel8.Context ( Context( Column ), Meta )
 import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
-import Rel8.HTable ( htabulate, HField, hfield, HTable )
-import Rel8.HTable.HMapTable ( HMapTableField( HMapTableField ), HMapTable )
+import Rel8.HTable ( HField, HTable, hfield, htabulate )
+import Rel8.HTable.HMapTable ( HMapTable, HMapTableField( HMapTableField ) )
 import Rel8.Query ( Query, mapOpaleye )
-import Rel8.Table ( AllColumns, Table( toColumns ), Columns )
+import Rel8.Table ( AllColumns, Columns, Table( toColumns ) )
 import Rel8.Table.Congruent ( Congruent, traverseTable )
-import Rel8.Table.ListTable ( ListTable( ListTable ), ListOf )
+import Rel8.Table.ListTable ( ListOf, ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
-import Rel8.Table.NonEmptyTable ( NonEmptyTable( NonEmptyTable ), NonEmptyList )
+import Rel8.Table.NonEmptyTable ( NonEmptyList, NonEmptyTable( NonEmptyTable ) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapApplicative ) )
-import Data.List.NonEmpty (NonEmpty)
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -78,10 +76,11 @@ aggregate :: forall a. Table Expr a => Query (Aggregate a) -> Query a
 aggregate = mapOpaleye $ Opaleye.aggregate aggregator
   where
     aggregator :: Opaleye.Aggregator (Aggregate a) a
-    aggregator = 
-      Opaleye.Aggregator $ 
+    aggregator =
+      Opaleye.Aggregator $
         Opaleye.PackMap \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap g))) ->
           g f ()
+
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
 -- 'pure', but sometimes being explicit can help the readability of your code.
@@ -100,8 +99,8 @@ aggregateDistinctExprs = aggregateSomeExprs Opaleye.AggrDistinct
 
 
 aggregateSomeExprs :: Opaleye.AggrDistinct -> Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
-aggregateSomeExprs which op (Expr a) = 
-  Aggregate $ 
+aggregateSomeExprs which op (Expr a) =
+  Aggregate $
     Opaleye.Aggregator $
       Opaleye.PackMap \f () ->
         Expr <$> f (Just (op, [], which), a)
@@ -109,7 +108,7 @@ aggregateSomeExprs which op (Expr a) =
 
 -- | Corresponds to @bool_and@.
 boolAnd :: Expr Bool -> Aggregate (Expr Bool)
-boolAnd = aggregateAllExprs Opaleye.AggrBoolAnd 
+boolAnd = aggregateAllExprs Opaleye.AggrBoolAnd
 
 
 -- | Corresponds to @bool_or@.
@@ -162,7 +161,7 @@ listAgg exprs = fmap ListTable $ sequenceAggregate $ htabulate f
   where
     f :: forall x. HField (HMapTable ListOf (Columns exprs)) x -> Column Aggregate x
     f (HMapTableField i) =
-      case hfield (toColumns exprs) i of 
+      case hfield (toColumns exprs) i of
         ExprColumn e -> AggregateColumn $ ExprColumn <$> arrayAgg e
 
 
@@ -172,8 +171,9 @@ nonEmptyAgg exprs = fmap NonEmptyTable $ sequenceAggregate $ htabulate f
   where
     f :: forall x. HField (HMapTable NonEmptyList (Columns exprs)) x -> Column Aggregate x
     f (HMapTableField i) =
-      case hfield (toColumns exprs) i of 
+      case hfield (toColumns exprs) i of
         ExprColumn e -> AggregateColumn $ ExprColumn <$> nonEmptyArrayAgg e
+
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
 -- 0 rows, this function will produce a 'Query' that is empty - that is, will

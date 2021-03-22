@@ -3,12 +3,9 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
-{-# language MonoLocalBinds #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language TupleSections #-}
-{-# language TypeApplications #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Tabulate

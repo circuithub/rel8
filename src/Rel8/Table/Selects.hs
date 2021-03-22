@@ -2,7 +2,6 @@
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
-{-# language MultiParamTypeClasses #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 

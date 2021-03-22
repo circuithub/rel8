@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language KindSignatures #-}
 {-# language TypeFamilies #-}
 
 {-# options -Wno-duplicate-exports #-}

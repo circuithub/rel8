@@ -2,7 +2,6 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}

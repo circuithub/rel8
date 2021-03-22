@@ -1,7 +1,6 @@
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}

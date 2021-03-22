@@ -4,7 +4,6 @@
 {-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Congruent ( Congruent, mapTable, zipTablesWithM, traverseTable ) where
