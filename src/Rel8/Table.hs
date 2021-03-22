@@ -6,7 +6,6 @@
 {-# language FunctionalDependencies #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table ( Table(..), AllColumns, nullTable ) where
 

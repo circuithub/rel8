@@ -12,7 +12,6 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.HTable
   ( HTable(..)

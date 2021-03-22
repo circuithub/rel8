@@ -8,7 +8,6 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Serializable ( ExprFor(..), Serializable, hasqlRowDecoder, lit ) where
 

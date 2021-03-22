@@ -3,7 +3,6 @@
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.Selects ( Selects ) where
 

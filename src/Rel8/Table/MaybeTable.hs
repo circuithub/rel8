@@ -15,7 +15,6 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.MaybeTable
   ( MaybeTable(..)
@@ -153,7 +152,7 @@ instance Monad MaybeTable where
   (>>=) = (>>-)
 
 
-instance (HTable (Columns (MaybeTable a)), Table Expr a) => Table Expr (MaybeTable a) where
+instance Table Expr a => Table Expr (MaybeTable a) where
   type Columns (MaybeTable a) = HMaybeTable (Columns a)
 
   toColumns (MaybeTable x y) = HMaybeTable
@@ -368,7 +367,7 @@ nothingTable = MaybeTable (lit Nothing) $ fromColumns $ htabulate f
 
 -- | Like 'Just'.
 justTable :: a -> MaybeTable a
-justTable = pure
+justTable = MaybeTable (lit (Just IsJust))
 
 
 data MakeNull :: Meta -> Exp Meta
