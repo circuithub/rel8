@@ -11,15 +11,15 @@ module Rel8.Expr.Null
   ) where
 
 -- base
-import Prelude ( Bool, Maybe( Nothing ), (.), id )
+import Prelude ( Bool( False ), Maybe( Nothing ), (.), flip )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (||.), ifThenElse_ )
-import Rel8.Expr.Opaleye ( binaryOperator, litExpr, mapPrimExpr, unsafeCoerceExpr )
+import Rel8.Expr.Bool ( (||.), (&&.), ifThenElse_ )
+import Rel8.Expr.Function ( function )
+import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
 import Rel8.PrimitiveType ( PrimitiveType )
 
 
@@ -72,12 +72,16 @@ mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNull f = liftNull . f . unsafeFromJust
 
 
+-- | @fromNull x y@ corresponds to @coalesce(y, x)@
 fromNull :: Expr a -> Expr (Maybe a) -> Expr a
-fromNull x = null x id
+fromNull = flip (function "coalesce")
 
 
 instance (PrimitiveType a, DBEq a) => DBEq (Maybe a) where
-  (==.) = binaryOperator "IS NOT DISTINCT FROM"
+  x ==. y = (isNull x &&. isNull y) ||. (unsafeFromJust eq &&. fromNull (litExpr False) eq)
+    where
+      eq :: Expr (Maybe Bool)
+      eq = liftNull (unsafeFromJust x ==. unsafeFromJust y)
 
 
 -- | Lift a binary operation on non-@null@ expressions to an equivalent binary
