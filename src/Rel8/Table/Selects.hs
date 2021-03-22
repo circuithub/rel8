@@ -4,6 +4,7 @@
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.Selects ( Selects ) where
 

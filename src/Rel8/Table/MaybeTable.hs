@@ -16,6 +16,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.MaybeTable
   ( MaybeTable(..)
@@ -86,7 +87,7 @@ import Rel8.Expr.Opaleye
   , toPrimExpr
   , unsafeCoerceExpr
   )
-import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta, htraverse )
+import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hdict, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
 import Rel8.HTable.HMapTable
   ( Eval
@@ -97,7 +98,7 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   , mapInfo
   )
-import Rel8.Info ( Column( InfoColumn, fromInfoColumn ), Info( Null, NotNull ), Nullify )
+import Rel8.Info ( Column( InfoColumn, fromInfoColumn ), Info( Null, NotNull ), Nullify, info )
 import Rel8.Query ( Query, mapOpaleye, where_ )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable, lit )
 import Rel8.Table ( Table( Columns, fromColumns, toColumns ) )
@@ -128,11 +129,11 @@ data MaybeTable t where
   deriving stock Functor
 
 
-instance (Table Expr a, Semigroup a) => Semigroup (MaybeTable a) where
+instance (Table Expr (MaybeTable a), Semigroup a) => Semigroup (MaybeTable a) where
   ma <> mb = maybeTable mb (\a -> maybeTable ma (justTable . (a <>)) mb) ma
 
 
-instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
+instance (Table Expr a, Table Expr (MaybeTable a), Semigroup a) => Monoid (MaybeTable a) where
   mempty = nothingTable
 
 
@@ -154,7 +155,7 @@ instance Monad MaybeTable where
   (>>=) = (>>-)
 
 
-instance Table Expr a => Table Expr (MaybeTable a) where
+instance (HTable (Columns (MaybeTable a)), Table Expr a) => Table Expr (MaybeTable a) where
   type Columns (MaybeTable a) = HMaybeTable (Columns a)
 
   toColumns (MaybeTable x y) = HMaybeTable
@@ -183,7 +184,7 @@ instance Table Expr a => Table Expr (MaybeTable a) where
     MaybeTable (fromExprColumn x) (fromColumns (hmap (\(Precompose e) -> ExprColumn (unsafeCoerceExpr (fromExprColumn e))) y))
 
 
-instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
+instance (Table Expr (MaybeTable a), ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
   pack HMaybeTable{ hnullTag = HIdentity (I nullTag), htable = HMapTable t } =
     case nullTag of
       Just IsJust -> Just $ pack @a $ htabulate \i ->
@@ -228,7 +229,7 @@ instance (ExprFor a b, Table Expr a) => ExprFor (MaybeTable a) (Maybe b) where
 --
 -- > select c $ pure (nothingTable :: MaybeTable (Expr (Maybe Bool)))
 -- [Nothing]
-instance Serializable a b => Serializable (MaybeTable a) (Maybe b) where
+instance (Table Expr (MaybeTable a), Serializable a b) => Serializable (MaybeTable a) (Maybe b) where
 
 
 -- | @bindMaybeTable f x@ is similar to the monadic bind (@>>=@) operation. It
@@ -399,7 +400,7 @@ data HMaybeField g a where
 instance HTable g => HTable (HMaybeTable g) where
   type HField (HMaybeTable g) = HMaybeField g
 
-  type HAllColumns (HMaybeTable g) c = (c (Maybe MaybeTag), HAllColumns g c)
+  type HAllColumns (HMaybeTable g) c = (c ('Meta 'NoDefault (Maybe MaybeTag)), HAllColumns (HMapTable MakeNull g) c)
 
   hfield HMaybeTable{ hnullTag, htable } = \case
     HNullTag      -> unHIdentity hnullTag
@@ -410,7 +411,12 @@ instance HTable g => HTable (HMaybeTable g) where
   htraverse f HMaybeTable{ hnullTag, htable } =
     HMaybeTable <$> htraverse f hnullTag <.> htraverse f htable
 
-  hdbtype = HMaybeTable hdbtype hdbtype
+  hdict = HMaybeTable hdict hdict
+
+  hdbtype = HMaybeTable
+    { hnullTag = HIdentity $ InfoColumn info
+    , htable = HMapTable $ htabulate $ Precompose . mapInfo @MakeNull . hfield hdbtype
+    }
 
 
 data MaybeTag = IsJust

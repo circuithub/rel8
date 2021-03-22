@@ -48,7 +48,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), ifThenElse_ )
 import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
 import Rel8.Expr.Opaleye ( fromPrimExpr, unsafeCoerceExpr )
-import Rel8.HTable ( HTable( hfield, HField, hdbtype ), hmap, htabulate, htabulateMeta )
+import Rel8.HTable ( ColType, HAllColumns, HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HMapTable
   ( HMapTable( HMapTable )
@@ -56,7 +56,7 @@ import Rel8.HTable.HMapTable
   , Precompose( Precompose )
   )
 import Rel8.HTable.HPair ( HPair( HPair ) )
-import Rel8.Info ( Column( InfoColumn ), Info( Null, NotNull ) )
+import Rel8.Info ( Column( InfoColumn ), HasInfo, Info( Null, NotNull ) )
 import Rel8.Serializable ( ExprFor, Serializable, lit, pack, unpack )
 import Rel8.Table ( Columns, Table, fromColumns, nullTable, toColumns )
 import Rel8.Table.Bool ( bool )
@@ -102,11 +102,11 @@ instance Table Expr a => Monad (EitherTable a) where
   (>>=) = (>>-)
 
 
-instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
+instance (Table Expr (EitherTable a b), Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
   a <> b = bool a b (isRightTable a)
 
 
-instance (Table Expr a, Table Expr b) => Table Expr (EitherTable a b) where
+instance (HAllColumns (Columns (EitherTable a b)) (ColType HasInfo), Table Expr a, Table Expr b) => Table Expr (EitherTable a b) where
   type Columns (EitherTable a b) =
     HPair
       (HIdentity ('Meta 'NoDefault EitherTag))
@@ -142,7 +142,7 @@ instance (Table Expr a, Table Expr b) => Table Expr (EitherTable a b) where
       (fromColumns (hmap (\(Precompose e) -> ExprColumn (unsafeCoerceExpr (fromExprColumn e))) r))
 
 
-instance (a ~ EitherTable d e, Serializable d b, Serializable e c) => ExprFor a (Either b c) where
+instance (Table Expr (EitherTable d e), a ~ EitherTable d e, Serializable d b, Serializable e c) => ExprFor a (Either b c) where
   pack (HPair (HIdentity (I tag)) (HPair (HMapTable l) (HMapTable r))) =
     case tag of
       IsLeft -> Left $ pack @d $ htabulate \i ->

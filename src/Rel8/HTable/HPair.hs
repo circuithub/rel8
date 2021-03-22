@@ -13,7 +13,16 @@ import GHC.Generics ( Generic )
 
 -- rel8
 import Rel8.Context ( Meta )
-import Rel8.HTable ( HAllColumns, HTable( HField, hfield, htabulate, htraverse, hdbtype ) )
+import Rel8.HTable
+  ( HAllColumns
+  , HField
+  , HTable
+  , hdbtype
+  , hdict
+  , hfield
+  , htabulate
+  , htraverse
+  )
 
 -- semigroupoids
 import Data.Functor.Apply ( (<.>) )
@@ -43,5 +52,7 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
   htabulate f = HPair (htabulate (f . HPairFst)) (htabulate (f . HPairSnd))
 
   htraverse f (HPair x y) = HPair <$> htraverse f x <.> htraverse f y
+
+  hdict = HPair hdict hdict
 
   hdbtype = HPair hdbtype hdbtype

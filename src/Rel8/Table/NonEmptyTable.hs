@@ -25,7 +25,7 @@ import Rel8.DatabaseType ( nonEmptyNotNull, nonEmptyNull )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
 import Rel8.Expr.Opaleye ( binaryOperator )
-import Rel8.HTable ( hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
+import Rel8.HTable ( HTable, hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable ( Eval, Exp, HMapTable, HMapTableField( HMapTableField ), MapInfo( mapInfo ), precomposed, unHMapTable )
 import Rel8.Info ( Column( InfoColumn ), Info( NotNull, Null ) )
 import Rel8.Serializable ( ExprFor( pack, unpack ), Serializable )
@@ -49,7 +49,7 @@ instance MapInfo NonEmptyList where
 newtype NonEmptyTable a = NonEmptyTable (HMapTable NonEmptyList (Columns a) (Column Expr))
 
 
-instance (f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
+instance (HTable (Columns (NonEmptyTable a)), f ~ Expr, Table f a) => Table f (NonEmptyTable a) where
   type Columns (NonEmptyTable a) = HMapTable NonEmptyList (Columns a)
 
   toColumns (NonEmptyTable a) = a
@@ -68,9 +68,9 @@ instance (Serializable x b, a ~ NonEmptyTable x, Table Expr (NonEmptyTable x)) =
         I (fmap (unI . flip hfield i) xs)
 
 
-instance Serializable a b => Serializable (NonEmptyTable a) (NonEmpty b) where
+instance (Table Expr (NonEmptyTable a), Serializable a b) => Serializable (NonEmptyTable a) (NonEmpty b) where
 
 
-instance Table Expr a => Semigroup (NonEmptyTable a) where
+instance (Table Expr (NonEmptyTable a), Table Expr a) => Semigroup (NonEmptyTable a) where
   NonEmptyTable a <> NonEmptyTable b =
     NonEmptyTable (hzipWith (\x y -> ExprColumn $ binaryOperator "||" (fromExprColumn x) (fromExprColumn y)) a b)

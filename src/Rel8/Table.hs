@@ -8,6 +8,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Table ( Table(..), AllColumns, nullTable ) where
 
@@ -20,7 +21,7 @@ import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( fromPrimExpr )
-import Rel8.HTable ( HAllColumns, HTable, htabulateMeta )
+import Rel8.HTable ( ColType, HAllColumns, HTable, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( HasInfo )
@@ -38,7 +39,7 @@ class HTable (Columns t) => Table (context :: Type -> Type) (t :: Type) | t -> c
   fromColumns :: Columns t (Column context) -> t
 
 
-type AllColumns (t :: Type) (c :: Type -> Constraint) = HAllColumns (Columns t) c
+type AllColumns (t :: Type) (c :: Type -> Constraint) = HAllColumns (Columns t) (ColType c)
 
 
 instance (HasInfo a, expr ~ Expr) => Table expr (Expr a) where

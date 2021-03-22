@@ -112,7 +112,7 @@ instance (Table Expr a, Semigroup a) => Monad (TheseTable a) where
   (>>=) = (>>-)
 
 
-instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
+instance (Table Expr (TheseTable a b), Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
   Semigroup (TheseTable a b)
  where
   a <> b = TheseTable
@@ -128,7 +128,7 @@ instance (Table Expr a, Table Expr b) => Table Expr (TheseTable a b) where
   fromColumns (HPair l r) = TheseTable (fromColumns l) (fromColumns r)
 
 
-instance (a ~ TheseTable d e, Serializable d b, Serializable e c) => ExprFor a (These b c) where
+instance (Table Expr (TheseTable d e), a ~ TheseTable d e, Serializable d b, Serializable e c) => ExprFor a (These b c) where
   pack (HPair l r) =
     case (pack @(MaybeTable d) @(Maybe b) l, pack @(MaybeTable e) @(Maybe c) r) of
       (Just x , Nothing) -> This x

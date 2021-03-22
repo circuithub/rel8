@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
+{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
@@ -11,17 +12,16 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.HTable.HMapTable ( HMapTable(..), Exp, Eval, MapInfo(..), Precompose(..), HMapTableField(..) ) where
-
--- base
 
 -- base
 import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Column, Meta )
-import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hfield, htabulate, htraverse )
+import Rel8.HTable ( Column( DictColumn ), Dict, HAllColumns, HField, HTable, hdbtype, hdict, hfield, htabulate, htabulateMeta, htraverse )
 import Rel8.Info ( Info )
 
 -- semigroupoids
@@ -52,7 +52,8 @@ data HMapTableField :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> Meta ->
 instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
   type HField (HMapTable f t) = HMapTableField f t
 
-  type HAllColumns (HMapTable f t) c = HAllColumns t (ComposeConstraint f c)
+  type HAllColumns (HMapTable f t) c =
+    HAllColumns t (ComposeConstraint f c)
 
   hfield (HMapTable x) (HMapTableField i) =
     case hfield x i of
@@ -67,8 +68,13 @@ instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
       go :: forall x. Precompose f g x -> m (Precompose f h x)
       go (Precompose a) = Precompose <$> f a
 
+  hdict :: forall c. HAllColumns (HMapTable f t) c => HMapTable f t (Column (Dict c))
+  hdict = htabulateMeta \(HMapTableField j) ->
+    case hfield (hdict @_ @(ComposeConstraint f c)) j of
+      DictColumn -> DictColumn
+
   hdbtype = HMapTable $ htabulate \i ->
-    case hfield (hdbtype @t) i of
+    case hfield hdbtype i of
       x -> Precompose (mapInfo @f x)
 
 
@@ -76,4 +82,4 @@ class MapInfo f where
   mapInfo :: Column Info x -> Column Info (Eval (f x))
 
 
-class ComposeConstraint (f :: Meta -> Exp Meta) (c :: Type -> Constraint) (a :: Type)
+class c (Eval (f a)) => ComposeConstraint (f :: Meta -> Exp Meta) (c :: Meta -> Constraint) (a :: Meta)

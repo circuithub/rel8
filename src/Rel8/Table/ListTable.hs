@@ -19,7 +19,7 @@ import Rel8.DatabaseType ( listOfNotNull, listOfNull )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( binaryOperator, litExprWith )
-import Rel8.HTable ( hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
+import Rel8.HTable ( HTable, hdbtype, hfield, htabulateMeta, htraverseMeta, hzipWith )
 import Rel8.HTable.HMapTable
   ( Eval
   , Exp
@@ -51,12 +51,12 @@ instance MapInfo ListOf where
 newtype ListTable a = ListTable (HMapTable ListOf (Columns a) (Column Expr))
 
 
-instance Table Expr a => Semigroup (ListTable a) where
+instance (Table Expr (ListTable a), Table Expr a) => Semigroup (ListTable a) where
   ListTable a <> ListTable b =
     ListTable (hzipWith (\x y -> ExprColumn $ binaryOperator "||" (fromExprColumn x) (fromExprColumn y)) a b)
 
 
-instance Table Expr a => Monoid (ListTable a) where
+instance (Table Expr (ListTable a), Table Expr a) => Monoid (ListTable a) where
   mempty = ListTable $ htabulateMeta \i ->
     case hfield hdbtype i of
       InfoColumn x ->
@@ -67,7 +67,7 @@ instance Table Expr a => Monoid (ListTable a) where
                 ExprColumn $ litExprWith x []
 
 
-instance (f ~ Expr, Table f a) => Table f (ListTable a) where
+instance (HTable (Columns (ListTable a)), f ~ Expr, Table f a) => Table f (ListTable a) where
   type Columns (ListTable a) = HMapTable ListOf (Columns a)
 
   toColumns (ListTable a) = a
@@ -84,4 +84,4 @@ instance (a ~ ListTable x, Table Expr (ListTable x), ExprFor x b) => ExprFor a [
         I $ fmap (unI . flip hfield j) xs
 
 
-instance Serializable a b => Serializable (ListTable a) [b] where
+instance (Table Expr (ListTable a), Serializable a b) => Serializable (ListTable a) [b] where

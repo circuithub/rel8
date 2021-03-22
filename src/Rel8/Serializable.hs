@@ -10,6 +10,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Serializable ( ExprFor(..), Serializable, hasqlRowDecoder, lit ) where
 
@@ -25,7 +26,7 @@ import Rel8.DBType ( DBType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
 import Rel8.Expr.Opaleye ( litExprWith )
-import Rel8.HTable ( HTable( hdbtype, hfield ), htabulateMeta, htraverseMeta )
+import Rel8.HTable ( HTable, hdbtype, hfield, htabulateMeta, htraverseMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 import Rel8.Info ( Column( fromInfoColumn ), HasInfo, decodeWith )

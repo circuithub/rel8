@@ -18,7 +18,7 @@ import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( and_ )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
-import Rel8.HTable ( Column( DictColumn ), HField, hdict, hfield, htabulate, htraverse )
+import Rel8.HTable ( ColType, Column( DictColumn ), HField, hdict, hfield, htabulate, htraverse, refine )
 import Rel8.Table ( AllColumns, Columns, Table, toColumns )
 
 
@@ -33,6 +33,9 @@ a ==: b = and_ $ getConst $ htraverse decompose $ htabulate f
   where
     f :: HField (Columns a) x -> Column (Compose Expr (Const [Expr Bool])) x
     f i =
-      case (hfield (toColumns a) i, hfield (toColumns b) i, hfield (hdict @_ @DBEq) i) of
-        (ExprColumn x, ExprColumn y, DictColumn) ->
-          ComposedColumn $ Const [ x ==. y ]
+      case hfield (hdict @_ @(ColType DBEq)) i of
+        DictColumn ->
+          refine @DBEq i $
+            case (hfield (toColumns a) i, hfield (toColumns b) i) of
+              (ExprColumn x, ExprColumn y) ->
+                ComposedColumn $ Const [ x ==. y ]
