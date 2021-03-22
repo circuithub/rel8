@@ -28,16 +28,12 @@ import qualified Hasql.Decoders as Hasql
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.DatabaseType ( DatabaseType( decoder, DatabaseType, parser ), listOfNotNull, listOfNull )
 import Rel8.PrimitiveType ( PrimitiveType( typeInformation ) )
+import Rel8.Nullify ( Nullify )
 
 
 data Info :: Type -> Type where
   NotNull :: Nullify a ~ Maybe a => DatabaseType a -> Info a
   Null :: DatabaseType a -> Info (Maybe a)
-
-
-type family Nullify (a :: Type) :: Type where
-  Nullify (Maybe a) = Maybe a
-  Nullify a         = Maybe a
 
 
 class DBType a where
@@ -48,7 +44,7 @@ instance {-# overlapping #-} PrimitiveType a => DBType (Maybe a) where
   info = Null typeInformation
 
 
-instance (PrimitiveType a, Nullify a ~ Maybe a) => DBType a where
+instance PrimitiveType a => DBType a where
   info = NotNull typeInformation
 
 

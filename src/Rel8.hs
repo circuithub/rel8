@@ -194,9 +194,6 @@ module Rel8
 
     -- ** @.. RETURNING@
   , Returning(..)
-
-    -- * TODO
-  , Nullify -- I don't think we have to export this if we add Nullify a ~ Maybe a to the context of DBType
   ) where
 
 -- base

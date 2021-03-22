@@ -27,6 +27,7 @@ import qualified Hasql.Decoders as Hasql
 import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, parser, typeName )
+import Rel8.Nullify ( Nullify )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -65,7 +66,7 @@ import Data.UUID ( UUID )
 type PrimitiveType :: Type -> Constraint
 
 
-class PrimitiveType a where
+class Nullify a ~ Maybe a => PrimitiveType a where
   -- | Lookup the type information for the type @a@.
   typeInformation :: DatabaseType a
 
