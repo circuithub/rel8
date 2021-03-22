@@ -44,6 +44,7 @@ import Rel8.Context ( Context( Column ), Meta )
 import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Instances ( Column( ExprColumn ) )
+import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.HTable ( HField, HTable, hfield, htabulate )
 import Rel8.HTable.HMapTable ( HMapTable, HMapTableField( HMapTableField ) )
 import Rel8.Query ( Query, mapOpaleye )
@@ -133,11 +134,15 @@ countDistinct = aggregateDistinctExprs Opaleye.AggrCount
 
 
 arrayAgg :: Expr a -> Aggregate (Expr [a])
-arrayAgg = aggregateAllExprs Opaleye.AggrArr
+arrayAgg = fmap wrapInRow . aggregateAllExprs Opaleye.AggrArr
 
 
 nonEmptyArrayAgg :: Expr a -> Aggregate (Expr (NonEmpty a))
-nonEmptyArrayAgg = aggregateAllExprs Opaleye.AggrArr
+nonEmptyArrayAgg = fmap wrapInRow . aggregateAllExprs Opaleye.AggrArr
+
+
+wrapInRow :: Expr a -> Expr a
+wrapInRow = mapPrimExpr (Opaleye.FunExpr "row" . pure)
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
