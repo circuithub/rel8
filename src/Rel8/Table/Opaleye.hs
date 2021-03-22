@@ -16,13 +16,13 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
-import Rel8.DatabaseType ( DatabaseType( DatabaseType, typeName ) )
+import Rel8.DatabaseType ( typeName )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, traversePrimExpr, unsafeCastExpr )
 import Rel8.HTable ( HField, HTable, hdbtype, hfield, htabulateMeta, htraverseMeta )
 import Rel8.Info ( Info( Null, NotNull ), fromInfoColumn )
-import Rel8.Table ( Table( toColumns, fromColumns ) )
+import Rel8.Table ( Table( toColumns, fromColumns ), nullTable )
 import Rel8.Table.Congruent ( traverseTable, zipTablesWithM )
 
 -- semigroupoids
@@ -64,12 +64,6 @@ valuesspec = Opaleye.ValuesspecSafe packmap unpackspec
     packmap = Opaleye.PackMap \f () ->
       unwrapApplicative $
         fmap fromColumns $
-          htraverseMeta (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) $
-            htabulateMeta \i ->
-              case fromInfoColumn (hfield hdbtype i) of
-                NotNull databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
-                Null databaseType -> ExprColumn $ fromPrimExpr $ nullPrimExpr databaseType
-          where
-            nullPrimExpr :: DatabaseType a -> Opaleye.PrimExpr
-            nullPrimExpr DatabaseType{ typeName } =
-              Opaleye.CastExpr typeName (Opaleye.ConstExpr Opaleye.NullLit)
+          htraverseMeta 
+            (WrapApplicative . fmap ExprColumn . traversePrimExpr f . fromExprColumn) 
+            nullTable

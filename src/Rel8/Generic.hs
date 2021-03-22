@@ -16,6 +16,9 @@
 
 module Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, HigherKindedTable ) where
 
+-- 
+import Rel8.Serializable ( Serializable, ExprFor( unpack, pack ) )
+
 -- base
 import Data.Functor.Identity ( Identity )
 import Data.Kind (Type, Constraint)
@@ -31,7 +34,6 @@ import Rel8.HTable ( HTable )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HMapTable ( HMapTable )
 import Rel8.HTable.HPair ( HPair(HPair) )
-import Rel8.Serializable ( Serializable, ExprFor( unpack, pack ) )
 import Rel8.Statement.Insert (Insert, Inserts)
 import qualified Rel8.Statement.Insert as I
 import Rel8.Table ( Table(Columns, fromColumns, toColumns), AllColumns )

@@ -11,14 +11,14 @@ module Rel8.Expr.Null
   ) where
 
 -- base
-import Prelude ( Bool( False ), Maybe( Nothing ), (.), id )
+import Prelude ( Bool, Maybe( Nothing ), (.), id )
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (||.), ifThenElse_ )
+import Rel8.Expr.Bool ( (&&.), (||.), ifThenElse_ )
 import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
 
 
@@ -30,7 +30,11 @@ import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
 -- >>> select c $ pure $ null 0 id (lit (Just 42) :: Expr (Maybe Int32))
 -- [42]
 null :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-null whenNull f a = ifThenElse_ (isNull a) whenNull (f (unsafeCoerceExpr a))
+null whenNull f a = ifThenElse_ (isNull a) whenNull (f (unsafeFromJust a))
+
+
+unsafeFromJust :: Expr (Maybe a) -> Expr a
+unsafeFromJust = unsafeCoerceExpr
 
 
 -- | Like 'isNothing', but for @null@.
@@ -41,7 +45,7 @@ null whenNull f a = ifThenElse_ (isNull a) whenNull (f (unsafeCoerceExpr a))
 -- >>> select c $ pure $ isNull (lit (Just 42) :: Expr (Maybe Int32))
 -- [False]
 isNull :: Expr (Maybe a) -> Expr Bool
-isNull = mapPrimExpr ( Opaleye.UnExpr Opaleye.OpIsNull )
+isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
 -- | Corresponds to SQL @null@.
@@ -64,7 +68,7 @@ liftNull = unsafeCoerceExpr
 -- and assumed to not be @null@). In most cases, this is true, but this
 -- contract can be violated with custom functions.
 mapNull :: (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
-mapNull f = unsafeCoerceExpr . f . unsafeCoerceExpr
+mapNull f = liftNull . f . unsafeFromJust
 
 
 fromNull :: Expr a -> Expr (Maybe a) -> Expr a
@@ -72,8 +76,7 @@ fromNull x = null x id
 
 
 instance (DBType a, DBEq a) => DBEq (Maybe a) where
-  a ==. b =
-    null ( isNull b ) ( \a' -> null ( litExpr False ) ( a' ==. ) b ) a
+  a ==. b = (isNull a &&. isNull b) ||. (unsafeFromJust a ==. unsafeFromJust b)
 
 
 -- | Lift a binary operation on non-@null@ expressions to an equivalent binary
@@ -99,4 +102,4 @@ liftOpNull f a b =
   ifThenElse_
     (isNull a ||. isNull b)
     nullExpr
-    (unsafeCoerceExpr (f (unsafeCoerceExpr a) (unsafeCoerceExpr b)))
+    (liftNull (f (unsafeFromJust a) (unsafeFromJust b)))

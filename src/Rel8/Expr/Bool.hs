@@ -9,6 +9,7 @@ module Rel8.Expr.Bool
   ) where
 
 -- base
+import Data.Bifunctor ( bimap )
 import Data.Foldable ( foldl' )
 
 -- rel8
@@ -89,16 +90,11 @@ not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
 
 
 ifThenElse_ :: Expr Bool -> Expr a -> Expr a -> Expr a
-ifThenElse_ bool whenTrue whenFalse =
-  fromPrimExpr $
-    Opaleye.CaseExpr
-      [(toPrimExpr bool, toPrimExpr whenTrue)]
-      (toPrimExpr whenFalse)
+ifThenElse_ bool whenTrue = case_ [(bool, whenTrue)]
 
 
 case_ :: [(Expr Bool, Expr a)] -> Expr a -> Expr a
-case_ alts def =
-  fromPrimExpr $
-    Opaleye.CaseExpr
-      [ (toPrimExpr bool, toPrimExpr alt) | (bool, alt) <- alts ]
-      (toPrimExpr def)
+case_ alts def = fromPrimExpr $ Opaleye.CaseExpr caseExprs defExpr
+  where
+    caseExprs = map (bimap toPrimExpr toPrimExpr) alts
+    defExpr = toPrimExpr def

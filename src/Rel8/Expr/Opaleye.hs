@@ -1,8 +1,10 @@
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 
 module Rel8.Expr.Opaleye
   ( toPrimExpr
@@ -20,6 +22,8 @@ module Rel8.Expr.Opaleye
   , binaryOperator
   , column
   , unsafeCoerceExpr
+  , recast
+  , unsafeNullExpr
   ) where
 
 -- rel8
@@ -31,8 +35,7 @@ import Rel8.Info ( HasInfo( info ), Info( NotNull, Null ) )
 
 
 binExpr :: Opaleye.BinOp -> Expr a -> Expr a -> Expr b
-binExpr op ( Expr a ) ( Expr b ) =
-    Expr ( Opaleye.BinExpr op a b )
+binExpr op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr op a b 
 
 
 exprToColumn :: Expr a -> Opaleye.Column b
@@ -44,13 +47,13 @@ columnToExpr (Opaleye.Column a) = Expr a
 
 
 mapPrimExpr :: (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Expr x -> Expr y
-mapPrimExpr f (Expr x) = Expr (f x)
+mapPrimExpr f (Expr x) = Expr $ f x
 
 
 zipPrimExprsWith
   :: (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
   -> Expr a -> Expr b -> Expr c
-zipPrimExprsWith f (Expr x) (Expr y) = Expr (f x y)
+zipPrimExprsWith f (Expr x) (Expr y) = Expr $ f x y
 
 
 -- | Construct a SQL expression from some literal text. The provided literal
@@ -69,13 +72,20 @@ litExpr = litExprWith info
 
 litExprWith :: Info a -> a -> Expr a
 litExprWith = \case
-  NotNull DatabaseType{ encode, typeName } -> Expr . Opaleye.CastExpr typeName . encode
-  Null DatabaseType{ encode, typeName }    -> Expr . Opaleye.CastExpr typeName . maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
+  NotNull DatabaseType{ encode, typeName } -> unsafeCastExpr typeName . Expr . encode
+  Null DatabaseType{ encode, typeName }    -> unsafeCastExpr typeName . maybe unsafeNullExpr (Expr . encode)
 
 
 -- | Cast an @Expr@ from one type to another.
 unsafeCastExpr :: String -> Expr a -> Expr b
 unsafeCastExpr t (Expr x) = Expr $ Opaleye.CastExpr t x
+
+
+-- | Add an explicit cast to an Expr.
+recast :: forall a. HasInfo a => Expr a -> Expr a
+recast = unsafeCastExpr case info @a of
+  NotNull DatabaseType{ typeName } -> typeName
+  Null DatabaseType{ typeName } -> typeName
 
 
 -- | Unsafely treat an 'Expr' that returns @a@s as returning @b@s.
@@ -90,12 +100,12 @@ binaryOperator op (Expr a) (Expr b) = Expr $ Opaleye.BinExpr (Opaleye.OpOther op
 
 
 column :: String -> Expr a
-column columnName =
-  Expr ( Opaleye.BaseTableAttrExpr columnName )
+column columnName = Expr $ Opaleye.BaseTableAttrExpr columnName 
 
 
-traversePrimExpr
-  :: Applicative f
-  => ( Opaleye.PrimExpr -> f Opaleye.PrimExpr ) -> Expr a -> f ( Expr a )
-traversePrimExpr f =
-  fmap fromPrimExpr . f . toPrimExpr
+traversePrimExpr :: Applicative f => (Opaleye.PrimExpr -> f Opaleye.PrimExpr) -> Expr a -> f (Expr a)
+traversePrimExpr f = fmap fromPrimExpr . f . toPrimExpr
+
+
+unsafeNullExpr :: Expr a
+unsafeNullExpr = Expr $ Opaleye.ConstExpr Opaleye.NullLit

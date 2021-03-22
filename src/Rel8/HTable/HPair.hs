@@ -42,8 +42,11 @@ data HPairField x y a where
 
 
 instance (HTable x, HTable y) => HTable (HPair x y) where
-  type HField (HPair x y) = HPairField x y
-  type HAllColumns (HPair x y) c = (HAllColumns x c, HAllColumns y c)
+  type HField (HPair x y) = 
+    HPairField x y
+
+  type HAllColumns (HPair x y) c = 
+    (HAllColumns x c, HAllColumns y c)
 
   hfield (HPair l r) = \case
     HPairFst i -> hfield l i

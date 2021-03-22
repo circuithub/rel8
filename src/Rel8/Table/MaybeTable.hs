@@ -61,7 +61,6 @@ import Prelude
   )
 
 -- rel8
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye hiding ( BinOp, aggregate, exists, limit )
 import qualified Opaleye.Internal.QueryArr as Opaleye
@@ -80,11 +79,11 @@ import Rel8.Expr.Bool ( ifThenElse_, not_ )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
 import Rel8.Expr.Null ( isNull, isNull )
 import Rel8.Expr.Opaleye
-  ( fromPrimExpr
-  , litExpr
+  ( litExpr
   , litExprWith
   , toPrimExpr
   , unsafeCoerceExpr
+  , unsafeNullExpr
   )
 import Rel8.HTable ( HAllColumns, HField, HTable, hdbtype, hdict, hfield, hmap, htabulate, htabulateMeta, htraverse )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ), unHIdentity )
@@ -170,14 +169,14 @@ instance (HTable (Columns (MaybeTable a)), Table Expr a) => Table Expr (MaybeTab
             ifThenElse_
               (x ==. lit (Just IsJust))
               (unsafeCoerceExpr (fromExprColumn (hfield (toColumns y) i)))
-              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+              unsafeNullExpr
 
           InfoColumn (Null _) ->
             ExprColumn $
             ifThenElse_
               (x ==. lit (Just IsJust))
               (fromExprColumn (hfield (toColumns y) i))
-              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+              unsafeNullExpr
 
   fromColumns (HMaybeTable (HIdentity x) (HMapTable y)) =
     MaybeTable (fromExprColumn x) (fromColumns (hmap (\(Precompose e) -> ExprColumn (unsafeCoerceExpr (fromExprColumn e))) y))

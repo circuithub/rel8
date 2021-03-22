@@ -21,9 +21,7 @@ module Rel8.HTable
   , htabulateMeta
   , htraverseMeta
   , Dict
-  , hdict
   , Column( DictColumn )
-  , hdbtype
   , ColType(..)
   ) where
 

@@ -35,7 +35,6 @@ import Data.Kind ( Type )
 import Data.Semigroup ( Min( Min ) )
 
 -- rel8
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Column( I ), Context( Column ), Defaulting( NoDefault ), Meta( Meta ), unI )
 import Rel8.DBType ( DBType, typeInformation )
 import Rel8.DBType.DBEq ( DBEq, (==.) )
@@ -46,7 +45,7 @@ import Rel8.DatabaseType ( mapDatabaseType )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), ifThenElse_ )
 import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
-import Rel8.Expr.Opaleye ( fromPrimExpr, unsafeCoerceExpr )
+import Rel8.Expr.Opaleye ( unsafeCoerceExpr, unsafeNullExpr )
 import Rel8.HTable ( ColType, HAllColumns, HField, HTable, hdbtype, hfield, hmap, htabulate, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity ) )
 import Rel8.HTable.HMapTable
@@ -125,14 +124,14 @@ instance (HAllColumns (Columns (EitherTable a b)) (ColType HasInfo), Table Expr 
             ifThenElse_
               p
               (unsafeCoerceExpr (fromExprColumn (hfield cols i)))
-              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+              unsafeNullExpr
 
           InfoColumn (Null _) ->
             ExprColumn $
             ifThenElse_
               p
               (fromExprColumn (hfield cols i))
-              (fromPrimExpr (Opaleye.ConstExpr Opaleye.NullLit))
+              unsafeNullExpr
 
   fromColumns (HPair (HIdentity tag) (HPair (HMapTable l) (HMapTable r))) =
     EitherTable

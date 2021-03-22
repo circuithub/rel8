@@ -6,7 +6,8 @@ module Rel8.Expr.Function ( Function, function, nullaryFunction ) where
 
 -- rel8
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 
 
 -- | The @Function@ type class is an implementation detail that allows
@@ -23,11 +24,11 @@ class Function arg res where
 
 
 instance arg ~ Expr a => Function arg (Expr res) where
-  applyArgument mkExpr (Expr a) = Expr $ mkExpr [a]
+  applyArgument mkExpr = fromPrimExpr . mkExpr . pure . toPrimExpr
 
 
 instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
-  applyArgument f (Expr a) = applyArgument (f . (a :))
+  applyArgument f a = applyArgument (f . (toPrimExpr a :))
 
 
 -- | Construct an n-ary function that produces an 'Expr' that when called runs
@@ -69,4 +70,4 @@ function = applyArgument . Opaleye.FunExpr
 -- >>> select c $ pure $ sqlPi
 -- [3.141592653589793]
 nullaryFunction :: String -> Expr a
-nullaryFunction name = Expr (Opaleye.FunExpr name [])
+nullaryFunction name = fromPrimExpr (Opaleye.FunExpr name [])

@@ -24,9 +24,6 @@ import Rel8.Context ( Column, Meta )
 import Rel8.HTable ( Column( DictColumn ), Dict, HAllColumns, HField, HTable, hdbtype, hdict, hfield, htabulate, htabulateMeta, htraverse )
 import Rel8.Info ( Info )
 
--- semigroupoids
-import Data.Functor.Apply ( Apply )
-
 
 type Exp :: Type -> Type
 
@@ -50,32 +47,29 @@ data HMapTableField :: (Meta -> Exp Meta) -> ((Meta -> Type) -> Type) -> Meta ->
 
 
 instance (HTable t, MapInfo f) => HTable (HMapTable f t) where
-  type HField (HMapTable f t) = HMapTableField f t
+  type HField (HMapTable f t) = 
+    HMapTableField f t
 
   type HAllColumns (HMapTable f t) c =
     HAllColumns t (ComposeConstraint f c)
 
-  hfield (HMapTable x) (HMapTableField i) =
-    case hfield x i of
-      Precompose y -> y
+  hfield (HMapTable x) (HMapTableField i) = 
+    precomposed (hfield x i) 
 
-  htabulate f = HMapTable $ htabulate (Precompose . f . HMapTableField)
+  htabulate f = 
+    HMapTable $ htabulate (Precompose . f . HMapTableField)
 
-  htraverse :: forall g h m. Apply m
-    => (forall x. g x -> m (h x)) -> HMapTable f t g -> m (HMapTable f t h)
-  htraverse f (HMapTable x) = HMapTable <$> htraverse go x
-    where
-      go :: forall x. Precompose f g x -> m (Precompose f h x)
-      go (Precompose a) = Precompose <$> f a
+  htraverse f (HMapTable x) = 
+    HMapTable <$> htraverse (fmap Precompose . f . precomposed) x
 
   hdict :: forall c. HAllColumns (HMapTable f t) c => HMapTable f t (Column (Dict c))
-  hdict = htabulateMeta \(HMapTableField j) ->
-    case hfield (hdict @_ @(ComposeConstraint f c)) j of
-      DictColumn -> DictColumn
+  hdict = 
+    htabulateMeta \(HMapTableField j) ->
+      case hfield (hdict @_ @(ComposeConstraint f c)) j of
+        DictColumn -> DictColumn
 
-  hdbtype = HMapTable $ htabulate \i ->
-    case hfield hdbtype i of
-      x -> Precompose (mapInfo @f x)
+  hdbtype = 
+    HMapTable $ htabulate $ Precompose . mapInfo @f . hfield hdbtype
 
 
 class MapInfo f where

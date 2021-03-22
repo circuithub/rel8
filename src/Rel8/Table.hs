@@ -14,11 +14,10 @@ module Rel8.Table ( Table(..), AllColumns, nullTable ) where
 import Data.Kind ( Constraint, Type )
 
 -- rel8
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
-import Rel8.Expr.Opaleye ( fromPrimExpr )
+import Rel8.Expr.Opaleye ( unsafeNullExpr )
 import Rel8.HTable ( ColType, HAllColumns, HTable, htabulateMeta )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
@@ -76,7 +75,4 @@ instance (Table f a, Table f b, Table f c, Table f d) => Table f (a, b, c, d) wh
 
 
 nullTable :: Table Expr a => a
-nullTable =
-  fromColumns $
-    htabulateMeta \_ ->
-      ExprColumn $ fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit
+nullTable = fromColumns $ htabulateMeta \_ -> ExprColumn unsafeNullExpr

@@ -12,15 +12,12 @@ import Data.Kind ( Type )
 import Data.String ( IsString( fromString ) )
 
 -- rel8
-import qualified Opaleye
-import qualified Opaleye.Internal.Column as Opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Context ( Context( Column ), Meta( Meta ) )
 import Rel8.DBType.DBMonoid ( DBMonoid( memptyExpr ) )
+import Rel8.DBType.DBNum ( DBFractional( (/.), fromRationalExpr ), DBNum( (+.), (-.), (*.), absExpr, signumExpr, fromIntegerExpr, negateExpr ) )
 import Rel8.DBType.DBSemigroup ( DBSemigroup( (<>.) ) )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( function )
-import Rel8.Expr.Opaleye ( columnToExpr, exprToColumn, litExpr )
+import Rel8.Expr.Opaleye ( litExpr )
 import Rel8.Info ( HasInfo )
 
 
@@ -34,19 +31,19 @@ instance Context Expr where
 -- *However*, if this is not the case, you should `newtype` the Haskell type
 -- and avoid providing a 'Num' instance, or you may write be able to write
 -- ill-typed queries!
-instance (HasInfo a, Num a) => Num (Expr a) where
-  a + b = columnToExpr (Opaleye.binOp (Opaleye.:+) (exprToColumn a) (exprToColumn b))
-  a - b = columnToExpr (Opaleye.binOp (Opaleye.:-) (exprToColumn a) (exprToColumn b))
-  a * b = columnToExpr (Opaleye.binOp (Opaleye.:*) (exprToColumn a) (exprToColumn b))
-  abs = function "abs"
-  signum = columnToExpr @Opaleye.PGInt8 . signum . exprToColumn
-  fromInteger = litExpr . fromInteger
-  negate = columnToExpr @Opaleye.PGInt8 . negate . exprToColumn
+instance DBNum a => Num (Expr a) where
+  (+) = (+.)
+  (-) = (-.)
+  (*) = (*.)
+  abs = absExpr
+  signum = signumExpr
+  fromInteger = fromIntegerExpr
+  negate = negateExpr
 
 
-instance (HasInfo a, Fractional a) => Fractional (Expr a) where
-  a / b = columnToExpr (Opaleye.binOp (Opaleye.:/) (exprToColumn a) (exprToColumn b))
-  fromRational = litExpr . fromRational
+instance DBFractional a => Fractional (Expr a) where
+  (/) = (/.)
+  fromRational = fromRationalExpr
 
 
 instance (IsString a, HasInfo a) => IsString (Expr a) where

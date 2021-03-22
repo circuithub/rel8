@@ -15,7 +15,7 @@ import Data.Type.Equality ( type (:~:)(Refl) )
 -- rel8
 import Rel8.Context ( Meta( Meta ) )
 import Rel8.HTable ( HTable, HField, htabulate, htraverse, hfield, hdict, HAllColumns, Column( DictColumn ) )
-import Rel8.Info ( HasInfo( info ), Column (InfoColumn) )
+import Rel8.Info ( HasInfo )
 
 
 -- | A single-column higher-kinded table. This is primarily useful for
