@@ -10,11 +10,8 @@ import Data.Aeson ( Value )
 -- base
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
-import Numeric.Natural ( Natural )
 
 -- bytestring
-import qualified Data.ByteString
-import qualified Data.ByteString.Lazy
 
 -- case-insensitive
 import Data.CaseInsensitive ( CI )
@@ -24,9 +21,9 @@ import qualified Data.CaseInsensitive as CI
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Opaleye ( pgBool, pgDay, pgDouble, pgInt4, pgInt8, pgLocalTime, pgNumeric, pgStrictByteString, pgStrictText, pgTimeOfDay, pgUTCTime, pgUUID, pgValueJSON )
+import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, fromOpaleye, mapDatabaseType, parser, typeName )
+import Rel8.DatabaseType ( DatabaseType, DatabaseType( DatabaseType ), decoder, encode, mapDatabaseType, parser, typeName )
 import Rel8.Nullify ( Nullify )
 
 -- scientific
@@ -37,10 +34,18 @@ import Data.Text ( Text )
 import qualified Data.Text.Lazy
 
 -- time
-import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime )
+-- time
+import Data.Time ( Day, LocalTime, TimeOfDay, UTCTime, formatTime, defaultTimeLocale )
 
 -- uuid
 import Data.UUID ( UUID )
+import qualified Data.Text.Lazy as LazyText
+import qualified Data.Text.Lazy.Encoding as LazyText
+import qualified Data.Aeson as Aeson
+import qualified Data.Text as StrictText
+import qualified Data.ByteString.Lazy as LazyByteString
+import qualified Data.ByteString as StrictByteString
+import qualified Data.UUID as UUID
 
 
 -- | Haskell types that can be represented as expressions in a database. There
@@ -73,38 +78,67 @@ class Nullify a ~ Maybe a => PrimitiveType a where
 
 -- | Corresponds to the @json@ PostgreSQL type.
 instance PrimitiveType Value where
-  typeInformation = fromOpaleye pgValueJSON Hasql.json
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.OtherLit . Opaleye.quote . LazyText.unpack . LazyText.decodeUtf8 . Aeson.encode
+    , typeName = "json"
+    , decoder = Hasql.json
+    , parser = pure
+    }
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
 instance PrimitiveType Text where
-  typeInformation = fromOpaleye pgStrictText Hasql.text
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit . StrictText.unpack
+    , decoder = Hasql.text
+    , parser = pure
+    , typeName = "text"
+    }
 
 
 -- | Corresponds to the @text@ PostgreSQL type.
-instance PrimitiveType Data.Text.Lazy.Text where
-  typeInformation = mapDatabaseType Data.Text.Lazy.fromStrict Data.Text.Lazy.toStrict typeInformation
+instance PrimitiveType LazyText.Text where
+  typeInformation = mapDatabaseType LazyText.fromStrict LazyText.toStrict typeInformation
 
 
 -- | Corresponds to the @bool@ PostgreSQL type.
 instance PrimitiveType Bool where
-  typeInformation = fromOpaleye pgBool Hasql.bool
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.BoolLit
+    , typeName = "bool"
+    , decoder = Hasql.bool
+    , parser = pure
+    }
 
 
 -- | Corresponds to the @int2@ PostgreSQL type.
 instance PrimitiveType Int16 where
-  typeInformation = (mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> Hasql.int2) -- TODO
-    { typeName = "int2" }
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+    , decoder = Hasql.int2
+    , typeName = "int2"
+    , parser = pure
+    }
 
 
 -- | Corresponds to the @int4@ PostgreSQL type.
 instance PrimitiveType Int32 where
-  typeInformation = mapDatabaseType fromIntegral fromIntegral $ fromOpaleye pgInt4 $ fromIntegral <$> Hasql.int4 -- TODO
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+    , decoder = Hasql.int4
+    , typeName = "int4"
+    , parser = pure
+    }
 
 
 -- | Corresponds to the @int8@ PostgreSQL type.
 instance PrimitiveType Int64 where
-  typeInformation = fromOpaleye pgInt8 Hasql.int8
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . fromIntegral
+    , decoder = Hasql.int8
+    , typeName = "int8"
+    , parser = pure
+    }
 
 
 instance PrimitiveType Float where
@@ -117,44 +151,77 @@ instance PrimitiveType Float where
 
 
 instance PrimitiveType UTCTime where
-  typeInformation = fromOpaleye pgUTCTime Hasql.timestamptz
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.OtherLit .  formatTime defaultTimeLocale "'%FT%T%QZ'"
+    , decoder = Hasql.timestamptz
+    , typeName = "timestamptz"
+    , parser = pure
+    }
+
+instance PrimitiveType StrictByteString.ByteString where
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
+    , decoder = Hasql.bytea
+    , typeName = "bytea"
+    , parser = pure
+    }
 
 
-instance PrimitiveType Data.ByteString.Lazy.ByteString where
-  typeInformation = mapDatabaseType Data.ByteString.Lazy.fromStrict Data.ByteString.Lazy.toStrict typeInformation
-
-
-instance PrimitiveType Data.ByteString.ByteString where
-  typeInformation = fromOpaleye pgStrictByteString Hasql.bytea
+instance PrimitiveType LazyByteString.ByteString where
+  typeInformation = mapDatabaseType LazyByteString.fromStrict LazyByteString.toStrict typeInformation
 
 
 instance PrimitiveType Scientific where
-  typeInformation = fromOpaleye pgNumeric Hasql.numeric
-
-
--- TODO
-instance PrimitiveType Natural where
-  typeInformation = mapDatabaseType round fromIntegral $ fromOpaleye pgNumeric Hasql.numeric
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit
+    , decoder = Hasql.numeric
+    , typeName = "numeric"
+    , parser = pure
+    }
 
 
 instance PrimitiveType Double where
-  typeInformation = fromOpaleye pgDouble Hasql.float8
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    , decoder = Hasql.float8
+    , typeName = "float8"
+    , parser = pure
+    }
 
 
 instance PrimitiveType UUID where
-  typeInformation = fromOpaleye pgUUID Hasql.uuid
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
+    , decoder = Hasql.uuid
+    , typeName = "uuid"
+    , parser = pure
+    }
 
 
 instance PrimitiveType Day where
-  typeInformation = fromOpaleye pgDay Hasql.date
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.OtherLit .  formatTime defaultTimeLocale "'%F'"
+    , decoder = Hasql.date
+    , typeName = "date"
+    , parser = pure
+    }
 
 
 instance PrimitiveType LocalTime where
-  typeInformation = fromOpaleye pgLocalTime Hasql.timestamp
-
+  typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.OtherLit .  formatTime defaultTimeLocale "'%FT%T%Q'"
+    , decoder = Hasql.timestamp
+    , typeName = "timestamp"
+    , parser = pure
+    }
 
 instance PrimitiveType TimeOfDay where
-  typeInformation = fromOpaleye pgTimeOfDay Hasql.time
+   typeInformation = DatabaseType
+    { encode = Opaleye.ConstExpr . Opaleye.OtherLit .  formatTime defaultTimeLocale "'%T%Q'"
+    , decoder = Hasql.time
+    , typeName = "time"
+    , parser = pure
+    }
 
 
 instance PrimitiveType (CI Text) where
@@ -163,5 +230,3 @@ instance PrimitiveType (CI Text) where
 
 instance PrimitiveType (CI Data.Text.Lazy.Text) where
   typeInformation = (mapDatabaseType CI.mk CI.original typeInformation) { typeName = "citext" }
-
-
