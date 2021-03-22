@@ -54,6 +54,7 @@ library
     Rel8.DBType.DBMax
     Rel8.DBType.DBMin
     Rel8.DBType.DBMonoid
+    Rel8.DBType.DBNum
     Rel8.DBType.DBOrd
     Rel8.DBType.DBSemigroup
     Rel8.DBType.DBSum
