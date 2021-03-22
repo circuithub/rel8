@@ -22,7 +22,6 @@ import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.Print as Opaleye ( formatAndShowSQL )
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import Rel8.Expr ( Expr )
-import qualified Rel8.Optimize
 import Rel8.Query ( Query( Query ) )
 import Rel8.Serializable ( Serializable, hasqlRowDecoder )
 import Rel8.Table ( Table )
@@ -52,7 +51,7 @@ selectQuery (Query opaleye) = showSqlForPostgresExplicit
   where
     showSqlForPostgresExplicit =
       case Opaleye.runQueryArrUnpack unpackspec opaleye of
-        (x, y, z) -> Opaleye.formatAndShowSQL True (x , Rel8.Optimize.optimize (Opaleye.optimize y) , z)
+        (x, y, z) -> Opaleye.formatAndShowSQL True (x , Opaleye.optimize y , z)
 
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@

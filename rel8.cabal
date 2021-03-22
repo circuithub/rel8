@@ -70,7 +70,6 @@ library
     Rel8.HTable.HMapTable
     Rel8.HTable.HPair
     Rel8.Nullify
-    Rel8.Optimize
     Rel8.PrimitiveType
     Rel8.PrimitiveType.JSONBEncoded
     Rel8.PrimitiveType.JSONEncoded
