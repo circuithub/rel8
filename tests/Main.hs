@@ -404,13 +404,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest :: (Eq a, Rel8.HasInfo a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Rel8.PrimitiveType a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Rel8.HasInfo a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
+    t :: forall a b. (Rel8.DBType a, Show a) => (a -> a -> Bool) -> Gen a -> ((Connection -> TestT IO ()) -> PropertyT IO b) -> PropertyT IO b
     t eq generator transaction = do
       x <- forAll generator
 
@@ -450,7 +450,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest :: (Eq a, Show a, Rel8.DBEq a, Rel8.DBType a) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.DBEq a, Rel8.PrimitiveType a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
@@ -496,7 +496,7 @@ testCatMaybeTable = databasePropertyTest "catMaybeTable" \transaction -> do
   transaction \connection -> do
     selected <- Rel8.select connection do
       testTable <- Rel8.values $ Rel8.lit <$> rows
-      Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.noTable
+      Rel8.catMaybeTable $ Rel8.ifThenElse_ (testTableColumn2 testTable) (pure testTable) Rel8.nothingTable
 
     sort selected === sort (filter testTableColumn2 rows)
 
