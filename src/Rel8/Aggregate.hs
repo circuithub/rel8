@@ -31,6 +31,7 @@ module Rel8.Aggregate
   ) where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Data.Int ( Int64 )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
@@ -55,7 +56,7 @@ import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyList, NonEmptyTable( NonEmptyTable ) )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapApplicative ) )
+import Data.Functor.Apply ( Apply( (<.>) ), WrappedApplicative( WrapApplicative, unwrapApplicative ) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -63,8 +64,17 @@ import Data.Functor.Apply ( Apply, WrappedApplicative( WrapApplicative, unwrapAp
 -- @Aggregate@ is an 'Applicative' functor, you can combine @Aggregate@s using
 -- the normal @Applicative@ combinators, or by working in @do@ notation with
 -- @ApplicativeDo@.
-newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
-  deriving (Functor, Apply) via WrappedApplicative (Opaleye.Aggregator ())
+data Aggregate a where 
+  Aggregate :: (x -> a) -> Opaleye.Aggregator () x -> Aggregate a
+
+
+instance Functor Aggregate where
+  fmap f (Aggregate g x) = Aggregate (f . g) x
+
+
+instance Apply Aggregate where
+  Aggregate f x <.> Aggregate g y =
+    Aggregate id (liftA2 id (f <$> x) (g <$> y))
 
 
 instance Context Aggregate where
@@ -79,14 +89,14 @@ aggregate = mapOpaleye $ Opaleye.aggregate aggregator
     aggregator :: Opaleye.Aggregator (Aggregate a) a
     aggregator =
       Opaleye.Aggregator $
-        Opaleye.PackMap \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap g))) ->
-          g f ()
+        Opaleye.PackMap \f (Aggregate out (Opaleye.Aggregator (Opaleye.PackMap g))) ->
+          out <$> g f ()
 
 
 -- | Aggregate a value by grouping by it. @groupBy@ is just a synonym for
 -- 'pure', but sometimes being explicit can help the readability of your code.
 groupBy :: (Table Expr a, AllColumns a DBEq) => a -> Aggregate a
-groupBy x = Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap \f () ->
+groupBy x = Aggregate id $ Opaleye.Aggregator $ Opaleye.PackMap \f () ->
   unwrapApplicative $
     traverseTable (\(ExprColumn (Expr e)) -> ExprColumn . Expr <$> WrapApplicative (f (Nothing, e))) x
 
@@ -101,7 +111,7 @@ aggregateDistinctExprs = aggregateSomeExprs Opaleye.AggrDistinct
 
 aggregateSomeExprs :: Opaleye.AggrDistinct -> Opaleye.AggrOp -> Expr a -> Aggregate (Expr b)
 aggregateSomeExprs which op (Expr a) =
-  Aggregate $
+  Aggregate id $
     Opaleye.Aggregator $
       Opaleye.PackMap \f () ->
         Expr <$> f (Just (op, [], which), a)
