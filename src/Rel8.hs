@@ -60,6 +60,7 @@ module Rel8
   , binaryOperator
 
     -- ** @null@
+  , (==?)
   , nullExpr
   , null
   , isNull
@@ -231,7 +232,7 @@ import Rel8.DatabaseType
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), and_, not_, or_ )
 import Rel8.Expr.Function ( Function, function, nullaryFunction )
-import Rel8.Expr.Null ( fromNull, isNull, liftNull, liftOpNull, mapNull, null, nullExpr )
+import Rel8.Expr.Null ( fromNull, isNull, liftNull, liftOpNull, mapNull, null, nullExpr, (==?) )
 import Rel8.Expr.Opaleye ( binaryOperator, unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral )
 import Rel8.Generic ( Column, ColumnWithDefault, HList, HMaybe, HNonEmpty, HigherKindedTable )
 import Rel8.HTable ( HTable )

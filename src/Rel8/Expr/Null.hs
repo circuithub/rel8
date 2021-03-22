@@ -1,7 +1,8 @@
 {-# options_ghc -Wno-orphans #-}
 
 module Rel8.Expr.Null
-  ( null
+  ( (==?)
+  , null
   , isNull
   , nullExpr
   , liftNull
@@ -78,11 +79,29 @@ fromNull = flip (function "coalesce")
 
 
 instance (PrimitiveType a, DBEq a) => DBEq (Maybe a) where
-  x ==. y = (isNull x &&. isNull y) ||. (unsafeFromJust eq &&. fromNull (litExpr False) eq)
-    where
-      eq :: Expr (Maybe Bool)
-      eq = liftNull (unsafeFromJust x ==. unsafeFromJust y)
+  x ==. y = (isNull x &&. isNull y) ||. x ==? y
 
+
+-- | This equality operator is like @==.@, but it returns 'False' when both
+-- operands are @null@. This differs from '==.', which would return 'True'.
+-- This notion of equality is the one usually wanted when performing deeply
+-- nested joins, where joining on @null@ is not normally needed.
+--
+-- This operator can be understood through the following equations (assume @x@
+-- and @y@ are not equal):
+--
+-- @
+-- Just x ==? Just x = Just y ==? Just y = True
+-- Just x ==? Just y = Just y ==? Just x = False
+-- Just x ==? Nothing = False
+-- Nothing ==? Just y = False
+-- Nothing ==? Nothing = False
+-- @
+(==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+x ==? y = unsafeFromJust eq &&. fromNull (litExpr False) eq
+  where
+    eq :: Expr (Maybe Bool)
+    eq = liftNull (unsafeFromJust x ==. unsafeFromJust y)
 
 -- | Lift a binary operation on non-@null@ expressions to an equivalent binary
 -- operator on possibly @null@ expressions.
