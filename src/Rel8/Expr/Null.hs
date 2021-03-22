@@ -18,8 +18,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.DBType ( DBType )
 import Rel8.DBType.DBEq ( DBEq( (==.) ) )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (&&.), (||.), ifThenElse_ )
-import Rel8.Expr.Opaleye ( litExpr, mapPrimExpr, unsafeCoerceExpr )
+import Rel8.Expr.Bool ( (||.), ifThenElse_ )
+import Rel8.Expr.Opaleye ( binaryOperator, litExpr, mapPrimExpr, unsafeCoerceExpr )
 import Rel8.PrimitiveType ( PrimitiveType )
 
 
@@ -77,7 +77,7 @@ fromNull x = null x id
 
 
 instance (PrimitiveType a, DBEq a) => DBEq (Maybe a) where
-  a ==. b = (isNull a &&. isNull b) ||. (unsafeFromJust a ==. unsafeFromJust b)
+  (==.) = binaryOperator "IS NOT DISTINCT FROM"
 
 
 -- | Lift a binary operation on non-@null@ expressions to an equivalent binary
