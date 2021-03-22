@@ -15,11 +15,11 @@ import Data.Kind ( Constraint, Type )
 
 -- rel8
 import Rel8.Context ( Column, Defaulting( NoDefault ), Meta( Meta ) )
-import Rel8.DBType ( DBType )
+import Rel8.DBType ( DBType, fromInfoColumn )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Instances ( Column( ExprColumn, fromExprColumn ) )
-import Rel8.Expr.Opaleye ( unsafeNullExpr )
-import Rel8.HTable ( ColType, HAllColumns, HTable, htabulateMeta )
+import Rel8.Expr.Opaleye ( recast, unsafeNullExpr, recastWith )
+import Rel8.HTable ( ColType, HAllColumns, HTable, htabulateMeta, hfield, hdbtype )
 import Rel8.HTable.HIdentity ( HIdentity( HIdentity, unHIdentity ) )
 import Rel8.HTable.HPair ( HPair( HPair ) )
 
@@ -75,4 +75,5 @@ instance (Table f a, Table f b, Table f c, Table f d) => Table f (a, b, c, d) wh
 
 
 nullTable :: Table Expr a => a
-nullTable = fromColumns $ htabulateMeta \_ -> ExprColumn unsafeNullExpr
+nullTable = fromColumns $ htabulateMeta \i -> 
+  ExprColumn $ recastWith (fromInfoColumn (hfield hdbtype i)) unsafeNullExpr

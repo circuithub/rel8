@@ -22,7 +22,7 @@ module Rel8.Expr.Opaleye
   , binaryOperator
   , column
   , unsafeCoerceExpr
-  , recast
+  , recast, recastWith
   , unsafeNullExpr
   ) where
 
@@ -84,6 +84,13 @@ unsafeCastExpr t (Expr x) = Expr $ Opaleye.CastExpr t x
 -- | Add an explicit cast to an Expr.
 recast :: forall a. DBType a => Expr a -> Expr a
 recast = unsafeCastExpr case info @a of
+  NotNull DatabaseType{ typeName } -> typeName
+  Null DatabaseType{ typeName } -> typeName
+
+
+-- | Add an explicit cast to an Expr.
+recastWith :: Info a -> Expr a -> Expr a
+recastWith i = unsafeCastExpr case i of
   NotNull DatabaseType{ typeName } -> typeName
   Null DatabaseType{ typeName } -> typeName
 
