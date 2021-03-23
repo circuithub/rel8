@@ -23,6 +23,19 @@ import Rel8.Table.Eq ( EqTable, (==:) )
 import Rel8.Table.Maybe ( isJustTable )
 
 
+-- | Checks if a query returns at least one row.
+--
+-- >>> :{
+-- mapM_ print =<< select c do
+--   author <- each authorSchema
+--   hasProjects <- exists do
+--     project <- each projectSchema
+--     where_ $ authorId author ==. projectAuthorId project
+--   return (authorName author, hasProjects)
+-- :}
+-- ("Ollie",True)
+-- ("Bryan O'Sullivan",True)
+-- ("Emily Pillmore",False)
 exists :: Query a -> Query (Expr Bool)
 exists = fmap isJustTable . optional . whereExists
 -- FIXME: change this when b7aacc07c6392654cae439fc3b997620c3aa7a87 makes it
