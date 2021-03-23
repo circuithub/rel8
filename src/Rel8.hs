@@ -19,11 +19,11 @@ module Rel8
 
     -- *** Deriving-via helpers
     -- **** @JSONEncoded@
-  -- , JSONEncoded(..)
-  -- , JSONBEncoded(..)
+  , JSONEncoded(..)
+  , JSONBEncoded(..)
 
     -- **** @ReadShow@
-  -- , ReadShow(..)
+  , ReadShow(..)
 
     -- *** @TypeInformation@
   , TypeInformation(..)
@@ -284,6 +284,9 @@ import Rel8.Table.Ord
 import Rel8.Table.Order
 import Rel8.Expr.Serialize
 import Rel8.Table.Insert
+import Rel8.Type.JSONEncoded
+import Rel8.Type.JSONBEncoded
+import Rel8.Type.ReadShow
 
 
 -- $setup
