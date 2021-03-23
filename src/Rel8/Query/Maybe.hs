@@ -40,6 +40,39 @@ optional = mapOpaleye $ Opaleye.QueryArr . go
         condition = toPrimExpr true
 
 
+-- | Filter out 'MaybeTable's, returning only the tables that are not-null.
+--
+-- This operation can be used to "undo" the effect of 'optional', which
+-- operationally is like turning a @LEFT JOIN@ back into a full @JOIN@.  You
+-- can think of this as analogous to 'Data.Maybe.catMaybes'.
+--
+-- To see this in action, first consider the following 'optional' query:
+--
+-- >>> :{
+-- select c $ do
+--   author <- each authorSchema
+--   maybeRel8 <- optional $ 
+--     each projectSchema 
+--       >>= filter (\p -> projectAuthorId p ==. authorId author)
+--       >>= filter (\p -> projectName p ==. "rel8")
+--   return (authorName author, projectName <$> maybeRel8)
+-- :}
+-- [("Ollie",Just "rel8"),("Bryan O'Sullivan",Nothing),("Emily Pillmore",Nothing)]
+--
+-- Here @optional@ is acting as a @LEFT JOIN@. We can turn this into a proper
+-- join by using @catMaybeTable@ to filter out rows where the join failed:
+--
+-- >>> :{
+-- select c $ do
+--   author <- each authorSchema
+--   maybeRel8 <- optional $ 
+--     each projectSchema 
+--       >>= filter (\p -> projectAuthorId p ==. authorId author)
+--       >>= filter (\p -> projectName p ==. "rel8")
+--   rel8 <- catMaybeTable maybeRel8
+--   return (authorName author, projectName rel8)
+-- :}
+-- [("Ollie","rel8")]
 catMaybeTable :: MaybeTable a -> Query a
 catMaybeTable ma@(MaybeTable _ a) = do
   where_ $ isJustTable ma
