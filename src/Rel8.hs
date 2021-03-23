@@ -46,7 +46,7 @@ module Rel8
   , case_
 
     -- ** @MaybeTable@
-  , MaybeTable(..)
+  , MaybeTable
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
   , optional
