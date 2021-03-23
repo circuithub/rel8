@@ -22,38 +22,32 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye
-  ( unsafeFromPrimExpr, unsafeToPrimExpr
+  ( fromPrimExpr, toPrimExpr
   , zipPrimExprsWith
   )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( array )
+import Rel8.Type.Array ( array, zipPrimArraysWith )
 import Rel8.Type.Information ( TypeInformation(..) )
 import Rel8.Schema.Nullability ( Nullability, Nullabilizes )
 
 
 sappend :: Expr [a] -> Expr [a] -> Expr [a]
-sappend = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+sappend = zipPrimExprsWith (zipPrimArraysWith (Opaleye.BinExpr (Opaleye.:||)))
 
 
 sappend1 :: Expr (NonEmpty a) -> Expr (NonEmpty a) -> Expr (NonEmpty a)
-sappend1 = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+sappend1 = zipPrimExprsWith (zipPrimArraysWith (Opaleye.BinExpr (Opaleye.:||)))
 
 
 sempty :: Nullability t a -> TypeInformation t -> Expr [a]
-sempty _ info = unsafeFromPrimExpr $ array info []
+sempty _ info = fromPrimExpr $ array info []
 
 
 listOf :: forall a t. (Nullabilizes t a, DBType t)
   => [Expr a] -> Expr [a]
-listOf =
-  unsafeFromPrimExpr .
-  array (typeInformation @t) .
-  fmap unsafeToPrimExpr
+listOf = fromPrimExpr . array (typeInformation @t) . fmap toPrimExpr
 
 
 nonEmptyOf :: forall a t. (Nullabilizes t a, DBType t)
   => NonEmpty (Expr a) -> Expr (NonEmpty a)
-nonEmptyOf =
-  unsafeFromPrimExpr .
-  array (typeInformation @t) .
-  fmap unsafeToPrimExpr
+nonEmptyOf = fromPrimExpr . array (typeInformation @t) . fmap toPrimExpr

@@ -23,7 +23,6 @@ where
 -- base
 import Data.Bool ( Bool )
 import Data.Int ( Int32 )
-import Data.List.NonEmpty ( NonEmpty )
 import Data.Maybe ( Maybe( Nothing, Just ) )
 import Prelude ()
 
@@ -33,6 +32,7 @@ import Data.ByteString ( ByteString )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
+import Rel8.Type.Array1D ( Array1D )
 
 -- text
 import Data.Text (Text)
@@ -185,7 +185,7 @@ regexpReplace a b c Nothing = function "regexp_replace" a b c
 
 
 regexpSplitToArray :: ()
-  => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr (NonEmpty Text)
+  => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr (Array1D Text)
 regexpSplitToArray a b (Just c) = function "regexp_split_to_array" a b c
 regexpSplitToArray a b Nothing = function "regexp_split_to_array" a b
 

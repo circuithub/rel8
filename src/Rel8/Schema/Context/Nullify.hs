@@ -32,7 +32,7 @@ import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( unsafeFromPrimExpr, unsafeToPrimExpr )
+import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context
@@ -78,7 +78,7 @@ instance Nullifiable Aggregation where
   decodeTag (Aggregation aggregate) = fold $ undoGroupBy aggregate
 
   nullifier tag SSpec {nullability} (Aggregation aggregate) = Aggregation $
-    mapInputs (unsafeToPrimExpr . runTag nullability tag . unsafeFromPrimExpr) $
+    mapInputs (toPrimExpr . runTag nullability tag . fromPrimExpr) $
     runTag nullability tag <$> aggregate
 
   unnullifier _ SSpec {nullability} (Aggregation aggregate) =

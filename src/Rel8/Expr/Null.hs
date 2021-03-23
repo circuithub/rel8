@@ -22,7 +22,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (||.), boolExpr )
-import Rel8.Expr.Opaleye ( scastExpr, unsafeMapPrimExpr )
+import Rel8.Expr.Opaleye ( scastExpr, mapPrimExpr )
 import Rel8.Schema.Nullability ( Nullability( Nullable ), IsMaybe )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
@@ -46,11 +46,11 @@ nullableOf = maybe null nullify
 
 
 isNull :: Expr (Maybe a) -> Expr Bool
-isNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
+isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
 isNonNull :: Expr (Maybe a) -> Expr Bool
-isNonNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
+isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 
 
 mapNullable :: (IsMaybe b ~ 'False, DBType b)

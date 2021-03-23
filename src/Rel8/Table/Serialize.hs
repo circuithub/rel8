@@ -29,7 +29,6 @@ import qualified Hasql.Decoders as Hasql
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
-import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( DB(..), Result(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
@@ -141,7 +140,6 @@ class (Table DB exprs, isTabular ~ IsTabular a) =>
 
 instance
   ( DBType a
-  , IsList a ~ 'False
   , IsMaybe a ~ 'False
   , IsTabular a ~ 'False
   , x ~ Expr a
@@ -166,7 +164,6 @@ instance
 instance
   ( DBType a
   , Nullabilizes a (Maybe a)
-  , KnownBool (IsList a)
   , isTabular ~ 'False
   , IsMaybeTabular a ~ 'False
   , x ~ Maybe a

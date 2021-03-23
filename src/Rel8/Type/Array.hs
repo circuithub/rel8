@@ -6,6 +6,7 @@ module Rel8.Type.Array
   ( array
   , listTypeInformation
   , nonEmptyTypeInformation
+  , fromPrimArray, toPrimArray, zipPrimArraysWith
   )
 where
 
@@ -28,7 +29,7 @@ import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
 array TypeInformation {typeName} =
-  Opaleye.UnExpr (Opaleye.UnOpOther "ROW") .
+  fromPrimArray .
   Opaleye.CastExpr (typeName <> "[]") .
   Opaleye.ArrayExpr . toList
 
@@ -61,3 +62,17 @@ nonEmptyTypeInformation nullability =
   where
     parse = maybe (Left message) Right . nonEmpty
     message = "failed to decode NonEmptyList: got empty list"
+
+
+fromPrimArray :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+fromPrimArray = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+
+
+toPrimArray :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+toPrimArray a = Opaleye.CompositeExpr a "f1"
+
+
+zipPrimArraysWith :: ()
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
+  -> Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+zipPrimArraysWith f a b = fromPrimArray (f (toPrimArray a) (toPrimArray b))

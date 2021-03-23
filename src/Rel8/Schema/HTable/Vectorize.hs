@@ -32,7 +32,6 @@ import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Bool ( IsList, SBool( STrue ) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
@@ -50,7 +49,6 @@ import Data.Zip ( Unzip, Repeat, Zippy(..) )
 
 
 class Vector list where
-  listIsList :: proxy a -> IsList (list a) :~: 'True
   listIsn'tMaybe :: proxy a -> IsMaybe (list a) :~: 'False
   vectorTypeInformation :: ()
     => Nullability a ma
@@ -59,13 +57,11 @@ class Vector list where
 
 
 instance Vector [] where
-  listIsList _ = Refl
   listIsn'tMaybe _ = Refl
   vectorTypeInformation = listTypeInformation
 
 
 instance Vector NonEmpty where
-  listIsList _ = Refl
   listIsn'tMaybe _ = Refl
   vectorTypeInformation = nonEmptyTypeInformation
 
@@ -104,14 +100,12 @@ instance (HTable table, Vector list) => HTable (HVectorize list table) where
       Dict -> VectorizeSpec Dict
 
   hspecs = HVectorize $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {..} -> case listIsList @list nullability of
-      Refl -> case listIsn'tMaybe @list nullability of
-        Refl -> VectorizeSpec SSpec
-          { nullability = NonNullable
-          , info = vectorTypeInformation nullability info
-          , isList = STrue
-          , ..
-          }
+    SSpec {..} -> case listIsn'tMaybe @list nullability of
+      Refl -> VectorizeSpec SSpec
+        { nullability = NonNullable
+        , info = vectorTypeInformation nullability info
+        , ..
+        }
 
   {-# INLINABLE hfield #-}
   {-# INLINABLE htabulate #-}

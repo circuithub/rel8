@@ -62,7 +62,6 @@ library
     Rel8.Expr.Text
     Rel8.Expr.Time
 
-    Rel8.Kind.Bool
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
@@ -149,7 +148,7 @@ library
     Rel8.Tabulate
 
     Rel8.Type
-    Rel8.Type.Array
+    Rel8.Type.Array1D
     Rel8.Type.Eq
     Rel8.Type.Information
     Rel8.Type.Monoid

@@ -22,13 +22,13 @@ import qualified Opaleye.Internal.Order as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( unsafeUnnullify )
-import Rel8.Expr.Opaleye ( unsafeToPrimExpr )
+import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Order ( Order( Order ) )
 import Rel8.Type.Ord ( DBOrd )
 
 
 asc :: DBOrd a => Order (Expr a)
-asc = Order $ Opaleye.Order (\expr -> [(orderOp, unsafeToPrimExpr expr)])
+asc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
   where
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp
@@ -38,7 +38,7 @@ asc = Order $ Opaleye.Order (\expr -> [(orderOp, unsafeToPrimExpr expr)])
 
 
 desc :: DBOrd a => Order (Expr a)
-desc = Order $ Opaleye.Order (\expr -> [(orderOp, unsafeToPrimExpr expr)])
+desc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
   where
     orderOp :: Opaleye.OrderOp
     orderOp = Opaleye.OrderOp

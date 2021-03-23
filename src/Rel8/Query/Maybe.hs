@@ -19,7 +19,7 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 -- rel8
 import Rel8.Expr.Bool ( true )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( unsafeToPrimExpr )
+import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
@@ -37,7 +37,7 @@ optional = mapOpaleye $ Opaleye.QueryArr . go
         (t', bindings) = Opaleye.run $
           Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
         join = Opaleye.Join Opaleye.LeftJoin condition [] bindings left right
-        condition = unsafeToPrimExpr true
+        condition = toPrimExpr true
 
 
 catMaybeTable :: MaybeTable a -> Query a
