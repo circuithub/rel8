@@ -38,17 +38,19 @@ listTypeInformation :: ()
   => Nullability a ma
   -> TypeInformation a
   -> TypeInformation [ma]
-listTypeInformation nullability info = TypeInformation
-  { decode = row $ case nullability of
-      Nullable -> Hasql.listArray (Hasql.nullable decode)
-      NonNullable -> Hasql.listArray (Hasql.nonNullable decode)
-  , encode = case nullability of
-      Nullable -> array info . fmap (maybe null encode)
-      NonNullable -> array info . fmap encode
-  , typeName = "record"
-  }
+listTypeInformation nullability info = 
+  case info of
+    TypeInformation{ encode, decode, out } -> TypeInformation
+      { decode = row $ case nullability of
+          Nullable -> Hasql.listArray (Hasql.nullable (out <$> decode))
+          NonNullable -> Hasql.listArray (Hasql.nonNullable (out <$> decode))
+      , encode = case nullability of
+          Nullable -> array info . fmap (maybe null encode)
+          NonNullable -> array info . fmap encode
+      , typeName = "record"
+      , out = id
+      }
   where
-    TypeInformation {encode, decode} = info
     row = Hasql.composite . Hasql.field . Hasql.nonNullable
     null = Opaleye.ConstExpr Opaleye.NullLit
 
