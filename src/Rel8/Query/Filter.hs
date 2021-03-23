@@ -24,6 +24,16 @@ filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = a <$ where_ (f a)
 
 
+-- | Drop any rows that don't match a predicate.  @where_ expr@ is equivalent
+-- to the SQL @WHERE expr@.
+--
+-- >>> :{
+-- select c $ do
+--   x <- values [ lit x | x <- [ 1..5 :: Int32 ] ]
+--   where_ $ x >. lit 2
+--   return x
+-- :}
+-- [3,4,5]
 where_ :: Expr Bool -> Query ()
 where_ condition =
   fromOpaleye $ lmap (\_ -> toColumn $ toPrimExpr condition) Opaleye.restrict
