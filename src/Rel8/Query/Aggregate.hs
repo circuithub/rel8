@@ -18,5 +18,6 @@ import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Table.Opaleye ( aggregator )
 
 
+-- | Apply an aggregation to all rows returned by a 'Query'.
 aggregate :: Query (Aggregate exprs) -> Query exprs
 aggregate = mapOpaleye (Opaleye.aggregate aggregator)
