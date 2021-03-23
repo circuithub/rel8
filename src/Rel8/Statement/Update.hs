@@ -45,17 +45,43 @@ import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
+-- | The constituent parts of an @UPDATE@ statement.
 type Update :: Type -> Type
 data Update a where
   Update :: Selects names exprs =>
     { target :: TableSchema names
+      -- ^ Which table to update.
     , set :: exprs -> exprs
+      -- ^ How to update each selected row.
     , updateWhere :: exprs -> Expr Bool
+      -- ^ Which rows to select for update.
     , returning :: Returning names a
+      -- ^ What to return from the @UPDATE@ statement.
     }
     -> Update a
 
 
+-- | Run an @UPDATE@ statement.
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
+--
+-- >>> :{
+-- update c Update
+--   { target = projectSchema
+--   , set = \p -> p { projectName = "Rel8!" }
+--   , updateWhere = \p -> projectName p ==. lit "rel8"
+--   , returning = NumberOfRowsAffected
+--   }
+-- :}
+-- 1
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
+-- Project {projectAuthorId = 1, projectName = "Rel8!"}
 update :: Update a -> Connection -> IO a
 update Update {target, set, updateWhere, returning} =
   case returning of
