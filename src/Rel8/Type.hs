@@ -61,11 +61,6 @@ import Data.UUID ( UUID )
 import qualified Data.UUID as UUID
 
 
-type DBType :: Type -> Constraint
-class DBType a where
-  typeInformation :: TypeInformation a
-
-
 -- | Haskell types that can be represented as expressions in a database. There
 -- should be an instance of @DBType@ for all column types in your database
 -- schema (e.g., @int@, @timestamptz@, etc).
@@ -86,6 +81,12 @@ class DBType a where
 -- You can now write queries using @UserId@ instead of @Int32@, which may help
 -- avoid making bad joins. However, when SQL is generated, it will be as if you
 -- just used integers (the type distinction does not impact query generation).
+type DBType :: Type -> Constraint
+class DBType a where
+  typeInformation :: TypeInformation a
+
+
+-- | Corresponds to @bool@
 instance DBType Bool where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.BoolLit
@@ -95,6 +96,7 @@ instance DBType Bool where
     }
 
 
+-- | Corresponds to @char@
 instance DBType Char where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
@@ -104,6 +106,7 @@ instance DBType Char where
     }
 
 
+-- | Corresponds to @int2@
 instance DBType Int16 where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
@@ -113,6 +116,7 @@ instance DBType Int16 where
     }
 
 
+-- | Corresponds to @int4@
 instance DBType Int32 where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
@@ -122,6 +126,7 @@ instance DBType Int32 where
     }
 
 
+-- | Corresponds to @int8@
 instance DBType Int64 where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
@@ -131,6 +136,7 @@ instance DBType Int64 where
     }
 
 
+-- | Corresponds to @float4@
 instance DBType Float where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
@@ -140,6 +146,7 @@ instance DBType Float where
     }
 
 
+-- | Corresponds to @float8@
 instance DBType Double where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
@@ -149,6 +156,7 @@ instance DBType Double where
     }
 
 
+-- | Corresponds to @numeric@
 instance DBType Scientific where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit
@@ -158,6 +166,7 @@ instance DBType Scientific where
     }
 
 
+-- | Corresponds to @timestamptz@
 instance DBType UTCTime where
   typeInformation = TypeInformation
     { encode =
@@ -169,6 +178,7 @@ instance DBType UTCTime where
     }
 
 
+-- | Corresponds to @date@
 instance DBType Day where
   typeInformation = TypeInformation
     { encode =
@@ -180,6 +190,7 @@ instance DBType Day where
     }
 
 
+-- | Corresponds to @timestamp@
 instance DBType LocalTime where
   typeInformation = TypeInformation
     { encode =
@@ -191,6 +202,7 @@ instance DBType LocalTime where
     }
 
 
+-- | Corresponds to @time@
 instance DBType TimeOfDay where
   typeInformation = TypeInformation
     { encode =
@@ -202,6 +214,7 @@ instance DBType TimeOfDay where
     }
 
 
+-- | Corresponds to @interval@
 instance DBType DiffTime where
   typeInformation = TypeInformation
     { encode =
@@ -218,6 +231,7 @@ instance DBType NominalDiffTime where
     mapTypeInformation @DiffTime realToFrac realToFrac typeInformation
 
 
+-- | Corresponds to @text@
 instance DBType Text where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
@@ -227,23 +241,27 @@ instance DBType Text where
     }
 
 
+-- | Corresponds to @text@
 instance DBType Lazy.Text where
   typeInformation =
     mapTypeInformation Text.fromStrict Text.toStrict typeInformation
 
 
+-- | Corresponds to @citext@
 instance DBType (CI Text) where
   typeInformation = mapTypeInformation CI.mk CI.original typeInformation
     { typeName = "citext"
     }
 
 
+-- | Corresponds to @citext@
 instance DBType (CI Lazy.Text) where
   typeInformation = mapTypeInformation CI.mk CI.original typeInformation
     { typeName = "citext"
     }
 
 
+-- | Corresponds to @bytea@
 instance DBType ByteString where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
@@ -253,12 +271,14 @@ instance DBType ByteString where
     }
 
 
+-- | Corresponds to @bytea@
 instance DBType Lazy.ByteString where
   typeInformation =
     mapTypeInformation ByteString.fromStrict ByteString.toStrict
       typeInformation
 
 
+-- | Corresponds to @uuid@
 instance DBType UUID where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
@@ -268,6 +288,7 @@ instance DBType UUID where
     }
 
 
+-- | Corresponds to @jsonb@
 instance DBType Value where
   typeInformation = TypeInformation
     { encode =
