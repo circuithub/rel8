@@ -44,6 +44,22 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
     dicts = hdicts @(Columns exprs) @(ConstrainDBType DBEq)
 
 
+-- | Aggregate rows into a single row containing an array of all aggregated
+-- rows. This can be used to associate multiple rows with a single row, without
+-- changing the over cardinality of the query. This allows you to essentially
+-- return a tree-like structure from queries.
+--
+-- For example, if we have a table of orders and each orders contains multiple
+-- items, we could aggregate the table of orders, pairing each order with its
+-- items:
+--
+-- @
+-- ordersWithItems :: Query (Order Expr, ListTable (Item Expr))
+-- ordersWithItems = do
+--   order <- each orderSchema
+--   items <- aggregate $ listAgg <$> itemsFromOrder order
+--   return (order, items)
+-- @
 listAgg :: Table DB exprs => exprs -> Aggregate (ListTable exprs)
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
@@ -51,6 +67,7 @@ listAgg (toColumns -> exprs) = fromColumns $
     (pure exprs)
 
 
+-- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
 nonEmptyAgg :: Table DB exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
