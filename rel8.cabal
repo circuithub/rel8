@@ -42,6 +42,9 @@ library
   hs-source-dirs:
     src
   exposed-modules:
+    Rel8
+
+  other-modules:
     Rel8.Aggregate
 
     Rel8.Expr
@@ -157,7 +160,6 @@ library
     Rel8.Type.Sum
     Rel8.Type.Tag
 
-  other-modules:
     Rel8.Opaque
     Rel8.Schema.Structure
 
