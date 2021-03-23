@@ -72,21 +72,25 @@ sge = \case
   NonNullable -> ge
 
 
+-- | The PostgreSQL @<@ operator.
 (<.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
 (<.) = slt nullabilization
 infix 4 <.
 
 
+-- | The PostgreSQL @<=@ operator.
 (<=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
 (<=.) = sle nullabilization
 infix 4 <=.
 
 
+-- | The PostgreSQL @>@ operator.
 (>.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
 (>.) = sgt nullabilization
 infix 4 >.
 
 
+-- | The PostgreSQL @>=@ operator.
 (>=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
 (>=.) = sge nullabilization
 infix 4 >=.
