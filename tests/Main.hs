@@ -63,7 +63,6 @@ import Control.Monad.Trans.Control ( MonadBaseControl )
 import qualified Rel8.Expr as Rel8
 import qualified Rel8.Expr.Bool as Rel8
 import qualified Rel8.Expr.Eq as Rel8
-import qualified Rel8.Kind.Nullability as Rel8
 import qualified Rel8.Query.Aggregate as Rel8
 import qualified Rel8.Query.Distinct as Rel8
 import qualified Rel8.Query.Each as Rel8
@@ -77,8 +76,8 @@ import qualified Rel8.Query.Values as Rel8
 import qualified Rel8.Schema.Column as Rel8
 import qualified Rel8.Schema.Context as Rel8
 import qualified Rel8.Schema.Generic as Rel8
+import qualified Rel8.Schema.Nullability as Rel8
 import qualified Rel8.Schema.Table as Rel8
-import qualified Rel8.Schema.Value as Rel8
 import qualified Rel8.Statement.Delete as Rel8
 import qualified Rel8.Statement.Insert as Rel8
 import qualified Rel8.Statement.Returning as Rel8
@@ -90,6 +89,7 @@ import qualified Rel8.Table.Eq as Rel8
 import qualified Rel8.Table.Insert as Rel8
 import qualified Rel8.Table.Maybe as Rel8
 import qualified Rel8.Table.Serialize as Rel8
+import qualified Rel8.Type as Rel8
 import qualified Rel8.Type.Eq as Rel8
 
 -- scientific
@@ -436,23 +436,17 @@ testDBType getTestDatabase = testGroup "DBType instances"
   where
     dbTypeTest ::
       ( Eq a, Show a
-      , ' ('Rel8.NonNullable, a) ~ Rel8.ToValue a
-      , Rel8.Serializable (Rel8.Expr 'Rel8.NonNullable a) a
-      , Rel8.Serializable (Rel8.Expr 'Rel8.Nullable a) (Maybe a)
-      )
-      => TestName
-      -> Gen a
-      -> TestTree
+      , Rel8.Sql Rel8.DBType a
+      , Rel8.IsMaybe a ~ 'False
+      , Rel8.Serializable (Rel8.Expr a) a
+      , Rel8.Serializable (Rel8.Expr (Maybe a)) (Maybe a)
+      ) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b nullability value.
-      ( Show a
-      , '(nullability, value) ~ Rel8.ToValue a
-      , Rel8.Serializable (Rel8.Expr nullability value) a
-      )
+    t :: forall a b. (Show a, Rel8.Sql Rel8.DBType a, Rel8.Serializable (Rel8.Expr a) a)
       => (a -> a -> Bool)
       -> Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO b)
@@ -461,7 +455,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
       x <- forAll generator
 
       transaction \connection -> do
-        [res] <- testing Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr nullability value)
+        [res] <- testing Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr a)
         diff res eq x
 
     genDay :: Gen Day
@@ -497,26 +491,21 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
 
   where
     dbEqTest ::
-      ( Eq a, Show a, Rel8.DBEq a
-      , ' ('Rel8.NonNullable, a) ~ Rel8.ToValue a
-      , Rel8.Serializable (Rel8.Expr 'Rel8.NonNullable a) a
-      , Rel8.Serializable (Rel8.Expr 'Rel8.Nullable a) (Maybe a)
-      )
-      => TestName
-      -> Gen a
-      -> TestTree
+      ( Eq a, Show a
+      , Rel8.Sql Rel8.DBEq a
+      , Rel8.IsMaybe a ~ 'False
+      , Rel8.Serializable (Rel8.Expr a) a
+      , Rel8.Serializable (Rel8.Expr (Maybe a)) (Maybe a)
+      ) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a nullability value.
-      ( Eq a
-      , Show a
-      , '(nullability, value) ~ Rel8.ToValue a
-      , Rel8.Serializable (Rel8.Expr nullability value) a
-      , Rel8.KnownNullability nullability
-      , Rel8.DBEq value
+    t :: forall a.
+      ( Eq a, Show a
+      , Rel8.Sql Rel8.DBEq a
+      , Rel8.Serializable (Rel8.Expr a) a
       )
       => Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO ())
@@ -525,7 +514,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
       (x, y) <- forAll (liftA2 (,) generator generator)
 
       transaction \connection -> do
-        [res] <- testing Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr nullability value) x Rel8.==. Rel8.lit y
+        [res] <- testing Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr a) x Rel8.==. Rel8.lit y
         res === (x == y)
 
         cover 1 "Equal" $ x == y

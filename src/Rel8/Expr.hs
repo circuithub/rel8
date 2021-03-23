@@ -50,12 +50,14 @@ instance Sql DBSemigroup a => Semigroup (Expr a) where
   (<>) = case nullabilization @a of
     Nullable -> liftOpNullable (<>.)
     NonNullable -> (<>.)
+  {-# INLINABLE (<>) #-}
 
 
 instance Sql DBMonoid a => Monoid (Expr a) where
   mempty = case nullabilization @a of
     Nullable -> nullify memptyExpr
     NonNullable -> memptyExpr
+  {-# INLINABLE mempty #-}
 
 
 instance (Sql IsString a, Sql DBType a) => IsString (Expr a) where
