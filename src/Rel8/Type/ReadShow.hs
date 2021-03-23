@@ -28,14 +28,6 @@ import qualified Data.Text as Text
 newtype ReadShow a = ReadShow { fromReadShow :: a }
 
 
--- | The 'PrimitiveType' instance for 'ReadShow' allows you to serialize a type using
--- Haskell's 'Read' and 'Show' instances:
---
--- @
--- data Color = Red | Green | Blue
---   deriving (Read, Show)
---   deriving PrimitiveType via ReadShow Color
--- @
 instance (Read a, Show a) => DBType (ReadShow a) where
   typeInformation = parseTypeInformation parser printer typeInformation
     where
