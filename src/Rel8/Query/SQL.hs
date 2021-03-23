@@ -34,6 +34,8 @@ import Rel8.Table.Name ( namesFromLabels )
 import Rel8.Table.Recontextualize ( Selects )
 
 
+-- | Convert a query to a 'String' containing the query as a @SELECT@
+-- statement.
 showQuery :: Table DB a => Query a -> String
 showQuery = fold . sqlForQuery
 
