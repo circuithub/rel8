@@ -27,6 +27,10 @@ import Rel8.Order ( Order( Order ) )
 import Rel8.Type.Ord ( DBOrd )
 
 
+-- | Sort a column in ascending order.
+--
+-- >>> select c $ orderBy asc $ values [ lit x | x <- [1..5 :: Int32] ]
+-- [1,2,3,4,5]
 asc :: DBOrd a => Order (Expr a)
 asc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
   where
@@ -37,6 +41,10 @@ asc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
       }
 
 
+-- | Sort a column in descending order.
+--
+-- >>> select c $ orderBy desc $ values [ lit x | x <- [1..5 :: Int32] ]
+-- [5,4,3,2,1]
 desc :: DBOrd a => Order (Expr a)
 desc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
   where
@@ -47,6 +55,11 @@ desc = Order $ Opaleye.Order (\expr -> [(orderOp, toPrimExpr expr)])
       }
 
 
+-- | Transform an ordering so that @null@ values appear first. This corresponds
+-- to @NULLS FIRST@ in SQL.
+--
+-- >>> select c $ orderBy (nullsFirst desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
+-- [Nothing,Nothing,Just 5,Just 4,Just 3,Just 2,Just 1]
 nullsFirst :: Order (Expr a) -> Order (Expr (Maybe a))
 nullsFirst (Order (Opaleye.Order f)) =
   Order $ Opaleye.Order $ fmap (first g) . f . unsafeUnnullify
@@ -55,6 +68,11 @@ nullsFirst (Order (Opaleye.Order f)) =
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsFirst }
 
 
+-- | Transform an ordering so that @null@ values appear first. This corresponds
+-- to @NULLS LAST@ in SQL.
+--
+-- >>> select c $ orderBy (nullsLast desc) $ values $ [ nullExpr, nullExpr ] <> [ lit (Just x) | x <- [1..5 :: Int32] ]
+-- [Just 5,Just 4,Just 3,Just 2,Just 1,Nothing,Nothing]
 nullsLast :: Order (Expr a) -> Order (Expr (Maybe a))
 nullsLast (Order (Opaleye.Order f)) =
   Order $ Opaleye.Order $ fmap (first g) . f . unsafeUnnullify
