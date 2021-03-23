@@ -63,6 +63,14 @@ import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
+-- | @MaybeTable t@ is the table @t@, but as the result of an outer join. If
+-- the outer join fails to match any rows, this is essentialy @Nothing@, and if
+-- the outer join does match rows, this is like @Just@. Unfortunately, SQL
+-- makes it impossible to distinguish whether or not an outer join matched any
+-- rows based generally on the row contents - if you were to join a row
+-- entirely of nulls, you can't distinguish if you matched an all null row, or
+-- if the match failed.  For this reason @MaybeTable@ contains an extra field -
+-- a "nullTag" - to track whether or not the outer join produced any rows.
 type MaybeTable :: Type -> Type
 data MaybeTable a = MaybeTable
   { tag :: Expr (Maybe MaybeTag)
@@ -75,6 +83,8 @@ instance Apply MaybeTable where
   MaybeTable tag f <.> MaybeTable tag' a = MaybeTable (tag <> tag') (f a)
 
 
+-- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
+-- 'traverseMaybeTable'.
 instance Applicative MaybeTable where
   (<*>) = (<.>)
   pure = justTable
@@ -85,6 +95,8 @@ instance Bind MaybeTable where
     MaybeTable tag' b -> MaybeTable (tag <> tag') b
 
 
+-- | Has the same behavior as the @Monad@ instance for @Maybe@. See also:
+-- 'bindMaybeTable'.
 instance Monad MaybeTable where
   (>>=) = (>>-)
 
@@ -152,26 +164,38 @@ instance
   ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
+-- | Check if a @MaybeTable@ is absent of any row.. Like 'isNothing'.
 isNothingTable :: MaybeTable a -> Expr Bool
 isNothingTable (MaybeTable tag _) = isNull tag
 
 
+-- | Check if a @MaybeTable@ contains a row. Like 'isJust'.
 isJustTable :: MaybeTable a -> Expr Bool
 isJustTable (MaybeTable tag _) = isNonNull tag
 
 
+-- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
 maybeTable :: Table DB b => b -> (a -> b) -> MaybeTable a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
 
 
+-- | The null table. Like 'Nothing'.
 nothingTable :: Table DB a => MaybeTable a
 nothingTable = MaybeTable null undefined
 
 
+-- | Lift any table into 'MaybeTable'. Like 'Just'. Note you can also use
+-- 'pure'.
 justTable :: a -> MaybeTable a
 justTable = MaybeTable (nullify (litExpr IsJust))
 
 
+-- | Project a single expression out of a 'MaybeTable'. You can think of this
+-- operator like the '$' operator, but it also has the ability to return
+-- @null@.
+--
+-- >>> select c $ fmap (fst $?) (optional (values [lit (True, False)]))
+-- [Just True]
 ($?) :: forall a b db. (DBType db, Nullabilizes db b)
   => (a -> Expr b) -> MaybeTable a -> Expr (Maybe db)
 f $? ma@(MaybeTable _ a) = case nullabilization @b of
