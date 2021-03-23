@@ -24,5 +24,12 @@ some :: Table DB a => Query a -> Query (NonEmptyTable a)
 some = aggregate . fmap nonEmptyAgg
 
 
+-- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
+-- rows, this function will produce a 'Query' that returns one row containing
+-- the empty @ListTable@. If the supplied @Query@ does return rows, @many@ will
+-- return exactly one row, with a @ListTable@ collecting all returned rows.
+-- 
+-- @many@ is analogous to 'Control.Applicative.many' from
+-- @Control.Applicative@.
 many :: Table DB a => Query a -> Query (ListTable a)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
