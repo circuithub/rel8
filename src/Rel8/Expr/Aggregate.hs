@@ -90,6 +90,7 @@ or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 
+-- | Produce an aggregation for @Expr a@ using the @max@ function.
 max :: (DBMax db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
@@ -99,6 +100,7 @@ max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 
+-- | Produce an aggregation for @Expr a@ using the @max@ function.
 min :: (DBMin db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
@@ -107,7 +109,7 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     , distinction = Opaleye.AggrAll
     }
 
-
+-- | Corresponds to @sum@.
 sum :: (DBSum db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
