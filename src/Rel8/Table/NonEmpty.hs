@@ -25,6 +25,8 @@ import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
+-- | A @NonEmptyTable@ value contains one or more instances of @a@. You
+-- construct @NonEmptyTable@s with 'some' or 'nonEmptyAgg'.
 type NonEmptyTable :: Type -> Type
 newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (H (Context a)))
