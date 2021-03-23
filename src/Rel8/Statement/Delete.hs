@@ -42,16 +42,39 @@ import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
+-- | The constituent parts of a @DELETE@ statement.
 type Delete :: Type -> Type
 data Delete a where
   Delete :: Selects names exprs =>
     { from :: TableSchema names
+      -- ^ Which table to delete from.
     , deleteWhere :: exprs -> Expr Bool
+      -- ^ Which rows should be selected for deletion.
     , returning :: Returning names a
+      -- ^ What to return from the @DELETE@ statement.
     }
     -> Delete a
 
 
+-- | Run a @DELETE@ statement.
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
+--
+-- >>> :{
+-- delete c Delete
+--   { from = projectSchema
+--   , deleteWhere = \p -> projectName p ==. lit "rel8"
+--   , returning = Projection projectName
+--   }
+-- :}
+-- ["rel8"]
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 delete :: Delete a -> Connection -> IO a
 delete Delete {from, deleteWhere, returning} =
   case returning of
