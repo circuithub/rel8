@@ -1,3 +1,4 @@
+{-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 
@@ -24,11 +25,13 @@ import qualified Data.Text as Text
 
 
 type TypeInformation :: Type -> Type
-data TypeInformation a = TypeInformation
-  { encode :: a -> Opaleye.PrimExpr
-  , decode :: Hasql.Value a
-  , typeName :: String
-  }
+data TypeInformation a where
+  TypeInformation ::
+    { encode :: a -> Opaleye.PrimExpr
+    , decode :: Hasql.Value x
+    , typeName :: String
+    , out :: x -> a
+    } -> TypeInformation a
 
 
 mapTypeInformation :: ()
@@ -40,9 +43,10 @@ mapTypeInformation = parseTypeInformation . fmap pure
 parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
-parseTypeInformation to from TypeInformation {encode, decode, typeName} =
+parseTypeInformation to from TypeInformation {encode, decode, typeName, out} =
   TypeInformation
     { encode = encode . from
-    , decode = Hasql.refine (first Text.pack . to) decode
+    , decode = Hasql.refine (first Text.pack . to) (out <$> decode)
     , typeName
+    , out = id
     }

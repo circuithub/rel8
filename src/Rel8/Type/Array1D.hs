@@ -95,17 +95,19 @@ array1DTypeInformation :: IsArray1D db ~ 'False
   => Nullability db a
   -> TypeInformation db
   -> TypeInformation (Array1D a)
-array1DTypeInformation nullability info = TypeInformation
-  { decode = case nullability of
-      Nullable -> Array1D <$> Hasql.listArray (Hasql.nullable decode)
-      NonNullable -> Array1D <$> Hasql.listArray (Hasql.nonNullable decode)
-  , encode = case nullability of
-      Nullable -> Opaleye.ArrayExpr . fmap (maybe null encode) . getArray1D
-      NonNullable -> Opaleye.ArrayExpr . fmap encode . getArray1D
-  , typeName = typeName <> "[]"
-  }
+array1DTypeInformation nullability info = 
+  case info of
+    TypeInformation{ encode, decode, typeName, out } -> TypeInformation
+      { decode = case nullability of
+          Nullable -> Array1D <$> Hasql.listArray (Hasql.nullable (out <$> decode))
+          NonNullable -> Array1D <$> Hasql.listArray (Hasql.nonNullable (out <$> decode))
+      , encode = case nullability of
+          Nullable -> Opaleye.ArrayExpr . fmap (maybe null encode) . getArray1D
+          NonNullable -> Opaleye.ArrayExpr . fmap encode . getArray1D
+      , typeName = typeName <> "[]"
+      , out = id
+      }
   where
-    TypeInformation {encode, decode, typeName} = info
     null = Opaleye.ConstExpr Opaleye.NullLit
 
 
