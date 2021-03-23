@@ -12,49 +12,42 @@ module Rel8.Schema.Context.Label
 where
 
 -- base
-import Data.Kind ( Constraint )
+
+-- base
+import Data.Kind ( Constraint, Type )
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.Aggregate ( Aggregate, Col( Aggregation ) )
 import Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB )
-  , Insertion( RequiredInsert, OptionalInsert )
-  , Name( Name )
-  , Result( Result )
+  ( Insertion( RequiredInsert, OptionalInsert )
+  , Name
+  , Col( Name )
   )
-import Rel8.Schema.Spec ( Context, Spec( Spec ) )
+import Rel8.Schema.Spec ( Context, Spec( Spec ), Col( Result ) )
+import Rel8.Expr ( Expr, Col( DB ) )
+import Data.Functor.Identity ( Identity )
 
 
-type Labelable :: Context -> Constraint
+type Labelable :: (Type -> Type) -> Constraint
 class Labelable context where
   labeler :: ()
-    => context ('Spec labels necessity db a)
-    -> context ('Spec (label ': labels) necessity db a)
+    => Col context ('Spec labels necessity db a)
+    -> Col context ('Spec (label ': labels) necessity db a)
 
   unlabeler :: ()
-    => context ('Spec (label ': labels) necessity db a)
-    -> context ('Spec labels necessity db a)
+    => Col context ('Spec (label ': labels) necessity db a)
+    -> Col context ('Spec labels necessity db a)
 
 
-instance Labelable Aggregation where
+instance Labelable Aggregate where
   labeler (Aggregation aggregate) = Aggregation aggregate
   unlabeler (Aggregation aggregate) = Aggregation aggregate
 
 
-instance Labelable DB where
+instance Labelable Expr where
   labeler (DB a) = DB a
   unlabeler (DB a) = DB a
-
-
-instance Labelable Insertion where
-  labeler = \case
-    RequiredInsert a -> RequiredInsert a
-    OptionalInsert ma -> OptionalInsert ma
-
-  unlabeler = \case
-    RequiredInsert a -> RequiredInsert a
-    OptionalInsert ma -> OptionalInsert ma
 
 
 instance Labelable Name where
@@ -62,6 +55,6 @@ instance Labelable Name where
   unlabeler (Name name) = Name name
 
 
-instance Labelable Result where
+instance Labelable Identity where
   labeler (Result a) = Result a
   unlabeler (Result a) = Result a

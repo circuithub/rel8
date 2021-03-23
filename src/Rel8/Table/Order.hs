@@ -17,7 +17,6 @@ import Prelude
 -- rel8
 import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
-import Rel8.Schema.Context ( unDB )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hdicts, hspecs)
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
@@ -26,6 +25,7 @@ import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table
 import Rel8.Table.Ord
 import Rel8.Type.Ord
+import Rel8.Expr (unDB)
 
 
 ascTable :: forall a. OrdTable a => Order a

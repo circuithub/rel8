@@ -1,3 +1,6 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# language DerivingVia #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language NamedFieldPuns #-}
@@ -6,6 +9,7 @@
 module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
+  , Col( Aggregation )
   )
 where
 
@@ -21,6 +25,8 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
+import Rel8.Expr (Expr)
+import Rel8.Schema.Spec
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -32,6 +38,13 @@ type Aggregate :: Type -> Type
 newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
   deriving newtype Functor
   deriving Apply via (WrappedApplicative (Opaleye.Aggregator ()))
+
+
+instance Interpretation Aggregate where
+  data Col Aggregate :: Spec -> Type where
+    Aggregation :: ()
+      => Aggregate (Expr a)
+      -> Col Aggregate ('Spec labels necessity dbType a)
 
 
 foldInputs :: Monoid b

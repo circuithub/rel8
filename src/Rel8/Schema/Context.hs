@@ -11,11 +11,9 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB, unDB )
-  , Insertion( RequiredInsert, OptionalInsert )
-  , Name( Name )
-  , Result( Result )
+  ( Insertion( RequiredInsert, OptionalInsert )
+  , Name
+  , Col( Name )
   , IsSpecialContext
   )
 where
@@ -34,37 +32,12 @@ import Rel8.Kind.Necessity
   , KnownNecessity, necessitySing
   )
 import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( Context, Spec( Spec ) )
+import Rel8.Schema.Spec ( Context, Spec( Spec ), Interpretation( Col ) )
 import Rel8.Schema.Structure ( Structure )
 import Rel8.Type.Monoid ( DBMonoid )
 import Rel8.Type.Semigroup ( DBSemigroup )
-
-
-type Aggregation :: Context
-data Aggregation spec where
-  Aggregation :: ()
-    => Aggregate (Expr a)
-    -> Aggregation ('Spec labels necessity dbType a)
-
-
-type DB :: Context
-data DB spec where
-  DB :: ()
-    => { unDB :: Expr a }
-    -> DB ('Spec labels necessity dbType a)
-deriving stock instance Show (DB spec)
-
-
-instance (spec ~ 'Spec labels necessity dbType a, Sql DBSemigroup a) =>
-  Semigroup (DB spec)
- where
-  DB a <> DB b = DB (a <> b)
-
-
-instance (spec ~ 'Spec labels necessity dbType a, Sql DBMonoid a) =>
-  Monoid (DB spec)
- where
-  mempty = DB mempty
+import Data.Kind
+import Data.Functor.Identity (Identity)
 
 
 type Insertion :: Context
@@ -96,36 +69,20 @@ instance
     SOptional -> OptionalInsert (Just mempty)
 
 
-type Name :: Context
-newtype Name spec = Name String
-  deriving stock Show
-  deriving newtype (IsString, Monoid, Semigroup)
+type Name :: Type -> Type
+data Name a
 
 
-type Result :: Context
-data Result spec where
-  Result :: a -> Result ('Spec labels necessity dbType a)
-deriving stock instance Show a =>
-  Show (Result ('Spec labels necessity dbType a))
+instance Interpretation Name where
+  data Col Name :: Spec -> Type where
+    Name :: String -> Col Name spec
 
 
-instance (spec ~ 'Spec labels necessity dbType a, Semigroup a) =>
-  Semigroup (Result spec)
- where
-  Result a <> Result b = Result (a <> b)
-
-
-instance (spec ~ 'Spec labels necessity dbType a, Monoid a) =>
-  Monoid (Result spec)
- where
-  mempty = Result mempty
-
-
-type IsSpecialContext :: Context -> Bool
+type IsSpecialContext :: (Type -> Type) -> Bool
 type family IsSpecialContext context where
-  IsSpecialContext Aggregation = 'True
-  IsSpecialContext DB = 'True
-  IsSpecialContext Insertion = 'True
-  IsSpecialContext Result = 'True
-  IsSpecialContext Structure = 'True
+  IsSpecialContext Aggregate = 'True
+  IsSpecialContext Expr = 'True
+  -- IsSpecialContext Insert = 'True
+  IsSpecialContext Identity = 'True
+  -- IsSpecialContext Structure = 'True
   IsSpecialContext _ = 'False

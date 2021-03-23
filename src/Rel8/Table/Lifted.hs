@@ -17,7 +17,7 @@ import Prelude ()
 
 -- rel8
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.Spec ( Context )
 
 
@@ -28,13 +28,13 @@ class Table1 f where
   type ConstrainContext1 _ = DefaultConstrainContext
 
   toColumns1 :: (ConstrainContext1 f context, HTable t)
-    => (a -> t (H context))
+    => (a -> t context)
     -> f a
-    -> Columns1 f t (H context)
+    -> Columns1 f t context
 
   fromColumns1 :: (ConstrainContext1 f context, HTable t)
-    => (t (H context) -> a)
-    -> Columns1 f t (H context)
+    => (t context -> a)
+    -> Columns1 f t context
     -> f a
 
 
@@ -45,15 +45,15 @@ class Table2 p where
   type ConstrainContext2 _ = DefaultConstrainContext
 
   toColumns2 :: (ConstrainContext2 p context, HTable t, HTable u)
-    => (a -> t (H context))
-    -> (b -> u (H context))
+    => (a -> t context)
+    -> (b -> u context)
     -> p a b
-    -> Columns2 p t u (H context)
+    -> Columns2 p t u context
 
   fromColumns2 :: (ConstrainContext2 p context, HTable t, HTable u)
-    => (t (H context) -> a)
-    -> (u (H context) -> b)
-    -> Columns2 p t u (H context)
+    => (t context -> a)
+    -> (u context -> b)
+    -> Columns2 p t u context
     -> p a b
 
 

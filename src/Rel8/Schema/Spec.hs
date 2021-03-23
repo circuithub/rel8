@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
@@ -9,12 +11,15 @@ module Rel8.Schema.Spec
   , SSpec( SSpec, labels, necessity, info, nullability )
   , KnownSpec( specSing )
   , Context, KTable
+  , Interpretation( Col )
+  , Col( Result )
   )
 where
 
 -- base
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Prelude ()
+import Prelude ( Monoid( mempty ), Semigroup( (<>) ) )
 
 -- rel8
 import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
@@ -26,6 +31,28 @@ import Rel8.Kind.Necessity
 import Rel8.Schema.Nullability ( Unnullify, Nullability, Sql, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
+
+
+type Interpretation :: (Type -> Type) -> Constraint
+class Interpretation f where
+  data Col f :: Spec -> Type 
+
+
+instance Interpretation Identity where
+  data Col Identity :: Spec -> Type where
+    Result :: a -> Col Identity ('Spec labels necessity dbType a)
+
+
+instance (spec ~ 'Spec labels necessity dbType a, Semigroup a) =>
+  Semigroup (Col Identity spec)
+ where
+  Result a <> Result b = Result (a <> b)
+
+
+instance (spec ~ 'Spec labels necessity dbType a, Monoid a) =>
+  Monoid (Col Identity spec)
+ where
+  mempty = Result mempty
 
 
 type Spec :: Type
@@ -41,6 +68,16 @@ data SSpec spec where
     , nullability :: Nullability db a
     }
     -> SSpec ('Spec labels necessity db a)
+
+
+type SpecF :: Type -> Type
+data SpecF a
+
+
+instance Interpretation SpecF where
+  data Col SpecF :: Spec -> Type where
+    SpecCol :: SSpec spec -> Col SpecF spec
+
 
 
 type KnownSpec :: Spec -> Constraint

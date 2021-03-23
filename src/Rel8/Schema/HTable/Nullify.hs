@@ -29,7 +29,7 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htabulateA, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 
@@ -39,7 +39,7 @@ import Data.Functor.Apply ( Apply )
 
 type HNullify :: HKTable -> HKTable
 data HNullify table context where
-  HNullify :: table (H (NullifySpec context)) -> HNullify table (H context)
+  HNullify :: table (NullifySpec context) -> HNullify table context
 
 
 type HNullifyField :: HKTable -> Context
@@ -63,7 +63,7 @@ instance HTable table => HTable (HNullify table) where
   htraverse f (HNullify t) = HNullify <$> htraverse (traverseNullifySpec f) t
 
   hdicts :: forall c. HConstrainTable table (NullifySpecC c)
-    => HNullify table (H (Dict c))
+    => HNullify table (Dict c)
   hdicts = HNullify $ htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> case hfield (hdicts @_ @(NullifySpecC c)) field of
       Dict -> NullifySpec Dict
@@ -113,7 +113,7 @@ traverseNullifySpec f (NullifySpec a) = NullifySpec <$> f a
 hnulls :: HTable t
   => (forall labels necessity dbType. ()
     => context ('Spec labels necessity dbType (Maybe dbType)))
-  -> HNullify t (H context)
+  -> HNullify t context
 hnulls null = HNullify $ htabulate $ \field -> case hfield hspecs field of
   SSpec {} -> NullifySpec null
 {-# INLINABLE hnulls #-}
@@ -124,8 +124,8 @@ hnullify :: HTable t
     => SSpec ('Spec labels necessity dbType a)
     -> context ('Spec labels necessity dbType a)
     -> context ('Spec labels necessity dbType (Maybe dbType)))
-  -> t (H context)
-  -> HNullify t (H context)
+  -> t context
+  -> HNullify t context
 hnullify nullifier a = HNullify $ htabulate $ \field ->
   case hfield hspecs field of
     spec@SSpec {} -> NullifySpec (nullifier spec (hfield a field))
@@ -137,8 +137,8 @@ hunnullify :: (HTable t, Apply m)
     => SSpec ('Spec labels necessity dbType a)
     -> context ('Spec labels necessity dbType (Maybe dbType))
     -> m (context ('Spec labels necessity dbType a)))
-  -> HNullify t (H context)
-  -> m (t (H context))
+  -> HNullify t context
+  -> m (t context)
 hunnullify unnullifier (HNullify as) =
   htabulateA $ \field -> case hfield hspecs field of
     spec@SSpec {} -> case hfield as field of

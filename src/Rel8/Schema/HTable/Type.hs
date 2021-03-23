@@ -22,7 +22,7 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.Nullability ( Unnullify, Sql, nullabilization )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 import Rel8.Type ( DBType, typeInformation )
@@ -32,7 +32,7 @@ type HType :: Type -> HKTable
 data HType a context where
   HType ::
     { unHType :: context ('Spec '[""] 'Required (Unnullify a) a)
-    } -> HType a (H context)
+    } -> HType a context
 
 
 type HTypeField :: Type -> Context

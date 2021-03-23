@@ -24,10 +24,10 @@ import Text.Casing ( quietSnake )
 
 -- rel8
 import Rel8.Kind.Labels ( renderLabels )
-import Rel8.Schema.Context ( Name( Name ) )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Schema.Context ( Col( Name ), Name )
 
 
 namesFromLabels :: Table Name a => a

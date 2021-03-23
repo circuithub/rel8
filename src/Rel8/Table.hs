@@ -20,17 +20,12 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
+import Rel8.Aggregate ( Aggregate, Col( Aggregation ) )
+import Rel8.Expr ( Expr, Col( DB ), unDB )
 import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB ), unDB
-  , Result( Result )
-  )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
@@ -39,41 +34,32 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
+import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec, Interpretation( Col ), Col( Result ) )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Type ( DBType )
 
 
-type Table :: Kind.Context -> Type -> Constraint
+type Table :: (Type -> Type) -> Type -> Constraint
 class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
   type Columns a :: HKTable
-  type Context a :: Kind.Context
+  type Context a :: Type -> Type
 
-  toColumns :: a -> Columns a (H (Context a))
-  fromColumns :: Columns a (H (Context a)) -> a
+  toColumns :: a -> Columns a (Col context)
+  fromColumns :: Columns a (Col context) -> a
 
 
 -- | Any 'HTable' is also a 'Table'.
-instance HTable t => Table context (t (H context)) where
-  type Columns (t (H context)) = t
-  type Context (t (H context)) = context
+instance (HTable t, f ~ g) => Table f (t (Col g)) where
+  type Columns (t (Col g)) = t
+  type Context (t (Col g)) = g
 
   toColumns = id
   fromColumns = id
 
 
--- | Any context is trivially a table.
-instance KnownSpec spec => Table context (context spec) where
-  type Columns (context spec) = HIdentity spec
-  type Context (context spec) = context
-
-  toColumns = HIdentity
-  fromColumns = unHIdentity
-
-
-instance Table DB a => Table Aggregation (Aggregate a) where
+instance Table Expr a => Table Aggregate (Aggregate a) where
   type Columns (Aggregate a) = Columns a
-  type Context (Aggregate a) = Aggregation
+  type Context (Aggregate a) = Aggregate
 
   toColumns a = htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> Aggregation $ unDB . (`hfield` field) . toColumns <$> a
@@ -82,17 +68,17 @@ instance Table DB a => Table Aggregation (Aggregate a) where
       Aggregation a -> DB <$> a
 
 
-instance Sql DBType a => Table DB (Expr a) where
+instance Sql DBType a => Table Expr (Expr a) where
   type Columns (Expr a) = HType a
-  type Context (Expr a) = DB
+  type Context (Expr a) = Expr
 
   toColumns a = HType (DB a)
   fromColumns (HType (DB a)) = a
 
 
-instance Sql DBType a => Table Result (Identity a) where
+instance Sql DBType a => Table Identity (Identity a) where
   type Columns (Identity a) = HType a
-  type Context (Identity a) = Result
+  type Context (Identity a) = Identity
 
   toColumns (Identity a) = HType (Result a)
   fromColumns (HType (Result a)) = Identity a
@@ -202,9 +188,9 @@ instance
     )
 
 
-instance Table DB Opaque where
+instance Table Expr Opaque where
   type Columns Opaque = HType Opaque
-  type Context Opaque = DB
+  type Context Opaque = Expr
 
   fromColumns = error "opaque"
   toColumns = error "opaque"

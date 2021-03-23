@@ -12,7 +12,6 @@ module Rel8.Table.Recontextualize
   , Aggregates
   , Encodes
   , Selects
-  , Inserts
   )
 where
 
@@ -22,13 +21,12 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate ( Aggregate, Col( Aggregation ) )
 import Rel8.Expr ( Expr )
 import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context ( Aggregation, DB, Insertion, Name, Result )
+import Rel8.Schema.Context ( Insertion, Name )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.Nullability ( Sql )
 import Rel8.Schema.Spec ( KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
@@ -36,7 +34,7 @@ import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
 
-type Recontextualize :: Kind.Context -> Kind.Context -> Type -> Type -> Constraint
+type Recontextualize :: (Type -> Type) -> (Type -> Type) -> Type -> Type -> Constraint
 class
   ( Table from a
   , Table to b
@@ -52,48 +50,45 @@ class
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregation Aggregation (Aggregate (Expr a)) (Aggregate (Expr a))
+  Recontextualize Aggregate Aggregate (Aggregate (Expr a)) (Aggregate (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregation DB (Aggregate (Expr a)) (Expr a)
+  Recontextualize Aggregate Expr (Aggregate (Expr a)) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregation Result (Aggregate (Expr a)) (Identity a)
+  Recontextualize Aggregate Identity (Aggregate (Expr a)) (Identity a)
 
 
 instance Sql DBType a =>
-  Recontextualize DB Aggregation (Expr a) (Aggregate (Expr a))
+  Recontextualize Expr Aggregate (Expr a) (Aggregate (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize DB DB (Expr a) (Expr a)
+  Recontextualize Expr Expr (Expr a) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize DB Result (Expr a) (Identity a)
+  Recontextualize Expr Identity (Expr a) (Identity a)
 
 
 instance Sql DBType a =>
-  Recontextualize Result Aggregation (Identity a) (Aggregate (Expr a))
+  Recontextualize Identity Aggregate (Identity a) (Aggregate (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize Result DB (Identity a) (Expr a)
+  Recontextualize Identity Expr (Identity a) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize Result Result (Identity a) (Identity a)
-
-
-instance KnownSpec spec => Recontextualize from to (from spec) (to spec)
+  Recontextualize Identity Identity (Identity a) (Identity a)
 
 
 instance Recontextualize from to (Opaque1 from a) (Opaque1 to a)
 
 
-instance HTable t => Recontextualize from to (t (H from)) (t (H to))
+instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
 
 
 instance
@@ -139,24 +134,18 @@ instance
 
 
 type Aggregates :: Type -> Type -> Constraint
-class Recontextualize Aggregation DB aggregates exprs => Aggregates aggregates exprs
-instance Recontextualize Aggregation DB aggregates exprs => Aggregates aggregates exprs
-instance {-# OVERLAPPING #-} Aggregates (Opaque1 Aggregation Opaque) (Opaque1 DB Opaque)
+class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
+instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
+instance {-# OVERLAPPING #-} Aggregates (Opaque1 Aggregate Opaque) (Opaque1 Expr Opaque)
 
 
 type Encodes :: Type -> Type -> Constraint
-class Recontextualize Result DB a exprs => Encodes a exprs
-instance Recontextualize Result DB a exprs => Encodes a exprs
-instance {-# OVERLAPPING #-} Encodes (Opaque1 Result Opaque) (Opaque1 DB Opaque)
-
-
-type Inserts :: Type -> Type -> Constraint
-class Recontextualize DB Insertion exprs inserts => Inserts exprs inserts
-instance Recontextualize DB Insertion exprs inserts => Inserts exprs inserts
-instance {-# OVERLAPPING #-} Inserts (Opaque1 DB Opaque) (Opaque1 Insertion Opaque)
+class Recontextualize Identity Expr a exprs => Encodes a exprs
+instance Recontextualize Identity Expr a exprs => Encodes a exprs
+instance {-# OVERLAPPING #-} Encodes (Opaque1 Identity Opaque) (Opaque1 Expr Opaque)
 
 
 type Selects :: Type -> Type -> Constraint
-class Recontextualize Name DB names exprs => Selects names exprs
-instance Recontextualize Name DB names exprs => Selects names exprs
-instance {-# OVERLAPPING #-} Selects (Opaque1 Name Opaque) (Opaque1 DB Opaque)
+class Recontextualize Name Expr names exprs => Selects names exprs
+instance Recontextualize Name Expr names exprs => Selects names exprs
+instance {-# OVERLAPPING #-} Selects (Opaque1 Name Opaque) (Opaque1 Expr Opaque)

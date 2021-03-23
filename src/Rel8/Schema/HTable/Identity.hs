@@ -17,7 +17,7 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.Spec ( Context, Spec, KnownSpec, specSing )
 
 
@@ -25,7 +25,7 @@ type HIdentity :: Spec -> HKTable
 data HIdentity spec context where
   HIdentity ::
     { unHIdentity :: context spec
-    } -> HIdentity spec (H context)
+    } -> HIdentity spec context
 
 
 type HIdentityField :: Spec -> Context

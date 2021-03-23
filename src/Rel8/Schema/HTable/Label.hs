@@ -33,13 +33,13 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
+import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 
 
 type HLabel :: Symbol -> HKTable -> HKTable
 data HLabel label table context where
-  HLabel :: table (H (LabelSpec label context)) -> HLabel label table (H context)
+  HLabel :: table (LabelSpec label context) -> HLabel label table context
 
 
 type HLabelField :: Symbol -> HKTable -> Context
@@ -62,7 +62,7 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
   htraverse f (HLabel t) = HLabel <$> htraverse (traverseLabelSpec f) t
 
   hdicts :: forall c. HConstrainTable table (LabelSpecC label c)
-    => HLabel label table (H (Dict c))
+    => HLabel label table (Dict c)
   hdicts = HLabel $ htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> case hfield (hdicts @_ @(LabelSpecC label c)) field of
       Dict -> LabelSpec Dict
@@ -111,8 +111,8 @@ hlabel :: HTable t
   => (forall labels necessity db a. ()
     => context ('Spec labels necessity db a)
     -> context ('Spec (label ': labels) necessity db a))
-  -> t (H context)
-  -> HLabel label t (H context)
+  -> t context
+  -> HLabel label t context
 hlabel labeler a = HLabel $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {} -> LabelSpec (labeler (hfield a field))
@@ -123,8 +123,8 @@ hunlabel :: HTable t
   => (forall labels necessity db a. ()
     => context ('Spec (label ': labels) necessity db a)
     -> context ('Spec labels necessity db a))
-  -> HLabel label t (H context)
-  -> t (H context)
+  -> HLabel label t context
+  -> t context
 hunlabel unlabler (HLabel as) =
   htabulate $ \field -> case hfield as field of
       LabelSpec a -> unlabler a
