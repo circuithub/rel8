@@ -1,3 +1,4 @@
+{-# language DuplicateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
