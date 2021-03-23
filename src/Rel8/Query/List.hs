@@ -20,6 +20,14 @@ import Rel8.Table.Maybe ( maybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 
 
+-- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
+-- 0 rows, this function will produce a 'Query' that is empty - that is, will
+-- produce zero @NonEmptyTable@s. If the supplied @Query@ does return rows,
+-- @some@ will return exactly one row, with a @NonEmptyTable@ collecting all
+-- returned rows.
+--
+-- @some@ is analogous to 'Control.Applicative.some' from
+-- @Control.Applicative@.
 some :: Table DB a => Query a -> Query (NonEmptyTable a)
 some = aggregate . fmap nonEmptyAgg
 
