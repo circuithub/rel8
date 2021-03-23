@@ -13,7 +13,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Bool ( IsList )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -24,7 +23,7 @@ import Data.Time.Clock ( DiffTime, NominalDiffTime )
 
 
 type DBSum :: Type -> Constraint
-class (DBType a, IsList a ~ 'False) => DBSum a
+class DBType a => DBSum a
 instance DBSum Int16
 instance DBSum Int32
 instance DBSum Int64

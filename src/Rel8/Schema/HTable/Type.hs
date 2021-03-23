@@ -15,7 +15,6 @@ import Data.Proxy ( Proxy( Proxy ) )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Bool ( KnownBool, boolSing, IsList )
 import Rel8.Kind.Labels ( SLabels( SLabel ) )
 import Rel8.Kind.Necessity ( Necessity( Required ), SNecessity( SRequired ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -41,9 +40,7 @@ data HTypeField a spec where
   HTypeField :: HTypeField a ('Spec '[""] 'Required (Unnullify a) a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
-  HTable (HType a)
- where
+instance (DBType db, Nullabilizes db a) => HTable (HType a) where
   type HConstrainTable (HType a) c = c ('Spec '[""] 'Required (Unnullify a) a)
   type HField (HType a) = HTypeField a
 
@@ -56,5 +53,4 @@ instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
     , necessity = SRequired
     , info = typeInformation
     , nullability = nullabilization
-    , isList = boolSing
     }

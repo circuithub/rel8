@@ -22,7 +22,6 @@ import Prelude
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
@@ -83,13 +82,7 @@ instance Table DB a => Table Aggregation (Aggregate a) where
       Aggregation a -> DB <$> a
 
 
-instance
-  ( DBType db
-  , Nullabilizes db a
-  , KnownBool (IsList db)
-  )
-  => Table DB (Expr a)
- where
+instance (DBType db, Nullabilizes db a) => Table DB (Expr a) where
   type Columns (Expr a) = HType a
   type Context (Expr a) = DB
 
@@ -97,13 +90,7 @@ instance
   fromColumns (HType (DB a)) = a
 
 
-instance
-  ( DBType db
-  , Nullabilizes db a
-  , KnownBool (IsList db)
-  )
-  => Table Result (Identity a)
- where
+instance (DBType db, Nullabilizes db a) => Table Result (Identity a) where
   type Columns (Identity a) = HType a
   type Context (Identity a) = Result
 

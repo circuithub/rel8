@@ -24,7 +24,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (&&.), (||.), coalesce )
 import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNullable )
-import Rel8.Expr.Opaleye ( unsafeZipPrimExprsWith )
+import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Schema.Nullability
   ( Nullability( NonNullable, Nullable )
   , Nullabilizes, nullabilization
@@ -33,19 +33,19 @@ import Rel8.Type.Ord ( DBOrd )
 
 
 lt :: DBOrd a => Expr a -> Expr a -> Expr Bool
-lt = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<))
+lt = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<))
 
 
 le :: DBOrd a => Expr a -> Expr a -> Expr Bool
-le = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<=))
+le = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<=))
 
 
 gt :: DBOrd a => Expr a -> Expr a -> Expr Bool
-gt = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>))
+gt = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>))
 
 
 ge :: DBOrd a => Expr a -> Expr a -> Expr Bool
-ge = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
+ge = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
 
 
 slt :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool

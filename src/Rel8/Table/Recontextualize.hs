@@ -24,7 +24,6 @@ import Prelude ()
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context ( Aggregation, DB, Insertion, Name, Result )
 import Rel8.Schema.Context.Label ( Labelable )
@@ -52,39 +51,39 @@ class
     , b from -> a
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Aggregation Aggregation (Aggregate (Expr a)) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Aggregation DB (Aggregate (Expr a)) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Aggregation Result (Aggregate (Expr a)) (Identity a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize DB Aggregation (Expr a) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize DB DB (Expr a) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize DB Result (Expr a) (Identity a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Result Aggregation (Identity a) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Result DB (Identity a) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+instance (DBType db, Nullabilizes db a) =>
   Recontextualize Result Result (Identity a) (Identity a)
 
 

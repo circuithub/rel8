@@ -25,7 +25,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr.Null ( liftOpNullable, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
-  , unsafeFromPrimExpr
+  , fromPrimExpr
   , mapPrimExpr
   , zipPrimExprsWith
   )
@@ -74,7 +74,7 @@ instance (DBNum db, Nullabilizes db a) => Num (Expr a) where
 
   signum = castExpr . mapPrimExpr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN"))
 
-  fromInteger = castExpr . unsafeFromPrimExpr . Opaleye.ConstExpr . Opaleye.IntegerLit
+  fromInteger = castExpr . fromPrimExpr . Opaleye.ConstExpr . Opaleye.IntegerLit
 
 
 instance (DBFractional db, Nullabilizes db a) => Fractional (Expr a) where

@@ -35,9 +35,8 @@ import Data.Profunctor ( dimap, lmap )
 import Rel8.Aggregate ( Aggregate( Aggregate ) )
 import Rel8.Expr.Opaleye
   ( scastExpr
-  , unsafeFromPrimExpr, unsafeToPrimExpr
-  , unsafeTraversePrimExpr
-  , sfromPrimExpr, stoPrimExpr
+  , fromPrimExpr, toPrimExpr
+  , traversePrimExpr
   , fromColumn, toColumn
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
@@ -63,8 +62,7 @@ binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
   fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
     WrapApplicative $
       case (hfield (toColumns as) field, hfield (toColumns bs) field) of
-        (DB a, DB b) -> DB . unsafeFromPrimExpr <$>
-          f (unsafeToPrimExpr a, unsafeToPrimExpr b)
+        (DB a, DB b) -> DB . fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
 
 
 distinctspec :: Table DB a => Opaleye.Distinctspec a a
@@ -72,7 +70,9 @@ distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
     fmap fromColumns .
     unwrapApplicative .
-    htraverse (\(DB a) -> WrapApplicative $ DB . unsafeFromPrimExpr <$> f (Nothing, unsafeToPrimExpr a)) .
+    htraverse
+      (\(DB a) ->
+         WrapApplicative $ DB . fromPrimExpr <$> f (Nothing, toPrimExpr a)) .
     toColumns
 
 
@@ -95,7 +95,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insertion spec) (DB spec)
-    go SSpec {necessity, info, nullability, isList} (Name name) =
+    go SSpec {necessity, info, nullability} (Name name) =
       case necessity of
         SRequired ->
           lmap (\(RequiredInsert a) -> toColumn $ toPrimExpr a) $
@@ -105,16 +105,13 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
           lmap (\(OptionalInsert ma) -> toColumn . toPrimExpr <$> ma) $
           DB . scastExpr nullability info . fromPrimExpr . fromColumn <$>
             Opaleye.optionalTableField name
-      where
-        fromPrimExpr = sfromPrimExpr nullability isList
-        toPrimExpr = stoPrimExpr nullability isList
 
 
 unpackspec :: Table DB a => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
   unwrapApplicative .
-  htraverse (\(DB a) -> WrapApplicative $ DB <$> unsafeTraversePrimExpr f a) .
+  htraverse (\(DB a) -> WrapApplicative $ DB <$> traversePrimExpr f a) .
   toColumns
 {-# INLINABLE unpackspec #-}
 
@@ -128,5 +125,5 @@ toPackMap :: Table DB a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $
   unwrapApplicative .
-  htraverse (\(DB a) -> WrapApplicative $ DB <$> unsafeTraversePrimExpr f a) $
+  htraverse (\(DB a) -> WrapApplicative $ DB <$> traversePrimExpr f a) $
   toColumns as
