@@ -43,10 +43,44 @@ instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
   applyArgument f a = applyArgument (f . (toPrimExpr a :))
 
 
+-- | Construct an n-ary function that produces an 'Expr' that when called runs
+-- a SQL function.
+-- 
+-- For example, here's how we can wrap PostgreSQL's @factorial@ function:
+-- 
+-- >>> :{
+-- factorial :: Expr Int64 -> Expr Data.Scientific.Scientific
+-- factorial = function "factorial"
+-- :}
+-- 
+-- >>> select c $ pure $ factorial 5
+-- [120.0]
+-- 
+-- The same approach works for any number of arguments:
+-- 
+-- >>> :{
+-- power :: Expr Float -> Expr Float -> Expr Double
+-- power = function "power"
+-- :}
+-- 
+-- >>> select c $ pure $ power 9 3
+-- [729.0]
 function :: Function args result => String -> args -> result
 function = applyArgument . Opaleye.FunExpr
 
 
+-- | Construct a function call for functions with no arguments.
+-- 
+-- For example, we can call the database function @pi()@ by using
+-- @nullaryFunction@:
+-- 
+-- >>> :{
+-- sqlPi :: Expr Double
+-- sqlPi = nullaryFunction "pi"
+-- :}
+-- 
+-- >>> select c $ pure $ sqlPi
+-- [3.141592653589793]
 nullaryFunction :: (DBType db, Nullabilizes db a) => String -> Expr a
 nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
