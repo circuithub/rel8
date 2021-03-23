@@ -26,7 +26,7 @@ import Data.CaseInsensitive ( CI )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -104,6 +104,6 @@ instance DBEq ByteString
 instance DBEq Lazy.ByteString
 instance DBEq UUID
 instance DBEq Value
-instance (DBEq db, Nullabilizes db a) => DBEq [a]
-instance (DBEq db, Nullabilizes db a) => DBEq (NonEmpty a)
+instance Sql DBEq a => DBEq [a]
+instance Sql DBEq a => DBEq (NonEmpty a)
 instance DBEq Opaque

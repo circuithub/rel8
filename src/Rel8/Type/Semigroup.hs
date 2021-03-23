@@ -30,7 +30,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type ( DBType )
 
 -- text
@@ -47,11 +47,11 @@ class DBType a => DBSemigroup a where
   infixr 6 <>.
 
 
-instance (DBType db, Nullabilizes db a) => DBSemigroup [a] where
+instance Sql DBType a => DBSemigroup [a] where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-instance (DBType db, Nullabilizes db a) => DBSemigroup (NonEmpty a) where
+instance Sql DBType a => DBSemigroup (NonEmpty a) where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 

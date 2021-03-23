@@ -32,7 +32,7 @@ import Rel8.Expr.Opaleye
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Nullability
   ( Nullability( Nullable, NonNullable )
-  , Nullabilizes, nullabilization
+  , Sql, nullabilization
   )
 import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
@@ -46,25 +46,25 @@ newtype Expr a = Expr Opaleye.PrimExpr
   deriving stock Show
 
 
-instance (DBSemigroup db, Nullabilizes db a) => Semigroup (Expr a) where
+instance Sql DBSemigroup a => Semigroup (Expr a) where
   (<>) = case nullabilization @a of
     Nullable -> liftOpNullable (<>.)
     NonNullable -> (<>.)
 
 
-instance (DBMonoid db, Nullabilizes db a) => Monoid (Expr a) where
+instance Sql DBMonoid a => Monoid (Expr a) where
   mempty = case nullabilization @a of
     Nullable -> nullify memptyExpr
     NonNullable -> memptyExpr
 
 
-instance (IsString db, DBType db, Nullabilizes db a) => IsString (Expr a) where
+instance (Sql IsString a, Sql DBType a) => IsString (Expr a) where
   fromString = litExpr . case nullabilization @a of
     Nullable -> Just . fromString
     NonNullable -> fromString
 
 
-instance (DBNum db, Nullabilizes db a) => Num (Expr a) where
+instance Sql DBNum a => Num (Expr a) where
   (+) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
   (*) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:*))
   (-) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:-))
@@ -77,7 +77,7 @@ instance (DBNum db, Nullabilizes db a) => Num (Expr a) where
   fromInteger = castExpr . fromPrimExpr . Opaleye.ConstExpr . Opaleye.IntegerLit
 
 
-instance (DBFractional db, Nullabilizes db a) => Fractional (Expr a) where
+instance Sql DBFractional a => Fractional (Expr a) where
   (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
 
   fromRational =

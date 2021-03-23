@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -37,7 +38,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
+import Rel8.Schema.Nullability ( Nullability, Sql, nullabilization )
 import Rel8.Type.Array ( fromPrimArray )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )
@@ -97,7 +98,7 @@ or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-max :: (DBMax db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
+max :: Sql DBMax a => Expr a -> Aggregate (Expr a)
 max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -107,7 +108,7 @@ max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-min :: (DBMin db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
+min :: Sql DBMin a => Expr a -> Aggregate (Expr a)
 min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -116,7 +117,7 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 -- | Corresponds to @sum@.
-sum :: (DBSum db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
+sum :: Sql DBSum a => Expr a -> Aggregate (Expr a)
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -125,12 +126,12 @@ sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
     }
 
 
-sumWhere :: (DBNum db, DBSum db, Nullabilizes db a)
+sumWhere :: (Sql DBNum a, Sql DBSum a)
   => Expr Bool -> Expr a -> Aggregate (Expr a)
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 
 
-stringAgg :: (DBString db, Nullabilizes db a)
+stringAgg :: Sql DBString a
   => Expr db -> Expr a -> Aggregate (Expr a)
 stringAgg delimiter =
   unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
@@ -141,8 +142,8 @@ stringAgg delimiter =
       }
 
 
--- | Aggregate a value by grouping by it. 
-groupByExpr :: (DBEq db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
+-- | Aggregate a value by grouping by it.
+groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
 groupByExpr = sgroupByExpr nullabilization
 
 

@@ -9,10 +9,12 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Schema.Nullability
   ( IsMaybe, Nullify, Unnullify
   , Nullability( Nullable, NonNullable )
+  , Sql
   , Nullabilizes, nullabilization
   )
 where
@@ -80,6 +82,18 @@ type Nullabilizes :: Type -> Type -> Constraint
 class Nullabilizes' (IsMaybe ma) a ma => Nullabilizes a ma
 instance Nullabilizes' (IsMaybe ma) a ma => Nullabilizes a ma
 instance {-# OVERLAPPING #-} Nullabilizes Opaque Opaque
+
+
+type Sql :: (Type -> Constraint) -> Type -> Constraint
+class
+  ( (forall c. (forall x. (constraint x => c x)) => Sql c a)
+  , Nullabilizes (Unnullify a) a
+  , constraint (Unnullify a)
+  )
+  => Sql constraint a
+instance (constraint db, Nullabilizes db a) => Sql constraint a
+instance {-# OVERLAPPING #-} (constraint Opaque, Sql constraint Opaque) => Sql constraint Opaque
+-- instance {-# OVERLAPPING #-} Sql OpaqueC Opaque => Sql OpaqueC Opaque
 
 
 nullabilization :: forall a db. Nullabilizes db a => Nullability db a

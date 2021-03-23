@@ -41,8 +41,9 @@ import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , Nullabilizes, nullabilization
+  ( Nullify
+  , Nullability( Nullable, NonNullable )
+  , Sql, nullabilization
   )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Alternative
@@ -196,8 +197,8 @@ justTable = MaybeTable (nullify (litExpr IsJust))
 --
 -- >>> select c $ fmap (fst $?) (optional (values [lit (True, False)]))
 -- [Just True]
-($?) :: forall a b db. (DBType db, Nullabilizes db b)
-  => (a -> Expr b) -> MaybeTable a -> Expr (Maybe db)
+($?) :: forall a b. Sql DBType b
+  => (a -> Expr b) -> MaybeTable a -> Expr (Nullify b)
 f $? ma@(MaybeTable _ a) = case nullabilization @b of
   Nullable -> boolExpr (f a) null (isNothingTable ma)
   NonNullable -> boolExpr (nullify (f a)) null (isNothingTable ma)

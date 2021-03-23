@@ -25,7 +25,7 @@ import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type ( DBType )
 
 
@@ -34,8 +34,7 @@ class Function arg res where
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
 
 
-instance (arg ~ Expr a, DBType db, Nullabilizes db b) => Function arg (Expr b)
- where
+instance (arg ~ Expr a, Sql DBType b) => Function arg (Expr b) where
   applyArgument f a = castExpr $ fromPrimExpr $ f [toPrimExpr a]
 
 
@@ -81,13 +80,12 @@ function = applyArgument . Opaleye.FunExpr
 -- 
 -- >>> select c $ pure $ sqlPi
 -- [3.141592653589793]
-nullaryFunction :: (DBType db, Nullabilizes db a) => String -> Expr a
+nullaryFunction :: Sql DBType a => String -> Expr a
 nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
 
 -- | Construct an expression by applying an infix binary operator to two
 -- operands.
-binaryOperator :: (DBType db, Nullabilizes db c)
-  => String -> Expr a -> Expr b -> Expr c
+binaryOperator :: Sql DBType c => String -> Expr a -> Expr b -> Expr c
 binaryOperator operator a b =
   castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther operator)) a b

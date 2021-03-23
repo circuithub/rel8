@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language ViewPatterns #-}
@@ -27,7 +28,7 @@ import Rel8.Expr.Null ( isNull, unsafeLiftOpNullable )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, zipPrimExprsWith )
 import Rel8.Schema.Nullability
   ( Nullability( NonNullable, Nullable )
-  , Nullabilizes, nullabilization
+  , Sql, nullabilization
   )
 import Rel8.Type.Eq ( DBEq )
 
@@ -65,12 +66,12 @@ sin nullability (toList -> as) a = case nullability of
            (Opaleye.ListExpr (toPrimExpr <$> xs))
 
 
-(==.) :: (DBEq db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(==.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
 (==.) = seq nullabilization
 infix 4 ==.
 
 
-(/=.) :: (DBEq db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(/=.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
 (/=.) = sne nullabilization
 infix 4 /=.
 
@@ -93,6 +94,5 @@ infix 4 /=?
 --
 -- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
 -- [False]
-in_ :: (DBEq db, Nullabilizes db a, Foldable f)
-  => f (Expr a) -> Expr a -> Expr Bool
+in_ :: (Sql DBEq a, Foldable f) => f (Expr a) -> Expr a -> Expr Bool
 in_ = sin nullabilization

@@ -29,7 +29,7 @@ import Rel8.Schema.Context ( Aggregation, DB, Insertion, Name, Result )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Schema.Spec ( KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Table ( Table, Congruent )
@@ -51,39 +51,39 @@ class
     , b from -> a
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Aggregation Aggregation (Aggregate (Expr a)) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Aggregation DB (Aggregate (Expr a)) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Aggregation Result (Aggregate (Expr a)) (Identity a)
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize DB Aggregation (Expr a) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize DB DB (Expr a) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize DB Result (Expr a) (Identity a)
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Result Aggregation (Identity a) (Aggregate (Expr a))
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Result DB (Identity a) (Expr a)
 
 
-instance (DBType db, Nullabilizes db a) =>
+instance Sql DBType a =>
   Recontextualize Result Result (Identity a) (Identity a)
 
 

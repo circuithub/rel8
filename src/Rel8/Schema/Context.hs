@@ -33,7 +33,7 @@ import Rel8.Kind.Necessity
   , SNecessity( SOptional, SRequired )
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Schema.Spec ( Context, Spec( Spec ) )
 import Rel8.Schema.Structure ( Structure )
 import Rel8.Type.Monoid ( DBMonoid )
@@ -55,21 +55,13 @@ data DB spec where
 deriving stock instance Show (DB spec)
 
 
-instance
-  ( spec ~ 'Spec labels necessity dbType a
-  , DBSemigroup dbType
-  , Nullabilizes dbType a
-  ) =>
+instance (spec ~ 'Spec labels necessity dbType a, Sql DBSemigroup a) =>
   Semigroup (DB spec)
  where
   DB a <> DB b = DB (a <> b)
 
 
-instance
-  ( spec ~ 'Spec labels necessity dbType a
-  , DBMonoid dbType
-  , Nullabilizes dbType a
-  ) =>
+instance (spec ~ 'Spec labels necessity dbType a, Sql DBMonoid a) =>
   Monoid (DB spec)
  where
   mempty = DB mempty
@@ -86,11 +78,7 @@ data Insertion spec where
 deriving stock instance Show (Insertion spec)
 
 
-instance
-  ( spec ~ 'Spec labels necessity dbType a
-  , DBSemigroup dbType
-  , Nullabilizes dbType a
-  ) =>
+instance (spec ~ 'Spec labels necessity dbType a, Sql DBSemigroup a) =>
   Semigroup (Insertion spec)
  where
   RequiredInsert a <> RequiredInsert b = RequiredInsert (a <> b)
@@ -100,8 +88,7 @@ instance
 instance
   ( spec ~ 'Spec labels necessity dbType a
   , KnownNecessity necessity
-  , DBMonoid dbType
-  , Nullabilizes dbType a
+  , Sql DBMonoid a
   ) => Monoid (Insertion spec)
  where
   mempty = case necessitySing @necessity of

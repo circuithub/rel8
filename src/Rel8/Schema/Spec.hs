@@ -23,7 +23,7 @@ import Rel8.Kind.Necessity
   , SNecessity
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
+import Rel8.Schema.Nullability ( Unnullify, Nullability, Sql, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -51,9 +51,10 @@ class KnownSpec spec where
 instance
   ( KnownLabels labels
   , KnownNecessity necessity
-  , DBType db
-  , Nullabilizes db a
-  ) => KnownSpec ('Spec labels necessity db a)
+  , Sql DBType a
+  , db ~ Unnullify a
+  )
+  => KnownSpec ('Spec labels necessity db a)
  where
   specSing = SSpec
     { labels = labelsSing

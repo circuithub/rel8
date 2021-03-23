@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language GADTs #-}
 {-# language ScopedTypeVariables #-}
@@ -27,7 +28,7 @@ import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNullable )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Schema.Nullability
   ( Nullability( NonNullable, Nullable )
-  , Nullabilizes, nullabilization
+  , Sql, nullabilization
   )
 import Rel8.Type.Ord ( DBOrd )
 
@@ -72,26 +73,25 @@ sge = \case
   NonNullable -> ge
 
 
--- | The PostgreSQL @<@ operator.
-(<.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(<.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<.) = slt nullabilization
 infix 4 <.
 
 
 -- | The PostgreSQL @<=@ operator.
-(<=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(<=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<=.) = sle nullabilization
 infix 4 <=.
 
 
 -- | The PostgreSQL @>@ operator.
-(>.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(>.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>.) = sgt nullabilization
 infix 4 >.
 
 
 -- | The PostgreSQL @>=@ operator.
-(>=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(>=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>=.) = sge nullabilization
 infix 4 >=.
 
@@ -116,8 +116,7 @@ a >=? b = coalesce $ unsafeLiftOpNullable ge a b
 infix 4 >=?
 
 
-leastExpr :: forall a db. (DBOrd db, Nullabilizes db a)
-  => Expr a -> Expr a -> Expr a
+leastExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 leastExpr ma mb = case nullabilization @a of
   Nullable -> nullable ma (\a -> nullable mb (least_ a) mb) ma
   NonNullable -> least_ ma mb
@@ -125,8 +124,7 @@ leastExpr ma mb = case nullabilization @a of
     least_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "LEAST" [a, b])
 
 
-greatestExpr :: forall a db. (DBOrd db, Nullabilizes db a)
-  => Expr a -> Expr a -> Expr a
+greatestExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 greatestExpr ma mb = case nullabilization @a of
   Nullable -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
   NonNullable -> greatest_ ma mb

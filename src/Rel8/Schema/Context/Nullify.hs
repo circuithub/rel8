@@ -41,10 +41,7 @@ import Rel8.Schema.Context
   , Insertion( RequiredInsert, OptionalInsert )
   , Name( Name )
   )
-import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , Nullabilizes
-  )
+import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ), Sql )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Monoid ( DBMonoid )
@@ -52,11 +49,11 @@ import Rel8.Type.Monoid ( DBMonoid )
 
 type Nullifiable :: Context -> Constraint
 class Nullifiable context where
-  encodeTag :: (DBEq db, Nullabilizes db a, KnownLabels labels)
+  encodeTag :: (Sql DBEq a, KnownLabels labels)
     => Expr a
     -> context ('Spec labels 'Required db a)
 
-  decodeTag :: (DBMonoid db, Nullabilizes db a)
+  decodeTag :: Sql DBMonoid a
     => context ('Spec labels 'Required db a)
     -> Expr a
 

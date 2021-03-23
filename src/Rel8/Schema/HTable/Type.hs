@@ -23,7 +23,7 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.Nullability ( Unnullify, Nullabilizes, nullabilization )
+import Rel8.Schema.Nullability ( Unnullify, Sql, nullabilization )
 import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 import Rel8.Type ( DBType, typeInformation )
 
@@ -40,7 +40,7 @@ data HTypeField a spec where
   HTypeField :: HTypeField a ('Spec '[""] 'Required (Unnullify a) a)
 
 
-instance (DBType db, Nullabilizes db a) => HTable (HType a) where
+instance Sql DBType a => HTable (HType a) where
   type HConstrainTable (HType a) c = c ('Spec '[""] 'Required (Unnullify a) a)
   type HField (HType a) = HTypeField a
 

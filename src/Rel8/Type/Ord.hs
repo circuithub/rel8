@@ -24,7 +24,7 @@ import Data.CaseInsensitive ( CI )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type.Eq ( DBEq )
 
 -- scientific
@@ -66,8 +66,8 @@ instance DBOrd (CI Lazy.Text)
 instance DBOrd ByteString
 instance DBOrd Lazy.ByteString
 instance DBOrd UUID
-instance (DBOrd db, Nullabilizes db a) => DBOrd [a]
-instance (DBOrd db, Nullabilizes db a) => DBOrd (NonEmpty a)
+instance Sql DBOrd a => DBOrd [a]
+instance Sql DBOrd a => DBOrd (NonEmpty a)
 instance {-# OVERLAPPING #-} DBOrd Opaque
 
 
@@ -93,8 +93,8 @@ instance DBMax (CI Text)
 instance DBMax (CI Lazy.Text)
 instance DBMax ByteString
 instance DBMax Lazy.ByteString
-instance (DBMax db, Nullabilizes db a) => DBMax [a]
-instance (DBMax db, Nullabilizes db a) => DBMax (NonEmpty a)
+instance Sql DBMax a => DBMax [a]
+instance Sql DBMax a => DBMax (NonEmpty a)
 
 
 type DBMin :: Type -> Constraint
@@ -119,5 +119,5 @@ instance DBMin (CI Text)
 instance DBMin (CI Lazy.Text)
 instance DBMin ByteString
 instance DBMin Lazy.ByteString
-instance (DBMin db, Nullabilizes db a) => DBMin [a]
-instance (DBMin db, Nullabilizes db a) => DBMin (NonEmpty a)
+instance Sql DBMin a => DBMin [a]
+instance Sql DBMin a => DBMin (NonEmpty a)

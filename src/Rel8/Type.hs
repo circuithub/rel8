@@ -36,7 +36,7 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Nullabilizes, nullabilization )
+import Rel8.Schema.Nullability ( Sql, nullabilization )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 
@@ -301,11 +301,11 @@ instance DBType Value where
     }
 
 
-instance (DBType db, Nullabilizes db a) => DBType [a] where
+instance Sql DBType a => DBType [a] where
   typeInformation = listTypeInformation nullabilization typeInformation
 
 
-instance (DBType db, Nullabilizes db a) => DBType (NonEmpty a) where
+instance Sql DBType a => DBType (NonEmpty a) where
   typeInformation = nonEmptyTypeInformation nullabilization typeInformation
 
 
