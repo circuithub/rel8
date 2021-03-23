@@ -46,6 +46,7 @@ import Rel8.Type.String ( DBString )
 import Rel8.Type.Sum ( DBSum )
 
 
+-- | Count the occurances of a single column. Corresponds to @COUNT(a)@
 count :: Expr a -> Aggregate (Expr Int64)
 count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
@@ -55,6 +56,8 @@ count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 
+-- | Count the number of distinct occurances of a single column. Corresponds to
+-- @COUNT(DISTINCT a)@
 countDistinct :: DBEq a => Expr a -> Aggregate (Expr Int64)
 countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
@@ -64,6 +67,7 @@ countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 
+-- | Corresponds to @COUNT(*)@.
 countStar :: Aggregate (Expr Int64)
 countStar = count (litExpr True)
 
@@ -72,6 +76,7 @@ countWhere :: Expr Bool -> Aggregate (Expr Int64)
 countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
 
+-- | Corresponds to @bool_and@.
 and :: Expr Bool -> Aggregate (Expr Bool)
 and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
@@ -81,6 +86,7 @@ and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     }
 
 
+-- | Corresponds to @bool_or@.
 or :: Expr Bool -> Aggregate (Expr Bool)
 or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
