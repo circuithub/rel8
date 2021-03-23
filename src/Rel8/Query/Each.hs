@@ -20,6 +20,13 @@ import Rel8.Table.Opaleye ( table, unpackspec )
 import Rel8.Table.Recontextualize ( Selects )
 
 
+-- | Select each row from a table definition. This is equivalent to @FROM
+-- table@.
+--
+-- >>> mapM_ print =<< select c (each projectSchema)
+-- Project {projectAuthorId = 1, projectName = "rel8"}
+-- Project {projectAuthorId = 2, projectName = "aeson"}
+-- Project {projectAuthorId = 2, projectName = "text"}
 each :: Selects names exprs => TableSchema names -> Query exprs
 each =
   fmap fromColumns .
