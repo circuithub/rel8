@@ -91,6 +91,7 @@ module Rel8
 
     -- * Expressions
   , Expr
+  , Sql
   , litExpr
 
     -- ** @null@
