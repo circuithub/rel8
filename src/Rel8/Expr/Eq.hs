@@ -22,7 +22,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (&&.), (||.), false, or_, fromTrool )
+import Rel8.Expr.Bool ( (&&.), (||.), false, or_, coalesce )
 import Rel8.Expr.Null ( isNull, unsafeLiftOpNullable )
 import Rel8.Expr.Opaleye
   ( unsafeFromPrimExpr, unsafeToPrimExpr
@@ -79,12 +79,12 @@ infix 4 /=.
 
 
 (==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a ==? b = fromTrool $ unsafeLiftOpNullable eq a b
+a ==? b = coalesce $ unsafeLiftOpNullable eq a b
 infix 4 ==?
 
 
 (/=?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a /=? b = fromTrool $ unsafeLiftOpNullable ne a b
+a /=? b = coalesce $ unsafeLiftOpNullable ne a b
 infix 4 /=?
 
 
