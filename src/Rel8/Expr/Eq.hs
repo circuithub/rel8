@@ -85,6 +85,14 @@ a /=? b = coalesce $ unsafeLiftOpNullable ne a b
 infix 4 /=?
 
 
+-- | Like the SQL @IN@ operator, but implemented by folding over a list with
+-- '==.' and '||.'.
+--
+-- >>> select c $ return $ lit (5 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [True]
+--
+-- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
+-- [False]
 in_ :: (DBEq db, Nullabilizes db a, Foldable f)
   => f (Expr a) -> Expr a -> Expr Bool
 in_ = sin nullabilization
