@@ -10,9 +10,33 @@ where
 import Prelude
 
 
+-- | The schema for a table. This is used to specify the name and schema that a
+-- table belongs to (the @FROM@ part of a SQL query), along with the schema of
+-- the columns within this table.
+-- 
+-- For each selectable table in your database, you should provide a
+-- @TableSchema@ in order to interact with the table via Rel8. For a table
+-- storing a list of projects (as defined in the introduction):
+-- 
+-- >>> :{
+-- projectSchema :: TableSchema (Project ColumnSchema)
+-- projectSchema = TableSchema
+--   { tableName = "project"
+--   , tableSchema = Nothing -- Assumes that the 'project' table is reachable from your connection's search_path
+--   , tableColumns = Project 
+--       { projectAuthorId = "author_id"
+--       , projectName = "name"
+--       }
+--   }
+-- :}
 data TableSchema names = TableSchema
   { name :: String
+    -- ^ The name of the table.
   , schema :: Maybe String
+    -- ^ The schema that this table belongs to. If 'Nothing', whatever is on
+    -- the connection's @search_path@ will be used.
   , columns :: names
+    -- ^ The columns of the table. Typically you would use a a higher-kinded
+    -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
   }
   deriving stock Functor
