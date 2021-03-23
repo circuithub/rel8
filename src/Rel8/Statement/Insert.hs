@@ -42,20 +42,41 @@ import qualified Data.Text as Text ( pack )
 import Data.Text.Encoding ( encodeUtf8 )
 
 
+-- | The constituent parts of a SQL @INSERT@ statement.
 type Insert :: Type -> Type
 data Insert a where
   Insert :: (Selects names exprs, Inserts exprs inserts) =>
     { into :: TableSchema names
+      -- ^ Which table to insert into.
     , rows :: [inserts]
+      -- ^ The rows to insert.
     , onConflict :: OnConflict
+      -- ^ What to do if the inserted rows conflict with data already in the
+      -- table.
     , returning :: Returning names a
+      -- ^ What information to return on completion.
     }
     -> Insert a
 
 
-data OnConflict = Abort | DoNothing
+-- | @OnConflict@ allows you to add an @ON CONFLICT@ clause to an @INSERT@
+-- statement.
+data OnConflict 
+  = Abort     -- ^ @ON CONFLICT ABORT@
+  | DoNothing -- ^ @ON CONFLICT DO NOTHING@
 
 
+-- | Run an @INSERT@ statement
+--
+-- >>> :{
+-- insert c Insert
+--   { into = authorSchema
+--   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 4, authorUrl = Just "https://haskellforall.com" } ]
+--   , onConflict = Abort
+--   , returning = NumberOfRowsAffected
+--   }
+-- :}
+-- 1
 insert :: Insert a -> Connection -> IO a
 insert Insert {into, rows, onConflict, returning} =
   case (rows, returning) of
