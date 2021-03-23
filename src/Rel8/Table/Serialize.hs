@@ -424,6 +424,9 @@ type family FromExprs a where
   FromExprs (t (H DB)) = t (H Result)
 
 
+-- | @Serializable@ witnesses the one-to-one correspondence between the type
+-- @sql@, which contains SQL expressions, and the type @haskell@, which
+-- contains the Haskell decoding of rows containing @sql@ SQL expressions.
 class (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a | exprs -> a
 instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
 instance Serializable (Expr Opaque) Opaque
