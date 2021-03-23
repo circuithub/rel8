@@ -13,6 +13,7 @@
 
 module Rel8.Aggregate
   ( Aggregate(..)
+  , Column( AggregateColumn, fromAggregateColumn )
   , aggregate
   , groupBy
   , boolAnd
@@ -27,6 +28,7 @@ module Rel8.Aggregate
   , some
   , many
   , aggregateAllExprs
+  , SequenceAggregate
   , sequenceAggregate
   ) where
 
@@ -41,19 +43,22 @@ import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import Rel8.Context ( Context( Column ), Meta )
+import Rel8.Context ( Context( Column ), Meta( Meta ), Defaulting( NoDefault ) )
 import Rel8.DBType.DBEq ( DBEq )
 import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Instances ( Column( ExprColumn ) )
+import Rel8.Expr.Instances ( Column( ExprColumn ), fromExprColumn )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.HTable ( HField, HTable, hfield, htabulate )
 import Rel8.HTable.HMapTable ( HMapTable, HMapTableField( HMapTableField ) )
 import Rel8.Query ( Query, mapOpaleye )
-import Rel8.Table ( AllColumns, Columns, Table( toColumns ) )
+import Rel8.Table ( AllColumns, Columns, Table, toColumns, fromColumns )
 import Rel8.Table.Congruent ( Congruent, traverseTable )
 import Rel8.Table.ListTable ( ListOf, ListTable( ListTable ) )
 import Rel8.Table.MaybeTable ( maybeTable, optional )
 import Rel8.Table.NonEmptyTable ( NonEmptyList, NonEmptyTable( NonEmptyTable ) )
+import Rel8.HTable.HIdentity
+import Rel8.DBType
+import Rel8.PrimitiveType ( PrimitiveType )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply( (<.>) ), WrappedApplicative( WrapApplicative, unwrapApplicative ) )
@@ -80,6 +85,12 @@ instance Apply Aggregate where
 instance Context Aggregate where
   newtype Column Aggregate :: Meta -> Type where
     AggregateColumn :: { fromAggregateColumn :: Aggregate (Column Expr a) } -> Column Aggregate a
+
+
+instance (DBType a, f ~ Aggregate, expr ~ Expr) => Table f (Aggregate (expr a)) where
+  type Columns (Aggregate (expr a)) = HIdentity ('Meta 'NoDefault a)
+  toColumns = HIdentity . AggregateColumn . fmap ExprColumn
+  fromColumns = fmap fromExprColumn . fromAggregateColumn . unHIdentity
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
@@ -217,6 +228,12 @@ class (Table Aggregate aggregates, Table Expr exprs, Congruent aggregates exprs)
 
 
 instance (HTable c, c ~ c', a ~ Column Aggregate, a' ~ Column Expr) => SequenceAggregate (c a) (c' a')
+
+
+instance (SequenceAggregate a1 b1, SequenceAggregate a2 b2) => SequenceAggregate (a1, a2) (b1, b2)
+
+
+instance (f ~ Expr, a ~ b, g ~ Expr, PrimitiveType a) => SequenceAggregate (Aggregate (f a)) (g b)
 
 
 sequenceAggregate :: SequenceAggregate aggregates exprs => aggregates -> Aggregate exprs

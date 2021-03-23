@@ -26,6 +26,8 @@ import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics ( Generic( Rep, from, to ), K1(K1), M1(M1, unM1), type (:*:)((:*:)), unK1)
 
 -- rel8
+import Rel8.Aggregate ( Aggregate, SequenceAggregate )
+import qualified Rel8.Aggregate as E
 import Rel8.Context (unI)
 import qualified Rel8.Context as C
 import Rel8.Expr ( Expr )
@@ -76,15 +78,17 @@ import qualified Rel8.TableSchema.ColumnSchema as E
 -- mention precise types, rather than the @Column@ type family. You should only
 -- need to be aware of the type family when defining your table types.
 type family Column (context :: (Type -> Type)) (a :: Type) :: Type where
-  Column Identity a = a
-  Column Insert a   = Expr a
-  Column f a        = f a
+  Column Identity a  = a
+  Column Insert a    = Expr a
+  Column Aggregate a = Aggregate (Expr a)
+  Column f a         = f a
 
 
 type family ColumnWithDefault (context :: (Type -> Type)) (a :: Type) :: Type where
-  ColumnWithDefault Identity a = a
-  ColumnWithDefault Insert   a = Maybe (Expr a)
-  ColumnWithDefault f        a = f a
+  ColumnWithDefault Identity  a = a
+  ColumnWithDefault Insert    a = Maybe (Expr a)
+  ColumnWithDefault Aggregate a = Aggregate (Expr a)
+  ColumnWithDefault f         a = f a
 
 
 type family HMaybe (context :: Type -> Type) (a :: Type) :: Type where
@@ -94,15 +98,17 @@ type family HMaybe (context :: Type -> Type) (a :: Type) :: Type where
 
 
 type family HList (context :: Type -> Type) (a :: Type) :: Type where
-  HList Identity a = [a]
-  HList Expr a     = ListTable a
-  HList f a        = HMapTable ListOf (Columns a) (C.Column f)
+  HList Identity a  = [a]
+  HList Expr a      = ListTable a
+  HList Aggregate a = Aggregate (ListTable a)
+  HList f a         = HMapTable ListOf (Columns a) (C.Column f)
 
 
 type family HNonEmpty (context :: Type -> Type) (a :: Type) :: Type where
-  HNonEmpty Identity a = NonEmpty a
-  HNonEmpty Expr a     = NonEmptyTable a
-  HNonEmpty f a        = HMapTable NonEmptyList (Columns a) (C.Column f)
+  HNonEmpty Identity a  = NonEmpty a
+  HNonEmpty Expr a      = NonEmptyTable a
+  HNonEmpty Aggregate a = Aggregate (NonEmptyTable a)
+  HNonEmpty f a         = HMapTable NonEmptyList (Columns a) (C.Column f)
 
 
 -- | Higher-kinded data types.
@@ -208,6 +214,25 @@ class HTable (GRep t) => HigherKindedTable (t :: (Type -> Type) -> Type) where
        )
     => GRep t (C.Column Insert) -> t Insert
   fromInserts = to @_ @() . ghigherKindedFrom @Insert @(Rep (t Insert))
+
+  toAggregates :: t Aggregate -> GRep t (C.Column Aggregate)
+  fromAggregates :: GRep t (C.Column Aggregate) -> t Aggregate
+
+  default toAggregates
+    :: ( GColumns (Rep (t Aggregate)) ~ GRep t
+       , HigherKindedTableImpl Aggregate (Rep (t Aggregate)) (Rep (t Aggregate))
+       , Generic (t Aggregate)
+       )
+    => t Aggregate -> GRep t (C.Column Aggregate)
+  toAggregates = ghigherKindedTo @Aggregate @(Rep (t Aggregate)) . GHC.Generics.from @_ @()
+
+  default fromAggregates
+    :: ( GColumns (Rep (t Aggregate)) ~ GRep t
+       , HigherKindedTableImpl Aggregate (Rep (t Aggregate)) (Rep (t Aggregate))
+       , Generic (t Aggregate)
+       )
+    => GRep t (C.Column Aggregate) -> t Aggregate
+  fromAggregates = to @_ @() . ghigherKindedFrom @Aggregate @(Rep (t Aggregate))
 
   gpack :: GRep t (C.Column Identity) -> t Identity
   gunpack :: t Identity -> GRep t (C.Column Identity)
@@ -321,6 +346,21 @@ instance (Table Expr a', GColumns (K1 i a) ~ Columns a') => HigherKindedTableImp
   ghigherKindedFrom = K1 . fromColumns
 
 
+instance {-# overlaps #-} HigherKindedTableImpl Aggregate (K1 i (Maybe (Expr a))) (K1 i (Aggregate (Expr a))) where
+  ghigherKindedTo = HIdentity . E.AggregateColumn . fmap E.ExprColumn . unK1
+  ghigherKindedFrom = K1 . fmap E.fromExprColumn . E.fromAggregateColumn . unHIdentity
+
+
+instance {-# overlaps #-} HigherKindedTableImpl Aggregate (K1 i (Expr a)) (K1 i (Aggregate (Expr a))) where
+  ghigherKindedTo = HIdentity . E.AggregateColumn . fmap E.ExprColumn . unK1
+  ghigherKindedFrom = K1 . fmap E.fromExprColumn . E.fromAggregateColumn . unHIdentity
+
+
+instance (Table Aggregate a', GColumns (K1 i a) ~ Columns a') => HigherKindedTableImpl Aggregate (K1 i a) (K1 i' a') where
+  ghigherKindedTo = toColumns . unK1
+  ghigherKindedFrom = K1 . fromColumns
+
+
 instance {-# overlaps #-} HigherKindedTableImpl ColumnSchema (K1 i (Maybe (Expr a))) (K1 i (ColumnSchema a)) where
   ghigherKindedTo = HIdentity . E.ColumnSchemaColumn . unK1
   ghigherKindedFrom = K1 . E.fromColumnSchemaColumn . unHIdentity
@@ -363,10 +403,18 @@ instance HigherKindedTable t => Helper Insert t where
   helperFrom = fromInserts
 
 
+instance HigherKindedTable t => Helper Aggregate t where
+  helperTo = toAggregates
+  helperFrom = fromAggregates
+
+
 instance (HigherKindedTable t, s ~ t, columnSchema ~ ColumnSchema, expr ~ Expr) => Selects (s columnSchema) (t expr)
 
 
 instance (s ~ t, t ~ u, HigherKindedTable t, columnSchema ~ ColumnSchema, insert ~ Insert, expr ~ Expr) => Inserts (s columnSchema) (s insert) (u expr)
+
+
+instance (s ~ t, t ~ u, HigherKindedTable t, aggregate ~ Aggregate, expr ~ Expr) => SequenceAggregate (s aggregate) (t expr)
 
 
 instance (HigherKindedTable t, a ~ t Expr, identity ~ Identity) => ExprFor a (t identity) where
