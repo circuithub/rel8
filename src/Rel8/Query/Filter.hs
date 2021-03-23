@@ -20,6 +20,13 @@ import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye )
 
 
+-- | @filter f x@ will be a zero-row query when @f x@ is @False@, and will
+-- return @x@ unchanged when @f x@ is @True@. This is similar to
+-- 'Control.Monad.guard', but as the predicate is separate from the argument,
+-- it is easy to use in a pipeline of 'Query' transformations.
+--
+-- >>> select c $ values [ lit x | x <- [ 1..5 :: Int32 ] ] >>= filter (>. 3)
+-- [4,5]
 filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = a <$ where_ (f a)
 
