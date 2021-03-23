@@ -133,6 +133,7 @@ stringAgg delimiter =
       }
 
 
+-- | Aggregate a value by grouping by it. 
 groupByExpr :: (DBEq db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 groupByExpr = sgroupByExpr nullabilization
 
