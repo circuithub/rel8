@@ -1,5 +1,6 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -23,7 +24,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( seq )
 import Rel8.Expr.Ord ( slt, sgt)
-import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -32,7 +32,7 @@ import Rel8.Schema.HTable
   , htabulateA, hfield
   , hdicts, hspecs
   )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns )
 import Rel8.Table.Bool ( bool )
@@ -52,13 +52,13 @@ instance
 instance {-# OVERLAPPING #-} OrdTable Opaque
 
 
-(<:) :: forall a. OrdTable a => a -> a -> Expr 'NonNullable Bool
+(<:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) <: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ ->
+          SSpec {nullability} ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -67,13 +67,13 @@ instance {-# OVERLAPPING #-} OrdTable Opaque
 infix 4 <:
 
 
-(<=:) :: forall a. OrdTable a => a -> a -> Expr 'NonNullable Bool
+(<=:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) <=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ ->
+          SSpec {nullability} ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -82,13 +82,13 @@ infix 4 <:
 infix 4 <=:
 
 
-(>:) :: forall a. OrdTable a => a -> a -> Expr 'NonNullable Bool
+(>:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) >: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ ->
+          SSpec {nullability} ->
             Const [(slt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
@@ -97,13 +97,13 @@ infix 4 <=:
 infix 4 >:
 
 
-(>=:) :: forall a. OrdTable a => a -> a -> Expr 'NonNullable Bool
+(>=:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) >=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
         Dict -> case hfield specs field of
-          SSpec _ _ nullability _ ->
+          SSpec {nullability} ->
             Const [(sgt nullability a b, seq nullability a b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)

@@ -19,7 +19,7 @@ import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Table ( Table, fromColumns, toColumns )
 
 
-bool :: Table DB a => a -> a -> Expr nullability Bool -> a
+bool :: Table DB a => a -> a -> Expr Bool -> a
 bool (toColumns -> false) (toColumns -> true) condition =
   fromColumns $ htabulate $ \field ->
     case (hfield false field, hfield true field) of
@@ -27,7 +27,7 @@ bool (toColumns -> false) (toColumns -> true) condition =
         DB (boolExpr falseExpr trueExpr condition)
 
 
-case_ :: Table DB a => [(Expr nullability Bool, a)] -> a -> a
+case_ :: Table DB a => [(Expr Bool, a)] -> a -> a
 case_ (map (fmap toColumns) -> branches) (toColumns -> fallback) =
   fromColumns $ htabulate $ \field -> case hfield fallback field of
     DB fallbackExpr ->

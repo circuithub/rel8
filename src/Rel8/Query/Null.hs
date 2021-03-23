@@ -8,13 +8,12 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Null ( Nullification, isNonNull, nullify, unsafeUnnullify )
+import Rel8.Expr.Null ( isNonNull, unsafeUnnullify )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 
 
-catNullable :: Nullification nonNullable nullable
-  => Expr nullable a -> Query (Expr nonNullable a)
+catNullable :: Expr (Maybe a) -> Query (Expr a)
 catNullable a = do
-  where_ $ isNonNull (nullify a)
+  where_ $ isNonNull a
   pure $ unsafeUnnullify a

@@ -50,7 +50,7 @@ data Update a where
   Update :: Selects names exprs =>
     { target :: TableSchema names
     , set :: exprs -> exprs
-    , updateWhere :: exprs -> Expr nullability Bool
+    , updateWhere :: exprs -> Expr Bool
     , returning :: Returning names a
     }
     -> Update a

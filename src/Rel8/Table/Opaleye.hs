@@ -43,12 +43,11 @@ import Rel8.Expr.Opaleye
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.Context ( DB(..), Insertion(..), Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Selects, Inserts )
 import Rel8.Table.Undefined ( undefined )
-import Rel8.Type ( typeInformationFromBlueprint )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
@@ -96,17 +95,19 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insertion spec) (DB spec)
-    go (SSpec _ necessity _ blueprint) (Name name) = case necessity of
-      SRequired ->
-        lmap (\(RequiredInsert a) -> toColumn $ stoPrimExpr blueprint a) $
-        DB . scastExpr info . sfromPrimExpr blueprint . fromColumn <$>
-          Opaleye.requiredTableField name
-      SOptional ->
-        lmap (\(OptionalInsert ma) -> toColumn . stoPrimExpr blueprint <$> ma) $
-        DB . scastExpr info . sfromPrimExpr blueprint . fromColumn <$>
-          Opaleye.optionalTableField name
+    go SSpec {necessity, info, nullability, isList} (Name name) =
+      case necessity of
+        SRequired ->
+          lmap (\(RequiredInsert a) -> toColumn $ toPrimExpr a) $
+          DB . scastExpr nullability info . fromPrimExpr . fromColumn <$>
+            Opaleye.requiredTableField name
+        SOptional ->
+          lmap (\(OptionalInsert ma) -> toColumn . toPrimExpr <$> ma) $
+          DB . scastExpr nullability info . fromPrimExpr . fromColumn <$>
+            Opaleye.optionalTableField name
       where
-        info = typeInformationFromBlueprint blueprint
+        fromPrimExpr = sfromPrimExpr nullability isList
+        toPrimExpr = stoPrimExpr nullability isList
 
 
 unpackspec :: Table DB a => Opaleye.Unpackspec a a

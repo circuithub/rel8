@@ -13,14 +13,14 @@ module Rel8.Expr.Aggregate
   , stringAgg
   , groupByExpr
   , listAggExpr, nonEmptyAggExpr
-  , slistAggExpr, snonEmptyAggExpr
+  , sgroupByExpr
   )
 where
 
 -- base
 import Data.Int ( Int64 )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude hiding ( and, max, min, or, sum )
+import Data.List.NonEmpty ( NonEmpty )
+import Prelude hiding ( and, max, min, null, or, sum )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -28,29 +28,16 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Aggregate ( Aggregate, Aggregator(..), unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( caseExpr, mcaseExpr )
+import Rel8.Expr.Bool ( caseExpr )
 import Rel8.Expr.Opaleye
   ( castExpr
-  , litPrimExpr
-  , sfromPrimExpr
+  , fromPrimExpr
   , unsafeFromPrimExpr
   , unsafeToPrimExpr
   )
-import Rel8.Kind.Blueprint
-  ( SBlueprint( SVector )
-  , ToDBType
-  , blueprintRoundtripsViaDBType
-  )
-import Rel8.Kind.Emptiability
-  ( Emptiability( Emptiable, NonEmptiable )
-  , SEmptiability( SEmptiable, SNonEmptiable )
-  )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable ), SNullability
-  , KnownNullability, nullabilitySing
-  )
-import Rel8.Type ( DBType, blueprintForDBType )
-import Rel8.Type.Array ( Array )
+import Rel8.Expr.Null ( null )
+import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )
 import Rel8.Type.Ord ( DBMax, DBMin )
@@ -58,7 +45,7 @@ import Rel8.Type.String ( DBString )
 import Rel8.Type.Sum ( DBSum )
 
 
-count :: Expr nullability a -> Aggregate (Expr 'NonNullable Int64)
+count :: Expr a -> Aggregate (Expr Int64)
 count = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
@@ -67,7 +54,7 @@ count = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-countDistinct :: DBEq a => Expr nullability a -> Aggregate (Expr 'NonNullable Int64)
+countDistinct :: DBEq a => Expr a -> Aggregate (Expr Int64)
 countDistinct = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
@@ -76,15 +63,15 @@ countDistinct = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-countStar :: Aggregate (Expr 'NonNullable Int64)
-countStar = count (litPrimExpr True)
+countStar :: Aggregate (Expr Int64)
+countStar = count (litExpr True)
 
 
-countWhere :: Expr nullability Bool -> Aggregate (Expr 'NonNullable Int64)
-countWhere condition = count (mcaseExpr [(condition, litPrimExpr @Int64 0)])
+countWhere :: Expr Bool -> Aggregate (Expr Int64)
+countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
 
-and :: Expr 'NonNullable Bool -> Aggregate (Expr 'NonNullable Bool)
+and :: Expr Bool -> Aggregate (Expr Bool)
 and = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolAnd
@@ -93,7 +80,7 @@ and = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-or :: Expr 'NonNullable Bool -> Aggregate (Expr 'NonNullable Bool)
+or :: Expr Bool -> Aggregate (Expr Bool)
 or = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolOr
@@ -102,7 +89,7 @@ or = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-max :: DBMax a => Expr nullability a -> Aggregate (Expr nullability a)
+max :: (DBMax db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 max = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -111,7 +98,7 @@ max = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-min :: DBMin a => Expr nullability a -> Aggregate (Expr nullability a)
+min :: (DBMin db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 min = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -120,7 +107,7 @@ min = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
     }
 
 
-sum :: DBSum a => Expr nullability a -> Aggregate (Expr nullability a)
+sum :: (DBSum db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
 sum = unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -129,13 +116,13 @@ sum = unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
     }
 
 
-sumWhere :: (DBNum a, DBSum a)
-  => Expr nullable Bool -> Expr nullability a -> Aggregate (Expr nullability a)
+sumWhere :: (DBNum db, DBSum db, Nullabilizes db a)
+  => Expr Bool -> Expr a -> Aggregate (Expr a)
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 
 
-stringAgg :: DBString a
-  => Expr 'NonNullable a -> Expr nullability a -> Aggregate (Expr nullability a)
+stringAgg :: (DBString db, Nullabilizes db a)
+  => Expr db -> Expr a -> Aggregate (Expr a)
 stringAgg delimiter =
   unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
     Just Aggregator
@@ -145,55 +132,27 @@ stringAgg delimiter =
       }
 
 
-groupByExpr :: DBEq a => Expr nullability a -> Aggregate (Expr nullability a)
-groupByExpr = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr Nothing
+groupByExpr :: (DBEq db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
+groupByExpr = sgroupByExpr nullabilization
 
 
-listAggExpr :: forall a nullability. ()
-  => (KnownNullability nullability, DBType a)
-  => Expr nullability a
-  -> Aggregate (Expr 'NonNullable (Array 'Emptiable nullability a))
-listAggExpr = case blueprintForDBType @a of
-  blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-    Refl -> slistAggExpr nullabilitySing (blueprintForDBType @a)
+listAggExpr :: Expr a -> Aggregate (Expr [a])
+listAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
 
 
-nonEmptyAggExpr :: forall a nullability. ()
-  => (KnownNullability nullability, DBType a)
-  => Expr nullability a
-  -> Aggregate (Expr 'NonNullable (Array 'NonEmptiable nullability a))
-nonEmptyAggExpr = case blueprintForDBType @a of
-  blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-    Refl -> snonEmptyAggExpr nullabilitySing (blueprintForDBType @a)
+nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
 
 
-slistAggExpr :: a ~ ToDBType blueprint
-  => SNullability nullability
-  -> SBlueprint blueprint
-  -> Expr nullability a
-  -> Aggregate (Expr 'NonNullable (Array 'Emptiable nullability a))
-slistAggExpr nullability blueprint =
-  unsafeMakeAggregate unsafeToPrimExpr from $ Just
-    Aggregator
-      { operation = Opaleye.AggrArr
-      , ordering = []
-      , distinction = Opaleye.AggrAll
-      }
-  where
-    from = sfromPrimExpr (SVector SEmptiable nullability blueprint)
-
-
-snonEmptyAggExpr :: a ~ ToDBType blueprint
-  => SNullability nullability
-  -> SBlueprint blueprint
-  -> Expr nullability a
-  -> Aggregate (Expr 'NonNullable (Array 'NonEmptiable nullability a))
-snonEmptyAggExpr nullability blueprint =
-  unsafeMakeAggregate unsafeToPrimExpr from $ Just
-    Aggregator
-      { operation = Opaleye.AggrArr
-      , ordering = []
-      , distinction = Opaleye.AggrAll
-      }
-  where
-    from = sfromPrimExpr (SVector SNonEmptiable nullability blueprint)
+sgroupByExpr :: DBEq db => Nullability db a -> Expr a -> Aggregate (Expr a)
+sgroupByExpr _ = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr Nothing

@@ -13,7 +13,7 @@ module Rel8.Expr.Time
   , diffTime
   , subtractTime
 
-  -- Working with @NominalDiffTime@
+  -- Working with @DiffTime@
   , scaleInterval
   , second, seconds
   , minute, minutes
@@ -34,139 +34,122 @@ import Rel8.Expr.Opaleye ( unsafeCastExpr, unsafeLiteral )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime, NominalDiffTime )
+import Data.Time.Clock ( DiffTime, UTCTime )
 
 
 -- | Corresponds to @date(now())@.
-today :: Expr nullability Day
+today :: Expr Day
 today = toDay now
 
 
 -- | Corresponds to calling the @date@ function with a given time.
-toDay :: Expr nullability UTCTime -> Expr nullability Day
+toDay :: Expr UTCTime -> Expr Day
 toDay = unsafeCastExpr
 
 
 -- | Corresponds to @x::timestamptz@.
-fromDay :: Expr nullability Day -> Expr nullability UTCTime
+fromDay :: Expr Day -> Expr UTCTime
 fromDay = unsafeCastExpr
 
 
 -- | Move forward a given number of days from a particular day.
-addDays :: ()
-  => Expr nullability Int32 -> Expr nullability Day -> Expr nullability Day
+addDays :: Expr Int32 -> Expr Day -> Expr Day
 addDays = flip (binaryOperator "+")
 
 
 -- | Find the number of days between two days. Corresponds to the @-@ operator.
-diffDays :: ()
-  => Expr nullability Day -> Expr nullability Day -> Expr nullability Int32
+diffDays :: Expr Day -> Expr Day -> Expr Int32
 diffDays = binaryOperator "-"
 
 
 -- | Subtract a given number of days from a particular 'Day'. 
-subtractDays :: ()
-  => Expr nullability Int32
-  -> Expr nullability Day
-  -> Expr nullability Day
+subtractDays :: Expr Int32 -> Expr Day -> Expr Day
 subtractDays = flip (binaryOperator "-")
 
 
 -- | Corresponds to @now()@.
-now :: Expr nullability UTCTime
+now :: Expr UTCTime
 now = nullaryFunction "now"
 
 
 -- | Add a time interval to a point in time, yielding a new point in time.
-addTime :: ()
-  => Expr nullability NominalDiffTime
-  -> Expr nullability UTCTime
-  -> Expr nullability UTCTime
+addTime :: Expr DiffTime -> Expr UTCTime -> Expr UTCTime
 addTime = flip (binaryOperator "+")
 
 
 -- | Find the duration between two times.
-diffTime :: ()
-  => Expr nullability UTCTime
-  -> Expr nullability UTCTime
-  -> Expr nullability NominalDiffTime
+diffTime :: Expr UTCTime -> Expr UTCTime -> Expr DiffTime
 diffTime = binaryOperator "-"
 
 
 -- | Subtract a time interval from a point in time, yielding a new point in time.
-subtractTime :: ()
-  => Expr nullability NominalDiffTime
-  -> Expr nullability UTCTime
-  -> Expr nullability UTCTime
+subtractTime :: Expr DiffTime -> Expr UTCTime -> Expr UTCTime
 subtractTime = flip (binaryOperator "-")
 
 
-scaleInterval :: ()
-  => Expr nullability Double
-  -> Expr nullability NominalDiffTime
-  -> Expr nullability NominalDiffTime
+scaleInterval :: Expr Double -> Expr DiffTime -> Expr DiffTime
 scaleInterval = binaryOperator "*"
 
 
 -- | An interval of one second.
-second :: Expr nullability NominalDiffTime
+second :: Expr DiffTime
 second = singleton "second"
 
 
 -- | Create a literal interval from an integral number of seconds.
-seconds :: Expr nullability Double -> Expr nullability NominalDiffTime
+seconds :: Expr Double -> Expr DiffTime
 seconds = (`scaleInterval` second)
 
 
 -- | An interval of one minute.
-minute :: Expr nullability NominalDiffTime
+minute :: Expr DiffTime
 minute = singleton "minute"
 
 
 -- | Create a literal interval from an integral number of minutes.
-minutes :: Expr nullability Double -> Expr nullability NominalDiffTime
+minutes :: Expr Double -> Expr DiffTime
 minutes = (`scaleInterval` minute)
 
 
 -- | An interval of one hour.
-hour :: Expr nullability NominalDiffTime
+hour :: Expr DiffTime
 hour = singleton "hour"
 
 
 -- | Create a literal interval from an integral number of hours.
-hours :: Expr nullability Double -> Expr nullability NominalDiffTime
+hours :: Expr Double -> Expr DiffTime
 hours = (`scaleInterval` hour)
 
 
 -- | An interval of one day.
-day :: Expr nullability NominalDiffTime
+day :: Expr DiffTime
 day = singleton "day"
 
 
 -- | Create a literal interval from a number of days.
-days ::  Expr nullability Double -> Expr nullability NominalDiffTime
+days ::  Expr Double -> Expr DiffTime
 days = (`scaleInterval` day)
 
 
 -- | An interval of one month.
-month :: Expr nullability NominalDiffTime
+month :: Expr DiffTime
 month = singleton "month"
 
 
 -- | Create a literal interval from a number of months.
-months ::  Expr nullability Double -> Expr nullability NominalDiffTime
+months ::  Expr Double -> Expr DiffTime
 months = (`scaleInterval` month)
 
 
 -- | An interval of one year.
-year :: Expr nullability NominalDiffTime
+year :: Expr DiffTime
 year = singleton "year"
 
 
 -- | Create a literal interval from a number of years.
-years ::  Expr nullability Double -> Expr nullability NominalDiffTime
+years ::  Expr Double -> Expr DiffTime
 years = (`scaleInterval` year)
 
 
-singleton :: String -> Expr nullability NominalDiffTime
+singleton :: String -> Expr DiffTime
 singleton unit = unsafeLiteral $ "'1 " ++ unit ++ "'"

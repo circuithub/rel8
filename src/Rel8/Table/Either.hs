@@ -24,8 +24,7 @@ import Prelude hiding ( undefined )
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( litPrimExpr )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
@@ -54,7 +53,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 
 type EitherTable :: Type -> Type -> Type
 data EitherTable a b = EitherTable
-  { tag :: Expr 'NonNullable EitherTag
+  { tag :: Expr EitherTag
   , left :: a
   , right :: b
   }
@@ -153,11 +152,11 @@ instance
   Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
 
 
-isLeftTable :: EitherTable a b -> Expr 'NonNullable Bool
+isLeftTable :: EitherTable a b -> Expr Bool
 isLeftTable = isLeft . tag
 
 
-isRightTable :: EitherTable a b -> Expr 'NonNullable Bool
+isRightTable :: EitherTable a b -> Expr Bool
 isRightTable = isRight . tag
 
 
@@ -168,8 +167,8 @@ eitherTable f g EitherTable {tag, left, right} =
 
 
 leftTable :: Table DB b => a -> EitherTable a b
-leftTable a = EitherTable (litPrimExpr IsLeft) a undefined
+leftTable a = EitherTable (litExpr IsLeft) a undefined
 
 
 rightTable :: Table DB a => b -> EitherTable a b
-rightTable = EitherTable (litPrimExpr IsRight) undefined
+rightTable = EitherTable (litExpr IsRight) undefined

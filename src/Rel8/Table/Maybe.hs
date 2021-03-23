@@ -5,7 +5,9 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -26,8 +28,7 @@ import Prelude hiding ( null, repeat, undefined, zipWith )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Expr.Opaleye ( litPrimExpr )
-import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
@@ -39,6 +40,10 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.Nullability
+  ( Nullability( Nullable, NonNullable )
+  , Nullabilizes, nullabilization
+  )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -60,7 +65,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 
 type MaybeTable :: Type -> Type
 data MaybeTable a = MaybeTable
-  { tag :: Expr 'Nullable MaybeTag
+  { tag :: Expr (Maybe MaybeTag)
   , just :: a
   }
   deriving stock (Show, Functor)
@@ -147,11 +152,11 @@ instance
   ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
-isNothingTable :: MaybeTable a -> Expr 'NonNullable Bool
+isNothingTable :: MaybeTable a -> Expr Bool
 isNothingTable (MaybeTable tag _) = isNull tag
 
 
-isJustTable :: MaybeTable a -> Expr 'NonNullable Bool
+isJustTable :: MaybeTable a -> Expr Bool
 isJustTable (MaybeTable tag _) = isNonNull tag
 
 
@@ -164,11 +169,12 @@ nothingTable = MaybeTable null undefined
 
 
 justTable :: a -> MaybeTable a
-justTable = MaybeTable (nullify (litPrimExpr IsJust))
+justTable = MaybeTable (nullify (litExpr IsJust))
 
 
-($?) :: DBType b
-  => (a -> Expr nullability b) -> MaybeTable a -> Expr 'Nullable b
-f $? ma@(MaybeTable _ a) =
-  boolExpr (nullify (f a)) null (isNothingTable ma)
+($?) :: forall a b db. (DBType db, Nullabilizes db b)
+  => (a -> Expr b) -> MaybeTable a -> Expr (Maybe db)
+f $? ma@(MaybeTable _ a) = case nullabilization @b of
+  Nullable -> boolExpr (f a) null (isNothingTable ma)
+  NonNullable -> boolExpr (nullify (f a)) null (isNothingTable ma)
 infixl 4 $?

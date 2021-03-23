@@ -1,4 +1,3 @@
-{-# language DataKinds #-}
 {-# language RoleAnnotations #-}
 {-# language StandaloneKindSignatures #-}
 
@@ -14,10 +13,7 @@ import Prelude ()
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
--- rel8
-import Rel8.Kind.Nullability ( Nullability )
 
-
-type role Expr representational representational
-type Expr :: Nullability -> Type -> Type
-newtype Expr nullability a = Expr Opaleye.PrimExpr
+type role Expr representational
+type Expr :: Type -> Type
+newtype Expr a = Expr Opaleye.PrimExpr

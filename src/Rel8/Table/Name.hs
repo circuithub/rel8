@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -25,7 +26,7 @@ import Text.Casing ( quietSnake )
 import Rel8.Kind.Labels ( renderLabels )
 import Rel8.Schema.Context ( Name( Name ) )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 
 
@@ -39,13 +40,13 @@ namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec labels _ _ _ -> Name (f (renderLabels labels))
+    SSpec {labels} -> Name (f (renderLabels labels))
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]
 showLabels _ = getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec labels _ _ _ -> Const [renderLabels labels]
+    SSpec {labels} -> Const [renderLabels labels]
 
 
 showNames :: forall a. Table Name a => a -> [String]

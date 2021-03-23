@@ -1,5 +1,7 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Ord
   ( DBOrd
@@ -10,6 +12,7 @@ where
 -- base
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
+import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- bytestring
@@ -20,10 +23,8 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
-import Rel8.Kind.Emptiability ( KnownEmptiability )
-import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Opaque ( Opaque )
-import Rel8.Type.Array ( Array )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Type.Eq ( DBEq )
 
 -- scientific
@@ -65,14 +66,9 @@ instance DBOrd (CI Lazy.Text)
 instance DBOrd ByteString
 instance DBOrd Lazy.ByteString
 instance DBOrd UUID
-instance DBOrd Opaque
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBOrd a
-  ) => DBOrd (Array emptiability nullability a)
+instance (DBOrd db, Nullabilizes db a) => DBOrd [a]
+instance (DBOrd db, Nullabilizes db a) => DBOrd (NonEmpty a)
+instance {-# OVERLAPPING #-} DBOrd Opaque
 
 
 type DBMax :: Type -> Constraint
@@ -97,13 +93,8 @@ instance DBMax (CI Text)
 instance DBMax (CI Lazy.Text)
 instance DBMax ByteString
 instance DBMax Lazy.ByteString
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBMax a
-  ) => DBMax (Array emptiability nullability a)
+instance (DBMax db, Nullabilizes db a) => DBMax [a]
+instance (DBMax db, Nullabilizes db a) => DBMax (NonEmpty a)
 
 
 type DBMin :: Type -> Constraint
@@ -128,10 +119,5 @@ instance DBMin (CI Text)
 instance DBMin (CI Lazy.Text)
 instance DBMin ByteString
 instance DBMin Lazy.ByteString
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBMin a
-  ) => DBMin (Array emptiability nullability a)
+instance (DBMin db, Nullabilizes db a) => DBMin [a]
+instance (DBMin db, Nullabilizes db a) => DBMin (NonEmpty a)

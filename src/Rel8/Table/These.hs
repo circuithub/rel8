@@ -29,7 +29,6 @@ import Prelude hiding ( undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ) )
 import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
@@ -185,23 +184,23 @@ instance
   Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
 
 
-isThisTable :: TheseTable a b -> Expr 'NonNullable Bool
+isThisTable :: TheseTable a b -> Expr Bool
 isThisTable a = hasHereTable a &&. not_ (hasThereTable a)
 
 
-isThatTable :: TheseTable a b -> Expr 'NonNullable Bool
+isThatTable :: TheseTable a b -> Expr Bool
 isThatTable a = not_ (hasHereTable a) &&. hasThereTable a
 
 
-isThoseTable :: TheseTable a b -> Expr 'NonNullable Bool
+isThoseTable :: TheseTable a b -> Expr Bool
 isThoseTable a = hasHereTable a &&. hasThereTable a
 
 
-hasHereTable :: TheseTable a b -> Expr 'NonNullable Bool
+hasHereTable :: TheseTable a b -> Expr Bool
 hasHereTable TheseTable {here} = isJustTable here
 
 
-hasThereTable :: TheseTable a b -> Expr 'NonNullable Bool
+hasThereTable :: TheseTable a b -> Expr Bool
 hasThereTable TheseTable {there} = isJustTable there
 
 

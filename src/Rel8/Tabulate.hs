@@ -129,7 +129,7 @@ indexed (Tabulation query) = Tabulation $ \i ->
   (\(mk, a) -> (mk, (fromMaybe i mk, a))) <$> query i
 
 
-ifilter :: (k -> a -> Expr nullability Bool) -> Tabulation k a -> Tabulation k a
+ifilter :: (k -> a -> Expr Bool) -> Tabulation k a -> Tabulation k a
 ifilter f tabulation = snd <$> do
   filter (uncurry f) `postbind` indexed tabulation
 

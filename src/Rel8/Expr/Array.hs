@@ -1,11 +1,14 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
+{-# options_ghc -fno-warn-redundant-constraints #-}
+
 module Rel8.Expr.Array
   ( listOf, nonEmptyOf
-  , sappend, sempty
+  , sappend, sappend1, sempty
   )
 where
 
@@ -17,49 +20,40 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Opaleye ( sfromPrimExpr, stoPrimExpr, unsafeFromPrimExpr )
-import Rel8.Kind.Blueprint ( SBlueprint( SVector ), ToDBType )
-import Rel8.Kind.Emptiability
-  ( Emptiability( Emptiable, NonEmptiable )
-  , SEmptiability
+import {-# SOURCE #-} Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye
+  ( unsafeFromPrimExpr, unsafeToPrimExpr
+  , zipPrimExprsWith
   )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ), SNullability )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( Array, array )
+import Rel8.Type.Array ( array )
 import Rel8.Type.Information ( TypeInformation(..) )
+import Rel8.Schema.Nullability ( Nullability, Nullabilizes )
 
 
-sappend :: a ~ ToDBType blueprint
-  => SEmptiability emptiability
-  -> SNullability nullability
-  -> SBlueprint blueprint
-  -> Expr nullability' (Array emptiability nullability a)
-  -> Expr nullability' (Array emptiability nullability a)
-  -> Expr nullability' (Array emptiability nullability a)
-sappend emptiability nullability blueprint a b =
-  sfromPrimExpr blueprint'
-    (Opaleye.BinExpr (Opaleye.:||)
-      (stoPrimExpr blueprint' a)
-      (stoPrimExpr blueprint' b))
-  where
-    blueprint' = SVector emptiability nullability blueprint
+sappend :: Expr [a] -> Expr [a] -> Expr [a]
+sappend = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-sempty :: ()
-  => TypeInformation a -> Expr nullability' (Array 'Emptiable nullability a)
-sempty info = unsafeFromPrimExpr $ array info []
+sappend1 :: Expr (NonEmpty a) -> Expr (NonEmpty a) -> Expr (NonEmpty a)
+sappend1 = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-listOf :: forall a nullability. DBType a
-  => [Expr nullability a]
-  -> Expr 'NonNullable (Array 'Emptiable nullability a)
+sempty :: Nullability t a -> TypeInformation t -> Expr [a]
+sempty _ info = unsafeFromPrimExpr $ array info []
+
+
+listOf :: forall a t. (Nullabilizes t a, DBType t)
+  => [Expr a] -> Expr [a]
 listOf =
-  unsafeFromPrimExpr . array (typeInformation @a) . fmap (\(Expr a) -> a)
+  unsafeFromPrimExpr .
+  array (typeInformation @t) .
+  fmap unsafeToPrimExpr
 
 
-nonEmptyOf :: forall a nullability. DBType a
-  => NonEmpty (Expr nullability a)
-  -> Expr 'NonNullable (Array 'NonEmptiable nullability a)
+nonEmptyOf :: forall a t. (Nullabilizes t a, DBType t)
+  => NonEmpty (Expr a) -> Expr (NonEmpty a)
 nonEmptyOf =
-  unsafeFromPrimExpr . array (typeInformation @a) . fmap (\(Expr a) -> a)
+  unsafeFromPrimExpr .
+  array (typeInformation @t) .
+  fmap unsafeToPrimExpr

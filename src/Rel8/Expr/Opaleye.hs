@@ -11,7 +11,6 @@ module Rel8.Expr.Opaleye
   ( castExpr, unsafeCastExpr
   , scastExpr, sunsafeCastExpr
   , unsafeLiteral
-  , litPrimExpr
   , unsafeFromPrimExpr, unsafeToPrimExpr, unsafeMapPrimExpr
   , unsafeZipPrimExprsWith, unsafeTraversePrimExpr
   , sfromPrimExpr, stoPrimExpr
@@ -21,7 +20,6 @@ module Rel8.Expr.Opaleye
 where
 
 -- base
-import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- opaleye
@@ -30,103 +28,89 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Kind.Blueprint
-  ( SBlueprint( SScalar, SVector )
-  , ToDBType
-  , blueprintRoundtripsViaDBType
-  )
-import Rel8.Type ( DBType, blueprintForDBType, typeInformation )
+import Rel8.Kind.Bool ( SBool( SFalse, STrue ), KnownBool, boolSing, IsList )
+import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
+import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
-castExpr :: DBType a => Expr nullability a -> Expr nullability a
-castExpr = scastExpr typeInformation
+castExpr :: (DBType db, Nullabilizes db a) => Expr a -> Expr a
+castExpr = scastExpr nullabilization typeInformation
 
 
-unsafeCastExpr :: DBType b => Expr nullability a -> Expr nullability b
-unsafeCastExpr = sunsafeCastExpr typeInformation
+unsafeCastExpr :: (DBType db, Nullabilizes db b) => Expr a -> Expr b
+unsafeCastExpr = sunsafeCastExpr nullabilization typeInformation
 
 
-scastExpr :: ()
-  => TypeInformation a -> Expr nullability a -> Expr nullability a
+scastExpr :: Nullability db a -> TypeInformation db -> Expr a -> Expr a
 scastExpr = sunsafeCastExpr
 
 
 sunsafeCastExpr :: ()
-  => TypeInformation b -> Expr nullability a -> Expr nullability b
-sunsafeCastExpr TypeInformation {typeName} =
+  => Nullability db b -> TypeInformation db -> Expr a -> Expr b
+sunsafeCastExpr _ TypeInformation {typeName} =
   Expr . Opaleye.CastExpr typeName . unsafeToPrimExpr
 
 
-unsafeLiteral :: DBType a => String -> Expr nullability a
+unsafeLiteral :: (DBType db, Nullabilizes db a) => String -> Expr a
 unsafeLiteral = castExpr . Expr . Opaleye.ConstExpr . Opaleye.OtherLit
 
 
-litPrimExpr :: DBType a => a -> Expr nullability a
-litPrimExpr = slitPrimExpr typeInformation
-
-
-slitPrimExpr :: TypeInformation a -> a -> Expr nullability a
-slitPrimExpr info@TypeInformation {encode} = scastExpr info . Expr . encode
-
-
-unsafeFromPrimExpr :: Opaleye.PrimExpr -> Expr nullability a
+unsafeFromPrimExpr :: Opaleye.PrimExpr -> Expr a
 unsafeFromPrimExpr = Expr
 
 
-unsafeToPrimExpr :: Expr nullability a -> Opaleye.PrimExpr
+unsafeToPrimExpr :: Expr a -> Opaleye.PrimExpr
 unsafeToPrimExpr (Expr a) = a
 
 
 unsafeMapPrimExpr :: ()
-  => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
-  -> Expr nullability1 a -> Expr nullability2 b
+  => (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Expr a -> Expr b
 unsafeMapPrimExpr f = unsafeFromPrimExpr . f . unsafeToPrimExpr
 
 
 unsafeZipPrimExprsWith :: ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
-  -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
+  -> Expr a -> Expr b -> Expr c
 unsafeZipPrimExprsWith f a b =
   unsafeFromPrimExpr (f (unsafeToPrimExpr a) (unsafeToPrimExpr b))
 
 
 unsafeTraversePrimExpr :: Functor f
-  => (Opaleye.PrimExpr -> f Opaleye.PrimExpr)
-  -> Expr nullability1 a -> f (Expr nullability2 b)
+  => (Opaleye.PrimExpr -> f Opaleye.PrimExpr) -> Expr a -> f (Expr b)
 unsafeTraversePrimExpr f = fmap unsafeFromPrimExpr . f . unsafeToPrimExpr
 
 
-fromPrimExpr :: forall a nullability. DBType a
-  => Opaleye.PrimExpr -> Expr nullability a
-fromPrimExpr = case blueprintForDBType @a of
-  blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-    Refl -> sfromPrimExpr blueprint
+fromPrimExpr ::
+  ( KnownBool (IsList _a), Nullabilizes _a a
+  )
+  => Opaleye.PrimExpr -> Expr a
+fromPrimExpr = sfromPrimExpr nullabilization boolSing
 
 
-toPrimExpr :: forall a nullability. DBType a
-  => Expr nullability a -> Opaleye.PrimExpr
-toPrimExpr = case blueprintForDBType @a of
-  blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-    Refl -> stoPrimExpr blueprint
+toPrimExpr ::
+  ( KnownBool (IsList _a), Nullabilizes _a a
+  )
+  => Expr a -> Opaleye.PrimExpr
+toPrimExpr = stoPrimExpr nullabilization boolSing
 
 
-sfromPrimExpr :: a ~ ToDBType blueprint
-  => SBlueprint blueprint -> Opaleye.PrimExpr -> Expr nullability a
-sfromPrimExpr = \case
-  SScalar _ -> unsafeFromPrimExpr
-  SVector {} -> \a -> Expr $
+sfromPrimExpr :: ()
+  => Nullability _a a -> SBool (IsList _a) -> Opaleye.PrimExpr -> Expr a
+sfromPrimExpr _ = \case
+  SFalse -> unsafeFromPrimExpr
+  STrue -> \a -> Expr $
     Opaleye.CaseExpr
       [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
       ]
       (Opaleye.UnExpr (Opaleye.UnOpOther "ROW") a)
 
 
-stoPrimExpr :: a ~ ToDBType blueprint
-  => SBlueprint blueprint -> Expr nullability a -> Opaleye.PrimExpr
-stoPrimExpr = \case
-  SScalar _ -> unsafeToPrimExpr
-  SVector {} -> \(Expr a) ->
+stoPrimExpr :: ()
+  => Nullability _a a -> SBool (IsList _a) -> Expr a -> Opaleye.PrimExpr
+stoPrimExpr _ = \case
+  SFalse -> unsafeToPrimExpr
+  STrue -> \(Expr a) ->
     Opaleye.CaseExpr
       [ (Opaleye.UnExpr Opaleye.OpIsNull a, Opaleye.ConstExpr Opaleye.NullLit)
       ]
@@ -134,15 +118,22 @@ stoPrimExpr = \case
       (Opaleye.CompositeExpr a "f1")
 
 
-mapPrimExpr :: (DBType a, DBType b)
+mapPrimExpr ::
+  ( KnownBool (IsList _a), Nullabilizes _a a
+  , KnownBool (IsList _b), Nullabilizes _b b
+  )
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr)
-  -> Expr nullability1 a -> Expr nullability2 b
+  -> Expr a -> Expr b
 mapPrimExpr f = fromPrimExpr . f . toPrimExpr
 
 
-zipPrimExprsWith :: (DBType a, DBType b, DBType c)
+zipPrimExprsWith ::
+  ( KnownBool (IsList _a), Nullabilizes _a a
+  , KnownBool (IsList _b), Nullabilizes _b b
+  , KnownBool (IsList _c), Nullabilizes _c c
+  )
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
-  -> Expr nullability1 a -> Expr nullability2 b -> Expr nullability3 c
+  -> Expr a -> Expr b -> Expr c
 zipPrimExprsWith f a b = fromPrimExpr (f (toPrimExpr a) (toPrimExpr b))
 
 

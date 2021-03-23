@@ -3,7 +3,6 @@
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language GeneralizedNewtypeDeriving #-}
-{-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
@@ -29,16 +28,14 @@ import Prelude
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Blueprint ( ToDBType, ToType )
 import Rel8.Kind.Necessity
   ( Necessity( Optional, Required )
   , SNecessity( SOptional, SRequired )
   , KnownNecessity, necessitySing
   )
-import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Schema.Spec ( Context, Spec( Spec ) )
 import Rel8.Schema.Structure ( Structure )
-import Rel8.Schema.Value ( Value )
 import Rel8.Type.Monoid ( DBMonoid )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -46,21 +43,22 @@ import Rel8.Type.Semigroup ( DBSemigroup )
 type Aggregation :: Context
 data Aggregation spec where
   Aggregation :: ()
-    => Aggregate (Expr nullability (ToDBType blueprint))
-    -> Aggregation ('Spec labels necessity nullability blueprint)
+    => Aggregate (Expr a)
+    -> Aggregation ('Spec labels necessity dbType a)
 
 
 type DB :: Context
 data DB spec where
   DB :: ()
-    => { unDB :: Expr nullability (ToDBType blueprint) }
-    -> DB ('Spec labels necessity nullability blueprint)
+    => { unDB :: Expr a }
+    -> DB ('Spec labels necessity dbType a)
 deriving stock instance Show (DB spec)
 
 
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , DBSemigroup (ToDBType blueprint)
+  ( spec ~ 'Spec labels necessity dbType a
+  , DBSemigroup dbType
+  , Nullabilizes dbType a
   ) =>
   Semigroup (DB spec)
  where
@@ -68,8 +66,9 @@ instance
 
 
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , DBMonoid (ToDBType blueprint)
+  ( spec ~ 'Spec labels necessity dbType a
+  , DBMonoid dbType
+  , Nullabilizes dbType a
   ) =>
   Monoid (DB spec)
  where
@@ -79,17 +78,18 @@ instance
 type Insertion :: Context
 data Insertion spec where
   RequiredInsert :: ()
-    => Expr nullability (ToDBType blueprint)
-    -> Insertion ('Spec labels 'Required nullability blueprint)
+    => Expr a
+    -> Insertion ('Spec labels 'Required dbType a)
   OptionalInsert :: ()
-    => Maybe (Expr nullability (ToDBType blueprint))
-    -> Insertion ('Spec labels 'Optional nullability blueprint)
+    => Maybe (Expr a)
+    -> Insertion ('Spec labels 'Optional dbType a)
 deriving stock instance Show (Insertion spec)
 
 
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , DBSemigroup (ToDBType blueprint)
+  ( spec ~ 'Spec labels necessity dbType a
+  , DBSemigroup dbType
+  , Nullabilizes dbType a
   ) =>
   Semigroup (Insertion spec)
  where
@@ -98,9 +98,10 @@ instance
 
 
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
+  ( spec ~ 'Spec labels necessity dbType a
   , KnownNecessity necessity
-  , DBMonoid (ToDBType blueprint)
+  , DBMonoid dbType
+  , Nullabilizes dbType a
   ) => Monoid (Insertion spec)
  where
   mempty = case necessitySing @necessity of
@@ -116,27 +117,19 @@ newtype Name spec = Name String
 
 type Result :: Context
 data Result spec where
-  Result :: ()
-    => Value nullability (ToType blueprint)
-    -> Result ('Spec labels necessity nullability blueprint)
-deriving stock instance Show (ToType blueprint) =>
-  Show (Result ('Spec labels necessity nullability blueprint))
+  Result :: a -> Result ('Spec labels necessity dbType a)
+deriving stock instance Show a =>
+  Show (Result ('Spec labels necessity dbType a))
 
 
-instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , Semigroup (ToType blueprint)
-  ) =>
+instance (spec ~ 'Spec labels necessity dbType a, Semigroup a) =>
   Semigroup (Result spec)
  where
   Result a <> Result b = Result (a <> b)
 
 
-instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , KnownNullability nullability
-  , Monoid (ToType blueprint)
-  ) => Monoid (Result spec)
+instance (spec ~ 'Spec labels necessity dbType a, Monoid a) =>
+  Monoid (Result spec)
  where
   mempty = Result mempty
 

@@ -19,11 +19,11 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Blueprint ( FromType )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
 import Rel8.Schema.Context ( Result, IsSpecialContext )
 import Rel8.Schema.Field ( Field )
+import Rel8.Schema.Nullability ( Unnullify )
 import Rel8.Schema.Spec ( Context )
 import Rel8.Schema.Structure
   ( Structure
@@ -31,7 +31,6 @@ import Rel8.Schema.Structure
   , Shape1
   , Shape2
   )
-import Rel8.Schema.Value ( GetNullability, GetValue )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
@@ -78,11 +77,8 @@ type Column :: Context -> Type -> Type
 type Column context a =
   Field context (GetLabel a)
     (GetNecessity (UnwrapLabel a))
-    (GetNullability (UnwrapDefault (UnwrapLabel a)))
-    (FromType
-      (GetValue
-        (GetNullability (UnwrapDefault (UnwrapLabel a)))
-        (UnwrapDefault (UnwrapLabel a))))
+    (Unnullify (UnwrapDefault (UnwrapLabel a)))
+    (UnwrapDefault (UnwrapLabel a))
 
 
 type IHEither :: Bool -> Context -> Type -> Type -> Type

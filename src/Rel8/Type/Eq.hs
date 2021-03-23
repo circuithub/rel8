@@ -1,5 +1,7 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Eq
   ( DBEq
@@ -10,6 +12,7 @@ where
 import Data.Aeson ( Value )
 
 -- base
+import Data.List.NonEmpty ( NonEmpty )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Prelude
@@ -22,11 +25,9 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
-import Rel8.Kind.Emptiability ( KnownEmptiability )
-import Rel8.Kind.Nullability ( KnownNullability )
 import Rel8.Opaque ( Opaque )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Type ( DBType )
-import Rel8.Type.Array ( Array )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -70,11 +71,6 @@ instance DBEq ByteString
 instance DBEq Lazy.ByteString
 instance DBEq UUID
 instance DBEq Value
+instance (DBEq db, Nullabilizes db a) => DBEq [a]
+instance (DBEq db, Nullabilizes db a) => DBEq (NonEmpty a)
 instance DBEq Opaque
-
-
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBEq a
-  ) => DBEq (Array emptiability nullability a)

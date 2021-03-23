@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
@@ -15,7 +16,7 @@ import Prelude
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Context ( DB(..), Insertion(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Inserts )
 
@@ -23,7 +24,7 @@ import Rel8.Table.Recontextualize ( Inserts )
 toInsert :: Inserts exprs inserts => exprs -> inserts
 toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ necessity _ _ -> case hfield exprs field of
+    SSpec {necessity} -> case hfield exprs field of
       DB expr -> case necessity of
         SRequired -> RequiredInsert expr
         SOptional -> OptionalInsert (Just expr)
@@ -32,7 +33,7 @@ toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 toInsertDefaults :: Inserts exprs inserts => exprs -> inserts
 toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ necessity _ _ -> case hfield exprs field of
+    SSpec {necessity} -> case hfield exprs field of
       DB expr -> case necessity of
         SRequired -> RequiredInsert expr
         SOptional -> OptionalInsert Nothing

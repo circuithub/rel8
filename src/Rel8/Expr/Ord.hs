@@ -22,109 +22,109 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Bool ( false, true )
-import Rel8.Expr.Null ( isNull, isNonNull, nullable )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable )
-  , SNullability( SNullable, SNonNullable )
-  , KnownNullability, nullabilitySing
+import Rel8.Expr.Bool ( (&&.), (||.), fromTrool )
+import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNullable )
+import Rel8.Expr.Opaleye ( unsafeZipPrimExprsWith )
+import Rel8.Schema.Nullability
+  ( Nullability( NonNullable, Nullable )
+  , Nullabilizes, nullabilization
   )
 import Rel8.Type.Ord ( DBOrd )
 
 
-slt :: DBOrd a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+lt :: DBOrd a => Expr a -> Expr a -> Expr Bool
+lt = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<))
+
+
+le :: DBOrd a => Expr a -> Expr a -> Expr Bool
+le = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<=))
+
+
+gt :: DBOrd a => Expr a -> Expr a -> Expr Bool
+gt = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>))
+
+
+ge :: DBOrd a => Expr a -> Expr a -> Expr Bool
+ge = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
+
+
+slt :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 slt = \case
-  SNullable -> \ma mb -> nullable (isNonNull mb) (\a -> nullable false (a <?) mb) ma
-  SNonNullable -> (<?)
+  Nullable -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
+  NonNullable -> lt
 
 
-sle :: DBOrd a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sle :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 sle = \case
-  SNullable -> \ma mb -> nullable true (\a -> nullable false (a <=?) mb) ma
-  SNonNullable -> (<=?)
+  Nullable -> \ma mb -> isNull ma ||. ma <=? mb
+  NonNullable -> le
 
 
-sgt :: DBOrd a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sgt :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 sgt = \case
-  SNullable -> \ma mb -> nullable false (\a -> nullable true (a >?) mb) ma
-  SNonNullable -> (>?)
+  Nullable -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
+  NonNullable -> gt
 
 
-sge :: DBOrd a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sge :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 sge = \case
-  SNullable -> \ma mb -> nullable (isNull mb) (\a -> nullable true (a >=?) mb) ma
-  SNonNullable -> (>=?)
+  Nullable -> \ma mb -> isNull mb ||. ma >=? mb
+  NonNullable -> ge
 
 
-(<.) :: (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(<.) = slt nullabilitySing
+(<.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(<.) = slt nullabilization
 infix 4 <.
 
 
-(<=.) :: (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(<=.) = sle nullabilitySing
+(<=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(<=.) = sle nullabilization
 infix 4 <=.
 
 
-(>.) :: (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(>.) = sgt nullabilitySing
+(>.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(>.) = sgt nullabilization
 infix 4 >.
 
 
-(>=.) :: (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(>=.) = sge nullabilitySing
+(>=.) :: (DBOrd db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(>=.) = sge nullabilization
 infix 4 >=.
 
 
-(<?) :: DBOrd a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a <? Expr b = Expr (Opaleye.BinExpr (Opaleye.:<) a b)
+(<?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a <? b = fromTrool $ unsafeLiftOpNullable lt a b
 infix 4 <?
 
 
-(<=?) :: DBOrd a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a <=? Expr b = Expr (Opaleye.BinExpr (Opaleye.:<=) a b)
+(<=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a <=? b = fromTrool $ unsafeLiftOpNullable le a b
 infix 4 <=?
 
 
-(>?) :: DBOrd a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a >? Expr b = Expr (Opaleye.BinExpr (Opaleye.:>) a b)
+(>?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a >? b = fromTrool $ unsafeLiftOpNullable gt a b
 infix 4 >?
 
 
-(>=?) :: DBOrd a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-Expr a >=? Expr b = Expr (Opaleye.BinExpr (Opaleye.:>=) a b)
+(>=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a >=? b = fromTrool $ unsafeLiftOpNullable ge a b
 infix 4 >=?
 
 
-leastExpr :: forall a nullability. (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr nullability a
-leastExpr ma mb = case nullabilitySing @nullability of
-  SNullable -> nullable ma (\a -> nullable mb (least_ a) mb) ma
-  SNonNullable -> least_ ma mb
+leastExpr :: forall a db. (DBOrd db, Nullabilizes db a)
+  => Expr a -> Expr a -> Expr a
+leastExpr ma mb = case nullabilization @a of
+  Nullable -> nullable ma (\a -> nullable mb (least_ a) mb) ma
+  NonNullable -> least_ ma mb
   where
     least_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "LEAST" [a, b])
 
 
-greatestExpr :: forall a nullability. (KnownNullability nullability, DBOrd a)
-  => Expr nullability a -> Expr nullability a -> Expr nullability a
-greatestExpr ma mb = case nullabilitySing @nullability of
-  SNullable -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
-  SNonNullable -> greatest_ ma mb
+greatestExpr :: forall a db. (DBOrd db, Nullabilizes db a)
+  => Expr a -> Expr a -> Expr a
+greatestExpr ma mb = case nullabilization @a of
+  Nullable -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
+  NonNullable -> greatest_ ma mb
   where
     greatest_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "GREATEST" [a, b])

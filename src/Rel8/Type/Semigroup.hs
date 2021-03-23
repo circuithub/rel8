@@ -1,9 +1,11 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Semigroup
   ( DBSemigroup( (<>.))
@@ -12,7 +14,7 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
+import Data.List.NonEmpty ( NonEmpty )
 import Prelude ()
 
 -- bytestring
@@ -27,13 +29,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Expr.Array ( sappend )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Kind.Blueprint ( blueprintRoundtripsViaDBType )
-import Rel8.Kind.Emptiability ( KnownEmptiability, emptiabilitySing )
-import Rel8.Kind.Nullability ( KnownNullability, nullabilitySing )
-import Rel8.Type ( DBType, blueprintForDBType )
-import Rel8.Type.Array ( Array )
+import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Type ( DBType )
 
 -- text
 import Data.Text ( Text )
@@ -45,19 +43,16 @@ import Data.Time.Clock ( DiffTime, NominalDiffTime )
 
 type DBSemigroup :: Type -> Constraint
 class DBType a => DBSemigroup a where
-  (<>.) :: Expr nullability a -> Expr nullability a -> Expr nullability a
+  (<>.) :: Expr a -> Expr a -> Expr a
   infixr 6 <>.
 
 
-instance
-  ( KnownEmptiability emptiability
-  , KnownNullability nullability
-  , DBType a
-  ) => DBSemigroup (Array emptiability nullability a)
- where
-  (<>.) = case blueprintForDBType @a of
-    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-      Refl -> sappend emptiabilitySing nullabilitySing blueprint
+instance (DBType db, Nullabilizes db a) => DBSemigroup [a] where
+  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+
+
+instance (DBType db, Nullabilizes db a) => DBSemigroup (NonEmpty a) where
+  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
 instance DBSemigroup DiffTime where

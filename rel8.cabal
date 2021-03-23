@@ -59,11 +59,9 @@ library
     Rel8.Expr.Text
     Rel8.Expr.Time
 
-    Rel8.Kind.Blueprint
-    Rel8.Kind.Emptiability
+    Rel8.Kind.Bool
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
-    Rel8.Kind.Nullability
 
     Rel8.Order
 
@@ -97,7 +95,6 @@ library
     Rel8.Schema.Generic.Test
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Context
-    Rel8.Schema.HTable.DBType
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity
     Rel8.Schema.HTable.Label
@@ -110,13 +107,14 @@ library
     Rel8.Schema.HTable.Quintet
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Trio
+    Rel8.Schema.HTable.Type
     Rel8.Schema.HTable.Vectorize
+    Rel8.Schema.Nullability
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
     Rel8.Schema.Table
-    Rel8.Schema.Value
 
     Rel8.Statement.Delete
     Rel8.Statement.Insert
@@ -154,7 +152,6 @@ library
     Rel8.Type.Monoid
     Rel8.Type.Num
     Rel8.Type.Ord
-    Rel8.Type.Scalar
     Rel8.Type.Semigroup
     Rel8.Type.String
     Rel8.Type.Sum

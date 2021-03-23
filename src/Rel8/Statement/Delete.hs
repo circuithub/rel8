@@ -45,7 +45,7 @@ type Delete :: Type -> Type
 data Delete a where
   Delete :: Selects names exprs =>
     { from :: TableSchema names
-    , deleteWhere :: exprs -> Expr nullability Bool
+    , deleteWhere :: exprs -> Expr Bool
     , returning :: Returning names a
     }
     -> Delete a

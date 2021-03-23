@@ -1,19 +1,16 @@
-{-# language DataKinds #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
-{-# language StandaloneKindSignatures #-}
 
 module Rel8.Type.Array
-  ( Array(..), array
-  , arrayTypeInformation
+  ( array
+  , listTypeInformation
+  , nonEmptyTypeInformation
   )
 where
 
 -- base
 import Data.Foldable ( toList )
-import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
 import Prelude hiding ( null, repeat, zipWith )
 
@@ -24,23 +21,8 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Kind.Emptiability
-  ( Emptiability( Emptiable, NonEmptiable )
-  , SEmptiability( SEmptiable, SNonEmptiable )
-  )
-import Rel8.Kind.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , SNullability( SNullable, SNonNullable )
-  )
-import Rel8.Type.Information ( TypeInformation(..) )
-
-
-type Array :: Emptiability -> Nullability -> Type -> Type
-data Array emptiability nullability a where
-  NullableList :: [Maybe a] -> Array 'Emptiable 'Nullable a
-  NullableNonEmpty :: NonEmpty (Maybe a) -> Array 'NonEmptiable 'Nullable a
-  NonNullableList :: [a] -> Array 'Emptiable 'NonNullable a
-  NonNullableNonEmpty :: NonEmpty a -> Array 'NonEmptiable 'NonNullable a
+import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 
 
 array :: Foldable f
@@ -51,33 +33,31 @@ array TypeInformation {typeName} =
   Opaleye.ArrayExpr . toList
 
 
-arrayTypeInformation :: ()
-  => SEmptiability emptiability
-  -> SNullability nullability
+listTypeInformation :: ()
+  => Nullability a ma
   -> TypeInformation a
-  -> TypeInformation (Array emptiability nullability a)
-arrayTypeInformation emptiability nullability info = TypeInformation
-  { decode = row $ case (emptiability, nullability) of
-      (SEmptiable, SNullable) -> NullableList <$>
-        Hasql.listArray (Hasql.nullable decode)
-      (SNonEmptiable, SNullable) -> NullableNonEmpty <$>
-        nonEmptyArray (Hasql.nullable decode)
-      (SEmptiable, SNonNullable) -> NonNullableList <$>
-        Hasql.listArray (Hasql.nonNullable decode)
-      (SNonEmptiable, SNonNullable) -> NonNullableNonEmpty <$>
-        nonEmptyArray (Hasql.nonNullable decode)
-  , encode = \case
-      NullableList as -> array info (maybe null encode <$> as)
-      NonNullableList as -> array info (encode <$> as)
-      NullableNonEmpty as -> array info (maybe null encode <$> as)
-      NonNullableNonEmpty as -> array info (encode <$> as)
+  -> TypeInformation [ma]
+listTypeInformation nullability info = TypeInformation
+  { decode = row $ case nullability of
+      Nullable -> Hasql.listArray (Hasql.nullable decode)
+      NonNullable -> Hasql.listArray (Hasql.nonNullable decode)
+  , encode = case nullability of
+      Nullable -> array info . fmap (maybe null encode)
+      NonNullable -> array info . fmap encode
   , typeName = "record"
   }
   where
     TypeInformation {encode, decode} = info
     row = Hasql.composite . Hasql.field . Hasql.nonNullable
-    nonEmptyArray =
-      Hasql.refine (maybe (Left message) Right . nonEmpty) . Hasql.listArray
-      where
-        message = "failed to decode NonEmptiable Array: empty list"
     null = Opaleye.ConstExpr Opaleye.NullLit
+
+
+nonEmptyTypeInformation :: ()
+  => Nullability a ma
+  -> TypeInformation a
+  -> TypeInformation (NonEmpty ma)
+nonEmptyTypeInformation nullability =
+  parseTypeInformation parse toList . listTypeInformation nullability
+  where
+    parse = maybe (Left message) Right . nonEmpty
+    message = "failed to decode NonEmptyList: got empty list"

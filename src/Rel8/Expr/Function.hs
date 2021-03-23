@@ -27,6 +27,8 @@ import Rel8.Expr.Opaleye
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   , unsafeZipPrimExprsWith
   )
+import Rel8.Kind.Bool ( KnownBool, IsList )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Type ( DBType )
 
 
@@ -35,13 +37,21 @@ class Function arg res where
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
 
 
-instance (arg ~ Expr nullability a, DBType a, DBType b) =>
-  Function arg (Expr nullability b)
+instance
+  ( arg ~ Expr a
+  , Nullabilizes _a a, KnownBool (IsList _a)
+  , DBType _b, Nullabilizes _b b, KnownBool (IsList _b)
+  )
+  => Function arg (Expr b)
  where
   applyArgument f a = castExpr $ fromPrimExpr $ f [toPrimExpr a]
 
 
-instance (arg ~ Expr nullability a, DBType a, Function args res) =>
+instance
+  ( arg ~ Expr a
+  , Nullabilizes _a a, KnownBool (IsList _a)
+  , Function args res
+  ) =>
   Function arg (args -> res)
  where
   applyArgument f a = applyArgument (f . (toPrimExpr a :))
@@ -51,19 +61,21 @@ function :: Function args result => String -> args -> result
 function = applyArgument . Opaleye.FunExpr
 
 
-nullaryFunction :: DBType a => String -> Expr nullability a
+nullaryFunction :: (DBType db, Nullabilizes db a) => String -> Expr a
 nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
 
-binaryOperator :: (DBType a, DBType b, DBType c)
-  => String
-  -> Expr nullabilityA a -> Expr nullabilityB b -> Expr nullabilityC c
+binaryOperator ::
+  ( Nullabilizes _a a, KnownBool (IsList _a)
+  , Nullabilizes _b b, KnownBool (IsList _b)
+  , DBType _c, Nullabilizes _c c, KnownBool (IsList _c)
+  )
+  => String -> Expr a -> Expr b -> Expr c
 binaryOperator operator a b =
   castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther operator)) a b
 
 
-unsafeBinaryOperator :: DBType c
-  => String
-  -> Expr nullabilityA a -> Expr nullabilityB b -> Expr nullabilityC c
+unsafeBinaryOperator :: (DBType _c, Nullabilizes _c c)
+  => String -> Expr a -> Expr b -> Expr c
 unsafeBinaryOperator operator a b =
   castExpr $ unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther operator)) a b

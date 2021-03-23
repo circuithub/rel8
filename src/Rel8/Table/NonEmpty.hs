@@ -1,4 +1,3 @@
-{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
@@ -16,8 +15,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Expr.Array ( sappend )
-import Rel8.Kind.Emptiability ( SEmptiability( SNonEmptiable ) )
+import Rel8.Expr.Array ( sappend1 )
 import Rel8.Schema.Context ( DB( DB ) )
 import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
@@ -50,8 +48,4 @@ instance AltTable NonEmptyTable where
 
 instance Table DB a => Semigroup (NonEmptyTable a) where
   NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
-    happend
-      (\nullability blueprint (DB a) (DB b) ->
-         DB (sappend SNonEmptiable nullability blueprint a b))
-    as
-    bs
+    happend (\_ _ (DB a) (DB b) -> DB (sappend1 a b)) as bs

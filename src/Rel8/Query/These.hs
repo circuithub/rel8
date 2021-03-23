@@ -23,7 +23,8 @@ import qualified Opaleye.Internal.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), boolExpr, not_ )
-import Rel8.Expr.Opaleye ( litPrimExpr, toColumn, toPrimExpr )
+import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( traverseMaybeTable )
@@ -41,7 +42,7 @@ import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
 
 
 alignBy :: (Table DB a, Table DB b)
-  => (a -> b -> Expr nullability Bool)
+  => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
 alignBy condition as bs =
   uncurry TheseTable <$> zipOpaleyeWith fullOuterJoin as bs
@@ -104,7 +105,7 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where_ $ not_ $ isThoseTable t
   pure $ EitherTable tag a b
   where
-    tag = boolExpr (litPrimExpr IsLeft) (litPrimExpr IsRight) (isThatTable t)
+    tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
 
 
 bindTheseTable :: (Table DB a, Semigroup a, Monad m)

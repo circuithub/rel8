@@ -17,20 +17,18 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Blueprint ( ToDBType )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 
 
 type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
 class
-  ( forall labels necessity nullability blueprint a. ()
-     => (spec ~ 'Spec labels necessity nullability blueprint, a ~ ToDBType blueprint)
-     => constraint a
-  ) =>
-  ConstrainDBType constraint spec
+  ( forall labels necessity db a. ()
+     => (spec ~ 'Spec labels necessity db a)
+     => constraint db
+  )
+  => ConstrainDBType constraint spec
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , a ~ ToDBType blueprint
-  , constraint a
-  ) =>
-  ConstrainDBType constraint spec
+  ( spec ~ 'Spec labels necessity db a
+  , constraint db
+  )
+  => ConstrainDBType constraint spec

@@ -1,7 +1,12 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleContexts #-}
+{-# language GADTs #-}
 {-# language RoleAnnotations #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Expr
   ( Expr(..)
@@ -17,38 +22,49 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Expr.Null ( liftOpNullable, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
-  , litPrimExpr
+  , unsafeFromPrimExpr
   , mapPrimExpr
   , zipPrimExprsWith
   )
-import Rel8.Kind.Nullability ( Nullability )
+import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Schema.Nullability
+  ( Nullability( Nullable, NonNullable )
+  , Nullabilizes, nullabilization
+  )
 import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Num ( DBFractional, DBNum )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
-type role Expr representational representational
-type Expr :: Nullability -> Type -> Type
-newtype Expr nullability a = Expr Opaleye.PrimExpr
+type role Expr representational
+type Expr :: Type -> Type
+newtype Expr a = Expr Opaleye.PrimExpr
   deriving stock Show
 
 
-instance DBSemigroup a => Semigroup (Expr nullability a) where
-  (<>) = (<>.)
+instance (DBSemigroup db, Nullabilizes db a) => Semigroup (Expr a) where
+  (<>) = case nullabilization @a of
+    Nullable -> liftOpNullable (<>.)
+    NonNullable -> (<>.)
 
 
-instance DBMonoid a => Monoid (Expr nullability a) where
-  mempty = memptyExpr
+instance (DBMonoid db, Nullabilizes db a) => Monoid (Expr a) where
+  mempty = case nullabilization @a of
+    Nullable -> nullify memptyExpr
+    NonNullable -> memptyExpr
 
 
-instance (IsString a, DBType a) => IsString (Expr nullability a) where
-  fromString = litPrimExpr . fromString
+instance (IsString db, DBType db, Nullabilizes db a) => IsString (Expr a) where
+  fromString = litExpr . case nullabilization @a of
+    Nullable -> Just . fromString
+    NonNullable -> fromString
 
 
-instance DBNum a => Num (Expr nullability a) where
+instance (DBNum db, Nullabilizes db a) => Num (Expr a) where
   (+) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
   (*) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:*))
   (-) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:-))
@@ -58,10 +74,10 @@ instance DBNum a => Num (Expr nullability a) where
 
   signum = castExpr . mapPrimExpr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN"))
 
-  fromInteger = castExpr . Expr . Opaleye.ConstExpr . Opaleye.IntegerLit
+  fromInteger = castExpr . unsafeFromPrimExpr . Opaleye.ConstExpr . Opaleye.IntegerLit
 
 
-instance DBFractional a => Fractional (Expr nullability a) where
+instance (DBFractional db, Nullabilizes db a) => Fractional (Expr a) where
   (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
 
   fromRational =

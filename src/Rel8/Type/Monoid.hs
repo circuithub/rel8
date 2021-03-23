@@ -1,8 +1,10 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language OverloadedStrings #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Monoid
   ( DBMonoid( memptyExpr )
@@ -23,11 +25,9 @@ import Data.CaseInsensitive ( CI )
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
-import Rel8.Expr.Opaleye ( litPrimExpr )
-import Rel8.Kind.Emptiability ( Emptiability( Emptiable ) )
-import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Schema.Nullability ( Nullabilizes, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( Array )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
 -- text
@@ -40,45 +40,40 @@ import Data.Time.Clock ( DiffTime, NominalDiffTime )
 
 type DBMonoid :: Type -> Constraint
 class DBSemigroup a => DBMonoid a where
-  memptyExpr :: Expr nullability a
+  memptyExpr :: Expr a
 
 
-instance
-  ( emptiability ~ 'Emptiable
-  , KnownNullability nullability
-  , DBType a
-  ) => DBMonoid (Array emptiability nullability a)
- where
-  memptyExpr = sempty typeInformation
+instance (DBType db, Nullabilizes db a) => DBMonoid [a] where
+  memptyExpr = sempty nullabilization typeInformation
 
 
 instance DBMonoid DiffTime where
-  memptyExpr = litPrimExpr 0
+  memptyExpr = litExpr 0
 
 
 instance DBMonoid NominalDiffTime where
-  memptyExpr = litPrimExpr 0
+  memptyExpr = litExpr 0
 
 
 instance DBMonoid Text where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""
 
 
 instance DBMonoid Lazy.Text where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""
 
 
 instance DBMonoid (CI Text) where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""
 
 
 instance DBMonoid (CI Lazy.Text) where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""
 
 
 instance DBMonoid ByteString where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""
 
 
 instance DBMonoid Lazy.ByteString where
-  memptyExpr = litPrimExpr ""
+  memptyExpr = litExpr ""

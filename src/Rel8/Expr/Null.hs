@@ -1,101 +1,87 @@
 {-# language DataKinds #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneKindSignatures #-}
+{-# language FlexibleContexts #-}
+{-# language TypeFamilies #-}
+
+{-# options -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Null
   ( null, snull, nullable, nullableOf
   , isNull, isNonNull
-  , Nullification (nullify, unsafeUnnullify)
+  , nullify, unsafeUnnullify
   , mapNullable, liftOpNullable
   , unsafeMapNullable, unsafeLiftOpNullable
   )
 where
 
 -- base
-import Data.Kind ( Constraint )
 import Prelude hiding ( null )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Bool ( boolExpr, (||.) )
+import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
+import Rel8.Expr.Bool ( (||.), boolExpr )
 import Rel8.Expr.Opaleye ( scastExpr, unsafeMapPrimExpr )
-import Rel8.Kind.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Nullability ( Nullability( Nullable ), IsMaybe )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 
-type Nullification :: Nullability -> Nullability -> Constraint
-class Nullification nonNullable nullable where
-  nullify :: Expr nonNullable a -> Expr nullable a
-  unsafeUnnullify :: Expr nullable a -> Expr nonNullable a
+nullify :: IsMaybe a ~ 'False => Expr a -> Expr (Maybe a)
+nullify (Expr a) = Expr a
 
 
-instance {-# INCOHERENT #-} Nullification 'NonNullable nullable where
-  nullify (Expr a) = Expr a
-  unsafeUnnullify (Expr a) = Expr a
+unsafeUnnullify :: Expr (Maybe a) -> Expr a
+unsafeUnnullify (Expr a) = Expr a
 
 
-instance {-# INCOHERENT #-} Nullification nonNullable 'Nullable where
-  nullify (Expr a) = Expr a
-  unsafeUnnullify (Expr a) = Expr a
-
-
-nullable :: ()
-  => Expr nullability b
-  -> (Expr 'NonNullable a -> Expr nullability b)
-  -> Expr 'Nullable a
-  -> Expr nullability b
+nullable :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 nullable b f ma = boolExpr (f (unsafeUnnullify ma)) b (isNull ma)
 
 
-nullableOf :: DBType a => Maybe (Expr 'NonNullable a) -> Expr 'Nullable a
+nullableOf :: (IsMaybe a ~ 'False, DBType a)
+  => Maybe (Expr a) -> Expr (Maybe a)
 nullableOf = maybe null nullify
 
 
-isNull :: Expr 'Nullable a -> Expr 'NonNullable Bool
+isNull :: Expr (Maybe a) -> Expr Bool
 isNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
-isNonNull :: Expr 'Nullable a -> Expr 'NonNullable Bool
+isNonNull :: Expr (Maybe a) -> Expr Bool
 isNonNull = unsafeMapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 
 
-mapNullable :: (Nullification nonNullable nullable, DBType b)
-  => (Expr nonNullable a -> Expr nonNullable b)
-  -> Expr nullable a -> Expr nullable b
-mapNullable f ma =
-  boolExpr (unsafeMapNullable f ma) (unsafeUnnullify null)
-    (isNull (nullify ma))
+mapNullable :: (IsMaybe b ~ 'False, DBType b)
+  => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
+mapNullable f ma = boolExpr (unsafeMapNullable f ma) null (isNull ma)
 
 
-liftOpNullable :: (Nullification nonNullable nullable, DBType c)
-  => (Expr nonNullable a -> Expr nonNullable b -> Expr nonNullable c)
-  -> Expr nullable a -> Expr nullable b -> Expr nullable c
+liftOpNullable :: (IsMaybe c ~ 'False, DBType c)
+  => (Expr a -> Expr b -> Expr c)
+  -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 liftOpNullable f ma mb =
-  boolExpr (unsafeLiftOpNullable f ma mb) (unsafeUnnullify null)
-    (isNull (nullify ma) ||. isNull (nullify mb))
+  boolExpr (unsafeLiftOpNullable f ma mb) null
+    (isNull ma ||. isNull mb)
 
 
-snull :: TypeInformation a -> Expr 'Nullable a
-snull info = scastExpr info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
+snull :: Nullability a (Maybe a) -> TypeInformation a -> Expr (Maybe a)
+snull nullability info =
+  scastExpr nullability info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
-null :: DBType a => Expr 'Nullable a
-null = snull typeInformation
+null :: (IsMaybe a ~ 'False, DBType a) => Expr (Maybe a)
+null = snull Nullable typeInformation
 
 
-unsafeMapNullable :: Nullification nonNullable nullable
-  => (Expr nonNullable a -> Expr nonNullable b)
-  -> Expr nullable a -> Expr nullable b
+unsafeMapNullable :: IsMaybe b ~ 'False
+  => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 unsafeMapNullable f ma = nullify (f (unsafeUnnullify ma))
 
 
-unsafeLiftOpNullable :: Nullification nonNullable nullable
-  => (Expr nonNullable a -> Expr nonNullable b -> Expr nonNullable c)
-  -> Expr nullable a -> Expr nullable b -> Expr nullable c
+unsafeLiftOpNullable :: IsMaybe c ~ 'False
+  => (Expr a -> Expr b -> Expr c)
+  -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 unsafeLiftOpNullable f ma mb =
   nullify (f (unsafeUnnullify ma) (unsafeUnnullify mb))

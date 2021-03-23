@@ -1,4 +1,3 @@
-{-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language ViewPatterns #-}
@@ -10,12 +9,12 @@ module Rel8.Expr.Eq
   , (==.), (/=.)
   , (==?), (/=?)
   , in_
-  , isDistinctFrom, isNotDistinctFrom
   )
 where
 
 -- base
 import Data.Foldable ( toList )
+import Data.List.NonEmpty ( nonEmpty )
 import Prelude hiding ( seq, sin )
 
 -- opaleye
@@ -23,78 +22,72 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Array ( listOf )
-import Rel8.Expr.Bool ( false, or_ )
-import Rel8.Expr.Function ( unsafeBinaryOperator )
-import Rel8.Expr.Opaleye ( unsafeZipPrimExprsWith )
-import Rel8.Kind.Nullability
-  ( Nullability( NonNullable )
-  , SNullability( SNullable, SNonNullable )
-  , KnownNullability, nullabilitySing
+import Rel8.Expr.Bool ( (&&.), (||.), false, or_, fromTrool )
+import Rel8.Expr.Null ( isNull, unsafeLiftOpNullable )
+import Rel8.Expr.Opaleye
+  ( unsafeFromPrimExpr, unsafeToPrimExpr
+  , unsafeZipPrimExprsWith
+  )
+import Rel8.Schema.Nullability
+  ( Nullability( NonNullable, Nullable )
+  , Nullabilizes, nullabilization
   )
 import Rel8.Type.Eq ( DBEq )
 
 
-seq :: DBEq a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+eq :: DBEq a => Expr a -> Expr a -> Expr Bool
+eq = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:==))
+
+
+ne :: DBEq a => Expr a -> Expr a -> Expr Bool
+ne = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
+
+
+seq :: DBEq db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 seq = \case
-  SNullable -> isNotDistinctFrom
-  SNonNullable -> (==?)
+  Nullable -> \ma mb -> isNull ma &&. isNull mb ||. ma ==? mb
+  NonNullable -> eq
 
 
-sne :: DBEq a
-  => SNullability nullability
-  -> Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
+sne :: DBEq db => Nullability db a -> Expr a -> Expr a -> Expr Bool
 sne = \case
-  SNullable -> isDistinctFrom
-  SNonNullable -> (/=?)
+  Nullable -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
+  NonNullable -> ne
 
 
-sin :: (DBEq a, Foldable f)
-  => SNullability nullability
-  -> f (Expr nullability a) -> Expr nullability a -> Expr 'NonNullable Bool
+sin :: (DBEq db, Foldable f)
+  => Nullability db a -> f (Expr a) -> Expr a -> Expr Bool
 sin nullability (toList -> as) a = case nullability of
-  SNullable -> or_ $ map (`isNotDistinctFrom` a) as
-  SNonNullable -> case as of
-     [] -> false
-     _ -> unsafeZipPrimExprsWith (Opaleye.BinExpr Opaleye.OpIn) a (listOf as)
+  Nullable -> or_ $ map (seq Nullable a) as
+  NonNullable -> case nonEmpty as of
+     Nothing -> false
+     Just xs ->
+       unsafeFromPrimExpr $
+         Opaleye.BinExpr Opaleye.OpIn
+           (unsafeToPrimExpr a)
+           (Opaleye.ListExpr (unsafeToPrimExpr <$> xs))
 
 
-(==.) :: (KnownNullability nullability, DBEq a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(==.) = seq nullabilitySing
+(==.) :: (DBEq db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(==.) = seq nullabilization
 infix 4 ==.
 
 
-(/=.) :: (KnownNullability nullability, DBEq a)
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-(/=.) = sne nullabilitySing
+(/=.) :: (DBEq db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool
+(/=.) = sne nullabilization
 infix 4 /=.
 
 
-(==?) :: DBEq a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-(==?) = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:==))
+(==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a ==? b = fromTrool $ unsafeLiftOpNullable eq a b
 infix 4 ==?
 
 
-(/=?) :: DBEq a
-  => Expr nullability a -> Expr nullability a -> Expr nullability Bool
-(/=?) = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
+(/=?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
+a /=? b = fromTrool $ unsafeLiftOpNullable ne a b
 infix 4 /=?
 
 
-in_ :: (KnownNullability nullability, DBEq a, Foldable f)
-  => f (Expr nullability a) -> Expr nullability a -> Expr 'NonNullable Bool
-in_ = sin nullabilitySing
-
-
-isDistinctFrom :: DBEq a
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-isDistinctFrom = unsafeBinaryOperator "IS DISTINCT FROM"
-
-
-isNotDistinctFrom :: DBEq a
-  => Expr nullability a -> Expr nullability a -> Expr 'NonNullable Bool
-isNotDistinctFrom = unsafeBinaryOperator "IS NOT DISTINCT FROM"
+in_ :: (DBEq db, Nullabilizes db a, Foldable f)
+  => f (Expr a) -> Expr a -> Expr Bool
+in_ = sin nullabilization

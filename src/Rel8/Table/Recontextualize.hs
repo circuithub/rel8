@@ -17,25 +17,22 @@ module Rel8.Table.Recontextualize
 where
 
 -- base
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Blueprint
-  ( FromDBType, ToDBType
-  , FromType, ToType
-  )
-import Rel8.Kind.Nullability ( KnownNullability )
+import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context ( Aggregation, DB, Insertion, Name, Result )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Context ( H )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Schema.Spec ( KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
-import Rel8.Schema.Value ( Value )
 import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
@@ -55,63 +52,40 @@ class
     , b from -> a
 
 
-instance (KnownNullability nullability, DBType a) =>
-  Recontextualize Aggregation Aggregation (Aggregate (Expr nullability a)) (Aggregate (Expr nullability a))
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Aggregation Aggregation (Aggregate (Expr a)) (Aggregate (Expr a))
 
 
-instance (KnownNullability nullability, DBType a) =>
-  Recontextualize Aggregation DB (Aggregate (Expr nullability a)) (Expr nullability a)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Aggregation DB (Aggregate (Expr a)) (Expr a)
 
 
-instance
-  ( KnownNullability nullability
-  , DBType dbType
-  , a ~ ToType (FromDBType dbType)
-  , dbType ~ ToDBType (FromType a)
-  ) =>
-  Recontextualize Aggregation Result (Aggregate (Expr nullability dbType)) (Value nullability a)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Aggregation Result (Aggregate (Expr a)) (Identity a)
 
 
-instance (KnownNullability nullability, DBType a) =>
-  Recontextualize DB Aggregation (Expr nullability a) (Aggregate (Expr nullability a))
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize DB Aggregation (Expr a) (Aggregate (Expr a))
 
 
-instance (KnownNullability nullability, DBType a) =>
-  Recontextualize DB DB (Expr nullability a) (Expr nullability a)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize DB DB (Expr a) (Expr a)
 
 
-instance
-  ( KnownNullability nullability
-  , DBType dbType
-  , a ~ ToType (FromDBType dbType)
-  , dbType ~ ToDBType (FromType a)
-  ) =>
-  Recontextualize DB Result (Expr nullability dbType) (Value nullability a)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize DB Result (Expr a) (Identity a)
 
 
-instance
-  ( KnownNullability nullability
-  , DBType dbType
-  , a ~ ToType (FromDBType dbType)
-  , dbType ~ ToDBType (FromType a)
-  ) =>
-  Recontextualize Result Aggregation (Value nullability a) (Aggregate (Expr nullability dbType))
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Result Aggregation (Identity a) (Aggregate (Expr a))
 
 
-instance
-  ( KnownNullability nullability
-  , DBType dbType
-  , a ~ ToType (FromDBType dbType)
-  , dbType ~ ToDBType (FromType a)
-  ) =>
-  Recontextualize Result DB (Value nullability a) (Expr nullability dbType)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Result DB (Identity a) (Expr a)
 
 
-instance
-  ( KnownNullability nullability
-  , DBType (ToDBType (FromType a))
-  ) =>
-  Recontextualize Result Result (Value nullability a) (Value nullability a)
+instance (DBType db, Nullabilizes db a, KnownBool (IsList db)) =>
+  Recontextualize Result Result (Identity a) (Identity a)
 
 
 instance KnownSpec spec => Recontextualize from to (from spec) (to spec)

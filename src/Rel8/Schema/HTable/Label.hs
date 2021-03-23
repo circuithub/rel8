@@ -6,6 +6,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -33,7 +34,7 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec( SSpec ) )
+import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
 
 
 type HLabel :: Symbol -> HKTable -> HKTable
@@ -44,8 +45,8 @@ data HLabel label table context where
 type HLabelField :: Symbol -> HKTable -> Context
 data HLabelField label table spec where
   HLabelField
-    :: HField table ('Spec labels necessity nullability blueprint)
-    -> HLabelField label table ('Spec (label ': labels) necessity nullability blueprint)
+    :: HField table ('Spec labels necessity db a)
+    -> HLabelField label table ('Spec (label ': labels) necessity db a)
 
 
 instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
@@ -67,8 +68,7 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
       Dict -> LabelSpec Dict
 
   hspecs = HLabel $ htabulate $ \field -> case hfield hspecs field of
-    SSpec labels necessity nullability blueprint ->
-      LabelSpec (SSpec (SLabels Proxy labels) necessity nullability blueprint)
+    SSpec {..} -> LabelSpec SSpec {labels = SLabels Proxy labels, ..}
 
   {-# INLINABLE hfield #-}
   {-# INLINABLE htabulate #-}
@@ -84,20 +84,20 @@ type LabelingSpec r = Symbol -> (Spec -> r) -> Spec -> r
 type LabelSpec :: LabelingSpec Type
 data LabelSpec label context spec where
   LabelSpec
-    :: { getLabelSpec :: context ('Spec (label ': labels) necessity nullability blueprint) }
-    -> LabelSpec label context ('Spec labels necessity nullability blueprint)
+    :: { getLabelSpec :: context ('Spec (label ': labels) necessity db a) }
+    -> LabelSpec label context ('Spec labels necessity db a)
 
 
 type LabelSpecC :: LabelingSpec Constraint
 class
-  ( forall labels necessity nullability blueprint.
-    ( spec ~ 'Spec labels necessity nullability blueprint =>
-       constraint ('Spec (label ': labels) necessity nullability blueprint)
+  ( forall labels necessity db a.
+    ( spec ~ 'Spec labels necessity db a =>
+       constraint ('Spec (label ': labels) necessity db a)
     )
   ) => LabelSpecC label constraint spec
 instance
-  ( spec ~ 'Spec labels necessity nullability blueprint
-  , constraint ('Spec (label ': labels) necessity nullability blueprint)
+  ( spec ~ 'Spec labels necessity db a
+  , constraint ('Spec (label ': labels) necessity db a)
   ) => LabelSpecC label constraint spec
 
 
@@ -108,9 +108,9 @@ traverseLabelSpec f (LabelSpec a) = LabelSpec <$> f a
 
 
 hlabel :: HTable t
-  => (forall labels necessity nullability blueprint. ()
-    => context ('Spec labels necessity nullability blueprint)
-    -> context ('Spec (label ': labels) necessity nullability blueprint))
+  => (forall labels necessity db a. ()
+    => context ('Spec labels necessity db a)
+    -> context ('Spec (label ': labels) necessity db a))
   -> t (H context)
   -> HLabel label t (H context)
 hlabel labeler a = HLabel $ htabulate $ \field ->
@@ -120,9 +120,9 @@ hlabel labeler a = HLabel $ htabulate $ \field ->
 
 
 hunlabel :: HTable t
-  => (forall labels necessity nullability blueprint. ()
-    => context ('Spec (label ': labels) necessity nullability blueprint)
-    -> context ('Spec labels necessity nullability blueprint))
+  => (forall labels necessity db a. ()
+    => context ('Spec (label ': labels) necessity db a)
+    -> context ('Spec labels necessity db a))
   -> HLabel label t (H context)
   -> t (H context)
 hunlabel unlabler (HLabel as) =

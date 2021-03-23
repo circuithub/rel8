@@ -39,10 +39,6 @@ import Rel8.Kind.Necessity
   ( SNecessity( SRequired, SOptional )
   , KnownNecessity, necessitySing
   )
-import Rel8.Kind.Nullability
-  ( SNullability( SNonNullable, SNullable )
-  , KnownNullability, nullabilitySing
-  )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
   , DB( DB )
@@ -80,7 +76,6 @@ import Rel8.Schema.Structure
   ( IsStructure, Shape(..), Shape1, Shape2
   , Structure
   )
-import Rel8.Schema.Value ( Value( NullableValue, NonNullableValue ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   )
@@ -343,8 +338,8 @@ class
 
 
 instance
-  ( a ~ Field Aggregation '[] necessity nullability blueprint
-  ) => K1Table label 'True Aggregation 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ( x ~ Field Aggregation '[] necessity db a
+  ) => K1Table label 'True Aggregation 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -353,8 +348,8 @@ instance
 
 
 instance
-  ( a ~ Field Aggregation (label ': labels) necessity nullability blueprint
-  ) => K1Table _label 'True Aggregation 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  ( x ~ Field Aggregation (label ': labels) necessity db a
+  ) => K1Table _label 'True Aggregation 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -363,8 +358,8 @@ instance
 
 
 instance
-  ( a ~ Field DB '[] necessity nullability blueprint
-  ) => K1Table label 'True DB 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ( x ~ Field DB '[] necessity db a
+  ) => K1Table label 'True DB 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -373,8 +368,8 @@ instance
 
 
 instance
-  ( a ~ Field DB (label ': labels) necessity nullability blueprint
-  ) => K1Table _label 'True DB 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  ( x ~ Field DB (label ': labels) necessity db a
+  ) => K1Table _label 'True DB 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -383,9 +378,9 @@ instance
 
 
 instance
-  ( a ~ Field Insertion '[] necessity nullability blueprint
+  ( x ~ Field Insertion '[] necessity db a
   , KnownNecessity necessity
-  ) => K1Table label 'True Insertion 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ) => K1Table label 'True Insertion 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -398,9 +393,9 @@ instance
 
 
 instance
-  ( a ~ Field Insertion (label ': labels) necessity nullability blueprint
+  ( x ~ Field Insertion (label ': labels) necessity db a
   , KnownNecessity necessity
-  ) => K1Table _label 'True Insertion 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  ) => K1Table _label 'True Insertion 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -413,39 +408,29 @@ instance
 
 
 instance
-  ( a ~ Field Result '[] necessity nullability blueprint
-  , KnownNullability nullability
-  ) => K1Table label 'True Result 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ( x ~ Field Result '[] necessity db a
+  ) => K1Table label 'True Result 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
-  fromK1Columns (HIdentity (Result value)) = case value of
-    NullableValue ma -> ma
-    NonNullableValue a -> a
-  toK1Columns a = HIdentity $ Result $ case nullabilitySing @nullability of
-    SNullable -> NullableValue a
-    SNonNullable -> NonNullableValue a
+  fromK1Columns (HIdentity (Result a)) = a
+  toK1Columns = HIdentity . Result
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
-  ( a ~ Field Result (label ': labels) necessity nullability blueprint
-  , KnownNullability nullability
-  ) => K1Table _label 'True Result 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  ( x ~ Field Result (label ': labels) necessity db a
+  ) => K1Table _label 'True Result 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
-  fromK1Columns (HIdentity (Result value)) = case value of
-    NullableValue ma -> ma
-    NonNullableValue a -> a
-  toK1Columns a = HIdentity $ Result $ case nullabilitySing @nullability of
-    SNullable -> NullableValue a
-    SNonNullable -> NonNullableValue a
+  fromK1Columns (HIdentity (Result a)) = a
+  toK1Columns = HIdentity . Result
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
   ( IsSpecialContext context ~ 'False
-  , a ~ context ('Spec (label ': labels) necessity nullability blueprint)
-  ) => K1Table _label 'False context 'True (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) a
+  , x ~ context ('Spec (label ': labels) necessity db a)
+  ) => K1Table _label 'False context 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns = unHIdentity
   toK1Columns = HIdentity
@@ -455,14 +440,15 @@ instance
 
 instance
   ( IsSpecialContext context ~ 'False
-  , a ~ context ('Spec '[] necessity nullability blueprint)
+  , x ~ context ('Spec '[] necessity db a)
   , Labelable context
-  ) => K1Table label 'False context 'True (Shape1 'Column ('Spec '[] necessity nullability blueprint)) a
+  ) => K1Table label 'False context 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns = unlabeler . unHIdentity
   toK1Columns = HIdentity . labeler
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
+
 
 instance
   ( HTable (K1Columns "Left" structure1)

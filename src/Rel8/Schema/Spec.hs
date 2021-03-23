@@ -5,8 +5,8 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Spec
-  ( Spec( Spec, labels, nullability, necessity, blueprint )
-  , SSpec( SSpec, slabels, snullability, snecessity, sblueprint )
+  ( Spec( Spec )
+  , SSpec( SSpec, labels, necessity, info, nullability, isList )
   , KnownSpec( specSing )
   , Context, KTable
   )
@@ -17,42 +17,32 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Blueprint
-  ( Blueprint
-  , SBlueprint
-  , KnownBlueprint, blueprintSing
-  )
+import Rel8.Kind.Bool ( SBool, KnownBool, boolSing, IsList )
 import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Kind.Necessity
   ( Necessity
   , SNecessity
   , KnownNecessity, necessitySing
   )
-import Rel8.Kind.Nullability
-  ( Nullability
-  , SNullability
-  , KnownNullability, nullabilitySing
-  )
+import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
+import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type.Information ( TypeInformation )
 
 
 type Spec :: Type
-data Spec = Spec
-  { labels :: Labels
-  , necessity :: Necessity
-  , nullability :: Nullability
-  , blueprint :: Blueprint
-  }
+data Spec = Spec Labels Necessity Type Type
 
 
 type SSpec :: Spec -> Type
 data SSpec spec where
   SSpec ::
-    { slabels :: SLabels labels
-    , snecessity :: SNecessity necessity
-    , snullability :: SNullability nullability
-    , sblueprint :: SBlueprint blueprint
+    { labels :: SLabels labels
+    , necessity :: SNecessity necessity
+    , info :: TypeInformation db
+    , nullability :: Nullability db a
+    , isList :: SBool (IsList db)
     }
-    -> SSpec ('Spec labels necessity nullability blueprint)
+    -> SSpec ('Spec labels necessity db a)
 
 
 type KnownSpec :: Spec -> Constraint
@@ -63,15 +53,17 @@ class KnownSpec spec where
 instance
   ( KnownLabels labels
   , KnownNecessity necessity
-  , KnownNullability nullability
-  , KnownBlueprint blueprint
-  ) => KnownSpec ('Spec labels necessity nullability blueprint)
+  , DBType db
+  , Nullabilizes db a
+  , KnownBool (IsList db)
+  ) => KnownSpec ('Spec labels necessity db a)
  where
   specSing = SSpec
-    { slabels = labelsSing
-    , snecessity = necessitySing
-    , snullability = nullabilitySing
-    , sblueprint = blueprintSing
+    { labels = labelsSing
+    , necessity = necessitySing
+    , info = typeInformation
+    , nullability = nullabilization
+    , isList = boolSing
     }
 
 

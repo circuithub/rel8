@@ -20,10 +20,10 @@ import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye )
 
 
-filter :: (a -> Expr nullability Bool) -> a -> Query a
+filter :: (a -> Expr Bool) -> a -> Query a
 filter f a = a <$ where_ (f a)
 
 
-where_ :: Expr nullability Bool -> Query ()
+where_ :: Expr Bool -> Query ()
 where_ condition =
   fromOpaleye $ lmap (\_ -> toColumn $ toPrimExpr condition) Opaleye.restrict

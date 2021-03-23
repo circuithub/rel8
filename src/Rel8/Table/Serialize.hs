@@ -4,7 +4,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
-{-# language QuantifiedConstraints #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -29,16 +29,7 @@ import qualified Hasql.Decoders as Hasql
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
-import Rel8.Kind.Blueprint
-  ( Blueprint( Scalar )
-  , FromDBType, ToDBType
-  , FromType, ToType
-  )
-import Rel8.Kind.Emptiability ( Emptiability( Emptiable, NonEmptiable ) )
-import Rel8.Kind.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , KnownNullability
-  )
+import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( DB(..), Result(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
@@ -50,18 +41,15 @@ import Rel8.Schema.Context.Result
   , fromHTheseTable, toHTheseTable
   )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.DBType ( HDBType(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.HTable.Context ( H )
-import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
-import Rel8.Schema.Value
-  ( Value( NullableValue, NonNullableValue )
-  , FromValue, ToValue
-  )
+import Rel8.Schema.Nullability ( IsMaybe, Nullabilizes )
+import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
@@ -70,7 +58,6 @@ import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.Recontextualize ( Encodes )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
-import Rel8.Type.Array ( Array )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
@@ -115,7 +102,7 @@ type family IsTabular a where
 
 type IsTabular' :: Bool -> Type -> Bool
 type family IsTabular' isTabular exprs where
-  IsTabular' _ (Expr _ _) = 'False
+  IsTabular' _ (Expr _) = 'False
   IsTabular' 'False _ = 'False
   IsTabular' _ _ = 'True
 
@@ -153,61 +140,51 @@ class (Table DB exprs, isTabular ~ IsTabular a) =>
 
 
 instance
-  ( exprs ~ Expr 'NonNullable dbType
-  , ToDBType (FromType a) ~ dbType
-  , ToType (FromDBType dbType) ~ a
-  , DBType dbType
-  , FromDBType a ~ 'Scalar a
+  ( DBType a
+  , IsList a ~ 'False
+  , IsMaybe a ~ 'False
   , IsTabular a ~ 'False
-  ) => ExprsFor 'True 'False a exprs
+  , x ~ Expr a
+  )
+  => ExprsFor 'True 'False a x
  where
-  fromResults (HDBType (Result (NonNullableValue a))) = a
-  toResults = HDBType . Result . NonNullableValue
+  fromResults (HType (Result a)) = a
+  toResults = HType . Result
 
 
 instance
-  ( '(nullability, a) ~ ToValue ma
-  , FromValue nullability a ~ ma
-  , ToDBType (FromType a) ~ dbType
-  , ToType (FromDBType dbType) ~ a
-  , DBType dbType
-  , KnownNullability nullability
-  , IsListTabular ma ~ 'False
-  , x ~ Array 'Emptiable nullability dbType
-  , outerNullability ~ 'NonNullable
-  ) => ExprsFor 'False 'False [ma] (Expr outerNullability x)
+  ( DBType db
+  , Nullabilizes db a
+  , IsListTabular a ~ 'False
+  , x ~ [a]
+  ) => ExprsFor 'False 'False [a] (Expr x)
  where
-  fromResults (HDBType (Result (NonNullableValue a))) = a
-  toResults = HDBType . Result . NonNullableValue
+  fromResults (HType (Result a)) = a
+  toResults = HType . Result
 
 
 instance
-  ( nullability ~ 'Nullable
-  , ToDBType (FromType a) ~ dbType
-  , ToType (FromDBType dbType) ~ a
-  , DBType dbType
+  ( DBType a
+  , Nullabilizes a (Maybe a)
+  , KnownBool (IsList a)
   , isTabular ~ 'False
   , IsMaybeTabular a ~ 'False
-  ) => ExprsFor 'False 'False (Maybe a) (Expr nullability dbType)
+  , x ~ Maybe a
+  ) => ExprsFor 'False 'False (Maybe a) (Expr x)
  where
-  fromResults (HDBType (Result (NullableValue a))) = a
-  toResults = HDBType . Result . NullableValue
+  fromResults (HType (Result a)) = a
+  toResults = HType . Result
 
 
 instance
-  ( '(nullability, a) ~ ToValue ma
-  , FromValue nullability a ~ ma
-  , ToDBType (FromType a) ~ dbType
-  , ToType (FromDBType dbType) ~ a
-  , DBType dbType
-  , KnownNullability nullability
-  , IsListTabular ma ~ 'False
-  , x ~ Array 'NonEmptiable nullability dbType
-  , outerNullability ~ 'NonNullable
-  ) => ExprsFor 'False 'False (NonEmpty ma) (Expr outerNullability x)
+  ( DBType db
+  , Nullabilizes db a
+  , IsListTabular a ~ 'False
+  , x ~ NonEmpty a
+  ) => ExprsFor 'False 'False (NonEmpty a) (Expr x)
  where
-  fromResults (HDBType (Result (NonNullableValue a))) = a
-  toResults = HDBType . Result . NonNullableValue
+  fromResults (HType (Result a)) = a
+  toResults = HType . Result
 
 
 instance
@@ -433,8 +410,7 @@ instance
 
 type FromExprs :: Type -> Type
 type family FromExprs a where
-  FromExprs (Expr nullability a) =
-    FromValue nullability (ToType (FromDBType a))
+  FromExprs (Expr a) = a
   FromExprs (DB spec) = Result spec
   FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
   FromExprs (ListTable a) = [FromExprs a]
@@ -453,7 +429,7 @@ type family FromExprs a where
 
 class (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a | exprs -> a
 instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
-instance Serializable (Expr 'NonNullable Opaque) Opaque
+instance Serializable (Expr Opaque) Opaque
 
 
 lit :: forall exprs a. Serializable exprs a => a -> exprs
@@ -467,12 +443,11 @@ parse = fromResults' @exprs <$> parseTable
 litTable :: Encodes a b => a -> b
 litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec _ _ _ blueprint -> case hfield as field of
-      Result value -> DB (slitExpr blueprint value)
+    SSpec {nullability, info} -> case hfield as field of
+      Result value -> DB (slitExpr nullability info value)
 
 
 parseTable :: Table Result a => Hasql.Row a
 parseTable = fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
-    SSpec _ _ nullability blueprint ->
-      Result <$> sparseValue nullability blueprint
+    SSpec {nullability, info} -> Result <$> sparseValue nullability info

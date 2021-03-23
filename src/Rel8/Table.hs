@@ -3,10 +3,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -18,22 +15,14 @@ module Rel8.Table
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Blueprint
-  ( ToDBType
-  , FromType
-  , blueprintRoundtripsViaDBType
-  , blueprintRoundtripsViaType
-  , dbTypeRoundtripsViaBlueprint
-  , simplifyDBTypeBlueprint
-  )
-import Rel8.Kind.Nullability ( Nullability( NonNullable ), KnownNullability )
+import Rel8.Kind.Bool ( KnownBool, IsList )
 import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context
   ( Aggregation( Aggregation )
@@ -43,17 +32,17 @@ import Rel8.Schema.Context
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.HTable.DBType ( HDBType( HDBType ) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.HTable.Type ( HType( HType ) )
+import Rel8.Schema.Nullability ( Nullabilizes )
 import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
-import Rel8.Schema.Value ( Value )
-import Rel8.Type ( DBType, blueprintForDBType )
+import Rel8.Type ( DBType )
 
 
 type Table :: Kind.Context -> Type -> Constraint
@@ -94,40 +83,32 @@ instance Table DB a => Table Aggregation (Aggregate a) where
       Aggregation a -> DB <$> a
 
 
-instance (KnownNullability nullability, DBType a) =>
-  Table DB (Expr nullability a)
+instance
+  ( DBType db
+  , Nullabilizes db a
+  , KnownBool (IsList db)
+  )
+  => Table DB (Expr a)
  where
-  type Columns (Expr nullability a) = HDBType nullability a
-  type Context (Expr nullability a) = DB
+  type Columns (Expr a) = HType a
+  type Context (Expr a) = DB
 
-  toColumns a = case blueprintForDBType @a of
-    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-      Refl -> HDBType (DB a)
-  fromColumns (HDBType (DB a)) = case blueprintForDBType @a of
-    blueprint -> case blueprintRoundtripsViaDBType @a blueprint of
-      Refl -> a
+  toColumns a = HType (DB a)
+  fromColumns (HType (DB a)) = a
 
 
-instance (KnownNullability nullability, DBType (ToDBType (FromType a))) =>
-  Table Result (Value nullability a)
+instance
+  ( DBType db
+  , Nullabilizes db a
+  , KnownBool (IsList db)
+  )
+  => Table Result (Identity a)
  where
-  type Columns (Value nullability a) =
-    HDBType nullability (ToDBType (FromType a))
-  type Context (Value nullability a) = Result
+  type Columns (Identity a) = HType a
+  type Context (Identity a) = Result
 
-  toColumns a = case blueprintForDBType @(ToDBType (FromType a)) of
-    blueprint -> case simplifyDBTypeBlueprint blueprint of
-      blueprint' ->
-        case dbTypeRoundtripsViaBlueprint @(FromType a) blueprint' of
-          Refl -> case blueprintRoundtripsViaType @a blueprint of
-            Refl -> HDBType $ Result a
-  fromColumns (HDBType (Result a)) =
-    case blueprintForDBType @(ToDBType (FromType a)) of
-      blueprint -> case simplifyDBTypeBlueprint blueprint of
-        blueprint' ->
-          case dbTypeRoundtripsViaBlueprint @(FromType a) blueprint' of
-            Refl -> case blueprintRoundtripsViaType @a blueprint of
-              Refl -> a
+  toColumns (Identity a) = HType (Result a)
+  fromColumns (HType (Result a)) = Identity a
 
 
 instance
@@ -235,7 +216,7 @@ instance
 
 
 instance Table DB Opaque where
-  type Columns Opaque = HDBType 'NonNullable Opaque
+  type Columns Opaque = HType Opaque
   type Context Opaque = DB
 
   fromColumns = error "opaque"
@@ -243,7 +224,7 @@ instance Table DB Opaque where
 
 
 instance Table context (Opaque1 context a) where
-  type Columns (Opaque1 context a) = HDBType 'NonNullable Opaque
+  type Columns (Opaque1 context a) = HType Opaque
   type Context (Opaque1 context a) = context
 
   fromColumns = error "opaque"

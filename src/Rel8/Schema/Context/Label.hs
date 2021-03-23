@@ -29,12 +29,12 @@ import Rel8.Schema.Spec ( Context, Spec( Spec ) )
 type Labelable :: Context -> Constraint
 class Labelable context where
   labeler :: ()
-    => context ('Spec labels necessity nullability blueprint)
-    -> context ('Spec (label ': labels) necessity nullability blueprint)
+    => context ('Spec labels necessity db a)
+    -> context ('Spec (label ': labels) necessity db a)
 
   unlabeler :: ()
-    => context ('Spec (label ': labels) necessity nullability blueprint)
-    -> context ('Spec labels necessity nullability blueprint)
+    => context ('Spec (label ': labels) necessity db a)
+    -> context ('Spec labels necessity db a)
 
 
 instance Labelable Aggregation where
