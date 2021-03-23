@@ -4,7 +4,7 @@ module Rel8.Expr.Bool
   , and_, or_
   , boolExpr
   , caseExpr
-  , fromTrool
+  , coalesce
   )
 where
 
@@ -62,7 +62,7 @@ caseExpr branches (Expr fallback) =
     go (Expr condition, Expr value) = (condition, value)
 
 
-fromTrool :: Expr (Maybe Bool) -> Expr Bool
-fromTrool (Expr a) = Expr a &&. Expr (Opaleye.FunExpr "COALESCE" [a, untrue])
+coalesce :: Expr (Maybe Bool) -> Expr Bool
+coalesce (Expr a) = Expr a &&. Expr (Opaleye.FunExpr "COALESCE" [a, untrue])
   where
     untrue = Opaleye.ConstExpr (Opaleye.BoolLit False)
