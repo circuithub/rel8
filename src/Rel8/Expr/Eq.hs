@@ -24,10 +24,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), false, or_, coalesce )
 import Rel8.Expr.Null ( isNull, unsafeLiftOpNullable )
-import Rel8.Expr.Opaleye
-  ( unsafeFromPrimExpr, unsafeToPrimExpr
-  , unsafeZipPrimExprsWith
-  )
+import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, zipPrimExprsWith )
 import Rel8.Schema.Nullability
   ( Nullability( NonNullable, Nullable )
   , Nullabilizes, nullabilization
@@ -36,11 +33,11 @@ import Rel8.Type.Eq ( DBEq )
 
 
 eq :: DBEq a => Expr a -> Expr a -> Expr Bool
-eq = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:==))
+eq = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:==))
 
 
 ne :: DBEq a => Expr a -> Expr a -> Expr Bool
-ne = unsafeZipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
+ne = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
 
 
 seq :: DBEq db => Nullability db a -> Expr a -> Expr a -> Expr Bool
@@ -62,10 +59,10 @@ sin nullability (toList -> as) a = case nullability of
   NonNullable -> case nonEmpty as of
      Nothing -> false
      Just xs ->
-       unsafeFromPrimExpr $
+       fromPrimExpr $
          Opaleye.BinExpr Opaleye.OpIn
-           (unsafeToPrimExpr a)
-           (Opaleye.ListExpr (unsafeToPrimExpr <$> xs))
+           (toPrimExpr a)
+           (Opaleye.ListExpr (toPrimExpr <$> xs))
 
 
 (==.) :: (DBEq db, Nullabilizes db a) => Expr a -> Expr a -> Expr Bool

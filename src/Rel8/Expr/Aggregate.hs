@@ -32,12 +32,13 @@ import Rel8.Expr.Bool ( caseExpr )
 import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr
-  , unsafeFromPrimExpr
-  , unsafeToPrimExpr
+  , fromPrimExpr
+  , toPrimExpr
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Nullability ( Nullability, Nullabilizes, nullabilization )
+import Rel8.Type.Array ( fromPrimArray )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )
 import Rel8.Type.Ord ( DBMax, DBMin )
@@ -46,7 +47,7 @@ import Rel8.Type.Sum ( DBSum )
 
 
 count :: Expr a -> Aggregate (Expr Int64)
-count = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
     , ordering = []
@@ -55,7 +56,7 @@ count = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
 
 
 countDistinct :: DBEq a => Expr a -> Aggregate (Expr Int64)
-countDistinct = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
     , ordering = []
@@ -72,7 +73,7 @@ countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
 
 and :: Expr Bool -> Aggregate (Expr Bool)
-and = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolAnd
     , ordering = []
@@ -81,7 +82,7 @@ and = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
 
 
 or :: Expr Bool -> Aggregate (Expr Bool)
-or = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolOr
     , ordering = []
@@ -90,7 +91,7 @@ or = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
 
 
 max :: (DBMax db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
-max = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -99,7 +100,7 @@ max = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
 
 
 min :: (DBMin db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
-min = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
+min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -108,7 +109,7 @@ min = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr $
 
 
 sum :: (DBSum db, Nullabilizes db a) => Expr a -> Aggregate (Expr a)
-sum = unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
+sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
     , ordering = []
@@ -124,9 +125,9 @@ sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 stringAgg :: (DBString db, Nullabilizes db a)
   => Expr db -> Expr a -> Aggregate (Expr a)
 stringAgg delimiter =
-  unsafeMakeAggregate unsafeToPrimExpr (castExpr . unsafeFromPrimExpr) $
+  unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
     Just Aggregator
-      { operation = Opaleye.AggrStringAggr (unsafeToPrimExpr delimiter)
+      { operation = Opaleye.AggrStringAggr (toPrimExpr delimiter)
       , ordering = []
       , distinction = Opaleye.AggrAll
       }
@@ -137,22 +138,26 @@ groupByExpr = sgroupByExpr nullabilization
 
 
 listAggExpr :: Expr a -> Aggregate (Expr [a])
-listAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
+listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
+  where
+    from = fromPrimExpr . fromPrimArray
 
 
 nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
-nonEmptyAggExpr = unsafeMakeAggregate unsafeToPrimExpr fromPrimExpr $ Just
+nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
+  where
+    from = fromPrimExpr . fromPrimArray
 
 
 sgroupByExpr :: DBEq db => Nullability db a -> Expr a -> Aggregate (Expr a)
-sgroupByExpr _ = unsafeMakeAggregate unsafeToPrimExpr unsafeFromPrimExpr Nothing
+sgroupByExpr _ = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing

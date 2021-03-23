@@ -6,7 +6,7 @@
 
 module Rel8.Schema.Spec
   ( Spec( Spec )
-  , SSpec( SSpec, labels, necessity, info, nullability, isList )
+  , SSpec( SSpec, labels, necessity, info, nullability )
   , KnownSpec( specSing )
   , Context, KTable
   )
@@ -17,7 +17,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Bool ( SBool, KnownBool, boolSing, IsList )
 import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Kind.Necessity
   ( Necessity
@@ -40,7 +39,6 @@ data SSpec spec where
     , necessity :: SNecessity necessity
     , info :: TypeInformation db
     , nullability :: Nullability db a
-    , isList :: SBool (IsList db)
     }
     -> SSpec ('Spec labels necessity db a)
 
@@ -55,7 +53,6 @@ instance
   , KnownNecessity necessity
   , DBType db
   , Nullabilizes db a
-  , KnownBool (IsList db)
   ) => KnownSpec ('Spec labels necessity db a)
  where
   specSing = SSpec
@@ -63,7 +60,6 @@ instance
     , necessity = necessitySing
     , info = typeInformation
     , nullability = nullabilization
-    , isList = boolSing
     }
 
 
