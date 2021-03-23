@@ -30,6 +30,7 @@ import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
+-- | Run a @SELECT@ query, returning all rows.
 select :: forall exprs a. Serializable exprs a
   => Query exprs -> Connection -> IO [a]
 select query = case sqlForQuery query of
