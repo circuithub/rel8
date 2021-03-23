@@ -51,6 +51,8 @@ nullaryFunction :: (DBType db, Nullabilizes db a) => String -> Expr a
 nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
 
 
+-- | Construct an expression by applying an infix binary operator to two
+-- operands.
 binaryOperator :: (DBType db, Nullabilizes db c)
   => String -> Expr a -> Expr b -> Expr c
 binaryOperator operator a b =
