@@ -47,7 +47,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.HTable.Context ( H )
-import Rel8.Schema.Nullability ( IsMaybe, Nullabilizes )
+import Rel8.Schema.Nullability ( IsMaybe, Sql )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
@@ -151,8 +151,7 @@ instance
 
 
 instance
-  ( DBType db
-  , Nullabilizes db a
+  ( Sql DBType a
   , IsListTabular a ~ 'False
   , x ~ [a]
   ) => ExprsFor 'False 'False [a] (Expr x)
@@ -162,9 +161,9 @@ instance
 
 
 instance
-  ( DBType a
-  , Nullabilizes a (Maybe a)
+  ( Sql DBType a
   , isTabular ~ 'False
+  , IsMaybe a ~ 'False
   , IsMaybeTabular a ~ 'False
   , x ~ Maybe a
   ) => ExprsFor 'False 'False (Maybe a) (Expr x)
@@ -174,8 +173,7 @@ instance
 
 
 instance
-  ( DBType db
-  , Nullabilizes db a
+  ( Sql DBType a
   , IsListTabular a ~ 'False
   , x ~ NonEmpty a
   ) => ExprsFor 'False 'False (NonEmpty a) (Expr x)

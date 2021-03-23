@@ -38,7 +38,7 @@ import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
-import Rel8.Schema.Nullability ( Nullabilizes )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
 import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Type ( DBType )
@@ -82,7 +82,7 @@ instance Table DB a => Table Aggregation (Aggregate a) where
       Aggregation a -> DB <$> a
 
 
-instance (DBType db, Nullabilizes db a) => Table DB (Expr a) where
+instance Sql DBType a => Table DB (Expr a) where
   type Columns (Expr a) = HType a
   type Context (Expr a) = DB
 
@@ -90,7 +90,7 @@ instance (DBType db, Nullabilizes db a) => Table DB (Expr a) where
   fromColumns (HType (DB a)) = a
 
 
-instance (DBType db, Nullabilizes db a) => Table Result (Identity a) where
+instance Sql DBType a => Table Result (Identity a) where
   type Columns (Identity a) = HType a
   type Context (Identity a) = Result
 

@@ -28,7 +28,7 @@ import Rel8.Expr.Opaleye
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( array, zipPrimArraysWith )
 import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Schema.Nullability ( Nullability, Nullabilizes )
+import Rel8.Schema.Nullability ( Unnullify, Nullability, Sql )
 
 
 sappend :: Expr [a] -> Expr [a] -> Expr [a]
@@ -43,11 +43,11 @@ sempty :: Nullability t a -> TypeInformation t -> Expr [a]
 sempty _ info = fromPrimExpr $ array info []
 
 
-listOf :: forall a t. (Nullabilizes t a, DBType t)
-  => [Expr a] -> Expr [a]
-listOf = fromPrimExpr . array (typeInformation @t) . fmap toPrimExpr
+listOf :: forall a. Sql DBType a => [Expr a] -> Expr [a]
+listOf =
+  fromPrimExpr . array (typeInformation @(Unnullify a)) . fmap toPrimExpr
 
 
-nonEmptyOf :: forall a t. (Nullabilizes t a, DBType t)
-  => NonEmpty (Expr a) -> Expr (NonEmpty a)
-nonEmptyOf = fromPrimExpr . array (typeInformation @t) . fmap toPrimExpr
+nonEmptyOf :: forall a. Sql DBType a => NonEmpty (Expr a) -> Expr (NonEmpty a)
+nonEmptyOf =
+  fromPrimExpr . array (typeInformation @(Unnullify a)) . fmap toPrimExpr

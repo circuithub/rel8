@@ -26,7 +26,7 @@ import Data.CaseInsensitive ( CI )
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability ( Nullabilizes, nullabilization )
+import Rel8.Schema.Nullability ( Sql, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -43,7 +43,7 @@ class DBSemigroup a => DBMonoid a where
   memptyExpr :: Expr a
 
 
-instance (DBType db, Nullabilizes db a) => DBMonoid [a] where
+instance Sql DBType a => DBMonoid [a] where
   memptyExpr = sempty nullabilization typeInformation
 
 

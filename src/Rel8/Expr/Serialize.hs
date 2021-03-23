@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 
@@ -22,13 +23,13 @@ import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Schema.Nullability
   ( Nullability( Nullable, NonNullable )
-  , Nullabilizes, nullabilization
+  , Sql, nullabilization
   )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
-litExpr :: (DBType db, Nullabilizes db a) => a -> Expr a
+litExpr :: Sql DBType a => a -> Expr a
 litExpr = slitExpr nullabilization typeInformation
 
 

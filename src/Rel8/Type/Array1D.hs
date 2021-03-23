@@ -43,8 +43,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , Nullabilizes, nullabilization
+  ( Unnullify
+  , Nullability( Nullable, NonNullable )
+  , Sql, nullabilization
   )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
@@ -111,25 +112,25 @@ array1DTypeInformation nullability info =
     null = Opaleye.ConstExpr Opaleye.NullLit
 
 
-instance (DBType db, Nullabilizes db a, IsArray1D db ~ 'False) => DBType (Array1D a) where
+instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBType (Array1D a) where
   typeInformation = array1DTypeInformation nullabilization typeInformation
 
 
-instance (DBEq db, Nullabilizes db a, IsArray1D db ~ 'False) => DBEq (Array1D a)
+instance (Sql DBEq a, IsArray1D (Unnullify a) ~ 'False) => DBEq (Array1D a)
 
 
-instance (DBOrd db, Nullabilizes db a, IsArray1D db ~ 'False) => DBOrd (Array1D a)
+instance (Sql DBOrd a, IsArray1D (Unnullify a) ~ 'False) => DBOrd (Array1D a)
 
 
-instance (DBMax db, Nullabilizes db a, IsArray1D db ~ 'False) => DBMax (Array1D a)
+instance (Sql DBMax a, IsArray1D (Unnullify a) ~ 'False) => DBMax (Array1D a)
 
 
-instance (DBMin db, Nullabilizes db a, IsArray1D db ~ 'False) => DBMin (Array1D a)
+instance (Sql DBMin a, IsArray1D (Unnullify a) ~ 'False) => DBMin (Array1D a)
 
 
-instance (DBType db, Nullabilizes db a, IsArray1D db ~ 'False) => DBSemigroup (Array1D a) where
+instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBSemigroup (Array1D a) where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-instance (DBType db, Nullabilizes db a, IsArray1D db ~ 'False) => DBMonoid (Array1D a) where
+instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBMonoid (Array1D a) where
   memptyExpr = litExpr mempty
