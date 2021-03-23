@@ -28,6 +28,8 @@ import Rel8.Table.Alternative
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
+-- | A @ListTable@ value contains zero or more instances of @a@. You construct
+-- @ListTable@s with 'many' or 'listAgg'.
 type ListTable :: Type -> Type
 newtype ListTable a = ListTable (HListTable (Columns a) (H (Context a)))
 
