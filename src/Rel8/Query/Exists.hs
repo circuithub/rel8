@@ -46,10 +46,34 @@ inQuery :: EqTable a => a -> Query a -> Query (Expr Bool)
 inQuery a = exists . (>>= filter (a ==:))
 
 
+-- | Produce the empty query if the given query returns no rows. @whereExists@
+-- is equivalent to @WHERE EXISTS@ in SQL.
+--
+-- >>> :{
+-- select c do
+--   author <- each authorSchema
+--   whereExists do
+--     project <- each projectSchema
+--     where_ $ projectAuthorId project ==. authorId author
+--   return $ authorName author
+-- :}
+-- ["Ollie","Bryan O'Sullivan"]
 whereExists :: Query a -> Query ()
 whereExists = mapOpaleye Opaleye.restrictExists
 
 
+-- | Produce the empty query if the given query returns rows. @whereNotExists@
+-- is equivalent to @WHERE NOT EXISTS@ in SQL.
+--
+-- >>> :{
+-- select c do
+--   author <- each authorSchema
+--   whereNotExists do
+--     project <- each projectSchema
+--     where_ $ projectAuthorId project ==. authorId author
+--   return $ authorName author
+-- :}
+-- ["Emily Pillmore"]
 whereNotExists :: Query a -> Query ()
 whereNotExists = mapOpaleye Opaleye.restrictNotExists
 
