@@ -29,6 +29,9 @@ import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type ( DBType )
 
 
+-- | This type class exists to allow 'function' to have arbitrary arity. It's
+-- mostly an implementation detail, and typical uses of 'Function' shouldn't
+-- need this to be specified.
 type Function :: Type -> Type -> Constraint
 class Function arg res where
   applyArgument :: ([Opaleye.PrimExpr] -> Opaleye.PrimExpr) -> arg -> res
