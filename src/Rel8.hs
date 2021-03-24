@@ -103,6 +103,7 @@ module Rel8
   , Expr
   , Sql
   , litExpr
+  , unsafeCastExpr
 
     -- ** @null@
   , nullify
@@ -305,6 +306,7 @@ import Rel8.Type.ReadShow
 import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
+import Rel8.Expr.Opaleye (unsafeCastExpr)
 
 
 -- $setup
