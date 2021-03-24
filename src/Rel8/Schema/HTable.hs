@@ -44,6 +44,12 @@ import qualified Rel8.Schema.Kind as K
 import Data.Functor.Apply ( Apply, (<.>) )
 
 
+-- | A @HTable@ is a functor-indexed/higher-kinded data type that is
+-- representable ('htabulate'/'hfield'), constrainable ('hdicts'), and
+-- specified ('hspecs').
+--
+-- This is an internal concept for Rel8, and you should not need to define
+-- instances yourself or specify this constraint.
 type HTable :: K.HTable -> Constraint
 class HTable t where
   type HField t = (field :: Spec -> Type) | field -> t
