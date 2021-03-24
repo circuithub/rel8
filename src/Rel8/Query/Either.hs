@@ -9,6 +9,7 @@ module Rel8.Query.Either
 where
 
 -- base
+import Data.Functor ( (<&>) )
 import Prelude
 
 -- rel8
@@ -40,11 +41,11 @@ keepRightTable e@(EitherTable _ _ b) = do
   pure b
 
 
-bindEitherTable :: (Table Expr a, Monad m)
+bindEitherTable :: (Table Expr a, Functor m)
   => (i -> m (EitherTable a b)) -> EitherTable a i -> m (EitherTable a b)
 bindEitherTable query e@(EitherTable input a i) = do
-  EitherTable output a' b <- query i
-  pure $ EitherTable (input <> output) (bool a a' (isRightTable e)) b
+  query i <&> \(EitherTable output a' b) ->
+    EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
 bitraverseEitherTable :: (Table Expr c, Table Expr d)
