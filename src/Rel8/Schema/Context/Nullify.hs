@@ -35,12 +35,7 @@ import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
-import Rel8.Schema.Context
-  ( Interpretation
-  , Col, Col'(..)
-  , Insertion
-  , Name( Name )
-  )
+import Rel8.Schema.Context ( Interpretation, Col(..), Insertion, Name )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ), Sql )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
@@ -121,8 +116,8 @@ instance Nullifiable Insertion where
 instance Nullifiable Name where
   encodeTag _ = nameFromLabel
   decodeTag _ = mempty
-  nullifier _ _ (Col (Name name)) = Col (Name name)
-  unnullifier _ _ (Col (Name name)) = Col (Name name)
+  nullifier _ _ (NameCol name) = NameCol name
+  unnullifier _ _ (NameCol name) = NameCol name
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -160,4 +155,4 @@ undoGroupBy = getFirst . foldInputs go
 nameFromLabel :: forall labels necessity db a.
   KnownLabels labels => Col Name ('Spec labels necessity db a)
 nameFromLabel = case labelsSing @labels of
-  labels -> Col (Name (NonEmpty.last (renderLabels labels)))
+  labels -> NameCol (NonEmpty.last (renderLabels labels))

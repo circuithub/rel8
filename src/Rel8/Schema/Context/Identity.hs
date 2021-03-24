@@ -19,7 +19,7 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context ( Col, Col'( Result ) )
+import Rel8.Schema.Context ( Col( Result ) )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )

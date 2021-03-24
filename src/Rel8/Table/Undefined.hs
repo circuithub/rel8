@@ -13,7 +13,7 @@ import Prelude hiding ( undefined )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( snull, unsafeUnnullify )
-import Rel8.Schema.Context ( Col'(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Spec ( SSpec(..) )

@@ -31,7 +31,7 @@ import qualified Hasql.Decoders as Hasql
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Context ( Col, Col'(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Identity
   ( fromHEitherTable, toHEitherTable
   , fromHListTable, toHListTable
@@ -77,7 +77,7 @@ type family IsPlainColumn a where
   IsPlainColumn (_, _, _, _) = 'False
   IsPlainColumn (_, _, _, _, _) = 'False
   IsPlainColumn (_ Identity) = 'False
-  IsPlainColumn (_ (Col' _ Identity _)) = 'False
+  IsPlainColumn (_ (Col Identity _)) = 'False
   IsPlainColumn (Identity _) = 'False
   IsPlainColumn _ = 'True
 
@@ -94,8 +94,8 @@ type family IsTabular a where
   IsTabular (_, _, _, _) = 'True
   IsTabular (_, _, _, _, _) = 'True
   IsTabular (_ Identity) = 'True
-  IsTabular (_ (Col' _ Identity)) = 'True
-  IsTabular (Col' _ Identity _) = 'True
+  IsTabular (_ (Col Identity)) = 'True
+  IsTabular (Col Identity _) = 'True
   IsTabular _ = 'False
 
 
@@ -398,7 +398,7 @@ instance
   , isTabular ~ 'True
   , isSpecial ~ 'True
   , x ~ Col Expr spec
-  ) => ExprsFor 'False isTabular (Col' isSpecial Identity spec) x
+  ) => ExprsFor 'False isTabular (Col Identity spec) x
  where
   fromIdentity = fromColumns
   toIdentity = toColumns
@@ -407,7 +407,7 @@ instance
 type FromExprs :: Type -> Type
 type family FromExprs a where
   FromExprs (Expr a) = a
-  FromExprs (Col' _ Expr spec) = Col Identity spec
+  FromExprs (Col Expr spec) = Col Identity spec
   FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
   FromExprs (ListTable a) = [FromExprs a]
   FromExprs (MaybeTable a) = Maybe (FromExprs a)
@@ -420,7 +420,7 @@ type family FromExprs a where
   FromExprs (a, b, c, d, e) =
     (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
   FromExprs (t Expr) = t Identity
-  FromExprs (t (Col' _ Expr)) = t (Col Identity)
+  FromExprs (t (Col Expr)) = t (Col Identity)
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type

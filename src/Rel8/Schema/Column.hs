@@ -20,9 +20,11 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
+import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
-import Rel8.Schema.Context ( IsSpecialContext )
+import Rel8.Schema.Context ( Name, Insertion )
 import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Unnullify )
@@ -112,61 +114,56 @@ type Column context a =
     (UnwrapDefault (UnwrapLabel a))
 
 
-type IHEither :: Bool -> K.Context -> Type -> Type -> Type
-type family IHEither isSpecialContext context where
-  IHEither 'False _ = EitherTable
-  IHEither 'True Identity = Either
-  IHEither 'True Structure = Shape2 'Either
-  IHEither 'True _ = EitherTable
-
-
-type IHList :: Bool -> K.Context -> Type -> Type
-type family IHList isSpecialContext context where
-  IHList 'False _ = ListTable
-  IHList 'True Identity = []
-  IHList 'True Structure = Shape1 'List
-  IHList 'True _ = ListTable
-
-
-type IHMaybe :: Bool -> K.Context -> Type -> Type
-type family IHMaybe isSpecialContext context where
-  IHMaybe 'False _ = MaybeTable
-  IHMaybe 'True Identity = Maybe
-  IHMaybe 'True Structure = Shape1 'Maybe
-  IHMaybe 'True _ = MaybeTable
-
-
-type IHNonEmpty :: Bool -> K.Context -> Type -> Type
-type family IHNonEmpty isSpecialContext context where
-  IHNonEmpty 'False _ = NonEmptyTable
-  IHNonEmpty 'True Identity = NonEmpty
-  IHNonEmpty 'True Structure = Shape1 'NonEmpty
-  IHNonEmpty 'True _ = NonEmptyTable
-
-
-type IHThese :: Bool -> K.Context -> Type -> Type -> Type
-type family IHThese isSpecialContext context where
-  IHThese 'False _ = TheseTable
-  IHThese 'True Identity = These
-  IHThese 'True Structure = Shape2 'These
-  IHThese 'True _ = TheseTable
-
-
 type HEither :: K.Context -> Type -> Type -> Type
-type HEither context = IHEither (IsSpecialContext context) context
+type family HEither context where
+  HEither Structure = Shape2 'Either
+  HEither Aggregate = EitherTable
+  HEither Expr = EitherTable
+  HEither Identity = Either
+  HEither Insertion = EitherTable
+  HEither Name = EitherTable
+  HEither _ = Either
 
 
 type HList :: K.Context -> Type -> Type
-type HList context = IHList (IsSpecialContext context) context
+type family HList context where
+  HList Structure = Shape1 'List
+  HList Aggregate = ListTable
+  HList Expr = ListTable
+  HList Identity = []
+  HList Insertion = ListTable
+  HList Name = ListTable
+  HList _ = []
 
 
 type HMaybe :: K.Context -> Type -> Type
-type HMaybe context = IHMaybe (IsSpecialContext context) context
+type family HMaybe context where
+  HMaybe Structure = Shape1 'Maybe
+  HMaybe Aggregate = MaybeTable
+  HMaybe Expr = MaybeTable
+  HMaybe Identity = Maybe
+  HMaybe Insertion = MaybeTable
+  HMaybe Name = MaybeTable
+  HMaybe _ = Maybe
 
 
 type HNonEmpty :: K.Context -> Type -> Type
-type HNonEmpty context = IHNonEmpty (IsSpecialContext context) context
+type family HNonEmpty context where
+  HNonEmpty Structure = Shape1 'NonEmpty
+  HNonEmpty Aggregate = NonEmptyTable
+  HNonEmpty Expr = NonEmptyTable
+  HNonEmpty Identity = NonEmpty
+  HNonEmpty Insertion = NonEmptyTable
+  HNonEmpty Name = NonEmptyTable
+  HNonEmpty _ = NonEmpty
 
 
 type HThese :: K.Context -> Type -> Type -> Type
-type HThese context = IHThese (IsSpecialContext context) context
+type family HThese context where
+  HThese Structure = Shape2 'These
+  HThese Aggregate = TheseTable
+  HThese Expr = TheseTable
+  HThese Identity = These
+  HThese Insertion = TheseTable
+  HThese Name = TheseTable
+  HThese _ = These

@@ -14,7 +14,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr, caseExpr )
-import Rel8.Schema.Context ( Col'(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Table ( Table, fromColumns, toColumns )
 

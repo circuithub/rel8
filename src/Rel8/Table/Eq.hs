@@ -27,7 +27,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( seq, sne )
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Context ( Col'(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HConstrainTable

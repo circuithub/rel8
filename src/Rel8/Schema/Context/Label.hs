@@ -20,10 +20,7 @@ import Prelude hiding ( null )
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context
-  ( Interpretation, Col, Col'(..), IsSpecialContext
-  , Insertion
-  )
+import Rel8.Schema.Context ( Interpretation, Col(..), Insertion, Name )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( Spec( Spec ) )
 
@@ -64,11 +61,9 @@ instance Labelable Identity where
   unlabeler (Result a) = Result a
 
 
-instance {-# OVERLAPPABLE #-} IsSpecialContext context ~ 'False =>
-  Labelable context
- where
-  labeler (Col a) = Col a
-  unlabeler (Col a) = Col a
+instance Labelable Name where
+  labeler (NameCol a) = NameCol a
+  unlabeler (NameCol a) = NameCol a
 
 
 type HLabelable :: K.HContext -> Constraint
@@ -82,8 +77,6 @@ class HLabelable context where
     -> context ('Spec labels necessity db a)
 
 
-instance (Labelable context, x ~ IsSpecialContext context) =>
-  HLabelable (Col' x context)
- where
+instance Labelable context => HLabelable (Col context) where
   hlabeler = labeler
   hunlabeler = unlabeler

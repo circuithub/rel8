@@ -26,7 +26,7 @@ import Text.Casing ( quietSnake )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( renderLabels )
-import Rel8.Schema.Context ( Col'(..), Name( Name ) )
+import Rel8.Schema.Context ( Col(..), Name )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
@@ -42,14 +42,14 @@ namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {labels} -> Col (Name (f (renderLabels labels)))
+    SSpec {labels} -> NameCol (f (renderLabels labels))
 
 
 showExprs :: Table Expr a => a -> [(String, String)]
 showExprs as = case (namesFromLabels, toColumns as) of
   (names, exprs) -> getConst $ htabulateA $ \field ->
     case (hfield names field, hfield exprs field) of
-      (Col (Name name), DB expr) -> Const [(name, show expr)]
+      (NameCol name, DB expr) -> Const [(name, show expr)]
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]
@@ -61,4 +61,4 @@ showLabels _ = getConst $
 showNames :: forall a. Table Name a => a -> [String]
 showNames (toColumns -> names) = getConst $
   htabulateA @(Columns a) $ \field -> case hfield names field of
-    Col (Name name) -> Const [name]
+    NameCol name -> Const [name]

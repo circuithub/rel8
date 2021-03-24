@@ -25,7 +25,7 @@ import Prelude ()
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context ( Col', Insertion, Name, IsSpecialContext )
+import Rel8.Schema.Context ( Col(..), Insertion, Name )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
@@ -50,8 +50,8 @@ class
     , b from -> a
 
 
-instance (KnownSpec spec, x ~ IsSpecialContext from, y ~ IsSpecialContext to) =>
-  Recontextualize from to (Col' x from spec) (Col' y to spec)
+instance KnownSpec spec =>
+  Recontextualize from to (Col from spec) (Col to spec)
 
 
 instance Sql DBType a =>
@@ -143,8 +143,7 @@ instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
 instance Recontextualize from to (Opaque1 from a) (Opaque1 to a)
 
 
-instance (HTable t, x ~ IsSpecialContext from, y ~ IsSpecialContext to) =>
-  Recontextualize from to (t (Col' x from)) (t (Col' y to))
+instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
 
 
 instance

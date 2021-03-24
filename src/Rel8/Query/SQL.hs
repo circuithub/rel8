@@ -28,7 +28,7 @@ import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
 import qualified Rel8.Query.Optimize as Rel8 ( optimize )
-import Rel8.Schema.Context ( Col'(..), Name( Name ) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( namesFromLabels )
@@ -69,7 +69,7 @@ selectFrom (toColumns -> names) (toColumns -> exprs) query =
   where
     select = Opaleye.foldPrimQuery Opaleye.sqlQueryGenerator query
     attributes = getConst $ htabulateA $ \field -> case hfield names field of
-      Col (Name name) -> case hfield exprs field of
+      NameCol name -> case hfield exprs field of
         DB (toPrimExpr -> expr) -> Const (pure (makeAttr name expr))
     makeAttr label expr =
       (Opaleye.sqlExpr expr, Just (Opaleye.SqlColumn label))

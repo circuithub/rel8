@@ -21,7 +21,7 @@ import Prelude
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr, sgroupByExpr )
-import Rel8.Schema.Context ( Col'(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield, hdicts, hspecs )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )

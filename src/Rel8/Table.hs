@@ -23,9 +23,7 @@ import Prelude
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context
-  ( Col, Col'(..), Insertion(..), Name, IsSpecialContext
-  )
+import Rel8.Schema.Context ( Col(..), Insertion(..), Name(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
@@ -63,22 +61,18 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
 
 
 -- | Any 'HTable' is also a 'Table'.
-instance (HTable t, x ~ IsSpecialContext context) =>
-  Table context (t (Col' x context))
- where
-  type Columns (t (Col' x context)) = t
-  type Context (t (Col' x context)) = context
+instance HTable t => Table context (t (Col context)) where
+  type Columns (t (Col context)) = t
+  type Context (t (Col context)) = context
 
   toColumns = id
   fromColumns = id
 
 
 -- | Any context is trivially a table.
-instance (KnownSpec spec, x ~ IsSpecialContext context) =>
-  Table context (Col' x context spec)
- where
-  type Columns (Col' x context spec) = HIdentity spec
-  type Context (Col' x context spec) = context
+instance KnownSpec spec => Table context (Col context spec) where
+  type Columns (Col context spec) = HIdentity spec
+  type Context (Col context spec) = context
 
   toColumns = HIdentity
   fromColumns = unHIdentity
@@ -123,8 +117,8 @@ instance Sql DBType a => Table Name (Name a) where
   type Columns (Name a) = HType a
   type Context (Name a) = Name
 
-  toColumns a = HType (Col a)
-  fromColumns (HType (Col a)) = a
+  toColumns (Name a) = HType (NameCol a)
+  fromColumns (HType (NameCol a)) = Name a
 
 
 instance

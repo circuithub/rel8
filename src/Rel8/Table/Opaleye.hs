@@ -41,7 +41,7 @@ import Rel8.Expr.Opaleye
   , fromColumn, toColumn
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.Context ( Col, Col'(..), Insertion, Name(..) )
+import Rel8.Schema.Context ( Col(..), Insertion, Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -96,7 +96,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insertion spec) (Col Expr spec)
-    go SSpec {necessity, info, nullability} (Col (Name name)) =
+    go SSpec {necessity, info, nullability} (NameCol name) =
       case necessity of
         SRequired ->
           lmap (\(RequiredInsert a) -> toColumn $ toPrimExpr a) $
