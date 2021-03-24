@@ -8,6 +8,7 @@
 module Rel8.Table.Name
   ( namesFromLabels
   , namesFromLabelsWith
+  , showExprs
   , showLabels
   , showNames
   )
@@ -23,6 +24,7 @@ import Prelude
 import Text.Casing ( quietSnake )
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( renderLabels )
 import Rel8.Schema.Context ( Col'(..), Name( Name ) )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
@@ -41,6 +43,13 @@ namesFromLabelsWith :: Table Name a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {labels} -> Col (Name (f (renderLabels labels)))
+
+
+showExprs :: Table Expr a => a -> [(String, String)]
+showExprs as = case (namesFromLabels, toColumns as) of
+  (names, exprs) -> getConst $ htabulateA $ \field ->
+    case (hfield names field, hfield exprs field) of
+      (Col (Name name), DB expr) -> Const [(name, show expr)]
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]

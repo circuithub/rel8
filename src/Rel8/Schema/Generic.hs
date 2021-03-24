@@ -638,9 +638,9 @@ instance
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel hunlabeler
+    hunlabel unlabeler
   toK1Columns =
-    hlabel hlabeler .
+    hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
@@ -654,9 +654,9 @@ instance
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel hunlabeler
+    hunlabel unlabeler
   toK1Columns =
-    hlabel hlabeler .
+    hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
@@ -670,9 +670,9 @@ instance
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel hunlabeler
+    hunlabel unlabeler
   toK1Columns =
-    hlabel hlabeler .
+    hlabel labeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
