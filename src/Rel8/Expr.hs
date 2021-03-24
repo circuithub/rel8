@@ -40,6 +40,7 @@ import Rel8.Type.Num ( DBFractional, DBNum )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
+-- | Typed SQL expressions.
 type role Expr representational
 type Expr :: Type -> Type
 newtype Expr a = Expr Opaleye.PrimExpr
