@@ -73,6 +73,7 @@ countStar :: Aggregate (Expr Int64)
 countStar = count (litExpr True)
 
 
+-- | A count of the number of times a given expression is @true@.
 countWhere :: Expr Bool -> Aggregate (Expr Int64)
 countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
