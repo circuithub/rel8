@@ -13,12 +13,12 @@ where
 import Prelude
 
 -- rel8
+import Rel8.Expr ( Col(..) )
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
+import Rel8.Schema.Insert ( Inserts, Col(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Recontextualize ( Inserts )
 
 
 -- | @toInsert@ converts a 'Table' of 'Expr's into a 'Table' that can be used

@@ -36,13 +36,13 @@ import GHC.TypeLits ( Symbol, KnownSymbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
+import Rel8.Aggregate ( Aggregate, Col(..) )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Kind.Necessity
   ( SNecessity( SRequired, SOptional )
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Context
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Identity
   ( fromHEitherTable, toHEitherTable
   , fromHListTable, toHListTable
@@ -68,7 +68,9 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Vectorize ( hrelabel )
+import Rel8.Schema.Insert ( Insert, Col(..) )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name( Name ), Col(..) )
 import Rel8.Schema.Spec ( Spec( Spec ), KTable )
 import Rel8.Schema.Structure
   ( IsStructure, Shape(..), Shape1, Shape2
@@ -114,9 +116,9 @@ instance TableHelper Expr where
   gtoColumns = toExprColumns
 
 
-instance TableHelper Insertion where
-  gfromColumns = fromInsertionColumns
-  gtoColumns = toInsertionColumns
+instance TableHelper Insert where
+  gfromColumns = fromInsertColumns
+  gtoColumns = toInsertColumns
 
 
 instance TableHelper Identity where
@@ -181,8 +183,8 @@ class HTable (GRep t) => Rel8able t where
   fromExprColumns :: GRep t (Col Expr) -> t Expr
   toExprColumns :: t Expr -> GRep t (Col Expr)
 
-  fromInsertionColumns :: GRep t (Col Insertion) -> t Insertion
-  toInsertionColumns :: t Insertion -> GRep t (Col Insertion)
+  fromInsertColumns :: GRep t (Col Insert) -> t Insert
+  toInsertColumns :: t Insert -> GRep t (Col Insert)
 
   fromIdentityColumns :: GRep t (Col Identity) -> t Identity
   toIdentityColumns :: t Identity -> GRep t (Col Identity)
@@ -220,19 +222,19 @@ class HTable (GRep t) => Rel8able t where
     ) => t Expr -> GRep t (Col Expr)
   toExprColumns = toGColumns @_ @(Rep (t Structure)) . from
 
-  default fromInsertionColumns ::
-    ( Generic (t Insertion)
+  default fromInsertColumns ::
+    ( Generic (t Insert)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
-    ) => GRep t (Col Insertion) -> t Insertion
-  fromInsertionColumns = to . fromGColumns @_ @(Rep (t Structure))
+    , GRel8able Insert (Rep (t Structure)) (Rep (t Insert))
+    ) => GRep t (Col Insert) -> t Insert
+  fromInsertColumns = to . fromGColumns @_ @(Rep (t Structure))
 
-  default toInsertionColumns ::
-    ( Generic (t Insertion)
+  default toInsertColumns ::
+    ( Generic (t Insert)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
-    ) => t Insertion -> GRep t (Col Insertion)
-  toInsertionColumns = toGColumns @_ @(Rep (t Structure)) . from
+    , GRel8able Insert (Rep (t Structure)) (Rep (t Insert))
+    ) => t Insert -> GRep t (Col Insert)
+  toInsertColumns = toGColumns @_ @(Rep (t Structure)) . from
 
   default fromIdentityColumns ::
     ( Generic (t Identity)
@@ -402,9 +404,9 @@ instance
 
 
 instance
-  ( x ~ Field Insertion '[] necessity db a
+  ( x ~ Field Insert '[] necessity db a
   , KnownNecessity necessity
-  ) => K1Table label Insertion 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ) => K1Table label Insert 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -417,9 +419,9 @@ instance
 
 
 instance
-  ( x ~ Field Insertion (label ': labels) necessity db a
+  ( x ~ Field Insert (label ': labels) necessity db a
   , KnownNecessity necessity
-  ) => K1Table _label Insertion 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ) => K1Table _label Insert 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -520,11 +522,11 @@ instance
 instance
   ( HTable (K1Columns "Left" structure1)
   , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" Insertion (IsStructure structure1) structure1 a
-  , K1Table "Right" Insertion (IsStructure structure2) structure2 b
+  , K1Table "Left" Insert (IsStructure structure1) structure1 a
+  , K1Table "Right" Insert (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
   , KnownSymbol label
-  ) => K1Table label Insertion 'True (Shape2 'Either structure1 structure2) e
+  ) => K1Table label Insert 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -615,11 +617,11 @@ instance
 
 
 instance
-  ( Table Insertion a
+  ( Table Insert a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
   , KnownSymbol label
-  ) => K1Table label Insertion 'True (Shape1 'List structure) as
+  ) => K1Table label Insert 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
   toK1Columns = hrelabel (hlabel hlabeler) . toColumns
@@ -688,10 +690,10 @@ instance
 
 instance
   ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" Insertion (IsStructure structure) structure a
+  , K1Table "Just" Insert (IsStructure structure) structure a
   , ma ~ MaybeTable a
   , KnownSymbol label
-  ) => K1Table label Insertion 'True (Shape1 'Maybe structure) ma
+  ) => K1Table label Insert 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @structure) .
@@ -766,11 +768,11 @@ instance
 
 
 instance
-  ( Table Insertion a
+  ( Table Insert a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
   , KnownSymbol label
-  ) => K1Table label Insertion 'True (Shape1 'NonEmpty structure) as
+  ) => K1Table label Insert 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
   toK1Columns = hrelabel (hlabel hlabeler) . toColumns
@@ -852,11 +854,11 @@ instance
 instance
   ( HTable (K1Columns "Here" structure1)
   , HTable (K1Columns "There" structure2)
-  , K1Table "Here" Insertion (IsStructure structure1) structure1 a
-  , K1Table "There" Insertion (IsStructure structure2) structure2 b
+  , K1Table "Here" Insert (IsStructure structure1) structure1 a
+  , K1Table "There" Insert (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
   , KnownSymbol label
-  ) => K1Table label Insertion 'True (Shape2 'These structure1 structure2) e
+  ) => K1Table label Insert 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2

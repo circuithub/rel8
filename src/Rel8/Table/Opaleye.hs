@@ -33,7 +33,7 @@ import Data.Profunctor ( dimap, lmap )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate( Aggregate ) )
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye
   ( scastExpr
   , fromPrimExpr, toPrimExpr
@@ -41,12 +41,12 @@ import Rel8.Expr.Opaleye
   , fromColumn, toColumn
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.Context ( Col(..), Insertion, Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
+import Rel8.Schema.Insert ( Insert, Inserts, Col(..) )
+import Rel8.Schema.Name ( Name, Selects, Col(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
-import Rel8.Table.Recontextualize ( Selects, Inserts )
 import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
@@ -95,7 +95,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       specs -> case hfield names field of
         name -> lmap (`hfield` field) (go specs name)
   where
-    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insertion spec) (Col Expr spec)
+    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
     go SSpec {necessity, info, nullability} (NameCol name) =
       case necessity of
         SRequired ->

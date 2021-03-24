@@ -21,7 +21,7 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import Rel8.Query ( Query )
 import Rel8.Query.SQL ( sqlForQuery, sqlForQueryWithNames )
-import Rel8.Table.Recontextualize ( Selects )
+import Rel8.Schema.Name ( Selects )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text

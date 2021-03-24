@@ -15,9 +15,9 @@ import Data.Functor.Contravariant ( (>$<), contramap )
 import Prelude
 
 -- rel8
+import Rel8.Expr ( unDB )
 import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
-import Rel8.Schema.Context ( unDB )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hdicts, hspecs)
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )

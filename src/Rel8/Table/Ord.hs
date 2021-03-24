@@ -20,12 +20,11 @@ import Data.Kind ( Constraint, Type )
 import Prelude hiding ( seq )
 
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( seq )
 import Rel8.Expr.Ord ( slt, sgt)
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HConstrainTable

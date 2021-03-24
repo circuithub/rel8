@@ -15,9 +15,8 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Array ( sappend1 )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )

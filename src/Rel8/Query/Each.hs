@@ -14,10 +14,10 @@ import qualified Opaleye.Table as Opaleye
 -- rel8
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye )
+import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Opaleye ( table, unpackspec )
-import Rel8.Table.Recontextualize ( Selects )
 
 
 -- | Select each row from a table definition. This is equivalent to @FROM

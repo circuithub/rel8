@@ -213,7 +213,6 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
-  , Insertion
   , toInsert
   , toInsertDefaults
 
@@ -271,10 +270,10 @@ import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
 import Rel8.Schema.Column
-import Rel8.Schema.Context (Name, Insertion)
 import Rel8.Schema.Context.Label
 import Rel8.Schema.Generic
 import Rel8.Schema.HTable
+import Rel8.Schema.Name
 import Rel8.Schema.Nullability
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
@@ -295,7 +294,6 @@ import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
-import Rel8.Table.Recontextualize
 import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Type

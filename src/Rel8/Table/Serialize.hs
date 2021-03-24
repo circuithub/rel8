@@ -28,7 +28,7 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Encodes, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col(..) )
@@ -54,7 +54,6 @@ import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Table.Recontextualize ( Encodes )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 

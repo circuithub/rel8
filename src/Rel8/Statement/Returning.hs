@@ -12,7 +12,7 @@ import Data.Kind ( Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Table.Recontextualize ( Selects )
+import Rel8.Schema.Name ( Selects )
 import Rel8.Table.Serialize ( Serializable )
 
 

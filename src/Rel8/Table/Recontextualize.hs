@@ -1,5 +1,4 @@
 {-# language DataKinds #-}
-{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language StandaloneKindSignatures #-}
@@ -9,10 +8,6 @@
 
 module Rel8.Table.Recontextualize
   ( Recontextualize
-  , Aggregates
-  , Encodes
-  , Selects
-  , Inserts
   )
 where
 
@@ -22,10 +17,8 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
-import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context ( Col(..), Insertion, Name )
+import Rel8.Opaque ( Opaque1 )
+import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
@@ -54,57 +47,21 @@ instance KnownSpec spec =>
   Recontextualize from to (Col from spec) (Col to spec)
 
 
-instance Sql DBType a =>
-  Recontextualize Aggregate Aggregate (Aggregate (Expr a)) (Aggregate (Expr a))
-
-
-instance Sql DBType a =>
-  Recontextualize Aggregate Expr (Aggregate (Expr a)) (Expr a)
-
-
-instance Sql DBType a =>
-  Recontextualize Aggregate Identity (Aggregate (Expr a)) (Identity a)
-
-
+{-
 instance Sql DBType a =>
   Recontextualize Aggregate Insertion (Aggregate (Expr a)) (Insertion a)
 
 
-instance Sql DBType a =>
-  Recontextualize Aggregate Name (Aggregate (Expr a)) (Name a)
-
-
-instance Sql DBType a =>
-  Recontextualize Expr Aggregate (Expr a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Expr Expr (Expr a) (Expr a)
-
-
-instance Sql DBType a => Recontextualize Expr Identity (Expr a) (Identity a)
-
-
 instance Sql DBType a => Recontextualize Expr Insertion (Expr a) (Insertion a)
-
-
-instance Sql DBType a => Recontextualize Expr Name (Expr a) (Name a)
-
-
-instance Sql DBType a =>
-  Recontextualize Identity Aggregate (Identity a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Identity Expr (Identity a) (Expr a)
+-}
 
 
 instance Sql DBType a => Recontextualize Identity Identity (Identity a) (Identity a)
 
 
+{-
 instance Sql DBType a =>
   Recontextualize Identity Insertion (Identity a) (Insertion a)
-
-
-instance Sql DBType a => Recontextualize Identity Name (Identity a) (Name a)
 
 
 instance Sql DBType a =>
@@ -124,20 +81,8 @@ instance Sql DBType a => Recontextualize Insertion Insertion (Insertion a) (Inse
 instance Sql DBType a => Recontextualize Insertion Name (Insertion a) (Name a)
 
 
-instance Sql DBType a =>
-  Recontextualize Name Aggregate (Name a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Name Expr (Name a) (Expr a)
-
-
-instance Sql DBType a => Recontextualize Name Identity (Name a) (Identity a)
-
-
 instance Sql DBType a => Recontextualize Name Insertion (Name a) (Insertion a)
-
-
-instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
+-}
 
 
 instance Recontextualize from to (Opaque1 from a) (Opaque1 to a)
@@ -188,19 +133,7 @@ instance
   ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)
 
 
--- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
--- for the columns in @b@.
-type Aggregates :: Type -> Type -> Constraint
-class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance {-# OVERLAPPING #-} Aggregates (Opaque1 Aggregate Opaque) (Opaque1 Expr Opaque)
-
-
-type Encodes :: Type -> Type -> Constraint
-class Recontextualize Identity Expr a exprs => Encodes a exprs
-instance Recontextualize Identity Expr a exprs => Encodes a exprs
-instance {-# OVERLAPPING #-} Encodes (Opaque1 Identity Opaque) (Opaque1 Expr Opaque)
-
+{-
 
 -- | @Inserts a b@ means that the columns in @a@ are compatible for inserting
 -- with the table @b@.
@@ -208,11 +141,4 @@ type Inserts :: Type -> Type -> Constraint
 class Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
 instance Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
 instance {-# OVERLAPPING #-} Inserts (Opaque1 Expr Opaque) (Opaque1 Insertion Opaque)
-
-
--- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for
--- the 'Expr' columns in @b@.
-type Selects :: Type -> Type -> Constraint
-class Recontextualize Name Expr names exprs => Selects names exprs
-instance Recontextualize Name Expr names exprs => Selects names exprs
-instance {-# OVERLAPPING #-} Selects (Opaque1 Name Opaque) (Opaque1 Expr Opaque)
+-}

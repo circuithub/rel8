@@ -18,10 +18,9 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
+import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr, sgroupByExpr )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield, hdicts, hspecs )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
@@ -31,7 +30,6 @@ import Rel8.Table ( Table, Columns, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Table.Recontextualize ( Aggregates )
 import Rel8.Type.Eq ( DBEq )
 
 

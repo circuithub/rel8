@@ -20,12 +20,11 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
+import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Opaque ( Opaque, Opaque1 )
-import Rel8.Schema.Context ( Col(..), Insertion(..), Name(..) )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
+import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
@@ -35,7 +34,7 @@ import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
+import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Type ( DBType )
 
 
@@ -78,25 +77,6 @@ instance KnownSpec spec => Table context (Col context spec) where
   fromColumns = unHIdentity
 
 
-instance Table Expr a => Table Aggregate (Aggregate a) where
-  type Columns (Aggregate a) = Columns a
-  type Context (Aggregate a) = Aggregate
-
-  toColumns a = htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> Aggregation $ unDB . (`hfield` field) . toColumns <$> a
-  fromColumns as = fmap fromColumns $ htabulateA $ \field ->
-    case hfield as field of
-      Aggregation a -> DB <$> a
-
-
-instance Sql DBType a => Table Expr (Expr a) where
-  type Columns (Expr a) = HType a
-  type Context (Expr a) = Expr
-
-  toColumns a = HType (DB a)
-  fromColumns (HType (DB a)) = a
-
-
 instance Sql DBType a => Table Identity (Identity a) where
   type Columns (Identity a) = HType a
   type Context (Identity a) = Identity
@@ -105,20 +85,14 @@ instance Sql DBType a => Table Identity (Identity a) where
   fromColumns (HType (Result a)) = Identity a
 
 
+{-}
 instance Sql DBType a => Table Insertion (Insertion a) where
   type Columns (Insertion a) = HType a
   type Context (Insertion a) = Insertion
 
   toColumns (Insertion a) = HType (RequiredInsert a)
   fromColumns (HType (RequiredInsert a)) = Insertion a
-
-
-instance Sql DBType a => Table Name (Name a) where
-  type Columns (Name a) = HType a
-  type Context (Name a) = Name
-
-  toColumns (Name a) = HType (NameCol a)
-  fromColumns (HType (NameCol a)) = Name a
+-}
 
 
 instance

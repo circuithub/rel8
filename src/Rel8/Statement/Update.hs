@@ -31,12 +31,12 @@ import Data.Profunctor ( lmap )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
+import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Opaleye ( table, unpackspec )
-import Rel8.Table.Recontextualize ( Selects )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text

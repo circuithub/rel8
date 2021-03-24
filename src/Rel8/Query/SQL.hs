@@ -23,16 +23,15 @@ import qualified Opaleye.Internal.QueryArr as Opaleye hiding ( Select )
 import qualified Opaleye.Internal.Sql as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
 import qualified Rel8.Query.Optimize as Rel8 ( optimize )
-import Rel8.Schema.Context ( Col(..) )
+import Rel8.Schema.Name ( Selects, Col(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( namesFromLabels )
-import Rel8.Table.Recontextualize ( Selects )
 
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@

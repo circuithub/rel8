@@ -24,9 +24,10 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
-import Rel8.Schema.Context ( Name, Insertion )
 import Rel8.Schema.Field ( Field )
+import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Nullability ( Unnullify )
 import Rel8.Schema.Structure
   ( Structure
@@ -120,7 +121,7 @@ type family HEither context where
   HEither Aggregate = EitherTable
   HEither Expr = EitherTable
   HEither Identity = Either
-  HEither Insertion = EitherTable
+  HEither Insert = EitherTable
   HEither Name = EitherTable
   HEither _ = Either
 
@@ -131,7 +132,7 @@ type family HList context where
   HList Aggregate = ListTable
   HList Expr = ListTable
   HList Identity = []
-  HList Insertion = ListTable
+  HList Insert = ListTable
   HList Name = ListTable
   HList _ = []
 
@@ -142,7 +143,7 @@ type family HMaybe context where
   HMaybe Aggregate = MaybeTable
   HMaybe Expr = MaybeTable
   HMaybe Identity = Maybe
-  HMaybe Insertion = MaybeTable
+  HMaybe Insert = MaybeTable
   HMaybe Name = MaybeTable
   HMaybe _ = Maybe
 
@@ -153,7 +154,7 @@ type family HNonEmpty context where
   HNonEmpty Aggregate = NonEmptyTable
   HNonEmpty Expr = NonEmptyTable
   HNonEmpty Identity = NonEmpty
-  HNonEmpty Insertion = NonEmptyTable
+  HNonEmpty Insert = NonEmptyTable
   HNonEmpty Name = NonEmptyTable
   HNonEmpty _ = NonEmpty
 
@@ -164,6 +165,6 @@ type family HThese context where
   HThese Aggregate = TheseTable
   HThese Expr = TheseTable
   HThese Identity = These
-  HThese Insertion = TheseTable
+  HThese Insert = TheseTable
   HThese Name = TheseTable
   HThese _ = These
