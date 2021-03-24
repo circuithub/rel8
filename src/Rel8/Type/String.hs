@@ -25,6 +25,8 @@ import Data.Text ( Text )
 import qualified Data.Text.Lazy as Lazy ( Text )
 
 
+-- | The class of data types that support the @string_agg()@ aggregation
+-- function.
 type DBString :: Type -> Constraint
 class DBType a => DBString a
 instance DBString Text
