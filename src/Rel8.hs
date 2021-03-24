@@ -134,6 +134,7 @@ module Rel8
   , Function
   , function
   , nullaryFunction
+  , binaryOperator
 
     -- * Queries
   , Query
