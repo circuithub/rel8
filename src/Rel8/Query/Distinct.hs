@@ -32,11 +32,17 @@ distinct :: EqTable a => Query a -> Query a
 distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
 
 
+-- | Select all distinct rows from a query, where rows are equivalent according
+-- to a projection. If multiple rows have the same projection, it is
+-- unspecified which row will be returned. If this matters, use 'distinctOnBy'.
 distinctOn :: EqTable b => (a -> b) -> Query a -> Query a
 distinctOn proj =
   mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOn unpackspec proj . Opaleye.runSimpleQueryArr q))
 
 
+-- | Select all distinct rows from a query, where rows are equivalent according
+-- to a projection. If there are multiple rows with the same projection, the
+-- first row according to the specified 'Order' will be returned.
 distinctOnBy :: EqTable b => (a -> b) -> Order a -> Query a -> Query a
 distinctOnBy proj (Order order) =
   mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOnBy unpackspec proj order . Opaleye.runSimpleQueryArr q))
