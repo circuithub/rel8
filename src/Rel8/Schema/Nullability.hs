@@ -84,6 +84,12 @@ instance Nullabilizes' (IsMaybe ma) a ma => Nullabilizes a ma
 instance {-# OVERLAPPING #-} Nullabilizes Opaque Opaque
 
 
+-- | The @Sql@ type class describes both null and not null database values,
+-- constrained by a specific class.
+--
+-- For example, if you see @Sql DBEq a@, this means any database type that
+-- supports equality, and @a@ can either be exactly an @a@, or it could also be
+-- @Maybe a@.
 type Sql :: (Type -> Constraint) -> Type -> Constraint
 class
   ( (forall c. (forall x. (constraint x => c x)) => Sql c a)
