@@ -116,7 +116,11 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
     , distinction = Opaleye.AggrAll
     }
 
--- | Corresponds to @sum@.
+-- | Corresponds to @sum@. Note that in SQL, @sum@ is type changing - for
+-- example the @sum@ of @integer@ returns a @bigint@. Rel8 doesn't support
+-- this, and will add explicit cast back to the original input type. This can
+-- lead to overflows, and if you anticipate very large sums, you should upcast
+-- your input.
 sum :: Sql DBSum a => Expr a -> Aggregate (Expr a)
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
