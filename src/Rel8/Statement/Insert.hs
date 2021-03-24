@@ -15,7 +15,6 @@ where
 
 -- base
 import Control.Exception ( throwIO )
-import Control.Monad ( (>=>) )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Prelude
@@ -77,13 +76,13 @@ data OnConflict
 --   }
 -- :}
 -- 1
-insert :: Insert a -> Connection -> IO a
-insert Insert {into, rows, onConflict, returning} =
+insert :: Connection -> Insert a -> IO a
+insert c Insert {into, rows, onConflict, returning} =
   case (rows, returning) of
-    ([], NumberOfRowsAffected) -> const $ pure 0
-    ([], Projection _) -> const $ pure []
+    ([], NumberOfRowsAffected) -> pure 0
+    ([], Projection _) -> pure []
 
-    (x:xs, NumberOfRowsAffected) -> Hasql.run session >=> either throwIO pure
+    (x:xs, NumberOfRowsAffected) -> Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
@@ -96,7 +95,7 @@ insert Insert {into, rows, onConflict, returning} =
             into' = table $ toColumns <$> into
             rows' = toColumns <$> x :| xs
 
-    (x:xs, Projection project) -> Hasql.run session >=> either throwIO pure
+    (x:xs, Projection project) -> Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
