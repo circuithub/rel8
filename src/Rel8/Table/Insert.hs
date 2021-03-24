@@ -21,6 +21,10 @@ import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Inserts )
 
 
+-- | @toInsert@ converts a 'Table' of 'Expr's into a 'Table' that can be used
+-- with 'insert'. This will override any columns that have default values to
+-- use exactly what is given. If you want to use default values, you can either
+-- override the result of @toInsert@, or use 'toInsertDefaults'.
 toInsert :: Inserts exprs inserts => exprs -> inserts
 toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
@@ -30,6 +34,14 @@ toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
         SOptional -> OptionalInsert (Just expr)
 
 
+-- | @toInsertDefaults@ converts a 'Table' of 'Expr's into a 'Table' that can
+-- be used with 'insert'. Any columns that have a default value will override
+-- whatever is in the input expression. 
+--
+-- One example where this is useful is for any table that has a special @id@
+-- column, which has a default value to draw a new value from a sequence. If we
+-- use 'toInsertDefaults', we can provide a dummy value that will be replaced
+-- with a call to @DEFAULT@.
 toInsertDefaults :: Inserts exprs inserts => exprs -> inserts
 toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
