@@ -35,6 +35,8 @@ import Rel8.Table.Recontextualize ( Aggregates )
 import Rel8.Type.Eq ( DBEq )
 
 
+-- | Group equal tables together. This works by aggregating each column in the
+-- given table with 'groupByExpr'.
 groupBy :: forall exprs. EqTable exprs => exprs -> Aggregate exprs
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield dicts field of
