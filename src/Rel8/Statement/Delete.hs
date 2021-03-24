@@ -13,7 +13,6 @@ where
 
 -- base
 import Control.Exception ( throwIO )
-import Control.Monad ( (>=>) )
 import Data.Kind ( Type )
 import Prelude
 
@@ -75,10 +74,10 @@ data Delete a where
 -- >>> mapM_ print =<< select c (each projectSchema)
 -- Project {projectAuthorId = 2, projectName = "aeson"}
 -- Project {projectAuthorId = 2, projectName = "text"}
-delete :: Delete a -> Connection -> IO a
-delete Delete {from, deleteWhere, returning} =
+delete :: Connection -> Delete a -> IO a
+delete c Delete {from, deleteWhere, returning} =
   case returning of
-    NumberOfRowsAffected -> Hasql.run session >=> either throwIO pure
+    NumberOfRowsAffected -> Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
@@ -91,7 +90,7 @@ delete Delete {from, deleteWhere, returning} =
             from' = table $ toColumns <$> from
             where' = toColumn . toPrimExpr . deleteWhere . fromColumns
 
-    Projection project -> Hasql.run session >=> either throwIO pure
+    Projection project -> Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare

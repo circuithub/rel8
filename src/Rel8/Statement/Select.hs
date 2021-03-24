@@ -9,7 +9,6 @@ where
 
 -- base
 import Control.Exception ( throwIO )
-import Control.Monad ( (>=>) )
 import Prelude
 
 -- hasql
@@ -32,10 +31,10 @@ import Data.Text.Encoding ( encodeUtf8 )
 
 -- | Run a @SELECT@ query, returning all rows.
 select :: forall exprs a. Serializable exprs a
-  => Query exprs -> Connection -> IO [a]
-select query = case sqlForQuery query of
-  Nothing -> const $ pure []
-  Just sql -> Hasql.run session >=> either throwIO pure
+  => Connection -> Query exprs -> IO [a]
+select c query = case sqlForQuery query of
+  Nothing -> pure []
+  Just sql -> Hasql.run session c >>= either throwIO pure
     where
       session = Hasql.statement () statement
       statement = Hasql.Statement bytes params decode prepare
@@ -49,10 +48,10 @@ selectWithNames :: forall exprs a names.
   ( Selects names exprs
   , Serializable exprs a
   )
-  => names -> Query exprs -> Connection -> IO [a]
-selectWithNames names query = case sqlForQueryWithNames names query of
-  Nothing -> const $ pure []
-  Just sql -> Hasql.run session >=> either throwIO pure
+  => Connection -> names -> Query exprs -> IO [a]
+selectWithNames c names query = case sqlForQueryWithNames names query of
+  Nothing -> pure []
+  Just sql -> Hasql.run session c >>= either throwIO pure
     where
       session = Hasql.statement () statement
       statement = Hasql.Statement bytes params decode prepare
