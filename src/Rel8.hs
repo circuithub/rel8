@@ -96,6 +96,7 @@ module Rel8
     -- ** Table schemas
   , TableSchema(..)
   , Name
+  , namesFromLabels
 
     -- * Expressions
   , Expr
@@ -284,6 +285,7 @@ import Rel8.Table.Eq
 import Rel8.Table.Insert
 import Rel8.Table.List
 import Rel8.Table.Maybe
+import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
