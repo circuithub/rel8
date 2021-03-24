@@ -19,6 +19,8 @@ import Rel8.Type ( DBType )
 import Data.Scientific ( Scientific )
 
 
+-- | The class of database types that support the @+@, @*@, @-@ operators, and
+-- the @abs@, @negate@, @sign@ functions.
 type DBNum :: Type -> Constraint
 class DBType a => DBNum a
 instance DBNum Int16
@@ -36,7 +38,7 @@ instance DBIntegral Int32
 instance DBIntegral Int64
 
 
-type DBFractional :: Type -> Constraint
+-- | The class of database types that support the @/@ operator.
 class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
