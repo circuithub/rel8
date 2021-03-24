@@ -54,8 +54,8 @@ sne = \case
 
 
 sin :: (DBEq db, Foldable f)
-  => Nullability db a -> f (Expr a) -> Expr a -> Expr Bool
-sin nullability (toList -> as) a = case nullability of
+  => Nullability db a -> Expr a -> f (Expr a) -> Expr Bool
+sin nullability a (toList -> as) = case nullability of
   Nullable -> or_ $ map (seq Nullable a) as
   NonNullable -> case nonEmpty as of
      Nothing -> false
@@ -128,5 +128,5 @@ infix 4 /=?
 --
 -- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
 -- [False]
-in_ :: (Sql DBEq a, Foldable f) => f (Expr a) -> Expr a -> Expr Bool
+in_ :: (Sql DBEq a, Foldable f) => Expr a -> f (Expr a) -> Expr Bool
 in_ = sin nullabilization
