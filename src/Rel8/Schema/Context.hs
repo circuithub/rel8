@@ -84,6 +84,10 @@ type Insertion :: K.Context
 newtype Insertion a = Insertion (Expr a)
 
 
+-- | A @Name@ is the name of a column, as it would be defined in a table's
+-- schema definition. You can construct names by using the @OverloadedStrings@
+-- extension and writing string literals. This is typically done when providing
+-- a 'TableSchema' value.
 type Name :: K.Context
 newtype Name a = Name String
   deriving stock Show
