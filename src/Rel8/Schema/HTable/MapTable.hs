@@ -2,6 +2,7 @@
 {-# language BlockArguments #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
+{-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
@@ -75,3 +76,4 @@ class MapSpec f where
 
 type ComposeConstraint :: (a -> Exp b) -> (b -> Constraint) -> a -> Constraint
 class c (Eval (f a)) => ComposeConstraint f c a
+instance c (Eval (f a)) => ComposeConstraint f c a
