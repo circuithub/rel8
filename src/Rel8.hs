@@ -39,6 +39,7 @@ module Rel8
     -- * Tables and higher-kinded tables
   , Rel8able
   , Column
+  , Default, Label
   , HMaybe
   , HList
   , HNonEmpty
