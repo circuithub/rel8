@@ -40,6 +40,9 @@ import Rel8.Table.Eq ( EqTable )
 import Rel8.Type.Ord ( DBOrd )
 
 
+-- | The class of 'Table's that can be ordered. Ordering on tables is defined
+-- by their lexicographic ordering of all columns, so this class means "all
+-- columns in a 'Table' have an instance of 'DBOrd'".
 type OrdTable :: Type -> Constraint
 class
   ( EqTable a
@@ -52,6 +55,8 @@ instance
 instance {-# OVERLAPPING #-} OrdTable Opaque
 
 
+-- | Test if one 'Table' sorts before another. Corresponds to comparing all
+-- columns with '<'.
 (<:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) <: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
@@ -67,6 +72,8 @@ instance {-# OVERLAPPING #-} OrdTable Opaque
 infix 4 <:
 
 
+-- | Test if one 'Table' sorts before, or is equal to, another. Corresponds to
+-- comparing all columns with '<='.
 (<=:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) <=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
@@ -82,6 +89,8 @@ infix 4 <:
 infix 4 <=:
 
 
+-- | Test if one 'Table' sorts after another. Corresponds to comparing all
+-- columns with '>'.
 (>:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) >: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
@@ -97,6 +106,8 @@ infix 4 <=:
 infix 4 >:
 
 
+-- | Test if one 'Table' sorts after another. Corresponds to comparing all
+-- columns with '>='.
 (>=:) :: forall a. OrdTable a => a -> a -> Expr Bool
 (toColumns -> as) >=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
@@ -112,9 +123,11 @@ infix 4 >:
 infix 4 >=:
 
 
+-- | Given two 'Table's, return the table that sorts before the other.
 least :: OrdTable a => a -> a -> a
 least a b = bool a b (a <: b)
 
 
+-- | Given two 'Table's, return the table that sorts after the other.
 greatest :: OrdTable a => a -> a -> a
 greatest a b = bool a b (a >: b)
