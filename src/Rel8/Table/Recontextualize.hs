@@ -189,6 +189,8 @@ instance
   ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)
 
 
+-- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
+-- for the columns in @b@.
 type Aggregates :: Type -> Type -> Constraint
 class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
@@ -201,12 +203,16 @@ instance Recontextualize Identity Expr a exprs => Encodes a exprs
 instance {-# OVERLAPPING #-} Encodes (Opaque1 Identity Opaque) (Opaque1 Expr Opaque)
 
 
+-- | @Inserts a b@ means that the columns in @a@ are compatible for inserting
+-- with the table @b@.
 type Inserts :: Type -> Type -> Constraint
 class Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
 instance Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
 instance {-# OVERLAPPING #-} Inserts (Opaque1 Expr Opaque) (Opaque1 Insertion Opaque)
 
 
+-- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for
+-- the 'Expr' columns in @b@.
 type Selects :: Type -> Type -> Constraint
 class Recontextualize Name Expr names exprs => Selects names exprs
 instance Recontextualize Name Expr names exprs => Selects names exprs
