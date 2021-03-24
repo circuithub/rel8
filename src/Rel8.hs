@@ -111,6 +111,7 @@ module Rel8
   , isNull
   , isNonNull
   , mapNullable
+  , liftOpNullable
   , catNullable
 
     -- ** Boolean operations
