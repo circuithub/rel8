@@ -136,6 +136,48 @@ instance (IsSpecialContext context ~ 'False, Labelable context, Nullifiable cont
   gtoColumns = toUnspecialColumns
 
 
+-- | This type class allows you to define custom 'Table's using higher-kinded
+-- data types. Higher-kinded data types are data types of the pattern:
+--
+-- @
+-- data MyType f =
+--   MyType { field1 :: Column f T1 OR HK1 f
+--          , field2 :: Column f T2 OR HK2 f
+--          , ...
+--          , fieldN :: Column f Tn OR HKn f
+--          }
+-- @
+-- 
+-- where @Tn@ is any Haskell type, and @HKn@ is any higher-kinded type.
+-- 
+-- That is, higher-kinded data are records where all fields in the record are
+-- all either of the type @Column f T@ (for any @T@), or are themselves
+-- higher-kinded data:
+-- 
+-- [Nested]
+-- 
+-- @
+-- data Nested f =
+--   Nested { nested1 :: MyType f
+--          , nested2 :: MyType f
+--          }
+-- @
+-- 
+-- The @Rel8able@ type class is used to give us a special mapping operation
+-- that lets us change the type parameter @f@.
+-- 
+-- [Supplying @Rel8able@ instances]
+-- 
+-- This type class should be derived generically for all table types in your
+-- project. To do this, enable the @DeriveAnyType@ and @DeriveGeneric@ language
+-- extensions:
+-- 
+-- @
+-- \{\-\# LANGUAGE DeriveAnyClass, DeriveGeneric #-\}
+-- 
+-- data MyType f = MyType { fieldA :: Column f T }
+--   deriving ( GHC.Generics.Generic, Rel8able )
+-- @
 type Rel8able :: KTable -> Constraint
 class HTable (GRep t) => Rel8able t where
   type GRep t :: K.HTable
