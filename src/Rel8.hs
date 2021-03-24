@@ -55,7 +55,7 @@ module Rel8
 
     -- ** @MaybeTable@
   , MaybeTable
-  , maybeTable, nothingTable, justTable
+  , maybeTable, ($?), nothingTable, justTable
   , isNothingTable, isJustTable
   , optional
   , catMaybeTable
