@@ -106,6 +106,7 @@ module Rel8
   , unsafeCastExpr
 
     -- ** @null@
+  , null
   , nullify
   , nullable
   , isNull
