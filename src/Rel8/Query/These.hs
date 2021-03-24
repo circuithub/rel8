@@ -40,6 +40,7 @@ import Rel8.Table.These
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
 
 
+-- | Corresponds to a @FULL OUTER JOIN@ between two queries.
 alignBy :: (Table Expr a, Table Expr b)
   => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
