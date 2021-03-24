@@ -19,6 +19,7 @@ module Rel8.Expr.Time
   , minute, minutes
   , hour, hours
   , day, days
+  , week, weeks
   , month, months
   , year, years
   ) where
@@ -129,6 +130,16 @@ day = singleton "day"
 -- | Create a literal interval from a number of days.
 days ::  Expr Double -> Expr DiffTime
 days = (`scaleInterval` day)
+
+
+-- | An interval of one week.
+week :: Expr DiffTime
+week = singleton "week"
+
+
+-- | Create a literal interval from a number of weeks.
+weeks ::  Expr Double -> Expr DiffTime
+weeks = (`scaleInterval` week)
 
 
 -- | An interval of one month.
