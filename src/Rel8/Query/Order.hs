@@ -15,5 +15,6 @@ import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( mapOpaleye )
 
 
+-- | Order the rows returned by a query.
 orderBy :: Order a -> Query a -> Query a
 orderBy (Order o) = mapOpaleye (Opaleye.orderBy o)
