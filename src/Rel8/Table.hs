@@ -41,9 +41,21 @@ import Rel8.Schema.Spec ( SSpec( SSpec ), KnownSpec )
 import Rel8.Type ( DBType )
 
 
+-- | @Table@s are one of the foundational elements of Rel8, and describe data
+-- types that have a finite number of columns. Each of these columns contains
+-- data under a shared context, and contexts describe how to interpret the
+-- metadata about a column to a particular Haskell type. In Rel8, we have
+-- contexts for expressions (the 'Expr' context), aggregations (the 'Aggregate'
+-- context), insert values (the 'Insert' contex), among others.
+--
+-- In typical usage of Rel8 you don't need to derive instances of 'Table'
+-- yourself, as anything that's an instance of 'Rel8able' is always a 'Table'.
 type Table :: K.Context -> Type -> Constraint
 class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
+  -- | The 'HTable' functor that describes the schema of this table.
   type Columns a :: K.HTable
+
+  -- | The common context that all columns use as an interpretation.
   type Context a :: K.Context
 
   toColumns :: a -> Columns a (Col (Context a))
