@@ -23,11 +23,12 @@ import qualified Opaleye.Internal.QueryArr as Opaleye hiding ( Select )
 import qualified Opaleye.Internal.Sql as Opaleye
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
 import qualified Rel8.Query.Optimize as Rel8 ( optimize )
-import Rel8.Schema.Context ( DB( DB ), Name( Name ) )
+import Rel8.Schema.Context ( Col'(..), Name( Name ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( namesFromLabels )
@@ -36,11 +37,11 @@ import Rel8.Table.Recontextualize ( Selects )
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@
 -- statement.
-showQuery :: Table DB a => Query a -> String
+showQuery :: Table Expr a => Query a -> String
 showQuery = fold . sqlForQuery
 
 
-sqlForQuery :: Table DB a
+sqlForQuery :: Table Expr a
   => Query a -> Maybe String
 sqlForQuery = sqlForQueryWithNames namesFromLabels . fmap toColumns
 
@@ -68,7 +69,7 @@ selectFrom (toColumns -> names) (toColumns -> exprs) query =
   where
     select = Opaleye.foldPrimQuery Opaleye.sqlQueryGenerator query
     attributes = getConst $ htabulateA $ \field -> case hfield names field of
-      Name name -> case hfield exprs field of
+      Col (Name name) -> case hfield exprs field of
         DB (toPrimExpr -> expr) -> Const (pure (makeAttr name expr))
     makeAttr label expr =
       (Opaleye.sqlExpr expr, Just (Opaleye.SqlColumn label))

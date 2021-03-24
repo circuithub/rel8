@@ -17,11 +17,12 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Spec ( Context, Spec )
+import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Spec ( Spec )
 
 
-type Structure :: Context
-data Structure spec
+type Structure :: K.Context
+data Structure a
 
 
 type Shape :: Type

@@ -3,7 +3,7 @@
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 
-module Rel8.Schema.Context.Result
+module Rel8.Schema.Context.Identity
   ( fromHEitherTable, toHEitherTable
   , fromHListTable, toHListTable
   , fromHMaybeTable, toHMaybeTable
@@ -14,13 +14,13 @@ where
 
 -- base
 import Data.Functor ( ($>) )
+import Data.Functor.Identity ( Identity )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context ( Result( Result ) )
+import Rel8.Schema.Context ( Col, Col'( Result ) )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( H )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
@@ -41,8 +41,8 @@ import Data.These.Combinators ( justHere, justThere )
 
 
 toHEitherTable :: (HTable t, HTable u)
-  => Either (t (H Result)) (u (H Result))
-  -> HEitherTable t u (H Result)
+  => Either (t (Col Identity)) (u (Col Identity))
+  -> HEitherTable t u (Col Identity)
 toHEitherTable = either hleft hright
   where
     hleft table = HEitherTable
@@ -59,8 +59,8 @@ toHEitherTable = either hleft hright
 
 
 fromHEitherTable :: (HTable t, HTable u)
-  => HEitherTable t u (H Result)
-  -> Either (t (H Result)) (u (H Result))
+  => HEitherTable t u (Col Identity)
+  -> Either (t (Col Identity)) (u (Col Identity))
 fromHEitherTable HEitherTable {htag, hleft, hright} = case htag of
   HIdentity (Result tag) -> case tag of
     IsLeft -> maybe err Left $ hunnullify unnullifier hleft
@@ -70,17 +70,17 @@ fromHEitherTable HEitherTable {htag, hleft, hright} = case htag of
 {-# INLINABLE fromHEitherTable #-}
 
 
-toHListTable :: HTable t => [t (H Result)] -> HListTable t (H Result)
+toHListTable :: HTable t => [t (Col Identity)] -> HListTable t (Col Identity)
 toHListTable = hvectorize vectorizer
 {-# INLINABLE toHListTable #-}
 
 
-fromHListTable :: HTable t => HListTable t (H Result) -> [t (H Result)]
+fromHListTable :: HTable t => HListTable t (Col Identity) -> [t (Col Identity)]
 fromHListTable = hunvectorize unvectorizer
 {-# INLINABLE fromHListTable #-}
 
 
-toHMaybeTable :: HTable t => Maybe (t (H Result)) -> HMaybeTable t (H Result)
+toHMaybeTable :: HTable t => Maybe (t (Col Identity)) -> HMaybeTable t (Col Identity)
 toHMaybeTable = maybe hnothing hjust
   where
     hnothing = HMaybeTable
@@ -94,7 +94,7 @@ toHMaybeTable = maybe hnothing hjust
 {-# INLINABLE toHMaybeTable #-}
 
 
-fromHMaybeTable :: HTable t => HMaybeTable t (H Result) -> Maybe (t (H Result))
+fromHMaybeTable :: HTable t => HMaybeTable t (Col Identity) -> Maybe (t (Col Identity))
 fromHMaybeTable HMaybeTable {htag, hjust} = case htag of
   HIdentity (Result tag) -> tag $>
     case hunnullify unnullifier hjust of
@@ -103,19 +103,19 @@ fromHMaybeTable HMaybeTable {htag, hjust} = case htag of
 {-# INLINABLE fromHMaybeTable #-}
 
 
-toHNonEmptyTable :: HTable t => NonEmpty (t (H Result)) -> HNonEmptyTable t (H Result)
+toHNonEmptyTable :: HTable t => NonEmpty (t (Col Identity)) -> HNonEmptyTable t (Col Identity)
 toHNonEmptyTable = hvectorize vectorizer
 {-# INLINABLE toHNonEmptyTable #-}
 
 
-fromHNonEmptyTable :: HTable t => HNonEmptyTable t (H Result) -> NonEmpty (t (H Result))
+fromHNonEmptyTable :: HTable t => HNonEmptyTable t (Col Identity) -> NonEmpty (t (Col Identity))
 fromHNonEmptyTable = hunvectorize unvectorizer
 {-# INLINABLE fromHNonEmptyTable #-}
 
 
 toHTheseTable :: (HTable t, HTable u)
-  => These (t (H Result)) (u (H Result))
-  -> HTheseTable t u (H Result)
+  => These (t (Col Identity)) (u (Col Identity))
+  -> HTheseTable t u (Col Identity)
 toHTheseTable tables = HTheseTable
   { hhereTag = relabel hhereTag
   , hhere
@@ -135,8 +135,8 @@ toHTheseTable tables = HTheseTable
 
 
 fromHTheseTable :: (HTable t, HTable u)
-  => HTheseTable t u (H Result)
-  -> These (t (H Result)) (u (H Result))
+  => HTheseTable t u (Col Identity)
+  -> These (t (Col Identity)) (u (Col Identity))
 fromHTheseTable HTheseTable {hhereTag, hhere, hthereTag, hthere} =
   case (fromHMaybeTable mhere, fromHMaybeTable mthere) of
     (Just a, Nothing) -> This a
@@ -155,14 +155,14 @@ fromHTheseTable HTheseTable {hhereTag, hhere, hthereTag, hthere} =
 {-# INLINABLE fromHTheseTable #-}
 
 
-null :: Result ('Spec labels necessity db (Maybe db))
+null :: Col Identity ('Spec labels necessity db (Maybe db))
 null = Result Nothing
 
 
 nullifier :: ()
   => SSpec ('Spec labels necessity db a)
-  -> Result ('Spec labels necessity db a)
-  -> Result ('Spec labels necessity db (Maybe db))
+  -> Col Identity ('Spec labels necessity db a)
+  -> Col Identity ('Spec labels necessity db (Maybe db))
 nullifier SSpec {nullability} (Result a) = Result $ case nullability of
   Nullable -> a
   NonNullable -> Just a
@@ -170,8 +170,8 @@ nullifier SSpec {nullability} (Result a) = Result $ case nullability of
 
 unnullifier :: ()
   => SSpec ('Spec labels necessity db a)
-  -> Result ('Spec labels necessity db (Maybe db))
-  -> Maybe (Result ('Spec labels necessity db a))
+  -> Col Identity ('Spec labels necessity db (Maybe db))
+  -> Maybe (Col Identity ('Spec labels necessity db a))
 unnullifier SSpec {nullability} (Result a) =
   case nullability of
     Nullable -> pure $ Result a
@@ -180,19 +180,19 @@ unnullifier SSpec {nullability} (Result a) =
 
 vectorizer :: Functor f
   => SSpec ('Spec labels necessity db a)
-  -> f (Result ('Spec labels necessity db a))
-  -> Result ('Spec labels necessity (f a) (f a))
+  -> f (Col Identity ('Spec labels necessity db a))
+  -> Col Identity ('Spec labels necessity (f a) (f a))
 vectorizer _ = Result . fmap (\(Result a) -> a)
 
 
 unvectorizer :: Functor f
   => SSpec ('Spec labels necessity db a)
-  -> Result ('Spec labels necessity (f a) (f a))
-  -> f (Result ('Spec labels necessity db a))
+  -> Col Identity ('Spec labels necessity (f a) (f a))
+  -> f (Col Identity ('Spec labels necessity db a))
 unvectorizer _ (Result results) = Result <$> results
 
 
 relabel :: ()
-  => HIdentity ('Spec labels necessity db a) (H Result)
-  -> HIdentity ('Spec relabels necessity db a) (H Result)
+  => HIdentity ('Spec labels necessity db a) (Col Identity)
+  -> HIdentity ('Spec relabels necessity db a) (Col Identity)
 relabel (HIdentity (Result a)) = HIdentity (Result a)

@@ -27,7 +27,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( seq, sne )
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Context ( DB( DB ) )
+import Rel8.Schema.Context ( Col'(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HConstrainTable
@@ -42,11 +42,11 @@ import Rel8.Type.Eq ( DBEq )
 
 type EqTable :: Type -> Constraint
 class
-  ( Table DB a
+  ( Table Expr a
   , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 instance
-  ( Table DB a
+  ( Table Expr a
   , HConstrainTable (Columns a) (ConstrainDBType DBEq)
   ) => EqTable a
 instance {-# OVERLAPPING #-} EqTable Opaque

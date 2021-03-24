@@ -10,10 +10,10 @@ where
 import Prelude ()
 
 -- rel8
-import Rel8.Schema.HTable.Context ( HKTable )
+import qualified Rel8.Schema.Kind as K
 
 
-type HPair :: HKTable -> HKTable -> HKTable
+type HPair :: K.HTable -> K.HTable -> K.HTable
 data HPair fst snd context = HPair
   { hfst :: fst context
   , hsnd :: snd context

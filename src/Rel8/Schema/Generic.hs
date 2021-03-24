@@ -23,6 +23,7 @@ where
 
 -- base
 import Data.Bifunctor ( bimap )
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics
@@ -35,29 +36,27 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
+import Rel8.Expr ( Expr )
 import Rel8.Kind.Necessity
   ( SNecessity( SRequired, SOptional )
   , KnownNecessity, necessitySing
   )
 import Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB )
-  , Insertion( RequiredInsert, OptionalInsert )
-  , Result( Result )
-  , IsSpecialContext
-  )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.Context.Nullify ( Nullifiable )
-import Rel8.Schema.Context.Result
+import Rel8.Schema.Context.Identity
   ( fromHEitherTable, toHEitherTable
   , fromHListTable, toHListTable
   , fromHMaybeTable, toHMaybeTable
   , fromHNonEmptyTable, toHNonEmptyTable
   , fromHTheseTable, toHTheseTable
   )
+import Rel8.Schema.Context.Label
+  ( Labelable, labeler, unlabeler
+  , hlabeler, hunlabeler
+  )
+import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Field ( Field )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
@@ -70,8 +69,8 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Vectorize ( hrelabel )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( Spec( Spec ), KTable )
-import qualified Rel8.Schema.Spec as Kind ( Context )
 import Rel8.Schema.Structure
   ( IsStructure, Shape(..), Shape1, Shape2
   , Structure
@@ -102,22 +101,22 @@ instance (Rel8able t, TableHelper (IsSpecialContext context) context) =>
   toColumns = gtoColumns
 
 
-type TableHelper :: Bool -> Kind.Context -> Constraint
+type TableHelper :: Bool -> K.Context -> Constraint
 class IsSpecialContext context ~ isSpecialContext =>
   TableHelper isSpecialContext context
  where
-   gfromColumns :: Rel8able t => GRep t (H context) -> t context
-   gtoColumns :: Rel8able t => t context -> GRep t (H context)
+   gfromColumns :: Rel8able t => GRep t (Col context) -> t context
+   gtoColumns :: Rel8able t => t context -> GRep t (Col context)
 
 
-instance TableHelper 'True Aggregation where
-  gfromColumns = fromAggregationColumns
-  gtoColumns = toAggregationColumns
+instance TableHelper 'True Aggregate where
+  gfromColumns = fromAggregateColumns
+  gtoColumns = toAggregateColumns
 
 
-instance TableHelper 'True DB where
-  gfromColumns = fromDBColumns
-  gtoColumns = toDBColumns
+instance TableHelper 'True Expr where
+  gfromColumns = fromExprColumns
+  gtoColumns = toExprColumns
 
 
 instance TableHelper 'True Insertion where
@@ -125,9 +124,9 @@ instance TableHelper 'True Insertion where
   gtoColumns = toInsertionColumns
 
 
-instance TableHelper 'True Result where
-  gfromColumns = fromResultColumns
-  gtoColumns = toResultColumns
+instance TableHelper 'True Identity where
+  gfromColumns = fromIdentityColumns
+  gtoColumns = toIdentityColumns
 
 
 instance (IsSpecialContext context ~ 'False, Labelable context, Nullifiable context) =>
@@ -139,105 +138,105 @@ instance (IsSpecialContext context ~ 'False, Labelable context, Nullifiable cont
 
 type Rel8able :: KTable -> Constraint
 class HTable (GRep t) => Rel8able t where
-  type GRep t :: HKTable
+  type GRep t :: K.HTable
 
-  fromAggregationColumns :: GRep t (H Aggregation) -> t Aggregation
-  toAggregationColumns :: t Aggregation -> GRep t (H Aggregation)
+  fromAggregateColumns :: GRep t (Col Aggregate) -> t Aggregate
+  toAggregateColumns :: t Aggregate -> GRep t (Col Aggregate)
 
-  fromDBColumns :: GRep t (H DB) -> t DB
-  toDBColumns :: t DB -> GRep t (H DB)
+  fromExprColumns :: GRep t (Col Expr) -> t Expr
+  toExprColumns :: t Expr -> GRep t (Col Expr)
 
-  fromInsertionColumns :: GRep t (H Insertion) -> t Insertion
-  toInsertionColumns :: t Insertion -> GRep t (H Insertion)
+  fromInsertionColumns :: GRep t (Col Insertion) -> t Insertion
+  toInsertionColumns :: t Insertion -> GRep t (Col Insertion)
 
-  fromResultColumns :: GRep t (H Result) -> t Result
-  toResultColumns :: t Result -> GRep t (H Result)
+  fromIdentityColumns :: GRep t (Col Identity) -> t Identity
+  toIdentityColumns :: t Identity -> GRep t (Col Identity)
 
   fromUnspecialColumns ::
     ( IsSpecialContext context ~ 'False
     , Labelable context, Nullifiable context
     )
-    => GRep t (H context) -> t context
+    => GRep t (Col context) -> t context
   toUnspecialColumns ::
     ( IsSpecialContext context ~ 'False
     , Labelable context, Nullifiable context
     )
-    => t context -> GRep t (H context)
+    => t context -> GRep t (Col context)
 
   type GRep t = GColumns (Rep (t Structure))
 
-  default fromAggregationColumns ::
-    ( Generic (t Aggregation)
+  default fromAggregateColumns ::
+    ( Generic (t Aggregate)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Aggregation (Rep (t Structure)) (Rep (t Aggregation))
-    ) => GRep t (H Aggregation) -> t Aggregation
-  fromAggregationColumns = to . fromGColumns @_ @(Rep (t Structure))
+    , GRel8able Aggregate (Rep (t Structure)) (Rep (t Aggregate))
+    ) => GRep t (Col Aggregate) -> t Aggregate
+  fromAggregateColumns = to . fromGColumns @_ @(Rep (t Structure))
 
-  default toAggregationColumns ::
-    ( Generic (t Aggregation)
+  default toAggregateColumns ::
+    ( Generic (t Aggregate)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Aggregation (Rep (t Structure)) (Rep (t Aggregation))
-    ) => t Aggregation -> GRep t (H Aggregation)
-  toAggregationColumns = toGColumns @_ @(Rep (t Structure)) . from
+    , GRel8able Aggregate (Rep (t Structure)) (Rep (t Aggregate))
+    ) => t Aggregate -> GRep t (Col Aggregate)
+  toAggregateColumns = toGColumns @_ @(Rep (t Structure)) . from
 
-  default fromDBColumns ::
-    ( Generic (t DB)
+  default fromExprColumns ::
+    ( Generic (t Expr)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able DB (Rep (t Structure)) (Rep (t DB))
-    ) => GRep t (H DB) -> t DB
-  fromDBColumns = to . fromGColumns @_ @(Rep (t Structure))
+    , GRel8able Expr (Rep (t Structure)) (Rep (t Expr))
+    ) => GRep t (Col Expr) -> t Expr
+  fromExprColumns = to . fromGColumns @_ @(Rep (t Structure))
 
-  default toDBColumns ::
-    ( Generic (t DB)
+  default toExprColumns ::
+    ( Generic (t Expr)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able DB (Rep (t Structure)) (Rep (t DB))
-    ) => t DB -> GRep t (H DB)
-  toDBColumns = toGColumns @_ @(Rep (t Structure)) . from
+    , GRel8able Expr (Rep (t Structure)) (Rep (t Expr))
+    ) => t Expr -> GRep t (Col Expr)
+  toExprColumns = toGColumns @_ @(Rep (t Structure)) . from
 
   default fromInsertionColumns ::
     ( Generic (t Insertion)
     , GColumns (Rep (t Structure)) ~ GRep t
     , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
-    ) => GRep t (H Insertion) -> t Insertion
+    ) => GRep t (Col Insertion) -> t Insertion
   fromInsertionColumns = to . fromGColumns @_ @(Rep (t Structure))
 
   default toInsertionColumns ::
     ( Generic (t Insertion)
     , GColumns (Rep (t Structure)) ~ GRep t
     , GRel8able Insertion (Rep (t Structure)) (Rep (t Insertion))
-    ) => t Insertion -> GRep t (H Insertion)
+    ) => t Insertion -> GRep t (Col Insertion)
   toInsertionColumns = toGColumns @_ @(Rep (t Structure)) . from
 
-  default fromResultColumns ::
-    ( Generic (t Result)
+  default fromIdentityColumns ::
+    ( Generic (t Identity)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Result (Rep (t Structure)) (Rep (t Result))
-    ) => GRep t (H Result) -> t Result
-  fromResultColumns = to . fromGColumns @_ @(Rep (t Structure))
+    , GRel8able Identity (Rep (t Structure)) (Rep (t Identity))
+    ) => GRep t (Col Identity) -> t Identity
+  fromIdentityColumns = to . fromGColumns @_ @(Rep (t Structure))
 
-  default toResultColumns ::
-    ( Generic (t Result)
+  default toIdentityColumns ::
+    ( Generic (t Identity)
     , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Result (Rep (t Structure)) (Rep (t Result))
-    ) => t Result -> GRep t (H Result)
-  toResultColumns = toGColumns @_ @(Rep (t Structure)) . from
+    , GRel8able Identity (Rep (t Structure)) (Rep (t Identity))
+    ) => t Identity -> GRep t (Col Identity)
+  toIdentityColumns = toGColumns @_ @(Rep (t Structure)) . from
 
   default fromUnspecialColumns ::
     ( Generic (t context)
     , GColumns (Rep (t Structure)) ~ GRep t
     , GRel8able context (Rep (t Structure)) (Rep (t context))
-    ) => GRep t (H context) -> t context
+    ) => GRep t (Col context) -> t context
   fromUnspecialColumns = to . fromGColumns @_ @(Rep (t Structure))
 
   default toUnspecialColumns ::
     ( Generic (t context)
     , GColumns (Rep (t Structure)) ~ GRep t
     , GRel8able context (Rep (t Structure)) (Rep (t context))
-    ) => t context -> GRep t (H context)
+    ) => t context -> GRep t (Col context)
   toUnspecialColumns = toGColumns @_ @(Rep (t Structure)) . from
 
 
-type GColumns :: (Type -> Type) -> HKTable
+type GColumns :: (Type -> Type) -> K.HTable
 type family GColumns structure where
   GColumns (M1 D _ structure) = GColumns structure
   GColumns (M1 C _ structure) = GColumns structure
@@ -246,10 +245,10 @@ type family GColumns structure where
     K1Columns label structure
 
 
-type GRel8able :: Kind.Context -> (Type -> Type) -> (Type -> Type) -> Constraint
+type GRel8able :: K.Context -> (Type -> Type) -> (Type -> Type) -> Constraint
 class GRel8able context structure rep where
-  fromGColumns :: GColumns structure (H context) -> rep x
-  toGColumns :: rep x -> GColumns structure (H context)
+  fromGColumns :: GColumns structure (Col context) -> rep x
+  toGColumns :: rep x -> GColumns structure (Col context)
 
 
 instance GRel8able context structure rep => GRel8able context (M1 D c structure) (M1 D c rep) where
@@ -285,7 +284,7 @@ instance
   toGColumns (M1 (K1 a)) = toK1Columns @label @_ @_ @_ @structure a
 
 
-type K1Columns :: Symbol -> Type -> HKTable
+type K1Columns :: Symbol -> Type -> K.HTable
 type family K1Columns label structure where
   K1Columns label (Shape1 'Column ('Spec '[] necessity nullability blueprint)) =
     HIdentity ('Spec '[label] necessity nullability blueprint)
@@ -327,19 +326,19 @@ type family K1Columns label structure where
   K1Columns label a = HLabel label (Columns a)
 
 
-type K1Table :: Symbol -> Bool -> Kind.Context -> Bool -> Type -> Type -> Constraint
+type K1Table :: Symbol -> Bool -> K.Context -> Bool -> Type -> Type -> Constraint
 class
   ( isSpecialContext ~ IsSpecialContext context
   , isStructure ~ IsStructure structure
   ) => K1Table label isSpecialContext context isStructure structure a
  where
-  fromK1Columns :: K1Columns label structure (H context) -> a
-  toK1Columns :: a -> K1Columns label structure (H context)
+  fromK1Columns :: K1Columns label structure (Col context) -> a
+  toK1Columns :: a -> K1Columns label structure (Col context)
 
 
 instance
-  ( x ~ Field Aggregation '[] necessity db a
-  ) => K1Table label 'True Aggregation 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Aggregate '[] necessity db a
+  ) => K1Table label 'True Aggregate 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -348,8 +347,8 @@ instance
 
 
 instance
-  ( x ~ Field Aggregation (label ': labels) necessity db a
-  ) => K1Table _label 'True Aggregation 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Aggregate (label ': labels) necessity db a
+  ) => K1Table _label 'True Aggregate 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -358,8 +357,8 @@ instance
 
 
 instance
-  ( x ~ Field DB '[] necessity db a
-  ) => K1Table label 'True DB 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Expr '[] necessity db a
+  ) => K1Table label 'True Expr 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -368,8 +367,8 @@ instance
 
 
 instance
-  ( x ~ Field DB (label ': labels) necessity db a
-  ) => K1Table _label 'True DB 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Expr (label ': labels) necessity db a
+  ) => K1Table _label 'True Expr 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -408,8 +407,8 @@ instance
 
 
 instance
-  ( x ~ Field Result '[] necessity db a
-  ) => K1Table label 'True Result 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Identity '[] necessity db a
+  ) => K1Table label 'True Identity 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
   fromK1Columns (HIdentity (Result a)) = a
   toK1Columns = HIdentity . Result
@@ -418,8 +417,8 @@ instance
 
 
 instance
-  ( x ~ Field Result (label ': labels) necessity db a
-  ) => K1Table _label 'True Result 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Identity (label ': labels) necessity db a
+  ) => K1Table _label 'True Identity 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
   fromK1Columns (HIdentity (Result a)) = a
   toK1Columns = HIdentity . Result
@@ -429,23 +428,23 @@ instance
 
 instance
   ( IsSpecialContext context ~ 'False
-  , x ~ context ('Spec (label ': labels) necessity db a)
+  , x ~ context a
   ) => K1Table _label 'False context 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
  where
-  fromK1Columns = unHIdentity
-  toK1Columns = HIdentity
+  fromK1Columns (HIdentity (Col a)) = a
+  toK1Columns = HIdentity . Col
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
   ( IsSpecialContext context ~ 'False
-  , x ~ context ('Spec '[] necessity db a)
+  , x ~ context a
   , Labelable context
   ) => K1Table label 'False context 'True (Shape1 'Column ('Spec '[] necessity db a)) x
  where
-  fromK1Columns = unlabeler . unHIdentity
-  toK1Columns = HIdentity . labeler
+  fromK1Columns = (\(Col a) -> a) . unlabeler . unHIdentity
+  toK1Columns = HIdentity . labeler . Col
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -453,10 +452,10 @@ instance
 instance
   ( HTable (K1Columns "Left" structure1)
   , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" 'True Aggregation (IsStructure structure1) structure1 a
-  , K1Table "Right" 'True Aggregation (IsStructure structure2) structure2 b
+  , K1Table "Left" 'True Aggregate (IsStructure structure1) structure1 a
+  , K1Table "Right" 'True Aggregate (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
-  ) => K1Table label 'True Aggregation 'True (Shape2 'Either structure1 structure2) e
+  ) => K1Table label 'True Aggregate 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -475,10 +474,10 @@ instance
 instance
   ( HTable (K1Columns "Left" structure1)
   , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" 'True DB (IsStructure structure1) structure1 a
-  , K1Table "Right" 'True DB (IsStructure structure2) structure2 b
+  , K1Table "Left" 'True Expr (IsStructure structure1) structure1 a
+  , K1Table "Right" 'True Expr (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
-  ) => K1Table label 'True DB 'True (Shape2 'Either structure1 structure2) e
+  ) => K1Table label 'True Expr 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -519,10 +518,10 @@ instance
 instance
   ( HTable (K1Columns "Left" structure1)
   , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" 'True Result (IsStructure structure1) structure1 a
-  , K1Table "Right" 'True Result (IsStructure structure2) structure2 b
+  , K1Table "Left" 'True Identity (IsStructure structure1) structure1 a
+  , K1Table "Right" 'True Identity (IsStructure structure2) structure2 b
   , e ~ Either a b
-  ) => K1Table label 'True Result 'True (Shape2 'Either structure1 structure2) e
+  ) => K1Table label 'True Identity 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns
     = bimap
@@ -566,27 +565,27 @@ instance
 
 
 instance
-  ( K1Table label 'True Aggregation (IsStructure structure) structure a
-  , Table Aggregation a
+  ( K1Table label 'True Aggregate (IsStructure structure) structure a
+  , Table Aggregate a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
-  ) => K1Table label 'True Aggregation 'True (Shape1 'List structure) as
+  ) => K1Table label 'True Aggregate 'True (Shape1 'List structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
-  ( K1Table label 'True DB (IsStructure structure) structure a
-  , Table DB a
+  ( K1Table label 'True Expr (IsStructure structure) structure a
+  , Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
-  ) => K1Table label 'True DB 'True (Shape1 'List structure) as
+  ) => K1Table label 'True Expr 'True (Shape1 'List structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -598,20 +597,20 @@ instance
   , as ~ ListTable a
   ) => K1Table label 'True Insertion 'True (Shape1 'List structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
-  ( K1Table label 'True Result (IsStructure structure) structure a
+  ( K1Table label 'True Identity (IsStructure structure) structure a
   , HTable (K1Columns label structure)
   , as ~ [a]
-  ) => K1Table label 'True Result 'True (Shape1 'List structure) as
+  ) => K1Table label 'True Identity 'True (Shape1 'List structure) as
  where
-  fromK1Columns = fmap (fromK1Columns @label @'True @Result @_ @structure) . fromHListTable
-  toK1Columns = toHListTable . fmap (toK1Columns @label @'True @Result @_ @structure)
+  fromK1Columns = fmap (fromK1Columns @label @'True @Identity @_ @structure) . fromHListTable
+  toK1Columns = toHListTable . fmap (toK1Columns @label @'True @Identity @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -625,23 +624,23 @@ instance
   , as ~ ListTable a
   ) => K1Table label 'False context 'True (Shape1 'List structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
   ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" 'True Aggregation (IsStructure structure) structure a
+  , K1Table "Just" 'True Aggregate (IsStructure structure) structure a
   , ma ~ MaybeTable a
-  ) => K1Table label 'True Aggregation 'True (Shape1 'Maybe structure) ma
+  ) => K1Table label 'True Aggregate 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel unlabeler
+    hunlabel hunlabeler
   toK1Columns =
-    hlabel labeler .
+    hlabel hlabeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
@@ -649,15 +648,15 @@ instance
 
 instance
   ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" 'True DB (IsStructure structure) structure a
+  , K1Table "Just" 'True Expr (IsStructure structure) structure a
   , ma ~ MaybeTable a
-  ) => K1Table label 'True DB 'True (Shape1 'Maybe structure) ma
+  ) => K1Table label 'True Expr 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel unlabeler
+    hunlabel hunlabeler
   toK1Columns =
-    hlabel labeler .
+    hlabel hlabeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
@@ -671,9 +670,9 @@ instance
  where
   fromK1Columns =
     fromColumns1 (fromK1Columns @"Just" @_ @_ @_ @structure) .
-    hunlabel unlabeler
+    hunlabel hunlabeler
   toK1Columns =
-    hlabel labeler .
+    hlabel hlabeler .
     toColumns1 (toK1Columns @"Just" @_ @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
@@ -681,9 +680,9 @@ instance
 
 instance
   ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" 'True Result (IsStructure structure) structure a
+  , K1Table "Just" 'True Identity (IsStructure structure) structure a
   , ma ~ Maybe a
-  ) => K1Table label 'True Result 'True (Shape1 'Maybe structure) ma
+  ) => K1Table label 'True Identity 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns
     = fmap (fromK1Columns @"Just" @_ @_ @_ @structure)
@@ -717,27 +716,27 @@ instance
 
 
 instance
-  ( K1Table label 'True Aggregation (IsStructure structure) structure a
-  , Table Aggregation a
+  ( K1Table label 'True Aggregate (IsStructure structure) structure a
+  , Table Aggregate a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
-  ) => K1Table label 'True Aggregation 'True (Shape1 'NonEmpty structure) as
+  ) => K1Table label 'True Aggregate 'True (Shape1 'NonEmpty structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
-  ( K1Table label 'True DB (IsStructure structure) structure a
-  , Table DB a
+  ( K1Table label 'True Expr (IsStructure structure) structure a
+  , Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
-  ) => K1Table label 'True DB 'True (Shape1 'NonEmpty structure) as
+  ) => K1Table label 'True Expr 'True (Shape1 'NonEmpty structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -749,20 +748,20 @@ instance
   , as ~ NonEmptyTable a
   ) => K1Table label 'True Insertion 'True (Shape1 'NonEmpty structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
 
 instance
-  ( K1Table label 'True Result (IsStructure structure) structure a
+  ( K1Table label 'True Identity (IsStructure structure) structure a
   , HTable (K1Columns label structure)
   , as ~ NonEmpty a
-  ) => K1Table label 'True Result 'True (Shape1 'NonEmpty structure) as
+  ) => K1Table label 'True Identity 'True (Shape1 'NonEmpty structure) as
  where
-  fromK1Columns = fmap (fromK1Columns @label @'True @Result @_ @structure) . fromHNonEmptyTable
-  toK1Columns = toHNonEmptyTable . fmap (toK1Columns @label @'True @Result @_ @structure)
+  fromK1Columns = fmap (fromK1Columns @label @'True @Identity @_ @structure) . fromHNonEmptyTable
+  toK1Columns = toHNonEmptyTable . fmap (toK1Columns @label @'True @Identity @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -776,8 +775,8 @@ instance
   , as ~ NonEmptyTable a
   ) => K1Table label 'False context 'True (Shape1 'NonEmpty structure) as
  where
-  fromK1Columns = fromColumns . hrelabel (hunlabel unlabeler)
-  toK1Columns = hrelabel (hlabel labeler) . toColumns
+  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
+  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -785,10 +784,10 @@ instance
 instance
   ( HTable (K1Columns "Here" structure1)
   , HTable (K1Columns "There" structure2)
-  , K1Table "Here" 'True Aggregation (IsStructure structure1) structure1 a
-  , K1Table "There" 'True Aggregation (IsStructure structure2) structure2 b
+  , K1Table "Here" 'True Aggregate (IsStructure structure1) structure1 a
+  , K1Table "There" 'True Aggregate (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
-  ) => K1Table label 'True Aggregation 'True (Shape2 'These structure1 structure2) e
+  ) => K1Table label 'True Aggregate 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -807,10 +806,10 @@ instance
 instance
   ( HTable (K1Columns "Here" structure1)
   , HTable (K1Columns "There" structure2)
-  , K1Table "Here" 'True DB (IsStructure structure1) structure1 a
-  , K1Table "There" 'True DB (IsStructure structure2) structure2 b
+  , K1Table "Here" 'True Expr (IsStructure structure1) structure1 a
+  , K1Table "There" 'True Expr (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
-  ) => K1Table label 'True DB 'True (Shape2 'These structure1 structure2) e
+  ) => K1Table label 'True Expr 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
     fromColumns2
@@ -851,10 +850,10 @@ instance
 instance
   ( HTable (K1Columns "Here" structure1)
   , HTable (K1Columns "There" structure2)
-  , K1Table "Here" 'True Result (IsStructure structure1) structure1 a
-  , K1Table "There" 'True Result (IsStructure structure2) structure2 b
+  , K1Table "Here" 'True Identity (IsStructure structure1) structure1 a
+  , K1Table "There" 'True Identity (IsStructure structure2) structure2 b
   , e ~ These a b
-  ) => K1Table label 'True Result 'True (Shape2 'These structure1 structure2) e
+  ) => K1Table label 'True Identity 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns
     = bimap

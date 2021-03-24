@@ -19,8 +19,9 @@ import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr, sgroupByExpr )
-import Rel8.Schema.Context ( Aggregation( Aggregation ), DB( DB ) )
+import Rel8.Schema.Context ( Col'(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield, hdicts, hspecs )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
@@ -60,7 +61,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Table DB exprs => exprs -> Aggregate (ListTable exprs)
+listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
@@ -68,7 +69,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Table DB exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)

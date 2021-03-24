@@ -12,12 +12,12 @@ where
 import Prelude
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Set ( unionAll )
-import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Either
@@ -40,14 +40,14 @@ keepRightTable e@(EitherTable _ _ b) = do
   pure b
 
 
-bindEitherTable :: (Table DB a, Monad m)
+bindEitherTable :: (Table Expr a, Monad m)
   => (i -> m (EitherTable a b)) -> EitherTable a i -> m (EitherTable a b)
 bindEitherTable query e@(EitherTable input a i) = do
   EitherTable output a' b <- query i
   pure $ EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
-bitraverseEitherTable :: (Table DB c, Table DB d)
+bitraverseEitherTable :: (Table Expr c, Table Expr d)
   => (a -> Query c)
   -> (b -> Query d)
   -> EitherTable a b

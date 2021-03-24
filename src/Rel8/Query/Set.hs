@@ -14,12 +14,12 @@ import Prelude ()
 import qualified Opaleye.Binary as Opaleye
 
 -- rel8
+import Rel8.Expr ( Expr )
 import {-# SOURCE #-} Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
 import Rel8.Table ( Table  )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.Opaleye ( binaryspec )
-import Rel8.Schema.Context ( DB )
 
 
 -- | Combine the results of two queries of the same type, collapsing
@@ -36,7 +36,7 @@ union = zipOpaleyeWith (Opaleye.unionExplicit binaryspec)
 --
 -- >>> select c $ values [lit True, lit True, lit False] `unionAll` values [lit True]
 -- [True,True,False,True]
-unionAll :: Table DB a => Query a -> Query a -> Query a
+unionAll :: Table Expr a => Query a -> Query a -> Query a
 unionAll = zipOpaleyeWith (Opaleye.unionAllExplicit binaryspec)
 
 
@@ -54,7 +54,7 @@ intersect = zipOpaleyeWith (Opaleye.intersectExplicit binaryspec)
 --
 -- >>> select c $ values [lit True, lit True, lit False] `intersectAll` values [lit True, lit True]
 -- [True,True]
-intersectAll :: Table DB a => Query a -> Query a -> Query a
+intersectAll :: Table Expr a => Query a -> Query a -> Query a
 intersectAll = zipOpaleyeWith (Opaleye.intersectAllExplicit binaryspec)
 
 
@@ -72,5 +72,5 @@ except = zipOpaleyeWith (Opaleye.exceptExplicit binaryspec)
 --
 -- >>> select c $ values [lit True, lit False, lit False] `exceptAll` values [lit True]
 -- [False,False]
-exceptAll :: Table DB a => Query a -> Query a -> Query a
+exceptAll :: Table Expr a => Query a -> Query a -> Query a
 exceptAll = zipOpaleyeWith (Opaleye.exceptAllExplicit binaryspec)

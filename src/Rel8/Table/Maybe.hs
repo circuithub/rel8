@@ -29,7 +29,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable
@@ -115,11 +114,11 @@ instance AlternativeTable MaybeTable where
   emptyTable = nothingTable
 
 
-instance (Table DB a, Semigroup a) => Semigroup (MaybeTable a) where
+instance (Table Expr a, Semigroup a) => Semigroup (MaybeTable a) where
   ma <> mb = maybeTable mb (\a -> maybeTable ma (justTable . (a <>)) mb) ma
 
 
-instance (Table DB a, Semigroup a) => Monoid (MaybeTable a) where
+instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
   mempty = nothingTable
 
 
@@ -176,12 +175,12 @@ isJustTable (MaybeTable tag _) = isNonNull tag
 
 
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
-maybeTable :: Table DB b => b -> (a -> b) -> MaybeTable a -> b
+maybeTable :: Table Expr b => b -> (a -> b) -> MaybeTable a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
 
 
 -- | The null table. Like 'Nothing'.
-nothingTable :: Table DB a => MaybeTable a
+nothingTable :: Table Expr a => MaybeTable a
 nothingTable = MaybeTable null undefined
 
 

@@ -36,41 +36,42 @@ import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB )
-  , Insertion( RequiredInsert, OptionalInsert )
+  ( Interpretation
+  , Col, Col'(..)
+  , Insertion
   , Name( Name )
   )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ), Sql )
-import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Monoid ( DBMonoid )
 
 
-type Nullifiable :: Context -> Constraint
-class Nullifiable context where
+type Nullifiable :: K.Context -> Constraint
+class Interpretation context => Nullifiable context where
   encodeTag :: (Sql DBEq a, KnownLabels labels)
     => Expr a
-    -> context ('Spec labels 'Required db a)
+    -> Col context ('Spec labels 'Required db a)
 
   decodeTag :: Sql DBMonoid a
-    => context ('Spec labels 'Required db a)
+    => Col context ('Spec labels 'Required db a)
     -> Expr a
 
   nullifier :: ()
     => Expr Bool
     -> SSpec ('Spec labels necessity db a)
-    -> context ('Spec labels necessity db a)
-    -> context ('Spec labels necessity db (Maybe db))
+    -> Col context ('Spec labels necessity db a)
+    -> Col context ('Spec labels necessity db (Maybe db))
 
   unnullifier :: ()
     => Expr Bool
     -> SSpec ('Spec labels necessity db a)
-    -> context ('Spec labels necessity db (Maybe db))
-    -> context ('Spec labels necessity db a)
+    -> Col context ('Spec labels necessity db (Maybe db))
+    -> Col context ('Spec labels necessity db a)
 
 
-instance Nullifiable Aggregation where
+instance Nullifiable Aggregate where
   encodeTag = Aggregation . groupByExpr
   decodeTag (Aggregation aggregate) = fold $ undoGroupBy aggregate
 
@@ -87,7 +88,7 @@ instance Nullifiable Aggregation where
   {-# INLINABLE unnullifier #-}
 
 
-instance Nullifiable DB where
+instance Nullifiable Expr where
   encodeTag = DB
   decodeTag (DB a) = a
   nullifier tag SSpec {nullability} (DB a) = DB $ runTag nullability tag a
@@ -120,8 +121,8 @@ instance Nullifiable Insertion where
 instance Nullifiable Name where
   encodeTag _ = nameFromLabel
   decodeTag _ = mempty
-  nullifier _ _ (Name name) = Name name
-  unnullifier _ _ (Name name) = Name name
+  nullifier _ _ (Col (Name name)) = Col (Name name)
+  unnullifier _ _ (Col (Name name)) = Col (Name name)
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -129,7 +130,7 @@ instance Nullifiable Name where
   {-# INLINABLE unnullifier #-}
 
 
-type NullifiableEq :: Context -> Context -> Constraint
+type NullifiableEq :: K.Context -> K.Context -> Constraint
 class (a ~ b, Nullifiable b) => NullifiableEq a b
 instance (a ~ b, Nullifiable b) => NullifiableEq a b
 
@@ -157,6 +158,6 @@ undoGroupBy = getFirst . foldInputs go
 
 
 nameFromLabel :: forall labels necessity db a.
-  KnownLabels labels => Name ('Spec labels necessity db a)
+  KnownLabels labels => Col Name ('Spec labels necessity db a)
 nameFromLabel = case labelsSing @labels of
-  labels -> Name (NonEmpty.last (renderLabels labels))
+  labels -> Col (Name (NonEmpty.last (renderLabels labels)))

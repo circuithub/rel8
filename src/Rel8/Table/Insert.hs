@@ -14,7 +14,7 @@ import Prelude
 
 -- rel8
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
-import Rel8.Schema.Context ( DB(..), Insertion(..) )
+import Rel8.Schema.Context ( Col'(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( fromColumns, toColumns )

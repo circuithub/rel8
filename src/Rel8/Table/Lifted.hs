@@ -16,47 +16,42 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
+import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.Spec ( Context )
+import qualified Rel8.Schema.Kind as K
 
 
 type Table1 :: (Type -> Type) -> Constraint
 class Table1 f where
-  type Columns1 f :: HKTable -> HKTable
-  type ConstrainContext1 f :: Context -> Constraint
-  type ConstrainContext1 _ = DefaultConstrainContext
+  type Columns1 f :: K.HTable -> K.HTable
+  type ConstrainContext1 f :: K.Context -> Constraint
+  type ConstrainContext1 _ = Interpretation
 
   toColumns1 :: (ConstrainContext1 f context, HTable t)
-    => (a -> t (H context))
+    => (a -> t (Col context))
     -> f a
-    -> Columns1 f t (H context)
+    -> Columns1 f t (Col context)
 
   fromColumns1 :: (ConstrainContext1 f context, HTable t)
-    => (t (H context) -> a)
-    -> Columns1 f t (H context)
+    => (t (Col context) -> a)
+    -> Columns1 f t (Col context)
     -> f a
 
 
 type Table2 :: (Type -> Type -> Type) -> Constraint
 class Table2 p where
-  type Columns2 p :: HKTable -> HKTable -> HKTable
-  type ConstrainContext2 p :: Context -> Constraint
-  type ConstrainContext2 _ = DefaultConstrainContext
+  type Columns2 p :: K.HTable -> K.HTable -> K.HTable
+  type ConstrainContext2 p :: K.Context -> Constraint
+  type ConstrainContext2 _ = Interpretation
 
   toColumns2 :: (ConstrainContext2 p context, HTable t, HTable u)
-    => (a -> t (H context))
-    -> (b -> u (H context))
+    => (a -> t (Col context))
+    -> (b -> u (Col context))
     -> p a b
-    -> Columns2 p t u (H context)
+    -> Columns2 p t u (Col context)
 
   fromColumns2 :: (ConstrainContext2 p context, HTable t, HTable u)
-    => (t (H context) -> a)
-    -> (u (H context) -> b)
-    -> Columns2 p t u (H context)
+    => (t (Col context) -> a)
+    -> (u (Col context) -> b)
+    -> Columns2 p t u (Col context)
     -> p a b
-
-
-type DefaultConstrainContext :: Context -> Constraint
-class DefaultConstrainContext context
-instance DefaultConstrainContext context
