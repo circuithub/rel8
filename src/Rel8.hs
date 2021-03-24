@@ -187,7 +187,7 @@ module Rel8
   , groupBy
   , DBMax, max
   , DBMin, min
-  , DBSum, sum
+  , DBSum, sum, sumWhere
   , DBString, stringAgg
   , count
   , countStar
