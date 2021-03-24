@@ -52,6 +52,9 @@ instance
 instance {-# OVERLAPPING #-} EqTable Opaque
 
 
+-- | Compare two 'Table's for equality. This corresponds to comparing all
+-- columns inside each table for equality, and combining all comparisons with
+-- @AND@.
 (==:) :: forall a. EqTable a => a -> a -> Expr Bool
 (toColumns -> as) ==: (toColumns -> bs) =
   foldl1' (&&.) $ getConst $ htabulateA $ \field ->
@@ -65,6 +68,9 @@ instance {-# OVERLAPPING #-} EqTable Opaque
 infix 4 ==:
 
 
+-- | Test if two 'Table's are different. This corresponds to comparing all
+-- columns inside each table for inequality, and combining all comparisons with
+-- @OR@.
 (/=:) :: forall a. EqTable a => a -> a -> Expr Bool
 (toColumns -> as) /=: (toColumns -> bs) =
   foldl1' (||.) $ getConst $ htabulateA $ \field ->

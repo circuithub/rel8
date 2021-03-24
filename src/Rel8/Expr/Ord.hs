@@ -73,49 +73,70 @@ sge = \case
   NonNullable -> ge
 
 
+-- | Corresponds to the SQL @<@ operator. Note that this differs from SQL @<@
+-- as @null@ will sort below any other value. For a version of @<@ that exactly
+-- matches SQL, see '(<?)'.
 (<.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<.) = slt nullabilization
 infix 4 <.
 
 
--- | The PostgreSQL @<=@ operator.
+-- | Corresponds to the SQL @<=@ operator. Note that this differs from SQL @<=@
+-- as @null@ will sort below any other value. For a version of @<=@ that exactly
+-- matches SQL, see '(<=?)'.
 (<=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<=.) = sle nullabilization
 infix 4 <=.
 
 
--- | The PostgreSQL @>@ operator.
+-- | Corresponds to the SQL @>@ operator. Note that this differs from SQL @>@
+-- as @null@ will sort below any other value. For a version of @>@ that exactly
+-- matches SQL, see '(>?)'.
 (>.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>.) = sgt nullabilization
 infix 4 >.
 
 
--- | The PostgreSQL @>=@ operator.
+-- | Corresponds to the SQL @>=@ operator. Note that this differs from SQL @>@
+-- as @null@ will sort below any other value. For a version of @>=@ that
+-- exactly matches SQL, see '(>=?)'.
 (>=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>=.) = sge nullabilization
 infix 4 >=.
 
 
+-- | Corresponds to the SQL @<@ operator. Returns @null@ if either arguments
+-- are @null@.
 (<?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a <? b = coalesce $ unsafeLiftOpNullable lt a b
 infix 4 <?
 
 
+-- | Corresponds to the SQL @<=@ operator. Returns @null@ if either arguments
+-- are @null@.
 (<=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a <=? b = coalesce $ unsafeLiftOpNullable le a b
 infix 4 <=?
 
 
+-- | Corresponds to the SQL @>@ operator. Returns @null@ if either arguments
+-- are @null@.
 (>?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a >? b = coalesce $ unsafeLiftOpNullable gt a b
 infix 4 >?
 
 
+-- | Corresponds to the SQL @>=@ operator. Returns @null@ if either arguments
+-- are @null@.
 (>=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a >=? b = coalesce $ unsafeLiftOpNullable ge a b
 infix 4 >=?
 
 
+-- | Given two expressions, return the expression that sorts less than the
+-- other.
+-- 
+-- Corresponds to the SQL @least()@ function.
 leastExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 leastExpr ma mb = case nullabilization @a of
   Nullable -> nullable ma (\a -> nullable mb (least_ a) mb) ma
@@ -124,6 +145,10 @@ leastExpr ma mb = case nullabilization @a of
     least_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "LEAST" [a, b])
 
 
+-- | Given two expressions, return the expression that sorts greater than the
+-- other.
+-- 
+-- Corresponds to the SQL @greatest()@ function.
 greatestExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 greatestExpr ma mb = case nullabilization @a of
   Nullable -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
