@@ -43,6 +43,8 @@ library
     src
   exposed-modules:
     Rel8
+    Rel8.Expr.Text
+    Rel8.Expr.Time
   other-modules:
     Rel8.Aggregate
 
@@ -58,8 +60,6 @@ library
     Rel8.Expr.Ord
     Rel8.Expr.Order
     Rel8.Expr.Serialize
-    Rel8.Expr.Text
-    Rel8.Expr.Time
 
     Rel8.FCF
 
