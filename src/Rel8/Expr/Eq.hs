@@ -66,21 +66,55 @@ sin nullability (toList -> as) a = case nullability of
            (Opaleye.ListExpr (toPrimExpr <$> xs))
 
 
+-- | Compare two expressions for equality. 
+--
+-- This corresponds to the SQL @IS NOT DISTINCT FROM@ operator, and will equate
+-- @null@ values as @true@. This differs from @=@ which would return @null@.
+-- This operator matches Haskell's '==' operator. For an operator identical to
+-- SQL @=@, see '==?'.
 (==.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
 (==.) = seq nullabilization
 infix 4 ==.
 
 
+-- | Test if two expressions are different (not equal).
+--
+-- This corresponds to the SQL @IS DISTINCT FROM@ operator, and will return
+-- @false@ when comparing two @null@ values. This differs from ordinary @=@
+-- which would return @null@. This operator is closer to Haskell's '=='
+-- operator. For an operator identical to SQL @=@, see '/=?'.
 (/=.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
 (/=.) = sne nullabilization
 infix 4 /=.
 
 
+-- | Test if two expressions are equal. This operator is usually the best
+-- choice when forming join conditions, as PostgreSQL has a much harder time
+-- optimizing a join that has multiple 'True' conditions.
+--
+-- This corresponds to the SQL @=@ operator, though it will always return a
+-- 'Bool'.
+--
+-- >>> select c $ pure $ lit Nothing ==? lit True
+-- False
+--
+-- >>> select c $ pure $ lit Nothing ==? lit Nothing
+-- False
 (==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a ==? b = coalesce $ unsafeLiftOpNullable eq a b
 infix 4 ==?
 
 
+-- | Test if two expressions are different. 
+--
+-- This corresponds to the SQL @<>@ operator, though it will always return a
+-- 'Bool'.
+--
+-- >>> select c $ pure $ lit Nothing /=? lit True
+-- True
+--
+-- >>> select c $ pure $ lit Nothing /=? lit Nothing
+-- False
 (/=?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a /=? b = coalesce $ unsafeLiftOpNullable ne a b
 infix 4 /=?
