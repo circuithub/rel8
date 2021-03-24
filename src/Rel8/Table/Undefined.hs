@@ -11,16 +11,17 @@ where
 import Prelude hiding ( undefined )
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( snull, unsafeUnnullify )
-import Rel8.Schema.Context ( DB( DB ) )
+import Rel8.Schema.Context ( Col'(..) )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, fromColumns )
 
 
-undefined :: Table DB a => a
+undefined :: Table Expr a => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
   SSpec {nullability, info} -> case nullability of
-    Nullable ->  DB (snull Nullable info)
-    NonNullable ->  DB (unsafeUnnullify (snull Nullable info))
+    Nullable -> DB (snull Nullable info)
+    NonNullable -> DB (unsafeUnnullify (snull Nullable info))

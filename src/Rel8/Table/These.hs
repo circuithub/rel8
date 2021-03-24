@@ -29,7 +29,6 @@ import Prelude hiding ( undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
@@ -70,20 +69,20 @@ instance Bifunctor TheseTable where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
 
 
-instance (Table DB a, Semigroup a) => Apply (TheseTable a) where
+instance (Table Expr a, Semigroup a) => Apply (TheseTable a) where
   fs <.> as = TheseTable
     { here = here fs <> here as
     , there = there fs <.> there as
     }
 
 
-instance (Table DB a, Semigroup a) => Applicative (TheseTable a)
+instance (Table Expr a, Semigroup a) => Applicative (TheseTable a)
  where
   pure = thatTable
   (<*>) = (<.>)
 
 
-instance (Table DB a, Semigroup a) => Bind (TheseTable a) where
+instance (Table Expr a, Semigroup a) => Bind (TheseTable a) where
   TheseTable here1 ma >>- f = case ma >>- f' of
     mtb -> TheseTable
       { here = maybeTable here1 ((here1 <>) . fst) mtb
@@ -94,11 +93,11 @@ instance (Table DB a, Semigroup a) => Bind (TheseTable a) where
         TheseTable here2 mb -> (here2,) <$> mb
 
 
-instance (Table DB a, Semigroup a) => Monad (TheseTable a) where
+instance (Table Expr a, Semigroup a) => Monad (TheseTable a) where
   (>>=) = (>>-)
 
 
-instance (Table DB a, Table DB b, Semigroup a, Semigroup b) =>
+instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
   Semigroup (TheseTable a b)
  where
   a <> b = TheseTable
@@ -212,11 +211,11 @@ justThereTable :: TheseTable a b -> MaybeTable b
 justThereTable = there
 
 
-thisTable :: Table DB b => a -> TheseTable a b
+thisTable :: Table Expr b => a -> TheseTable a b
 thisTable a = TheseTable (justTable a) nothingTable
 
 
-thatTable :: Table DB a => b -> TheseTable a b
+thatTable :: Table Expr a => b -> TheseTable a b
 thatTable b = TheseTable nothingTable (justTable b)
 
 
@@ -224,7 +223,7 @@ thoseTable :: a -> b -> TheseTable a b
 thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
-theseTable :: Table DB c
+theseTable :: Table Expr c
   => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
 theseTable f g h TheseTable {here, there} =
   maybeTable

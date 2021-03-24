@@ -15,10 +15,10 @@ import Prelude ()
 
 -- rel8
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Context ( HKTable )
+import qualified Rel8.Schema.Kind as K
 
 
-type HQuintet :: HKTable -> HKTable -> HKTable -> HKTable -> HKTable -> HKTable
+type HQuintet :: K.HTable -> K.HTable -> K.HTable -> K.HTable -> K.HTable -> K.HTable
 data HQuintet v w x y z context = HQuintet
   { hfst :: v context
   , hsnd :: w context

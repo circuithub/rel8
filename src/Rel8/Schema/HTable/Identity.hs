@@ -9,6 +9,7 @@ module Rel8.Schema.HTable.Identity
 where
 
 -- base
+import Data.Kind ( Type )
 import Prelude
 
 -- rel8
@@ -17,18 +18,17 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
-import Rel8.Schema.Spec ( Context, Spec, KnownSpec, specSing )
+import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Spec ( Spec, KnownSpec, specSing )
 
 
-type HIdentity :: Spec -> HKTable
-data HIdentity spec context where
-  HIdentity ::
-    { unHIdentity :: context spec
-    } -> HIdentity spec (H context)
+type HIdentity :: Spec -> K.HTable
+newtype HIdentity spec context = HIdentity
+  { unHIdentity :: context spec
+  }
 
 
-type HIdentityField :: Spec -> Context
+type HIdentityField :: Spec -> Spec -> Type
 data HIdentityField _spec spec where
   HIdentityField :: HIdentityField spec spec
 

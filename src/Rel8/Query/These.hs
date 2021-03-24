@@ -29,7 +29,6 @@ import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( traverseMaybeTable )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
-import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
 import Rel8.Table.Either ( EitherTable( EitherTable ) )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
@@ -41,7 +40,7 @@ import Rel8.Table.These
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
 
 
-alignBy :: (Table DB a, Table DB b)
+alignBy :: (Table Expr a, Table Expr b)
   => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
 alignBy condition as bs =
@@ -108,14 +107,14 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
     tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
 
 
-bindTheseTable :: (Table DB a, Semigroup a, Monad m)
+bindTheseTable :: (Table Expr a, Semigroup a, Monad m)
   => (i -> m (TheseTable a b)) -> TheseTable a i -> m (TheseTable a b)
 bindTheseTable query (TheseTable here (MaybeTable input i)) = do
   TheseTable here' (MaybeTable output b) <- query i
   pure $ TheseTable (here <> here') (MaybeTable (input <> output) b)
 
 
-bitraverseTheseTable :: (Table DB c, Table DB d)
+bitraverseTheseTable :: (Table Expr c, Table Expr d)
   => (a -> Query c)
   -> (b -> Query d)
   -> TheseTable a b

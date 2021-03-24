@@ -25,7 +25,6 @@ import Prelude hiding ( undefined )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context ( DB )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, NullifiableEq
@@ -64,27 +63,27 @@ instance Bifunctor EitherTable where
   bimap f g (EitherTable tag a b) = EitherTable tag (f a) (g b)
 
 
-instance Table DB a => Apply (EitherTable a) where
+instance Table Expr a => Apply (EitherTable a) where
   EitherTable tag l1 f <.> EitherTable tag' l2 a =
     EitherTable (tag <> tag') (bool l1 l2 (isLeft tag)) (f a)
 
 
-instance Table DB a => Applicative (EitherTable a) where
+instance Table Expr a => Applicative (EitherTable a) where
   pure = rightTable
   (<*>) = (<.>)
 
 
-instance Table DB a => Bind (EitherTable a) where
+instance Table Expr a => Bind (EitherTable a) where
   EitherTable tag l1 a >>- f = case f a of
     EitherTable tag' l2 b ->
       EitherTable (tag <> tag') (bool l1 l2 (isRight tag)) b
 
 
-instance Table DB a => Monad (EitherTable a) where
+instance Table Expr a => Monad (EitherTable a) where
   (>>=) = (>>-)
 
 
-instance (Table DB a, Table DB b) => Semigroup (EitherTable a b) where
+instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
   a <> b = bool a b (isRightTable a)
 
 
@@ -160,15 +159,15 @@ isRightTable :: EitherTable a b -> Expr Bool
 isRightTable = isRight . tag
 
 
-eitherTable :: Table DB c
+eitherTable :: Table Expr c
   => (a -> c) -> (b -> c) -> EitherTable a b -> c
 eitherTable f g EitherTable {tag, left, right} =
   bool (f left) (g right) (isRight tag)
 
 
-leftTable :: Table DB b => a -> EitherTable a b
+leftTable :: Table Expr b => a -> EitherTable a b
 leftTable a = EitherTable (litExpr IsLeft) a undefined
 
 
-rightTable :: Table DB a => b -> EitherTable a b
+rightTable :: Table Expr a => b -> EitherTable a b
 rightTable = EitherTable (litExpr IsRight) undefined

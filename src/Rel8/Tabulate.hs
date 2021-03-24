@@ -46,7 +46,6 @@ import Rel8.Query.Exists ( withBy, withoutBy )
 import Rel8.Query.Filter ( filter, where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.These ( alignBy )
-import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
 import Rel8.Table.Aggregate ( groupBy )
 import Rel8.Table.Eq ( EqTable, (==:) )
@@ -159,12 +158,12 @@ lookup key (Tabulation query) = do
   pure a
 
 
-align :: (EqTable k, Table DB a, Table DB b)
+align :: (EqTable k, Table Expr a, Table Expr b)
   => Tabulation k a -> Tabulation k b -> Tabulation k (TheseTable a b)
 align = alignWith id
 
 
-alignWith :: (EqTable k, Table DB a, Table DB b)
+alignWith :: (EqTable k, Table Expr a, Table Expr b)
   => (TheseTable a b -> c)
   -> Tabulation k a -> Tabulation k b -> Tabulation k c
 alignWith f kas kbs = do

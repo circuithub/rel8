@@ -33,6 +33,7 @@ import Data.Profunctor ( dimap, lmap )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate( Aggregate ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye
   ( scastExpr
   , fromPrimExpr, toPrimExpr
@@ -40,7 +41,7 @@ import Rel8.Expr.Opaleye
   , fromColumn, toColumn
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.Context ( DB(..), Insertion(..), Name(..) )
+import Rel8.Schema.Context ( Col, Col'(..), Insertion, Name(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -57,7 +58,7 @@ aggregator = Opaleye.Aggregator $ Opaleye.PackMap $
   \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner))) -> inner f ()
 
 
-binaryspec :: Table DB a => Opaleye.Binaryspec a a
+binaryspec :: Table Expr a => Opaleye.Binaryspec a a
 binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
   fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
     WrapApplicative $
@@ -65,7 +66,7 @@ binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
         (DB a, DB b) -> DB . fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
 
 
-distinctspec :: Table DB a => Opaleye.Distinctspec a a
+distinctspec :: Table Expr a => Opaleye.Distinctspec a a
 distinctspec =
   Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
     fmap fromColumns .
@@ -94,8 +95,8 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       specs -> case hfield names field of
         name -> lmap (`hfield` field) (go specs name)
   where
-    go :: SSpec spec -> Name spec -> Opaleye.TableFields (Insertion spec) (DB spec)
-    go SSpec {necessity, info, nullability} (Name name) =
+    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insertion spec) (Col Expr spec)
+    go SSpec {necessity, info, nullability} (Col (Name name)) =
       case necessity of
         SRequired ->
           lmap (\(RequiredInsert a) -> toColumn $ toPrimExpr a) $
@@ -107,7 +108,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
             Opaleye.optionalTableField name
 
 
-unpackspec :: Table DB a => Opaleye.Unpackspec a a
+unpackspec :: Table Expr a => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
   unwrapApplicative .
@@ -116,11 +117,11 @@ unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
 {-# INLINABLE unpackspec #-}
 
 
-valuesspec :: Table DB a => Opaleye.ValuesspecSafe a a
+valuesspec :: Table Expr a => Opaleye.ValuesspecSafe a a
 valuesspec = Opaleye.ValuesspecSafe (toPackMap undefined) unpackspec
 
 
-toPackMap :: Table DB a
+toPackMap :: Table Expr a
   => a -> Opaleye.PackMap Opaleye.PrimExpr Opaleye.PrimExpr () a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $

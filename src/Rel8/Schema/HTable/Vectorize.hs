@@ -32,15 +32,15 @@ import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htabulateA, htraverse, hdicts, hspecs
   )
-import Rel8.Schema.HTable.Context ( H, HKTable )
 import Rel8.Schema.Nullability ( IsMaybe, Nullability( NonNullable ) )
-import Rel8.Schema.Spec ( Context, Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -66,12 +66,12 @@ instance Vector NonEmpty where
   vectorTypeInformation = nonEmptyTypeInformation
 
 
-type HVectorize :: (Type -> Type) -> HKTable -> HKTable
-data HVectorize list table context where
-  HVectorize :: table (H (VectorizeSpec list context)) -> HVectorize list table (H context)
+type HVectorize :: (Type -> Type) -> K.HTable -> K.HTable
+newtype HVectorize list table context =
+  HVectorize (table (VectorizeSpec list context))
 
 
-type HVectorizeField :: (Type -> Type) -> HKTable -> Context
+type HVectorizeField :: (Type -> Type) -> K.HTable -> Spec -> Type
 data HVectorizeField list table spec where
   HVectorizeField
     :: HField table ('Spec labels necessity db a)
@@ -81,7 +81,6 @@ data HVectorizeField list table spec where
 
 
 instance (HTable table, Vector list) => HTable (HVectorize list table) where
-
   type HField (HVectorize list table) = HVectorizeField list table
   type HConstrainTable (HVectorize list table) c =
     HConstrainTable table (VectorizeSpecC list c)
@@ -94,7 +93,7 @@ instance (HTable table, Vector list) => HTable (HVectorize list table) where
   htraverse f (HVectorize t) = HVectorize <$> htraverse (traverseVectorizeSpec f) t
 
   hdicts :: forall c. HConstrainTable table (VectorizeSpecC list c) =>
-    HVectorize list table (H (Dict c))
+    HVectorize list table (Dict c)
   hdicts = HVectorize $ htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> case hfield (hdicts @_ @(VectorizeSpecC list c)) field of
       Dict -> VectorizeSpec Dict
@@ -125,9 +124,9 @@ data VectorizeSpec list context spec where
     } -> VectorizeSpec list context ('Spec labels necessity db a)
 
 
-instance Labelable context => Labelable (VectorizeSpec list context) where
-  labeler (VectorizeSpec a) = VectorizeSpec (labeler a)
-  unlabeler (VectorizeSpec a) = VectorizeSpec (unlabeler a)
+instance HLabelable context => HLabelable (VectorizeSpec list context) where
+  hlabeler (VectorizeSpec a) = VectorizeSpec (hlabeler a)
+  hunlabeler (VectorizeSpec a) = VectorizeSpec (hunlabeler a)
 
 
 type VectorizeSpecC :: VectorizingSpec Constraint
@@ -157,8 +156,8 @@ hvectorize :: (HTable t, Unzip f)
     => SSpec ('Spec labels necessity db a)
     -> f (context ('Spec labels necessity db a))
     -> context' ('Spec labels necessity (list a) (list a)))
-  -> f (t (H context))
-  -> HVectorize list t (H context')
+  -> f (t context)
+  -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \field ->
   case hfield hspecs field of
     spec@SSpec {} -> VectorizeSpec (vectorizer spec (fmap (`hfield` field) as))
@@ -170,8 +169,8 @@ hunvectorize :: (HTable t, Repeat f)
     => SSpec ('Spec labels necessity db a)
     -> context ('Spec labels necessity (list a) (list a))
     -> f (context' ('Spec labels necessity db a)))
-  -> HVectorize list t (H context)
-  -> f (t (H context'))
+  -> HVectorize list t context
+  -> f (t context')
 hunvectorize unvectorizer (HVectorize table) =
   getZippy $ htabulateA $ \field -> case hfield hspecs field of
     spec -> case hfield table field of
@@ -187,9 +186,9 @@ happend :: HTable t =>
     -> context ('Spec labels necessity (list a) (list a))
     -> context ('Spec labels necessity (list a) (list a))
   )
-  -> HVectorize list t (H context)
-  -> HVectorize list t (H context)
-  -> HVectorize list t (H context)
+  -> HVectorize list t context
+  -> HVectorize list t context
+  -> HVectorize list t context
 happend append (HVectorize as) (HVectorize bs) = HVectorize $
   htabulate $ \field -> case (hfield as field, hfield bs field) of
     (VectorizeSpec a, VectorizeSpec b) -> case hfield hspecs field of
@@ -202,13 +201,13 @@ hempty :: HTable t =>
     -> TypeInformation db
     -> context ('Spec labels necessity [a] [a])
   )
-  -> HVectorize [] t (H context)
+  -> HVectorize [] t context
 hempty empty = HVectorize $ htabulate $ \field -> case hfield hspecs field of
   SSpec {nullability, info} -> VectorizeSpec (empty nullability info)
 
 
-hrelabel :: Labelable context
-  => (forall ctx. Labelable ctx => t (H ctx) -> u (H ctx))
-  -> HVectorize list t (H context)
-  -> HVectorize list u (H context)
+hrelabel :: HLabelable context
+  => (forall ctx. HLabelable ctx => t ctx -> u ctx)
+  -> HVectorize list t context
+  -> HVectorize list u context
 hrelabel f (HVectorize table) = HVectorize (f table)

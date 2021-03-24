@@ -1,8 +1,10 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
@@ -11,121 +13,88 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Context
-  ( Aggregation( Aggregation )
-  , DB( DB, unDB )
-  , Insertion( RequiredInsert, OptionalInsert )
-  , Name( Name )
-  , Result( Result )
+  ( Col'( .. )
+  , Interpretation, Col
+  , Insertion(..)
+  , Name(..)
   , IsSpecialContext
   )
 where
 
 -- base
-import Control.Applicative ( liftA2 )
+import Data.Functor.Identity ( Identity )
+import Data.Kind ( Constraint )
 import Data.String ( IsString )
 import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Necessity
-  ( Necessity( Optional, Required )
-  , SNecessity( SOptional, SRequired )
-  , KnownNecessity, necessitySing
-  )
-import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( Context, Spec( Spec ) )
+import Rel8.Kind.Necessity ( Necessity( Optional, Required ) )
+import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Schema.Structure ( Structure )
-import Rel8.Type.Monoid ( DBMonoid )
-import Rel8.Type.Semigroup ( DBSemigroup )
 
 
-type Aggregation :: Context
-data Aggregation spec where
-  Aggregation :: ()
-    => Aggregate (Expr a)
-    -> Aggregation ('Spec labels necessity dbType a)
+type Interpretation' :: Bool -> K.Context -> Constraint
+class IsSpecialContext f ~ isSpecial => Interpretation' isSpecial f where
+  data Col' isSpecial f :: K.HContext
 
 
-type DB :: Context
-data DB spec where
-  DB :: ()
-    => { unDB :: Expr a }
-    -> DB ('Spec labels necessity dbType a)
-deriving stock instance Show (DB spec)
+instance Interpretation' 'True Aggregate where
+  data Col' 'True Aggregate _spec where
+    Aggregation :: ()
+      => Aggregate (Expr a)
+      -> Col' 'True Aggregate ('Spec labels necessity db a)
 
 
-instance (spec ~ 'Spec labels necessity dbType a, Sql DBSemigroup a) =>
-  Semigroup (DB spec)
- where
-  DB a <> DB b = DB (a <> b)
+instance Interpretation' 'True Expr where
+  data Col' 'True Expr _spec where
+    DB :: ()
+      => { unDB :: Expr a }
+      -> Col' 'True Expr ('Spec labels necessity db a)
 
 
-instance (spec ~ 'Spec labels necessity dbType a, Sql DBMonoid a) =>
-  Monoid (DB spec)
- where
-  mempty = DB mempty
+instance Interpretation' 'True Identity where
+  data Col' 'True Identity _spec where
+    Result :: a -> Col' 'True Identity ('Spec labels necessity db a)
 
 
-type Insertion :: Context
-data Insertion spec where
-  RequiredInsert :: ()
-    => Expr a
-    -> Insertion ('Spec labels 'Required dbType a)
-  OptionalInsert :: ()
-    => Maybe (Expr a)
-    -> Insertion ('Spec labels 'Optional dbType a)
-deriving stock instance Show (Insertion spec)
+instance Interpretation' 'True Insertion where
+  data Col' 'True Insertion _spec where
+    RequiredInsert :: Expr a -> Col' 'True Insertion ('Spec labels 'Required db a)
+    OptionalInsert :: Maybe (Expr a) -> Col' 'True Insertion ('Spec labels 'Optional db a)
 
 
-instance (spec ~ 'Spec labels necessity dbType a, Sql DBSemigroup a) =>
-  Semigroup (Insertion spec)
- where
-  RequiredInsert a <> RequiredInsert b = RequiredInsert (a <> b)
-  OptionalInsert ma <> OptionalInsert mb = OptionalInsert (liftA2 (<>) ma mb)
+instance IsSpecialContext f ~ 'False => Interpretation' 'False f where
+  data Col' 'False f _spec where
+    Col :: f a -> Col' 'False f ('Spec labels necessity db a)
 
 
-instance
-  ( spec ~ 'Spec labels necessity dbType a
-  , KnownNecessity necessity
-  , Sql DBMonoid a
-  ) => Monoid (Insertion spec)
- where
-  mempty = case necessitySing @necessity of
-    SRequired -> RequiredInsert mempty
-    SOptional -> OptionalInsert (Just mempty)
+type Interpretation :: K.Context -> Constraint
+class Interpretation' (IsSpecialContext context) context => Interpretation context
+instance Interpretation' (IsSpecialContext context) context => Interpretation context
 
 
-type Name :: Context
-newtype Name spec = Name String
+type Col :: K.Context -> K.HContext
+type Col context = Col' (IsSpecialContext context) context
+
+
+type Insertion :: K.Context
+newtype Insertion a = Insertion (Expr a)
+
+
+type Name :: K.Context
+newtype Name a = Name String
   deriving stock Show
   deriving newtype (IsString, Monoid, Semigroup)
 
 
-type Result :: Context
-data Result spec where
-  Result :: a -> Result ('Spec labels necessity dbType a)
-deriving stock instance Show a =>
-  Show (Result ('Spec labels necessity dbType a))
-
-
-instance (spec ~ 'Spec labels necessity dbType a, Semigroup a) =>
-  Semigroup (Result spec)
- where
-  Result a <> Result b = Result (a <> b)
-
-
-instance (spec ~ 'Spec labels necessity dbType a, Monoid a) =>
-  Monoid (Result spec)
- where
-  mempty = Result mempty
-
-
-type IsSpecialContext :: Context -> Bool
+type IsSpecialContext :: K.Context -> Bool
 type family IsSpecialContext context where
-  IsSpecialContext Aggregation = 'True
-  IsSpecialContext DB = 'True
+  IsSpecialContext Aggregate = 'True
+  IsSpecialContext Expr = 'True
   IsSpecialContext Insertion = 'True
-  IsSpecialContext Result = 'True
+  IsSpecialContext Identity = 'True
   IsSpecialContext Structure = 'True
   IsSpecialContext _ = 'False

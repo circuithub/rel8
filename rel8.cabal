@@ -87,15 +87,14 @@ library
 
     Rel8.Schema.Column
     Rel8.Schema.Context
+    Rel8.Schema.Context.Identity
     Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
-    Rel8.Schema.Context.Result
     Rel8.Schema.Dict
     Rel8.Schema.Field
     Rel8.Schema.Generic
     Rel8.Schema.Generic.Test
     Rel8.Schema.HTable
-    Rel8.Schema.HTable.Context
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity
     Rel8.Schema.HTable.Label
@@ -110,9 +109,9 @@ library
     Rel8.Schema.HTable.Trio
     Rel8.Schema.HTable.Type
     Rel8.Schema.HTable.Vectorize
+    Rel8.Schema.Kind
     Rel8.Schema.Nullability
     Rel8.Schema.Spec
-    Rel8.Schema.Spec.ConstrainContext
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
     Rel8.Schema.Table

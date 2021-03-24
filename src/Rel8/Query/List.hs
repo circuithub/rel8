@@ -9,10 +9,10 @@ where
 import Prelude
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
 import Rel8.Query.Maybe ( optional )
-import Rel8.Schema.Context ( DB )
 import Rel8.Table ( Table )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable )
@@ -28,7 +28,7 @@ import Rel8.Table.NonEmpty ( NonEmptyTable )
 --
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
-some :: Table DB a => Query a -> Query (NonEmptyTable a)
+some :: Table Expr a => Query a -> Query (NonEmptyTable a)
 some = aggregate . fmap nonEmptyAgg
 
 
@@ -39,5 +39,5 @@ some = aggregate . fmap nonEmptyAgg
 -- 
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
-many :: Table DB a => Query a -> Query (ListTable a)
+many :: Table Expr a => Query a -> Query (ListTable a)
 many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg

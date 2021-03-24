@@ -13,6 +13,7 @@ module Rel8.Schema.Column
 where
 
 -- base
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import GHC.TypeLits ( Symbol )
@@ -21,10 +22,10 @@ import Prelude
 -- rel8
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
-import Rel8.Schema.Context ( Result, IsSpecialContext )
+import Rel8.Schema.Context ( IsSpecialContext )
 import Rel8.Schema.Field ( Field )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Unnullify )
-import Rel8.Schema.Spec ( Context )
 import Rel8.Schema.Structure
   ( Structure
   , Shape( Either, List, Maybe, NonEmpty, These )
@@ -73,7 +74,7 @@ type family UnwrapDefault a where
   UnwrapDefault a = a
 
 
-type Column :: Context -> Type -> Type
+type Column :: K.Context -> Type -> Type
 type Column context a =
   Field context (GetLabel a)
     (GetNecessity (UnwrapLabel a))
@@ -81,61 +82,61 @@ type Column context a =
     (UnwrapDefault (UnwrapLabel a))
 
 
-type IHEither :: Bool -> Context -> Type -> Type -> Type
+type IHEither :: Bool -> K.Context -> Type -> Type -> Type
 type family IHEither isSpecialContext context where
   IHEither 'False _ = EitherTable
-  IHEither 'True Result = Either
+  IHEither 'True Identity = Either
   IHEither 'True Structure = Shape2 'Either
   IHEither 'True _ = EitherTable
 
 
-type IHList :: Bool -> Context -> Type -> Type
+type IHList :: Bool -> K.Context -> Type -> Type
 type family IHList isSpecialContext context where
   IHList 'False _ = ListTable
-  IHList 'True Result = []
+  IHList 'True Identity = []
   IHList 'True Structure = Shape1 'List
   IHList 'True _ = ListTable
 
 
-type IHMaybe :: Bool -> Context -> Type -> Type
+type IHMaybe :: Bool -> K.Context -> Type -> Type
 type family IHMaybe isSpecialContext context where
   IHMaybe 'False _ = MaybeTable
-  IHMaybe 'True Result = Maybe
+  IHMaybe 'True Identity = Maybe
   IHMaybe 'True Structure = Shape1 'Maybe
   IHMaybe 'True _ = MaybeTable
 
 
-type IHNonEmpty :: Bool -> Context -> Type -> Type
+type IHNonEmpty :: Bool -> K.Context -> Type -> Type
 type family IHNonEmpty isSpecialContext context where
   IHNonEmpty 'False _ = NonEmptyTable
-  IHNonEmpty 'True Result = NonEmpty
+  IHNonEmpty 'True Identity = NonEmpty
   IHNonEmpty 'True Structure = Shape1 'NonEmpty
   IHNonEmpty 'True _ = NonEmptyTable
 
 
-type IHThese :: Bool -> Context -> Type -> Type -> Type
+type IHThese :: Bool -> K.Context -> Type -> Type -> Type
 type family IHThese isSpecialContext context where
   IHThese 'False _ = TheseTable
-  IHThese 'True Result = These
+  IHThese 'True Identity = These
   IHThese 'True Structure = Shape2 'These
   IHThese 'True _ = TheseTable
 
 
-type HEither :: Context -> Type -> Type -> Type
+type HEither :: K.Context -> Type -> Type -> Type
 type HEither context = IHEither (IsSpecialContext context) context
 
 
-type HList :: Context -> Type -> Type
+type HList :: K.Context -> Type -> Type
 type HList context = IHList (IsSpecialContext context) context
 
 
-type HMaybe :: Context -> Type -> Type
+type HMaybe :: K.Context -> Type -> Type
 type HMaybe context = IHMaybe (IsSpecialContext context) context
 
 
-type HNonEmpty :: Context -> Type -> Type
+type HNonEmpty :: K.Context -> Type -> Type
 type HNonEmpty context = IHNonEmpty (IsSpecialContext context) context
 
 
-type HThese :: Context -> Type -> Type -> Type
+type HThese :: K.Context -> Type -> Type -> Type
 type HThese context = IHThese (IsSpecialContext context) context

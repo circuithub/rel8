@@ -11,9 +11,9 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude ()
 
 -- rel8
-import Rel8.Schema.HTable.Context ( HKTable )
 import Rel8.Schema.HTable.Vectorize ( HVectorize )
+import qualified Rel8.Schema.Kind as K
 
 
-type HNonEmptyTable :: HKTable -> HKTable
+type HNonEmptyTable :: K.HTable -> K.HTable
 type HNonEmptyTable = HVectorize NonEmpty

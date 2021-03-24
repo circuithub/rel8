@@ -10,9 +10,9 @@ where
 import Prelude ()
 
 -- rel8
-import Rel8.Schema.HTable.Context ( HKTable )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable.Vectorize ( HVectorize )
 
 
-type HListTable :: HKTable -> HKTable
+type HListTable :: K.HTable -> K.HTable
 type HListTable = HVectorize []
