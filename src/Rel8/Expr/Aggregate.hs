@@ -135,6 +135,7 @@ sumWhere :: (Sql DBNum a, Sql DBSum a)
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 
 
+-- | Corresponds to @string_agg()@.
 stringAgg :: Sql DBString a
   => Expr db -> Expr a -> Aggregate (Expr a)
 stringAgg delimiter =
