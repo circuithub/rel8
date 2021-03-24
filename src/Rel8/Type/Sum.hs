@@ -22,6 +22,7 @@ import Data.Scientific ( Scientific )
 import Data.Time.Clock ( DiffTime, NominalDiffTime )
 
 
+-- | The class of database types that support the @sum()@ aggregation function.
 type DBSum :: Type -> Constraint
 class DBType a => DBSum a
 instance DBSum Int16
