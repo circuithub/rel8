@@ -28,6 +28,8 @@ import Rel8.Table.Ord
 import Rel8.Type.Ord
 
 
+-- | Construct an 'Order' for a 'Table' by sorting all columns into ascending
+-- orders (any nullable columns will be sorted with @NULLS FIRST@).
 ascTable :: forall a. OrdTable a => Order a
 ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
@@ -39,6 +41,8 @@ ascTable = contramap toColumns $ getConst $
       ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
 
 
+-- | Construct an 'Order' for a 'Table' by sorting all columns into descending
+-- orders (any nullable columns will be sorted with @NULLS LAST@).
 descTable :: forall a. OrdTable a => Order a
 descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
