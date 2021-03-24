@@ -86,4 +86,4 @@ instance (Labelable context, x ~ IsSpecialContext context) =>
   HLabelable (Col' x context)
  where
   hlabeler = labeler
-  hunlabeler = hunlabeler
+  hunlabeler = unlabeler
