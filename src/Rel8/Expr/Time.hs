@@ -13,7 +13,7 @@ module Rel8.Expr.Time
   , diffTime
   , subtractTime
 
-  -- Working with @DiffTime@
+  -- * Working with @DiffTime@
   , scaleInterval
   , second, seconds
   , minute, minutes
@@ -97,7 +97,7 @@ second :: Expr DiffTime
 second = singleton "second"
 
 
--- | Create a literal interval from an integral number of seconds.
+-- | Create a literal interval from a number of seconds.
 seconds :: Expr Double -> Expr DiffTime
 seconds = (`scaleInterval` second)
 
@@ -107,7 +107,7 @@ minute :: Expr DiffTime
 minute = singleton "minute"
 
 
--- | Create a literal interval from an integral number of minutes.
+-- | Create a literal interval from a number of minutes.
 minutes :: Expr Double -> Expr DiffTime
 minutes = (`scaleInterval` minute)
 
@@ -117,7 +117,7 @@ hour :: Expr DiffTime
 hour = singleton "hour"
 
 
--- | Create a literal interval from an integral number of hours.
+-- | Create a literal interval from a number of hours.
 hours :: Expr Double -> Expr DiffTime
 hours = (`scaleInterval` hour)
 
