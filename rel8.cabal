@@ -61,6 +61,8 @@ library
     Rel8.Expr.Text
     Rel8.Expr.Time
 
+    Rel8.FCF
+
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
@@ -99,6 +101,7 @@ library
     Rel8.Schema.HTable.Identity
     Rel8.Schema.HTable.Label
     Rel8.Schema.HTable.List
+    Rel8.Schema.HTable.MapTable
     Rel8.Schema.HTable.Maybe
     Rel8.Schema.HTable.NonEmpty
     Rel8.Schema.HTable.Nullify

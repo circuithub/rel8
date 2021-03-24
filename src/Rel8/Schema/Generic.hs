@@ -32,7 +32,7 @@ import GHC.Generics
   , D, C, S
   , Meta( MetaSel )
   )
-import GHC.TypeLits ( Symbol )
+import GHC.TypeLits ( Symbol, KnownSymbol )
 import Prelude
 
 -- rel8
@@ -497,6 +497,7 @@ instance
   , K1Table "Left" 'True Aggregate (IsStructure structure1) structure1 a
   , K1Table "Right" 'True Aggregate (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Aggregate 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
@@ -519,6 +520,7 @@ instance
   , K1Table "Left" 'True Expr (IsStructure structure1) structure1 a
   , K1Table "Right" 'True Expr (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Expr 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
@@ -541,6 +543,7 @@ instance
   , K1Table "Left" 'True Insertion (IsStructure structure1) structure1 a
   , K1Table "Right" 'True Insertion (IsStructure structure2) structure2 b
   , e ~ EitherTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Insertion 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
@@ -563,6 +566,7 @@ instance
   , K1Table "Left" 'True Identity (IsStructure structure1) structure1 a
   , K1Table "Right" 'True Identity (IsStructure structure2) structure2 b
   , e ~ Either a b
+  , KnownSymbol label
   ) => K1Table label 'True Identity 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns
@@ -590,6 +594,7 @@ instance
   , Labelable context
   , Nullifiable context
   , e ~ EitherTable a b
+  , KnownSymbol label
   ) => K1Table label 'False context 'True (Shape2 'Either structure1 structure2) e
  where
   fromK1Columns =
@@ -611,6 +616,7 @@ instance
   , Table Aggregate a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
+  , KnownSymbol label
   ) => K1Table label 'True Aggregate 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -624,6 +630,7 @@ instance
   , Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
+  , KnownSymbol label
   ) => K1Table label 'True Expr 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -637,6 +644,7 @@ instance
   , Table Insertion a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
+  , KnownSymbol label
   ) => K1Table label 'True Insertion 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -664,6 +672,7 @@ instance
   , K1Columns label structure ~ HLabel label (Columns a)
   , Labelable context
   , as ~ ListTable a
+  , KnownSymbol label
   ) => K1Table label 'False context 'True (Shape1 'List structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -676,6 +685,7 @@ instance
   ( HTable (K1Columns "Just" structure)
   , K1Table "Just" 'True Aggregate (IsStructure structure) structure a
   , ma ~ MaybeTable a
+  , KnownSymbol label
   ) => K1Table label 'True Aggregate 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
@@ -692,6 +702,7 @@ instance
   ( HTable (K1Columns "Just" structure)
   , K1Table "Just" 'True Expr (IsStructure structure) structure a
   , ma ~ MaybeTable a
+  , KnownSymbol label
   ) => K1Table label 'True Expr 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
@@ -708,6 +719,7 @@ instance
   ( HTable (K1Columns "Just" structure)
   , K1Table "Just" 'True Insertion (IsStructure structure) structure a
   , ma ~ MaybeTable a
+  , KnownSymbol label
   ) => K1Table label 'True Insertion 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
@@ -724,6 +736,7 @@ instance
   ( HTable (K1Columns "Just" structure)
   , K1Table "Just" 'True Identity (IsStructure structure) structure a
   , ma ~ Maybe a
+  , KnownSymbol label
   ) => K1Table label 'True Identity 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns
@@ -745,6 +758,7 @@ instance
   , Labelable context
   , Nullifiable context
   , ma ~ MaybeTable a
+  , KnownSymbol label
   ) => K1Table label 'False context 'True (Shape1 'Maybe structure) ma
  where
   fromK1Columns =
@@ -762,6 +776,7 @@ instance
   , Table Aggregate a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
+  , KnownSymbol label
   ) => K1Table label 'True Aggregate 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -775,6 +790,7 @@ instance
   , Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
+  , KnownSymbol label
   ) => K1Table label 'True Expr 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -788,6 +804,7 @@ instance
   , Table Insertion a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
+  , KnownSymbol label
   ) => K1Table label 'True Insertion 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -815,6 +832,7 @@ instance
   , K1Columns label structure ~ HLabel label (Columns a)
   , Labelable context
   , as ~ NonEmptyTable a
+  , KnownSymbol label
   ) => K1Table label 'False context 'True (Shape1 'NonEmpty structure) as
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
@@ -829,6 +847,7 @@ instance
   , K1Table "Here" 'True Aggregate (IsStructure structure1) structure1 a
   , K1Table "There" 'True Aggregate (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Aggregate 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
@@ -851,6 +870,7 @@ instance
   , K1Table "Here" 'True Expr (IsStructure structure1) structure1 a
   , K1Table "There" 'True Expr (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Expr 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
@@ -873,6 +893,7 @@ instance
   , K1Table "Here" 'True Insertion (IsStructure structure1) structure1 a
   , K1Table "There" 'True Insertion (IsStructure structure2) structure2 b
   , e ~ TheseTable a b
+  , KnownSymbol label
   ) => K1Table label 'True Insertion 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
@@ -895,6 +916,7 @@ instance
   , K1Table "Here" 'True Identity (IsStructure structure1) structure1 a
   , K1Table "There" 'True Identity (IsStructure structure2) structure2 b
   , e ~ These a b
+  , KnownSymbol label
   ) => K1Table label 'True Identity 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns
@@ -922,6 +944,7 @@ instance
   , Labelable context
   , Nullifiable context
   , e ~ TheseTable a b
+  , KnownSymbol label
   ) => K1Table label 'False context 'True (Shape2 'These structure1 structure2) e
  where
   fromK1Columns =
@@ -946,6 +969,7 @@ instance
   , HTable (K1Columns "snd" structure2)
   , Labelable context
   , a ~ (a1, a2)
+  , KnownSymbol label
   ) => K1Table label isSpecialContext context 'True (structure1, structure2) a
  where
   fromK1Columns (hunlabel unlabeler -> (HPair a b)) =
@@ -969,6 +993,7 @@ instance
   , HTable (K1Columns "trd" structure3)
   , Labelable context
   , a ~ (a1, a2, a3)
+  , KnownSymbol label
   ) => K1Table label isSpecialContext context 'True (structure1, structure2, structure3) a
  where
   fromK1Columns (hunlabel unlabeler -> (HTrio a b c)) =
@@ -996,6 +1021,7 @@ instance
   , HTable (K1Columns "frt" structure4)
   , Labelable context
   , a ~ (a1, a2, a3, a4)
+  , KnownSymbol label
   ) => K1Table label isSpecialContext context 'True (structure1, structure2, structure3, structure4) a
  where
   fromK1Columns (hunlabel unlabeler -> (HQuartet a b c d)) =
@@ -1027,6 +1053,7 @@ instance
   , HTable (K1Columns "fft" structure5)
   , Labelable context
   , a ~ (a1, a2, a3, a4, a5)
+  , KnownSymbol label
   ) => K1Table label isSpecialContext context 'True (structure1, structure2, structure3, structure4, structure5) a
  where
   fromK1Columns (hunlabel unlabeler -> (HQuintet a b c d e)) =
@@ -1054,6 +1081,7 @@ instance
   , Columns structure ~ Columns a
   , Labelable context
   , Table context a
+  , KnownSymbol label
   ) => K1Table label isSpecialContext context 'False structure a
  where
   fromK1Columns = fromColumns . hunlabel unlabeler

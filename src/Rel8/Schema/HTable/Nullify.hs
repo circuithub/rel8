@@ -1,3 +1,8 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
@@ -15,19 +20,18 @@
 
 module Rel8.Schema.HTable.Nullify
   ( HNullify( HNullify )
+  , Nullify
   , hnulls, hnullify, hunnullify
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
-  ( HTable, HConstrainTable, HField
-  , hfield, htabulate, htabulateA, htraverse, hdicts, hspecs
+  ( HTable
+  , hfield, htabulate, htabulateA, hspecs
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
@@ -35,86 +39,44 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply )
+import Rel8.Schema.HTable.MapTable
+import Rel8.FCF
+import GHC.Generics (Generic)
 
 
 type HNullify :: K.HTable -> K.HTable
-newtype HNullify table context = HNullify (table (NullifySpec context))
+newtype HNullify table context = HNullify (HMapTable Nullify table context)
+  deriving stock Generic
+  deriving anyclass HTable
 
 
-type HNullifyField :: K.HTable -> Spec -> Type
-data HNullifyField table spec where
-  HNullifyField
-    :: HField table ('Spec labels necessity dbType a)
-    -> HNullifyField table ('Spec labels necessity dbType (Maybe dbType))
+
+-- | Transform a 'Spec' by allowing it to be @null@.
+data Nullify :: Spec -> Exp Spec
 
 
-instance HTable table => HTable (HNullify table) where
-  type HField (HNullify table) = HNullifyField table
-  type HConstrainTable (HNullify table) c =
-    HConstrainTable table (NullifySpecC c)
-
-  hfield (HNullify table) (HNullifyField field) =
-    getNullifySpec (hfield table field)
-
-  htabulate f = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> NullifySpec (f (HNullifyField field))
-
-  htraverse f (HNullify t) = HNullify <$> htraverse (traverseNullifySpec f) t
-
-  hdicts :: forall c. HConstrainTable table (NullifySpecC c)
-    => HNullify table (Dict c)
-  hdicts = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield (hdicts @_ @(NullifySpecC c)) field of
-      Dict -> NullifySpec Dict
-
-  hspecs = HNullify $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {..} -> case nullability of
-      Nullable -> NullifySpec SSpec {nullability = Nullable, ..}
-      NonNullable -> NullifySpec SSpec {nullability = Nullable, ..}
-
-  {-# INLINABLE hfield #-}
-  {-# INLINABLE htabulate #-}
-  {-# INLINABLE htraverse #-}
-  {-# INLINABLE hdicts #-}
-  {-# INLINABLE hspecs #-}
+type instance Eval (Nullify ('Spec labels necessity dbType _)) = 
+  'Spec labels necessity dbType (Maybe dbType)
 
 
-type NullifyingSpec :: Type -> Type
-type NullifyingSpec r = (Spec -> r) -> Spec -> r
-
-
-type NullifySpec :: NullifyingSpec Type
-data NullifySpec context spec where
-  NullifySpec
-    :: { getNullifySpec :: context ('Spec labels necessity dbType (Maybe dbType)) }
-    -> NullifySpec context ('Spec labels necessity dbType a)
-
-
-type NullifySpecC :: NullifyingSpec Constraint
-class
-  ( forall labels necessity dbType a.
-    ( spec ~ 'Spec labels necessity dbType a =>
-       constraint ('Spec labels necessity dbType (Maybe dbType))
-    )
-  ) => NullifySpecC constraint spec
-instance
-  ( spec ~ 'Spec labels necessity dbType a
-  , constraint ('Spec labels necessity dbType (Maybe dbType))
-  ) => NullifySpecC constraint spec
-
-
-traverseNullifySpec :: forall context context' spec m. Functor m
-  => (forall x. context x -> m (context' x))
-  -> NullifySpec context spec -> m (NullifySpec context' spec)
-traverseNullifySpec f (NullifySpec a) = NullifySpec <$> f a
+instance MapSpec Nullify where
+  mapInfo = \case
+    SSpec{labels, necessity, info, nullability} -> SSpec
+      { labels
+      , necessity
+      , info
+      , nullability = case nullability of
+          Nullable    -> Nullable
+          NonNullable -> Nullable
+      } 
 
 
 hnulls :: HTable t
   => (forall labels necessity dbType. ()
     => context ('Spec labels necessity dbType (Maybe dbType)))
   -> HNullify t context
-hnulls null = HNullify $ htabulate $ \field -> case hfield hspecs field of
-  SSpec {} -> NullifySpec null
+hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
+  SSpec {} -> null
 {-# INLINABLE hnulls #-}
 
 
@@ -125,9 +87,9 @@ hnullify :: HTable t
     -> context ('Spec labels necessity dbType (Maybe dbType)))
   -> t context
   -> HNullify t context
-hnullify nullifier a = HNullify $ htabulate $ \field ->
+hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    spec@SSpec {} -> NullifySpec (nullifier spec (hfield a field))
+    spec@SSpec {} -> nullifier spec (hfield a field)
 {-# INLINABLE hnullify #-}
 
 
@@ -140,6 +102,6 @@ hunnullify :: (HTable t, Apply m)
   -> m (t context)
 hunnullify unnullifier (HNullify as) =
   htabulateA $ \field -> case hfield hspecs field of
-    spec@SSpec {} -> case hfield as field of
-      NullifySpec a -> unnullifier spec a
+    spec@SSpec {} -> case hfield as (HMapTableField field) of
+      a -> unnullifier spec a
 {-# INLINABLE hunnullify #-}
