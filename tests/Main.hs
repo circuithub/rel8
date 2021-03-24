@@ -60,37 +60,7 @@ import Control.Exception.Lifted ( bracket, throwIO, bracket_ )
 import Control.Monad.Trans.Control ( MonadBaseControl )
 
 -- rel8
-import qualified Rel8.Expr as Rel8
-import qualified Rel8.Expr.Bool as Rel8
-import qualified Rel8.Expr.Eq as Rel8
-import qualified Rel8.Query.Aggregate as Rel8
-import qualified Rel8.Query.Distinct as Rel8
-import qualified Rel8.Query.Each as Rel8
-import qualified Rel8.Query.Exists as Rel8
-import qualified Rel8.Query.Filter as Rel8
-import qualified Rel8.Query.Limit as Rel8
-import qualified Rel8.Query.Maybe as Rel8
-import qualified Rel8.Query.Null as Rel8
-import qualified Rel8.Query.Set as Rel8
-import qualified Rel8.Query.Values as Rel8
-import qualified Rel8.Schema.Column as Rel8
-import qualified Rel8.Schema.Context as Rel8
-import qualified Rel8.Schema.Generic as Rel8
-import qualified Rel8.Schema.Nullability as Rel8
-import qualified Rel8.Schema.Table as Rel8
-import qualified Rel8.Statement.Delete as Rel8
-import qualified Rel8.Statement.Insert as Rel8
-import qualified Rel8.Statement.Returning as Rel8
-import qualified Rel8.Statement.Select as Rel8
-import qualified Rel8.Statement.Update as Rel8
-import qualified Rel8.Table.Aggregate as Rel8
-import qualified Rel8.Table.Bool as Rel8
-import qualified Rel8.Table.Eq as Rel8
-import qualified Rel8.Table.Insert as Rel8
-import qualified Rel8.Table.Maybe as Rel8
-import qualified Rel8.Table.Serialize as Rel8
-import qualified Rel8.Type as Rel8
-import qualified Rel8.Type.Eq as Rel8
+import qualified Rel8
 
 -- scientific
 import Data.Scientific ( Scientific )

@@ -37,6 +37,13 @@ module Rel8
   , DBFractional
 
     -- * Tables and higher-kinded tables
+  , Rel8able
+  , Column
+  , HMaybe
+  , HList
+  , HNonEmpty
+  , HThese
+
   , Table
   , AltTable((<|>:))
   , EqTable, (==:), (/=:)
@@ -88,6 +95,7 @@ module Rel8
 
     -- ** Table schemas
   , TableSchema(..)
+  , Name
 
     -- * Expressions
   , Expr
@@ -103,6 +111,7 @@ module Rel8
   , catNullable
 
     -- ** Boolean operations
+  , DBEq
   , true, false, not_
   , (&&.), and_
   , (||.), or_
@@ -220,74 +229,79 @@ module Rel8
   , HTable
   , Labelable
   , Context
+  , IsMaybe
   ) where
 
 -- base
 import Prelude ()
 
 -- rel8
-import Rel8.Type
-import Rel8.Type.Information
-import Rel8.Type.Ord
-import Rel8.Type.Semigroup
-import Rel8.Type.Monoid
-import Rel8.Type.Num
-import Rel8.Table
+import Rel8.Aggregate
 import Rel8.Expr
+import Rel8.Expr.Aggregate
 import Rel8.Expr.Bool
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
-import Rel8.Query
-import Rel8.Query.SQL (showQuery)
-import Rel8.Query.Each
-import Rel8.Query.Values
-import Rel8.Query.Filter
-import Rel8.Query.Exists
-import Rel8.Query.Distinct
-import Rel8.Query.Limit
-import Rel8.Query.Set
-import Rel8.Table.Maybe
-import Rel8.Query.Maybe
-import Rel8.Aggregate
-import Rel8.Query.Aggregate
-import Rel8.Query.List
-import Rel8.Table.NonEmpty
-import Rel8.Table.List
-import Rel8.Query.Order
-import Rel8.Order
-import Rel8.Table.Serialize
-import Rel8.Statement.Select
-import Rel8.Statement.Insert
-import Rel8.Statement.Delete
-import Rel8.Statement.Returning
-import Rel8.Statement.Update
-import Rel8.Table.Aggregate
-import Rel8.Expr.Aggregate
-import Rel8.Type.String
-import Rel8.Type.Sum
 import Rel8.Expr.Null
-import Rel8.Query.Null
-import Rel8.Expr.Order
-import Rel8.Schema.Nullability
-import Rel8.Schema.HTable
-import Rel8.Schema.Context.Label
-import Rel8.Schema.Table
-import Rel8.Table.These
-import Rel8.Query.These
-import Rel8.Table.Recontextualize
 import Rel8.Expr.Ord
-import Rel8.Table.Alternative
-import Rel8.Table.Either
-import Rel8.Table.Bool
+import Rel8.Expr.Order
+import Rel8.Expr.Serialize
+import Rel8.Order
+import Rel8.Query
+import Rel8.Query.Aggregate
+import Rel8.Query.Distinct
+import Rel8.Query.Each
 import Rel8.Query.Either
+import Rel8.Query.Exists
+import Rel8.Query.Filter
+import Rel8.Query.Limit
+import Rel8.Query.List
+import Rel8.Query.Maybe
+import Rel8.Query.Null
+import Rel8.Query.Order
+import Rel8.Query.SQL (showQuery)
+import Rel8.Query.Set
+import Rel8.Query.These
+import Rel8.Query.Values
+import Rel8.Schema.Column
+import Rel8.Schema.Context (Name)
+import Rel8.Schema.Context.Label
+import Rel8.Schema.Generic
+import Rel8.Schema.HTable
+import Rel8.Schema.Nullability
+import Rel8.Schema.Table
+import Rel8.Statement.Delete
+import Rel8.Statement.Insert
+import Rel8.Statement.Returning
+import Rel8.Statement.Select
+import Rel8.Statement.Update
+import Rel8.Table
+import Rel8.Table.Aggregate
+import Rel8.Table.Alternative
+import Rel8.Table.Bool
+import Rel8.Table.Either
 import Rel8.Table.Eq
+import Rel8.Table.Insert
+import Rel8.Table.List
+import Rel8.Table.Maybe
+import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
-import Rel8.Expr.Serialize
-import Rel8.Table.Insert
+import Rel8.Table.Recontextualize
+import Rel8.Table.Serialize
+import Rel8.Table.These
+import Rel8.Type
+import Rel8.Type.Eq
+import Rel8.Type.Information
 import Rel8.Type.JSONEncoded
 import Rel8.Type.JSONBEncoded
+import Rel8.Type.Monoid
+import Rel8.Type.Num
+import Rel8.Type.Ord
 import Rel8.Type.ReadShow
+import Rel8.Type.Semigroup
+import Rel8.Type.String
+import Rel8.Type.Sum
 
 
 -- $setup
