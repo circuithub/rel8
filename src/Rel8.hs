@@ -113,6 +113,7 @@ module Rel8
   , mapNullable
   , liftOpNullable
   , catNullable
+  , coalesce
 
     -- ** Boolean operations
   , DBEq
