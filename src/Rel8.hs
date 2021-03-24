@@ -181,6 +181,7 @@ module Rel8
     -- ** Aggregation
   , Aggregate
   , aggregate
+  , runAggregation
   , listAgg
   , nonEmptyAgg
   , groupBy
