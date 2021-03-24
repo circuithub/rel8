@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE LambdaCase #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
@@ -15,117 +19,67 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.HTable.Label
-  ( HLabel( HLabel )
+  ( HLabel
   , hlabel, hunlabel
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.TypeLits ( KnownSymbol, Symbol )
 import Prelude
 
 -- rel8
 import Rel8.Kind.Labels ( SLabels( SLabels ) )
-import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
-  ( HTable, HConstrainTable, HField
-  , hfield, htabulate, htraverse, hdicts, hspecs
+  ( HTable
+  , hfield, htabulate, hspecs
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.FCF
+import Rel8.Schema.HTable.MapTable
+import GHC.Generics (Generic)
 
 
 type HLabel :: Symbol -> K.HTable -> K.HTable
-data HLabel label table context where
-  HLabel :: table (LabelSpec label context) -> HLabel label table context
+newtype HLabel label table context = HLabel (HMapTable (Label label) table context)
+  deriving stock Generic
+  deriving anyclass HTable
 
 
-type HLabelField :: Symbol -> K.HTable -> Spec -> Type
-data HLabelField label table spec where
-  HLabelField
-    :: HField table ('Spec labels necessity db a)
-    -> HLabelField label table ('Spec (label ': labels) necessity db a)
+data Label :: Symbol -> Spec -> Exp Spec
 
 
-instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
-  type HField (HLabel label table) = HLabelField label table
-  type HConstrainTable (HLabel label table) c =
-    HConstrainTable table (LabelSpecC label c)
-
-  hfield (HLabel table) (HLabelField field) =
-    getLabelSpec (hfield table field)
-
-  htabulate f = HLabel $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> LabelSpec (f (HLabelField field))
-  htraverse f (HLabel t) = HLabel <$> htraverse (traverseLabelSpec f) t
-
-  hdicts :: forall c. HConstrainTable table (LabelSpecC label c)
-    => HLabel label table (Dict c)
-  hdicts = HLabel $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield (hdicts @_ @(LabelSpecC label c)) field of
-      Dict -> LabelSpec Dict
-
-  hspecs = HLabel $ htabulate $ \field -> case hfield hspecs field of
-    SSpec {..} -> LabelSpec SSpec {labels = SLabels Proxy labels, ..}
-
-  {-# INLINABLE hfield #-}
-  {-# INLINABLE htabulate #-}
-  {-# INLINABLE htraverse #-}
-  {-# INLINABLE hdicts #-}
-  {-# INLINABLE hspecs #-}
+type instance Eval (Label label ('Spec labels necessity db a)) = 'Spec (label : labels) necessity db a
 
 
-type LabelingSpec :: Type -> Type
-type LabelingSpec r = Symbol -> (Spec -> r) -> Spec -> r
+instance KnownSymbol l => MapSpec (Label l) where
+  mapInfo = \case
+    SSpec {..} -> SSpec {labels = SLabels Proxy labels, ..}
 
 
-type LabelSpec :: LabelingSpec Type
-data LabelSpec label context spec where
-  LabelSpec
-    :: { getLabelSpec :: context ('Spec (label ': labels) necessity db a) }
-    -> LabelSpec label context ('Spec labels necessity db a)
-
-
-type LabelSpecC :: LabelingSpec Constraint
-class
-  ( forall labels necessity db a.
-    ( spec ~ 'Spec labels necessity db a =>
-       constraint ('Spec (label ': labels) necessity db a)
-    )
-  ) => LabelSpecC label constraint spec
-instance
-  ( spec ~ 'Spec labels necessity db a
-  , constraint ('Spec (label ': labels) necessity db a)
-  ) => LabelSpecC label constraint spec
-
-
-traverseLabelSpec :: forall context context' label spec m. Functor m
-  => (forall x. context x -> m (context' x))
-  -> LabelSpec label context spec -> m (LabelSpec label context' spec)
-traverseLabelSpec f (LabelSpec a) = LabelSpec <$> f a
-
-
-hlabel :: HTable t
+hlabel :: (HTable t, KnownSymbol label)
   => (forall labels necessity db a. ()
     => context ('Spec labels necessity db a)
     -> context ('Spec (label ': labels) necessity db a))
   -> t context
   -> HLabel label t context
-hlabel labeler a = HLabel $ htabulate $ \field ->
+hlabel labeler a = HLabel $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    SSpec {} -> LabelSpec (labeler (hfield a field))
+    SSpec {} -> labeler (hfield a field)
 {-# INLINABLE hlabel #-}
 
 
-hunlabel :: HTable t
+hunlabel :: (HTable t, KnownSymbol label)
   => (forall labels necessity db a. ()
     => context ('Spec (label ': labels) necessity db a)
     -> context ('Spec labels necessity db a))
   -> HLabel label t context
   -> t context
 hunlabel unlabler (HLabel as) =
-  htabulate $ \field -> case hfield as field of
-      LabelSpec a -> unlabler a
+  htabulate $ \field -> 
+    case hfield hspecs field of
+      SSpec {} -> case hfield as (HMapTableField field) of
+        a -> unlabler a
 {-# INLINABLE hunlabel #-}

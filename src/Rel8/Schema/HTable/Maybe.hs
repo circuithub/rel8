@@ -1,3 +1,7 @@
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE KindSignatures #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
@@ -17,10 +21,10 @@ import Prelude
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Nullify ( HNullify )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Type.Tag ( MaybeTag )
+import Rel8.Schema.HTable.Nullify ( HNullify )
 
 
 type HMaybeTable :: K.HTable -> K.HTable
