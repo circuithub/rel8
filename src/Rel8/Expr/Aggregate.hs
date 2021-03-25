@@ -152,6 +152,7 @@ groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
 groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 
+-- | Collect expressions as a list. Corresponds to @array_agg@.
 listAggExpr :: Expr a -> Aggregate (Expr [a])
 listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
@@ -163,6 +164,7 @@ listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
     from = fromPrimExpr . fromPrimArray
 
 
+-- | Collect expressions as a non-empty list. Corresponds to @array_agg@.
 nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
 nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
