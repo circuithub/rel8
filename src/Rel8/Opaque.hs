@@ -1,20 +1,15 @@
 {-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeFamilies #-}
 
 module Rel8.Opaque
   ( Opaque
-  , Opaque1
   )
 where
 
 -- base
-import Data.Kind ( Type )
 import Prelude ()
 
 
-type Opaque :: Type
-data Opaque
-
-
-type Opaque1 :: k -> Type -> Type
-data Opaque1 a x
+type Opaque :: k
+data family Opaque :: k

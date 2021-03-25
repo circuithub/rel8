@@ -1,6 +1,10 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Sum
   ( DBSum
@@ -13,6 +17,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
+import Rel8.Schema.Nullability ( HasNullability, Unnullify, Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -33,3 +38,7 @@ instance DBSum Double
 instance DBSum Scientific
 instance DBSum DiffTime
 instance DBSum NominalDiffTime
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBSum (Unnullify a)) =>
+  Sql DBSum a

@@ -36,7 +36,7 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
-import Rel8.Opaque ( Opaque, Opaque1 )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.Context.Nullify
@@ -146,7 +146,7 @@ instance Nullifiable Aggregate where
 type Aggregates :: Type -> Type -> Constraint
 class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance {-# OVERLAPPING #-} Aggregates (Opaque1 Aggregate Opaque) (Opaque1 Expr Opaque)
+instance {-# OVERLAPPING #-} Aggregates (Opaque Aggregate Opaque) (Opaque Expr Opaque)
 
 
 foldInputs :: Monoid b

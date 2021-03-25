@@ -404,19 +404,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
   ]
 
   where
-    dbTypeTest ::
-      ( Eq a, Show a
-      , Rel8.Sql Rel8.DBType a
-      , Rel8.IsMaybe a ~ 'False
-      , Rel8.Serializable (Rel8.Expr a) a
-      , Rel8.Serializable (Rel8.Expr (Maybe a)) (Maybe a)
-      ) => TestName -> Gen a -> TestTree
+    dbTypeTest :: (Eq a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t (==) generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Show a, Rel8.Sql Rel8.DBType a, Rel8.Serializable (Rel8.Expr a) a)
+    t :: forall a b. (Show a, Rel8.Sql Rel8.DBType a)
       => (a -> a -> Bool)
       -> Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO b)
@@ -425,7 +419,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
       x <- forAll generator
 
       transaction \connection -> do
-        [res] <- liftIO $ Rel8.select connection $ pure (Rel8.lit x :: Rel8.Expr a)
+        [res] <- liftIO $ Rel8.select connection $ pure (Rel8.litExpr x)
         diff res eq x
 
     genDay :: Gen Day
@@ -460,23 +454,13 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   ]
 
   where
-    dbEqTest ::
-      ( Eq a, Show a
-      , Rel8.Sql Rel8.DBEq a
-      , Rel8.IsMaybe a ~ 'False
-      , Rel8.Serializable (Rel8.Expr a) a
-      , Rel8.Serializable (Rel8.Expr (Maybe a)) (Maybe a)
-      ) => TestName -> Gen a -> TestTree
+    dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
     dbEqTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a.
-      ( Eq a, Show a
-      , Rel8.Sql Rel8.DBEq a
-      , Rel8.Serializable (Rel8.Expr a) a
-      )
+    t :: forall a. (Eq a, Show a, Rel8.Sql Rel8.DBEq a)
       => Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO ())
       -> PropertyT IO ()
@@ -484,7 +468,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
       (x, y) <- forAll (liftA2 (,) generator generator)
 
       transaction \connection -> do
-        [res] <- liftIO $ Rel8.select connection $ pure $ Rel8.lit @(Rel8.Expr a) x Rel8.==. Rel8.lit y
+        [res] <- liftIO $ Rel8.select connection $ pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
 
         cover 1 "Equal" $ x == y

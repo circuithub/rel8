@@ -17,7 +17,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Opaque ( Opaque1 )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
@@ -85,7 +85,7 @@ instance Sql DBType a => Recontextualize Name Insertion (Name a) (Insertion a)
 -}
 
 
-instance Recontextualize from to (Opaque1 from a) (Opaque1 to a)
+instance Recontextualize from to (Opaque from a) (Opaque to a)
 
 
 instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
@@ -131,14 +131,3 @@ instance
   , Recontextualize from to a5 b5
   , Labelable from, Labelable to
   ) => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)
-
-
-{-
-
--- | @Inserts a b@ means that the columns in @a@ are compatible for inserting
--- with the table @b@.
-type Inserts :: Type -> Type -> Constraint
-class Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
-instance Recontextualize Expr Insertion exprs inserts => Inserts exprs inserts
-instance {-# OVERLAPPING #-} Inserts (Opaque1 Expr Opaque) (Opaque1 Insertion Opaque)
--}

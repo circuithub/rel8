@@ -1,6 +1,8 @@
 {-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
+{-# language UndecidableInstances #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Type
@@ -36,7 +38,11 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( NotNull, Sql, nullabilization )
+import Rel8.Schema.Nullability
+  ( NotNull, Unnullify
+  , HasNullability, nullabilization
+  , Sql
+  )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 
@@ -311,3 +317,7 @@ instance Sql DBType a => DBType (NonEmpty a) where
 
 instance {-# OVERLAPPING #-} DBType Opaque where
   typeInformation = error "opaque"
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBType (Unnullify a)) =>
+  Sql DBType a

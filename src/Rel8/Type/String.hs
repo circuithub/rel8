@@ -1,5 +1,8 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.String
   ( DBString
@@ -18,6 +21,7 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
+import Rel8.Schema.Nullability ( HasNullability, Unnullify, Sql )
 import Rel8.Type ( DBType )
 
 -- text
@@ -35,3 +39,7 @@ instance DBString (CI Text)
 instance DBString (CI Lazy.Text)
 instance DBString ByteString
 instance DBString Lazy.ByteString
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBString (Unnullify a)) =>
+  Sql DBString a

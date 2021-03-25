@@ -1,5 +1,6 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
 
@@ -26,7 +27,7 @@ import Data.CaseInsensitive ( CI )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Nullability ( Unnullify, HasNullability, Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -107,3 +108,7 @@ instance DBEq Value
 instance Sql DBEq a => DBEq [a]
 instance Sql DBEq a => DBEq (NonEmpty a)
 instance DBEq Opaque
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBEq (Unnullify a)) =>
+  Sql DBEq a

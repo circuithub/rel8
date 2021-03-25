@@ -29,7 +29,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
-import Rel8.Opaque ( Opaque, Opaque1 )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
@@ -109,4 +109,4 @@ nameFromLabel = case labelsSing @labels of
 type Selects :: Type -> Type -> Constraint
 class Recontextualize Name Expr names exprs => Selects names exprs
 instance Recontextualize Name Expr names exprs => Selects names exprs
-instance {-# OVERLAPPING #-} Selects (Opaque1 Name Opaque) (Opaque1 Expr Opaque)
+instance {-# OVERLAPPING #-} Selects (Opaque Name Opaque) (Opaque Expr Opaque)

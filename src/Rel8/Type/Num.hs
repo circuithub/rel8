@@ -1,6 +1,10 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Num
   ( DBNum, DBIntegral, DBFractional
@@ -13,6 +17,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
+import Rel8.Schema.Nullability ( HasNullability, Unnullify, Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -31,6 +36,10 @@ instance DBNum Double
 instance DBNum Scientific
 
 
+instance {-# INCOHERENT #-} (HasNullability a, DBNum (Unnullify a)) =>
+  Sql DBNum a
+
+
 type DBIntegral :: Type -> Constraint
 class DBNum a => DBIntegral a
 instance DBIntegral Int16
@@ -38,8 +47,16 @@ instance DBIntegral Int32
 instance DBIntegral Int64
 
 
+instance {-# INCOHERENT #-} (HasNullability a, DBIntegral (Unnullify a)) =>
+  Sql DBIntegral a
+
+
 -- | The class of database types that support the @/@ operator.
 class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
 instance DBFractional Scientific
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBFractional (Unnullify a)) =>
+  Sql DBFractional a

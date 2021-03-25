@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
-{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
@@ -16,13 +15,12 @@
 module Rel8.Expr
   ( Expr(..)
   , Col( DB, unDB )
-  , Encodes
   )
 where
 
 -- base
 import Data.Functor.Identity ( Identity )
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
 
@@ -38,7 +36,6 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Opaque ( Opaque, Opaque1 )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Nullify
@@ -143,9 +140,3 @@ instance Nullifiable Expr where
   {-# INLINABLE decodeTag #-}
   {-# INLINABLE nullifier #-}
   {-# INLINABLE unnullifier #-}
-
-
-type Encodes :: Type -> Type -> Constraint
-class Recontextualize Identity Expr a exprs => Encodes a exprs
-instance Recontextualize Identity Expr a exprs => Encodes a exprs
-instance {-# OVERLAPPING #-} Encodes (Opaque1 Identity Opaque) (Opaque1 Expr Opaque)

@@ -1,6 +1,7 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -30,7 +31,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Nullability ( Unnullify, Sql, HasNullability )
 import Rel8.Type ( DBType )
 
 -- text
@@ -88,3 +89,7 @@ instance DBSemigroup ByteString where
 
 instance DBSemigroup Lazy.ByteString where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+
+
+instance {-# INCOHERENT #-} (HasNullability a, DBSemigroup (Unnullify a)) =>
+  Sql DBSemigroup a

@@ -56,8 +56,8 @@ type Nullify a = Maybe (Unnullify a)
 
 
 type NotNull :: Type -> Constraint
-class IsMaybe a ~ 'False => NotNull a
-instance IsMaybe a ~ 'False => NotNull a
+class (HasNullability a, IsMaybe a ~ 'False) => NotNull a
+instance (HasNullability a, IsMaybe a ~ 'False) => NotNull a
 instance {-# OVERLAPPING #-} NotNull Opaque
 
 
@@ -76,18 +76,18 @@ data Nullability a where
 type HasNullability' :: Bool -> Type -> Constraint
 class
   ( IsMaybe a ~ isMaybe
-  , NotNull (Unnullify a)
+  , IsMaybe (Unnullify a) ~ 'False
   , Nullify' isMaybe (Unnullify a) ~ a
   ) => HasNullability' isMaybe a
  where
   nullabilization' :: Nullability a
 
 
-instance NotNull a => HasNullability' 'False a where
+instance IsMaybe a ~ 'False => HasNullability' 'False a where
   nullabilization' = NonNullable
 
 
-instance NotNull a => HasNullability' 'True (Maybe a) where
+instance IsMaybe a ~ 'False => HasNullability' 'True (Maybe a) where
   nullabilization' = Nullable
 
 
@@ -115,4 +115,4 @@ class
   )
   => Sql constraint a
 instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
-instance {-# OVERLAPPING #-} (constraint Opaque, Sql constraint Opaque) => Sql constraint Opaque
+instance {-# OVERLAPPING #-} (c Opaque, Sql c Opaque) => Sql c Opaque

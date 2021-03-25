@@ -21,7 +21,7 @@ import Prelude
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Opaque ( Opaque, Opaque1 )
+import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
@@ -207,9 +207,9 @@ instance Table Expr Opaque where
   toColumns = error "opaque"
 
 
-instance Table context (Opaque1 context a) where
-  type Columns (Opaque1 context a) = HType Opaque
-  type Context (Opaque1 context a) = context
+instance Table context (Opaque context a) where
+  type Columns (Opaque context a) = HType Opaque
+  type Context (Opaque context a) = context
 
   fromColumns = error "opaque"
   toColumns = error "opaque"

@@ -14,6 +14,7 @@
 
 module Rel8.Table.Serialize
   ( Serializable, lit, parse
+  , Encodes, litTable
   )
 where
 
@@ -28,9 +29,8 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr, Encodes, Col(..) )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Identity
   ( fromHEitherTable, toHEitherTable
@@ -54,6 +54,7 @@ import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 
@@ -64,160 +65,44 @@ import Data.Functor.Apply ( WrappedApplicative(..) )
 import Data.These ( These )
 
 
-type IsPlainColumn :: Type -> Bool
-type family IsPlainColumn a where
-  IsPlainColumn (Either _ _) = 'False
-  IsPlainColumn [_] = 'False
-  IsPlainColumn (Maybe _) = 'False
-  IsPlainColumn (NonEmpty _) = 'False
-  IsPlainColumn (These _ _) = 'False
-  IsPlainColumn (_, _) = 'False
-  IsPlainColumn (_, _, _) = 'False
-  IsPlainColumn (_, _, _, _) = 'False
-  IsPlainColumn (_, _, _, _, _) = 'False
-  IsPlainColumn (_ Identity) = 'False
-  IsPlainColumn (_ (Col Identity _)) = 'False
-  IsPlainColumn (Identity _) = 'False
-  IsPlainColumn _ = 'True
-
-
-type IsTabular :: Type -> Bool
-type family IsTabular a where
-  IsTabular (Either _ _) = 'True
-  IsTabular [a] = IsListTabular a
-  IsTabular (Maybe a) = IsMaybeTabular a
-  IsTabular (NonEmpty a) = IsListTabular a
-  IsTabular (These _ _) = 'True
-  IsTabular (_, _) = 'True
-  IsTabular (_, _, _) = 'True
-  IsTabular (_, _, _, _) = 'True
-  IsTabular (_, _, _, _, _) = 'True
-  IsTabular (_ Identity) = 'True
-  IsTabular (_ (Col Identity)) = 'True
-  IsTabular (Col Identity _) = 'True
-  IsTabular _ = 'False
-
-
-type IsTabular' :: Bool -> Type -> Bool
-type family IsTabular' isTabular exprs where
-  IsTabular' _ (Expr _) = 'False
-  IsTabular' 'False _ = 'False
-  IsTabular' _ _ = 'True
-
-
-type IsMaybeTabular :: Type -> Bool
-type family IsMaybeTabular a where
-  IsMaybeTabular (Maybe _) = 'True
-  IsMaybeTabular a = IsTabular a
-
-
-type IsListTabular :: Type -> Bool
-type family IsListTabular a where
-  IsListTabular (Maybe a) = IsMaybeTabular a
-  IsListTabular a = IsTabular a
-
-
-type ToExprs :: Type -> Type -> Constraint
-class ExprsFor (IsPlainColumn a) (IsTabular' (IsTabular a) exprs) a exprs => ToExprs a exprs
-instance ExprsFor (IsPlainColumn a) (IsTabular' (IsTabular a) exprs) a exprs => ToExprs a exprs
-
-
 fromIdentity' :: forall exprs a. ToExprs a exprs => Columns exprs (Col Identity) -> a
-fromIdentity' = fromIdentity @(IsPlainColumn a) @_ @_ @exprs
+fromIdentity' = fromIdentity @_ @exprs
 
 
 toIdentity' :: forall exprs a. ToExprs a exprs => a -> Columns exprs (Col Identity)
-toIdentity' = toIdentity @(IsPlainColumn a) @_ @_ @exprs
+toIdentity' = toIdentity @_ @exprs
 
 
-type ExprsFor :: Bool -> Bool -> Type -> Type -> Constraint
-class (Table Expr exprs, isTabular ~ IsTabular a) =>
-  ExprsFor isPlainColumn isTabular a exprs where
+type ToExprs :: Type -> Type -> Constraint
+class Table Expr exprs => ToExprs a exprs where
   fromIdentity :: Columns exprs (Col Identity) -> a
   toIdentity :: a -> Columns exprs (Col Identity)
 
 
-instance
-  ( DBType a
-  , NotNull a
-  , IsTabular a ~ 'False
-  , x ~ Expr a
-  )
-  => ExprsFor 'True 'False a x
+instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs a x where
+  fromIdentity (HType (Result a)) = a
+  toIdentity = HType . Result
+
+
+instance (Sql DBType a, x ~ [a]) => ToExprs [a] (Expr x) where
+  fromIdentity (HType (Result a)) = a
+  toIdentity = HType . Result
+
+
+instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Maybe a) (Expr x)
  where
   fromIdentity (HType (Result a)) = a
   toIdentity = HType . Result
 
 
-instance
-  ( Sql DBType a
-  , IsListTabular a ~ 'False
-  , x ~ [a]
-  ) => ExprsFor 'False 'False [a] (Expr x)
+instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (NonEmpty a) (Expr x)
  where
   fromIdentity (HType (Result a)) = a
   toIdentity = HType . Result
 
 
-instance
-  ( Sql DBType a
-  , isTabular ~ 'False
-  , NotNull a
-  , IsMaybeTabular a ~ 'False
-  , x ~ Maybe a
-  ) => ExprsFor 'False 'False (Maybe a) (Expr x)
- where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
-
-
-instance
-  ( Sql DBType a
-  , IsListTabular a ~ 'False
-  , x ~ NonEmpty a
-  ) => ExprsFor 'False 'False (NonEmpty a) (Expr x)
- where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
-
-
-instance
-  ( ToExprs a exprs
-  , IsListTabular a ~ 'False
-  ) => ExprsFor 'False 'False [a] (ListTable exprs)
- where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromHListTable
-  toIdentity = toHListTable . fmap (toIdentity' @exprs)
-
-
-instance
-  ( ToExprs a exprs
-  , IsMaybeTabular a ~ 'False
-  ) => ExprsFor 'False 'False (Maybe a) (MaybeTable exprs)
- where
-  fromIdentity =
-    fmap (fromIdentity' @exprs . hunlabel unlabeler) .
-    fromHMaybeTable
-  toIdentity =
-    toHMaybeTable .
-    fmap (hlabel labeler . toIdentity' @exprs)
-
-
-instance
-  ( ToExprs a exprs
-  , IsListTabular a ~ 'False
-  ) => ExprsFor 'False 'False (NonEmpty a) (NonEmptyTable exprs)
- where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromHNonEmptyTable
-  toIdentity = toHNonEmptyTable . fmap (toIdentity' @exprs)
-
-
-instance
-  ( ToExprs a exprs1
-  , ToExprs b exprs2
-  , isTabular ~ 'True
-  , x ~ EitherTable exprs1 exprs2
-  ) => ExprsFor 'False isTabular (Either a b) x
+instance (ToExprs a exprs1, ToExprs b exprs2, x ~ EitherTable exprs1 exprs2) =>
+  ToExprs (Either a b) x
  where
   fromIdentity =
     bimap
@@ -231,22 +116,12 @@ instance
       (hlabel labeler . toIdentity' @exprs2)
 
 
-instance
-  ( ToExprs a exprs
-  , IsListTabular a ~ 'True
-  , x ~ ListTable exprs
-  ) => ExprsFor 'False 'True [a] x
- where
+instance ToExprs a exprs => ToExprs [a] (ListTable exprs) where
   fromIdentity = fmap (fromIdentity' @exprs) . fromHListTable
   toIdentity = toHListTable . fmap (toIdentity' @exprs)
 
 
-instance
-  ( ToExprs a exprs
-  , IsMaybeTabular a ~ 'True
-  , x ~ MaybeTable exprs
-  ) => ExprsFor 'False 'True (Maybe a) x
- where
+instance ToExprs a exprs => ToExprs (Maybe a) (MaybeTable exprs) where
   fromIdentity =
     fmap (fromIdentity' @exprs . hunlabel unlabeler) .
     fromHMaybeTable
@@ -255,22 +130,14 @@ instance
     fmap (hlabel labeler . toIdentity' @exprs)
 
 
-instance
-  ( ToExprs a exprs
-  , IsListTabular a ~ 'True
-  , x ~ NonEmptyTable exprs
-  ) => ExprsFor 'False 'True (NonEmpty a) x
+instance ToExprs a exprs => ToExprs (NonEmpty a) (NonEmptyTable exprs)
  where
   fromIdentity = fmap (fromIdentity' @exprs) . fromHNonEmptyTable
   toIdentity = toHNonEmptyTable . fmap (toIdentity' @exprs)
 
 
-instance
-  ( ToExprs a exprs1
-  , ToExprs b exprs2
-  , isTabular ~ 'True
-  , x ~ TheseTable exprs1 exprs2
-  ) => ExprsFor 'False isTabular (These a b) x
+instance (ToExprs a exprs1, ToExprs b exprs2, x ~ TheseTable exprs1 exprs2) =>
+  ToExprs (These a b) x
  where
   fromIdentity =
     bimap
@@ -284,12 +151,8 @@ instance
       (hlabel labeler . toIdentity' @exprs2)
 
 
-instance
-  ( ToExprs a exprs1
-  , ToExprs b exprs2
-  , isTabular ~ 'True
-  , x ~ (exprs1, exprs2)
-  ) => ExprsFor 'False isTabular (a, b) x
+instance (ToExprs a exprs1, ToExprs b exprs2, x ~ (exprs1, exprs2)) =>
+  ToExprs (a, b) x
  where
   fromIdentity (HPair a b) =
     ( fromIdentity' @exprs1 $ hunlabel unlabeler a
@@ -305,9 +168,8 @@ instance
   ( ToExprs a exprs1
   , ToExprs b exprs2
   , ToExprs c exprs3
-  , isTabular ~ 'True
   , x ~ (exprs1, exprs2, exprs3)
-  ) => ExprsFor 'False isTabular (a, b, c) x
+  ) => ToExprs (a, b, c) x
  where
   fromIdentity (HTrio a b c) =
     ( fromIdentity' @exprs1 $ hunlabel unlabeler a
@@ -326,9 +188,8 @@ instance
   , ToExprs b exprs2
   , ToExprs c exprs3
   , ToExprs d exprs4
-  , isTabular ~ 'True
   , x ~ (exprs1, exprs2, exprs3, exprs4)
-  ) => ExprsFor 'False isTabular (a, b, c, d) x
+  ) => ToExprs (a, b, c, d) x
  where
   fromIdentity (HQuartet a b c d) =
     ( fromIdentity' @exprs1 $ hunlabel unlabeler a
@@ -350,9 +211,8 @@ instance
   , ToExprs c exprs3
   , ToExprs d exprs4
   , ToExprs e exprs5
-  , isTabular ~ 'True
   , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
-  ) => ExprsFor 'False isTabular (a, b, c, d, e) x
+  ) => ToExprs (a, b, c, d, e) x
  where
   fromIdentity (HQuintet a b c d e) =
     ( fromIdentity' @exprs1 $ hunlabel unlabeler a
@@ -370,34 +230,22 @@ instance
     }
 
 
-instance
-  ( HTable t
-  , isTabular ~ 'True
-  , result ~ Col Identity
-  , x ~ t (Col Expr)
-  ) => ExprsFor 'False isTabular (t result) x
+instance (HTable t, result ~ Col Identity, x ~ t (Col Expr)) =>
+  ToExprs (t result) x
  where
   fromIdentity = id
   toIdentity = id
 
 
-instance
-  ( Encodes (t Identity) (t Expr)
-  , isTabular ~ 'True
-  , result ~ Identity
-  , x ~ t Expr
-  ) => ExprsFor 'False isTabular (t result) x
+instance (Recontextualize Identity Expr (t Identity) (t Expr), result ~ Identity, x ~ t Expr) =>
+  ToExprs (t result) x
  where
   fromIdentity = fromColumns
   toIdentity = toColumns
 
 
-instance
-  ( KnownSpec spec
-  , isTabular ~ 'True
-  , isSpecial ~ 'True
-  , x ~ Col Expr spec
-  ) => ExprsFor 'False isTabular (Col Identity spec) x
+instance (KnownSpec spec, x ~ Col Expr spec) =>
+  ToExprs (Col Identity spec) x
  where
   fromIdentity = fromColumns
   toIdentity = toColumns
@@ -425,27 +273,75 @@ type family FromExprs a where
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
 -- @sql@, which contains SQL expressions, and the type @haskell@, which
 -- contains the Haskell decoding of rows containing @sql@ SQL expressions.
+type Serializable :: Type -> Type -> Constraint
 class (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a | exprs -> a
 instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
-instance Serializable (Expr Opaque) Opaque
+instance {-# OVERLAPPING #-} Sql DBType a => Serializable (Expr a) a
 
 
 lit :: forall exprs a. Serializable exprs a => a -> exprs
-lit = fromColumns . litTable . toIdentity' @exprs
+lit = fromColumns . litHTable . toIdentity' @exprs
 
 
 parse :: forall exprs a. Serializable exprs a => Hasql.Row a
-parse = fromIdentity' @exprs <$> parseTable
+parse = fromIdentity' @exprs <$> parseHTable
 
 
-litTable :: Encodes a b => a -> b
-litTable (toColumns -> as) = fromColumns $ htabulate $ \field ->
+type Encodes :: Type -> Type -> Constraint
+class Serializable exprs a => Encodes a exprs | a -> exprs, exprs -> a
+
+
+instance KnownSpec spec => Encodes (Col Identity spec) (Col Expr spec)
+
+
+instance Serializable (t Identity) (t Expr) => Encodes (t Expr) (t Identity)
+
+
+instance HTable t => Encodes (t (Col Identity)) (t (Col Expr))
+
+
+instance (Encodes a x, Encodes b y) => Encodes (Either a b) (EitherTable x y)
+
+
+instance Encodes a x => Encodes [a] (ListTable x)
+
+
+instance Encodes a x => Encodes (Maybe a) (MaybeTable x)
+
+
+instance Encodes a x => Encodes (NonEmpty a) (NonEmptyTable x)
+
+
+instance (Encodes a x, Encodes b y) => Encodes (These a b) (TheseTable x y)
+
+
+instance (Encodes a x, Encodes b y) => Encodes (a, b) (x, y)
+
+
+instance (Encodes a x, Encodes b y, Encodes c z) =>
+  Encodes (a, b, c) (x, y, z)
+
+
+instance (Encodes a w, Encodes b x, Encodes c y, Encodes d z) =>
+  Encodes (a, b, c, d) (w, x, y, z)
+
+
+instance (Encodes a v, Encodes b w, Encodes c x, Encodes d y, Encodes e z) =>
+  Encodes (a, b, c, d, e) (v, w, x, y, z)
+
+
+litTable :: Encodes a exprs => a -> exprs
+litTable = lit
+
+
+litHTable :: HTable t => t (Col Identity) -> t (Col Expr)
+litHTable as = htabulate $ \field ->
   case hfield hspecs field of
     SSpec {nullability, info} -> case hfield as field of
       Result value -> DB (slitExpr nullability info value)
 
 
-parseTable :: Table Identity a => Hasql.Row a
-parseTable = fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
+parseHTable :: HTable t => Hasql.Row (t (Col Identity))
+parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
     SSpec {nullability, info} -> Result <$> sparseValue nullability info
