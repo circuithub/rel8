@@ -182,8 +182,6 @@ module Rel8
     -- ** Aggregation
   , Aggregate
   , aggregate
-  , sequenceAggregate
-  , distributeAggregate
   , listAgg, listAggExpr
   , nonEmptyAgg, nonEmptyAggExpr
   , groupBy
@@ -197,6 +195,11 @@ module Rel8
   , countWhere
   , and
   , or
+
+  , Aggregates
+  , sequenceAggregate
+  , distributeAggregate
+
 
     -- ** Ordering
   , orderBy
