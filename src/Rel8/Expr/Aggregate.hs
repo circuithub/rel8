@@ -58,7 +58,7 @@ count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 -- | Count the number of distinct occurances of a single column. Corresponds to
 -- @COUNT(DISTINCT a)@
-countDistinct :: DBEq a => Expr a -> Aggregate (Expr Int64)
+countDistinct :: Sql DBEq a => Expr a -> Aggregate (Expr Int64)
 countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
