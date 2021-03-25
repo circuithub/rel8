@@ -45,6 +45,8 @@ library
     Rel8
     Rel8.Expr.Text
     Rel8.Expr.Time
+    Rel8.Tabulate
+
   other-modules:
     Rel8.Aggregate
 
