@@ -183,9 +183,9 @@ module Rel8
   , Aggregate
   , aggregate
   , sequenceAggregate
-  , distrubteAggregate
-  , listAgg
-  , nonEmptyAgg
+  , distributeAggregate
+  , listAgg, listAggExpr
+  , nonEmptyAgg, nonEmptyAggExpr
   , groupBy
   , DBMax, max
   , DBMin, min
