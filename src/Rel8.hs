@@ -98,6 +98,7 @@ module Rel8
   , TableSchema(..)
   , Name
   , namesFromLabels
+  , namesFromLabelsWith
 
     -- * Expressions
   , Expr
