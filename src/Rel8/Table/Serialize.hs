@@ -47,7 +47,7 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
-import Rel8.Schema.Nullability ( IsMaybe, Sql )
+import Rel8.Schema.Nullability ( NotNull, Sql )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
@@ -139,7 +139,7 @@ class (Table Expr exprs, isTabular ~ IsTabular a) =>
 
 instance
   ( DBType a
-  , IsMaybe a ~ 'False
+  , NotNull a
   , IsTabular a ~ 'False
   , x ~ Expr a
   )
@@ -162,7 +162,7 @@ instance
 instance
   ( Sql DBType a
   , isTabular ~ 'False
-  , IsMaybe a ~ 'False
+  , NotNull a
   , IsMaybeTabular a ~ 'False
   , x ~ Maybe a
   ) => ExprsFor 'False 'False (Maybe a) (Expr x)

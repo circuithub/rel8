@@ -234,10 +234,10 @@ module Rel8
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
   , HasNullability
+  , NotNull
   , HTable
   , Labelable
   , Context
-  , IsMaybe
   ) where
 
 -- base

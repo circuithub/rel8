@@ -36,7 +36,7 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- rel8
 import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Sql, nullabilization )
+import Rel8.Schema.Nullability ( NotNull, Sql, nullabilization )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 
@@ -82,7 +82,7 @@ import qualified Data.UUID as UUID
 -- avoid making bad joins. However, when SQL is generated, it will be as if you
 -- just used integers (the type distinction does not impact query generation).
 type DBType :: Type -> Constraint
-class DBType a where
+class NotNull a => DBType a where
   typeInformation :: TypeInformation a
 
 

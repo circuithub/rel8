@@ -32,19 +32,19 @@ where
 -- base
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
-import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable
   ( HTable
   , hfield, htabulate, htabulateA, hspecs
   )
 import Rel8.Schema.Nullability
-  ( IsMaybe
-  , Unnullify
+  ( Unnullify
+  , NotNull
   , Nullability( NonNullable )
   )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
@@ -59,7 +59,7 @@ import GHC.Generics (Generic)
 
 
 class Vector list where
-  listIsn'tMaybe :: proxy a -> IsMaybe (list a) :~: 'False
+  listNotNull :: proxy a -> Dict NotNull (list a)
   vectorTypeInformation :: ()
     => Nullability a
     -> TypeInformation (Unnullify a)
@@ -67,12 +67,12 @@ class Vector list where
 
 
 instance Vector [] where
-  listIsn'tMaybe _ = Refl
+  listNotNull _ = Dict
   vectorTypeInformation = listTypeInformation
 
 
 instance Vector NonEmpty where
-  listIsn'tMaybe _ = Refl
+  listNotNull _ = Dict
   vectorTypeInformation = nonEmptyTypeInformation
 
 
@@ -90,8 +90,8 @@ type instance Eval (Vectorize list ('Spec labels necessity a)) = 'Spec labels ne
 
 instance Vector list => MapSpec (Vectorize list) where
   mapInfo = \case
-    SSpec {..} -> case listIsn'tMaybe @list nullability of
-      Refl -> SSpec
+    SSpec {..} -> case listNotNull @list nullability of
+      Dict -> SSpec
         { nullability = NonNullable
         , info = vectorTypeInformation nullability info
         , ..

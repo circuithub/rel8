@@ -23,7 +23,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (||.), boolExpr )
 import Rel8.Expr.Opaleye ( scastExpr, mapPrimExpr )
-import Rel8.Schema.Nullability ( IsMaybe )
+import Rel8.Schema.Nullability ( NotNull )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -31,7 +31,7 @@ import Rel8.Type.Information ( TypeInformation )
 -- | Lift an expression that can't be @null@ to a type that might be @null@.
 -- This is an identity operation in terms of any generated query, and just
 -- modifies the query's type.
-nullify :: IsMaybe a ~ 'False => Expr a -> Expr (Maybe a)
+nullify :: NotNull a => Expr a -> Expr (Maybe a)
 nullify (Expr a) = Expr a
 
 
@@ -50,8 +50,7 @@ nullable :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 nullable b f ma = boolExpr (f (unsafeUnnullify ma)) b (isNull ma)
 
 
-nullableOf :: (IsMaybe a ~ 'False, DBType a)
-  => Maybe (Expr a) -> Expr (Maybe a)
+nullableOf :: DBType a => Maybe (Expr a) -> Expr (Maybe a)
 nullableOf = maybe null nullify
 
 
@@ -75,7 +74,7 @@ isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 -- values. When given @null@, @mapNullable f@ returns @null@.
 -- 
 -- This is like 'fmap' for 'Maybe'.
-mapNullable :: (IsMaybe b ~ 'False, DBType b)
+mapNullable :: DBType b
   => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 mapNullable f ma = boolExpr (unsafeMapNullable f ma) null (isNull ma)
 
@@ -85,7 +84,7 @@ mapNullable f ma = boolExpr (unsafeMapNullable f ma) null (isNull ma)
 -- are @null@, @liftOpNullable@ returns @null@.
 --
 -- This is like 'liftA2' for 'Maybe'.
-liftOpNullable :: (IsMaybe c ~ 'False, DBType c)
+liftOpNullable :: DBType c
   => (Expr a -> Expr b -> Expr c)
   -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 liftOpNullable f ma mb =
@@ -98,16 +97,16 @@ snull info = scastExpr info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
 -- | Corresponds to SQL @null@.
-null :: (IsMaybe a ~ 'False, DBType a) => Expr (Maybe a)
+null :: DBType a => Expr (Maybe a)
 null = snull typeInformation
 
 
-unsafeMapNullable :: IsMaybe b ~ 'False
+unsafeMapNullable :: NotNull b
   => (Expr a -> Expr b) -> Expr (Maybe a) -> Expr (Maybe b)
 unsafeMapNullable f ma = nullify (f (unsafeUnnullify ma))
 
 
-unsafeLiftOpNullable :: IsMaybe c ~ 'False
+unsafeLiftOpNullable :: NotNull c
   => (Expr a -> Expr b -> Expr c)
   -> Expr (Maybe a) -> Expr (Maybe b) -> Expr (Maybe c)
 unsafeLiftOpNullable f ma mb =
