@@ -27,7 +27,6 @@ import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
-import qualified Rel8.Query.Optimize as Rel8 ( optimize )
 import Rel8.Schema.Name ( Selects, Col(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
@@ -55,7 +54,7 @@ sqlForQueryWithNames names query =
 
 
 optimize :: Opaleye.PrimQuery' a -> Maybe (Opaleye.PrimQuery' Void)
-optimize = Opaleye.removeEmpty . Rel8.optimize . Opaleye.optimize
+optimize = Opaleye.removeEmpty . Opaleye.optimize
 
 
 selectFrom :: Selects names exprs
