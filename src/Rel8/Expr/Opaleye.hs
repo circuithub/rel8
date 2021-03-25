@@ -25,26 +25,26 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Schema.Nullability ( Nullability, Sql, nullabilization )
+import Rel8.Schema.Nullability ( Unnullify, Sql )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
 castExpr :: Sql DBType a => Expr a -> Expr a
-castExpr = scastExpr nullabilization typeInformation
+castExpr = scastExpr typeInformation
 
 
 unsafeCastExpr :: Sql DBType b => Expr a -> Expr b
-unsafeCastExpr = sunsafeCastExpr nullabilization typeInformation
+unsafeCastExpr = sunsafeCastExpr typeInformation
 
 
-scastExpr :: Nullability db a -> TypeInformation db -> Expr a -> Expr a
+scastExpr :: TypeInformation (Unnullify a) -> Expr a -> Expr a
 scastExpr = sunsafeCastExpr
 
 
 sunsafeCastExpr :: ()
-  => Nullability db b -> TypeInformation db -> Expr a -> Expr b
-sunsafeCastExpr _ TypeInformation {typeName} =
+  => TypeInformation (Unnullify b) -> Expr a -> Expr b
+sunsafeCastExpr TypeInformation {typeName} =
   fromPrimExpr . Opaleye.CastExpr typeName . toPrimExpr
 
 

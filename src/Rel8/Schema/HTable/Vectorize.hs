@@ -42,7 +42,11 @@ import Rel8.Schema.HTable
   ( HTable
   , hfield, htabulate, htabulateA, hspecs
   )
-import Rel8.Schema.Nullability ( IsMaybe, Nullability( NonNullable ) )
+import Rel8.Schema.Nullability
+  ( IsMaybe
+  , Unnullify
+  , Nullability( NonNullable )
+  )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
@@ -57,9 +61,9 @@ import GHC.Generics (Generic)
 class Vector list where
   listIsn'tMaybe :: proxy a -> IsMaybe (list a) :~: 'False
   vectorTypeInformation :: ()
-    => Nullability a ma
-    -> TypeInformation a
-    -> TypeInformation (list ma)
+    => Nullability a
+    -> TypeInformation (Unnullify a)
+    -> TypeInformation (list a)
 
 
 instance Vector [] where
@@ -81,7 +85,7 @@ newtype HVectorize list table context = HVectorize (HMapTable (Vectorize list) t
 data Vectorize :: (Type -> Type) -> Spec -> Exp Spec
 
 
-type instance Eval (Vectorize list ('Spec labels necessity _ a)) = 'Spec labels necessity (list a) (list a)
+type instance Eval (Vectorize list ('Spec labels necessity a)) = 'Spec labels necessity (list a)
 
 
 instance Vector list => MapSpec (Vectorize list) where
@@ -95,10 +99,10 @@ instance Vector list => MapSpec (Vectorize list) where
 
 
 hvectorize :: (HTable t, Unzip f, Vector list)
-  => (forall labels necessity db a. ()
-    => SSpec ('Spec labels necessity db a)
-    -> f (context ('Spec labels necessity db a))
-    -> context' ('Spec labels necessity (list a) (list a)))
+  => (forall labels necessity a. ()
+    => SSpec ('Spec labels necessity a)
+    -> f (context ('Spec labels necessity a))
+    -> context' ('Spec labels necessity (list a)))
   -> f (t context)
   -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
@@ -108,10 +112,10 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 
 
 hunvectorize :: (HTable t, Repeat f, Vector list)
-  => (forall labels necessity db a. ()
-    => SSpec ('Spec labels necessity db a)
-    -> context ('Spec labels necessity (list a) (list a))
-    -> f (context' ('Spec labels necessity db a)))
+  => (forall labels necessity a. ()
+    => SSpec ('Spec labels necessity a)
+    -> context ('Spec labels necessity (list a))
+    -> f (context' ('Spec labels necessity a)))
   -> HVectorize list t context
   -> f (t context')
 hunvectorize unvectorizer (HVectorize table) =
@@ -122,12 +126,12 @@ hunvectorize unvectorizer (HVectorize table) =
 
 
 happend :: (HTable t, Vector list) =>
-  ( forall labels necessity db a. ()
-    => Nullability db a
-    -> TypeInformation db
-    -> context ('Spec labels necessity (list a) (list a))
-    -> context ('Spec labels necessity (list a) (list a))
-    -> context ('Spec labels necessity (list a) (list a))
+  ( forall labels necessity a. ()
+    => Nullability a
+    -> TypeInformation (Unnullify a)
+    -> context ('Spec labels necessity (list a))
+    -> context ('Spec labels necessity (list a))
+    -> context ('Spec labels necessity (list a))
   )
   -> HVectorize list t context
   -> HVectorize list t context
@@ -139,10 +143,10 @@ happend append (HVectorize as) (HVectorize bs) = HVectorize $
 
 
 hempty :: HTable t =>
-  ( forall labels necessity db a. ()
-    => Nullability db a
-    -> TypeInformation db
-    -> context ('Spec labels necessity [a] [a])
+  ( forall labels necessity a. ()
+    => Nullability a
+    -> TypeInformation (Unnullify a)
+    -> context ('Spec labels necessity [a])
   )
   -> HVectorize [] t context
 hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of

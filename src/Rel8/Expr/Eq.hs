@@ -1,13 +1,14 @@
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language ViewPatterns #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Eq
-  ( seq, sne
-  , (==.), (/=.)
+  ( (==.), (/=.)
   , (==?), (/=?)
   , in_
   )
@@ -16,7 +17,7 @@ where
 -- base
 import Data.Foldable ( toList )
 import Data.List.NonEmpty ( nonEmpty )
-import Prelude hiding ( seq, sin )
+import Prelude
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -41,39 +42,16 @@ ne :: DBEq a => Expr a -> Expr a -> Expr Bool
 ne = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
 
 
-seq :: DBEq db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-seq = \case
-  Nullable -> \ma mb -> isNull ma &&. isNull mb ||. ma ==? mb
-  NonNullable -> eq
-
-
-sne :: DBEq db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-sne = \case
-  Nullable -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
-  NonNullable -> ne
-
-
-sin :: (DBEq db, Foldable f)
-  => Nullability db a -> Expr a -> f (Expr a) -> Expr Bool
-sin nullability a (toList -> as) = case nullability of
-  Nullable -> or_ $ map (seq Nullable a) as
-  NonNullable -> case nonEmpty as of
-     Nothing -> false
-     Just xs ->
-       fromPrimExpr $
-         Opaleye.BinExpr Opaleye.OpIn
-           (toPrimExpr a)
-           (Opaleye.ListExpr (toPrimExpr <$> xs))
-
-
 -- | Compare two expressions for equality. 
 --
 -- This corresponds to the SQL @IS NOT DISTINCT FROM@ operator, and will equate
 -- @null@ values as @true@. This differs from @=@ which would return @null@.
 -- This operator matches Haskell's '==' operator. For an operator identical to
 -- SQL @=@, see '==?'.
-(==.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
-(==.) = seq nullabilization
+(==.) :: forall a. Sql DBEq a => Expr a -> Expr a -> Expr Bool
+(==.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNull ma &&. isNull mb ||. ma ==? mb
+  NonNullable -> eq
 infix 4 ==.
 
 
@@ -83,8 +61,10 @@ infix 4 ==.
 -- @false@ when comparing two @null@ values. This differs from ordinary @=@
 -- which would return @null@. This operator is closer to Haskell's '=='
 -- operator. For an operator identical to SQL @=@, see '/=?'.
-(/=.) :: Sql DBEq a => Expr a -> Expr a -> Expr Bool
-(/=.) = sne nullabilization
+(/=.) :: forall a. Sql DBEq a => Expr a -> Expr a -> Expr Bool
+(/=.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
+  NonNullable -> ne
 infix 4 /=.
 
 
@@ -128,5 +108,14 @@ infix 4 /=?
 --
 -- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
 -- [False]
-in_ :: (Sql DBEq a, Foldable f) => Expr a -> f (Expr a) -> Expr Bool
-in_ = sin nullabilization
+in_ :: forall a f. (Sql DBEq a, Foldable f)
+  => Expr a -> f (Expr a) -> Expr Bool
+in_ a (toList -> as) = case nullabilization @a of
+  Nullable -> or_ $ map (a ==.) as
+  NonNullable -> case nonEmpty as of
+     Nothing -> false
+     Just xs ->
+       fromPrimExpr $
+         Opaleye.BinExpr Opaleye.OpIn
+           (toPrimExpr a)
+           (Opaleye.ListExpr (toPrimExpr <$> xs))

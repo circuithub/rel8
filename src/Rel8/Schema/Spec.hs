@@ -24,13 +24,13 @@ import Rel8.Kind.Necessity
   , SNecessity
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Nullability ( Unnullify, Nullability, Sql, nullabilization )
+import Rel8.Schema.Nullability ( Nullability, Sql, Unnullify, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 
 type Spec :: Type
-data Spec = Spec Labels Necessity Type Type
+data Spec = Spec Labels Necessity Type
 
 
 type SSpec :: Spec -> Type
@@ -38,10 +38,10 @@ data SSpec spec where
   SSpec ::
     { labels :: SLabels labels
     , necessity :: SNecessity necessity
-    , info :: TypeInformation db
-    , nullability :: Nullability db a
+    , info :: TypeInformation (Unnullify a)
+    , nullability :: Nullability a
     }
-    -> SSpec ('Spec labels necessity db a)
+    -> SSpec ('Spec labels necessity a)
 
 
 type KnownSpec :: Spec -> Constraint
@@ -53,9 +53,8 @@ instance
   ( KnownLabels labels
   , KnownNecessity necessity
   , Sql DBType a
-  , db ~ Unnullify a
   )
-  => KnownSpec ('Spec labels necessity db a)
+  => KnownSpec ('Spec labels necessity a)
  where
   specSing = SSpec
     { labels = labelsSing

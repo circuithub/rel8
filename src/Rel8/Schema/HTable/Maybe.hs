@@ -29,7 +29,7 @@ import Rel8.Schema.HTable.Nullify ( HNullify )
 
 type HMaybeTable :: K.HTable -> K.HTable
 data HMaybeTable table context = HMaybeTable
-  { htag :: HIdentity ('Spec '["isJust"] 'Required MaybeTag (Maybe MaybeTag)) context
+  { htag :: HIdentity ('Spec '["isJust"] 'Required (Maybe MaybeTag)) context
   , hjust :: HNullify table context
   }
   deriving stock Generic

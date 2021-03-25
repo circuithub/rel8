@@ -22,7 +22,8 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
+  ( Unnullify
+  , Nullability( Nullable, NonNullable )
   , Sql, nullabilization
   )
 import Rel8.Type ( DBType, typeInformation )
@@ -33,16 +34,16 @@ litExpr :: Sql DBType a => a -> Expr a
 litExpr = slitExpr nullabilization typeInformation
 
 
-slitExpr :: Nullability db a -> TypeInformation db -> a -> Expr a
-slitExpr nullable info@TypeInformation {encode} =
-  scastExpr nullable info . Expr . encoder
+slitExpr :: Nullability a -> TypeInformation (Unnullify a) -> a -> Expr a
+slitExpr nullability info@TypeInformation {encode} =
+  scastExpr info . Expr . encoder
   where
-    encoder = case nullable of
+    encoder = case nullability of
       Nullable -> maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
       NonNullable -> encode
 
 
-sparseValue :: Nullability db a -> TypeInformation db -> Hasql.Row a
+sparseValue :: Nullability a -> TypeInformation (Unnullify a) -> Hasql.Row a
 sparseValue nullability TypeInformation {decode, out} = case nullability of
   Nullable -> Hasql.column $ Hasql.nullable $ out <$> decode
   NonNullable -> Hasql.column $ Hasql.nonNullable $ out <$> decode

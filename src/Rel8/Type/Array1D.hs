@@ -92,9 +92,9 @@ type family IsArray1D a where
   IsArray1D _ = 'False
 
 
-array1DTypeInformation :: IsArray1D db ~ 'False
-  => Nullability db a
-  -> TypeInformation db
+array1DTypeInformation :: IsArray1D (Unnullify a) ~ 'False
+  => Nullability a
+  -> TypeInformation (Unnullify a)
   -> TypeInformation (Array1D a)
 array1DTypeInformation nullability info = 
   case info of

@@ -25,7 +25,7 @@ import Rel8.Type.Tag ( EitherTag )
 
 type HEitherTable :: K.HTable -> K.HTable -> K.HTable
 data HEitherTable left right context = HEitherTable
-  { htag :: HIdentity ('Spec '["isRight"] 'Required EitherTag EitherTag) context
+  { htag :: HIdentity ('Spec '["isRight"] 'Required EitherTag) context
   , hleft :: HNullify left context
   , hright :: HNullify right context
   }

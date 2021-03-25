@@ -22,5 +22,5 @@ import Rel8.Table ( Table, fromColumns )
 undefined :: Table Expr a => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
   SSpec {nullability, info} -> case nullability of
-    Nullable -> DB (snull Nullable info)
-    NonNullable -> DB (unsafeUnnullify (snull Nullable info))
+    Nullable -> DB (snull info)
+    NonNullable -> DB (unsafeUnnullify (snull info))

@@ -8,8 +8,7 @@
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Ord
-  ( slt, sle, sgt, sge
-  , (<.), (<=.), (>.), (>=.)
+  ( (<.), (<=.), (>.), (>=.)
   , (<?), (<=?), (>?), (>=?)
   , leastExpr, greatestExpr
   )
@@ -49,59 +48,43 @@ ge :: DBOrd a => Expr a -> Expr a -> Expr Bool
 ge = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
 
 
-slt :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-slt = \case
-  Nullable -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
-  NonNullable -> lt
-
-
-sle :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-sle = \case
-  Nullable -> \ma mb -> isNull ma ||. ma <=? mb
-  NonNullable -> le
-
-
-sgt :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-sgt = \case
-  Nullable -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
-  NonNullable -> gt
-
-
-sge :: DBOrd db => Nullability db a -> Expr a -> Expr a -> Expr Bool
-sge = \case
-  Nullable -> \ma mb -> isNull mb ||. ma >=? mb
-  NonNullable -> ge
-
-
 -- | Corresponds to the SQL @<@ operator. Note that this differs from SQL @<@
 -- as @null@ will sort below any other value. For a version of @<@ that exactly
 -- matches SQL, see '(<?)'.
-(<.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<.) = slt nullabilization
+(<.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
+(<.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
+  NonNullable -> lt
 infix 4 <.
 
 
 -- | Corresponds to the SQL @<=@ operator. Note that this differs from SQL @<=@
 -- as @null@ will sort below any other value. For a version of @<=@ that exactly
 -- matches SQL, see '(<=?)'.
-(<=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<=.) = sle nullabilization
+(<=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
+(<=.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNull ma ||. ma <=? mb
+  NonNullable -> le
 infix 4 <=.
 
 
 -- | Corresponds to the SQL @>@ operator. Note that this differs from SQL @>@
 -- as @null@ will sort below any other value. For a version of @>@ that exactly
 -- matches SQL, see '(>?)'.
-(>.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>.) = sgt nullabilization
+(>.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
+(>.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
+  NonNullable -> gt
 infix 4 >.
 
 
 -- | Corresponds to the SQL @>=@ operator. Note that this differs from SQL @>@
 -- as @null@ will sort below any other value. For a version of @>=@ that
 -- exactly matches SQL, see '(>=?)'.
-(>=.) :: Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>=.) = sge nullabilization
+(>=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
+(>=.) = case nullabilization @a of
+  Nullable -> \ma mb -> isNull mb ||. ma >=? mb
+  NonNullable -> ge
 infix 4 >=.
 
 

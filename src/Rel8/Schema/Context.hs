@@ -25,4 +25,4 @@ class Interpretation context where
 
 instance Interpretation Identity where
   data Col Identity _spec where
-    Result :: a -> Col Identity ('Spec labels necessity db a)
+    Result :: a -> Col Identity ('Spec labels necessity a)

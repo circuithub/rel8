@@ -98,8 +98,8 @@ instance Nullifiable Name where
   {-# INLINABLE unnullifier #-}
 
 
-nameFromLabel :: forall labels necessity db a.
-  KnownLabels labels => Col Name ('Spec labels necessity db a)
+nameFromLabel :: forall labels necessity a.
+  KnownLabels labels => Col Name ('Spec labels necessity a)
 nameFromLabel = case labelsSing @labels of
   labels -> NameCol (NonEmpty.last (renderLabels labels))
 

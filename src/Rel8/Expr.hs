@@ -108,9 +108,7 @@ instance Sql DBFractional a => Fractional (Expr a) where
 
 instance Interpretation Expr where
   data Col Expr _spec where
-    DB :: ()
-      => { unDB :: Expr a }
-      -> Col Expr ('Spec labels necessity db a)
+    DB :: {unDB :: Expr a} -> Col Expr ('Spec labels necessity a)
 
 
 instance Sql DBType a => Table Expr (Expr a) where

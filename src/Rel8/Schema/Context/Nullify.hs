@@ -28,7 +28,11 @@ import Rel8.Kind.Labels ( KnownLabels )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation, Col(..) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ), Sql )
+import Rel8.Schema.Nullability
+  ( Nullify
+  , Nullability( Nullable, NonNullable )
+  , Sql
+  )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Monoid ( DBMonoid )
@@ -38,23 +42,23 @@ type Nullifiable :: K.Context -> Constraint
 class Interpretation context => Nullifiable context where
   encodeTag :: (Sql DBEq a, KnownLabels labels)
     => Expr a
-    -> Col context ('Spec labels 'Required db a)
+    -> Col context ('Spec labels 'Required a)
 
   decodeTag :: Sql DBMonoid a
-    => Col context ('Spec labels 'Required db a)
+    => Col context ('Spec labels 'Required a)
     -> Expr a
 
   nullifier :: ()
     => Expr Bool
-    -> SSpec ('Spec labels necessity db a)
-    -> Col context ('Spec labels necessity db a)
-    -> Col context ('Spec labels necessity db (Maybe db))
+    -> SSpec ('Spec labels necessity a)
+    -> Col context ('Spec labels necessity a)
+    -> Col context ('Spec labels necessity (Nullify a))
 
   unnullifier :: ()
     => Expr Bool
-    -> SSpec ('Spec labels necessity db a)
-    -> Col context ('Spec labels necessity db (Maybe db))
-    -> Col context ('Spec labels necessity db a)
+    -> SSpec ('Spec labels necessity a)
+    -> Col context ('Spec labels necessity (Nullify a))
+    -> Col context ('Spec labels necessity a)
 
 
 type NullifiableEq :: K.Context -> K.Context -> Constraint
@@ -62,7 +66,7 @@ class (a ~ b, Nullifiable b) => NullifiableEq a b
 instance (a ~ b, Nullifiable b) => NullifiableEq a b
 
 
-runTag :: Nullability db a -> Expr Bool -> Expr a -> Expr (Maybe db)
+runTag :: Nullability a -> Expr Bool -> Expr a -> Expr (Nullify a)
 runTag nullability tag a = case nullability of
   Nullable -> boolExpr null a tag
   NonNullable -> boolExpr null (nullify a) tag
@@ -70,7 +74,7 @@ runTag nullability tag a = case nullability of
     null = fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
-unnull :: Nullability db a -> Expr (Maybe db) -> Expr a
+unnull :: Nullability a -> Expr (Nullify a) -> Expr a
 unnull nullability a = case nullability of
   Nullable -> a
   NonNullable -> unsafeUnnullify a

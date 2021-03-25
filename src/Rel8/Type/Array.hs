@@ -22,7 +22,7 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Nullability ( Unnullify, Nullability( Nullable, NonNullable ) )
 import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 
 
@@ -35,9 +35,9 @@ array TypeInformation {typeName} =
 
 
 listTypeInformation :: ()
-  => Nullability a ma
-  -> TypeInformation a
-  -> TypeInformation [ma]
+  => Nullability a
+  -> TypeInformation (Unnullify a)
+  -> TypeInformation [a]
 listTypeInformation nullability info = 
   case info of
     TypeInformation{ encode, decode, out } -> TypeInformation
@@ -56,9 +56,9 @@ listTypeInformation nullability info =
 
 
 nonEmptyTypeInformation :: ()
-  => Nullability a ma
-  -> TypeInformation a
-  -> TypeInformation (NonEmpty ma)
+  => Nullability a
+  -> TypeInformation (Unnullify a)
+  -> TypeInformation (NonEmpty a)
 nonEmptyTypeInformation nullability =
   parseTypeInformation parse toList . listTypeInformation nullability
   where

@@ -315,10 +315,10 @@ instance
 
 type K1Columns :: Symbol -> Type -> K.HTable
 type family K1Columns label structure where
-  K1Columns label (Shape1 'Column ('Spec '[] necessity nullability blueprint)) =
-    HIdentity ('Spec '[label] necessity nullability blueprint)
-  K1Columns _label (Shape1 'Column ('Spec (label ': labels) necessity nullability blueprint)) =
-    HIdentity ('Spec (label ': labels) necessity nullability blueprint)
+  K1Columns label (Shape1 'Column ('Spec '[] necessity a)) =
+    HIdentity ('Spec '[label] necessity a)
+  K1Columns _label (Shape1 'Column ('Spec (label ': labels) necessity a)) =
+    HIdentity ('Spec (label ': labels) necessity a)
   K1Columns label (Shape2 'Either a b) =
     HLabel label (HEitherTable (K1Columns "Left" a) (K1Columns "Right" b))
   K1Columns label (Shape1 'List a) = HListTable (K1Columns label a)
@@ -364,8 +364,8 @@ class isStructure ~ IsStructure structure =>
 
 
 instance
-  ( x ~ Field Aggregate '[] necessity db a
-  ) => K1Table label Aggregate 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Aggregate '[] necessity a
+  ) => K1Table label Aggregate 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -374,8 +374,8 @@ instance
 
 
 instance
-  ( x ~ Field Aggregate (label ': labels) necessity db a
-  ) => K1Table _label Aggregate 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Aggregate (label ': labels) necessity a
+  ) => K1Table _label Aggregate 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
  where
   fromK1Columns (HIdentity (Aggregation a)) = a
   toK1Columns = HIdentity . Aggregation
@@ -384,8 +384,8 @@ instance
 
 
 instance
-  ( x ~ Field Expr '[] necessity db a
-  ) => K1Table label Expr 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Expr '[] necessity a
+  ) => K1Table label Expr 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -394,8 +394,8 @@ instance
 
 
 instance
-  ( x ~ Field Expr (label ': labels) necessity db a
-  ) => K1Table _label Expr 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Expr (label ': labels) necessity a
+  ) => K1Table _label Expr 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
  where
   fromK1Columns (HIdentity (DB a)) = a
   toK1Columns = HIdentity . DB
@@ -404,9 +404,9 @@ instance
 
 
 instance
-  ( x ~ Field Insert '[] necessity db a
+  ( x ~ Field Insert '[] necessity a
   , KnownNecessity necessity
-  ) => K1Table label Insert 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ) => K1Table label Insert 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -419,9 +419,9 @@ instance
 
 
 instance
-  ( x ~ Field Insert (label ': labels) necessity db a
+  ( x ~ Field Insert (label ': labels) necessity a
   , KnownNecessity necessity
-  ) => K1Table _label Insert 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ) => K1Table _label Insert 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
  where
   fromK1Columns (HIdentity insert) = case insert of
     RequiredInsert a -> a
@@ -434,8 +434,8 @@ instance
 
 
 instance
-  ( x ~ Field Identity '[] necessity db a
-  ) => K1Table label Identity 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Identity '[] necessity a
+  ) => K1Table label Identity 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
   fromK1Columns (HIdentity (Result a)) = a
   toK1Columns = HIdentity . Result
@@ -444,8 +444,8 @@ instance
 
 
 instance
-  ( x ~ Field Identity (label ': labels) necessity db a
-  ) => K1Table _label Identity 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Identity (label ': labels) necessity a
+  ) => K1Table _label Identity 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
  where
   fromK1Columns (HIdentity (Result a)) = a
   toK1Columns = HIdentity . Result
@@ -454,8 +454,8 @@ instance
 
 
 instance
-  ( x ~ Field Name '[] necessity db a
-  ) => K1Table _label Name 'True (Shape1 'Column ('Spec (label ': labels) necessity db a)) x
+  ( x ~ Field Name '[] necessity a
+  ) => K1Table _label Name 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
  where
   fromK1Columns (HIdentity (NameCol a)) = Name a
   toK1Columns (Name a) = HIdentity (NameCol a)
@@ -464,8 +464,8 @@ instance
 
 
 instance
-  ( x ~ Field Name (label ': labels) necessity db a
-  ) => K1Table label Name 'True (Shape1 'Column ('Spec '[] necessity db a)) x
+  ( x ~ Field Name (label ': labels) necessity a
+  ) => K1Table label Name 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
   fromK1Columns = Name . (\(NameCol a) -> a) . unlabeler . unHIdentity
   toK1Columns = HIdentity . labeler . NameCol . (\(Name a) -> a)

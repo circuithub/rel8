@@ -28,7 +28,6 @@ import Rel8.Schema.Field ( Field )
 import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Nullability ( Unnullify )
 import Rel8.Schema.Structure
   ( Structure
   , Shape( Either, List, Maybe, NonEmpty, These )
@@ -111,7 +110,6 @@ type Column :: K.Context -> Type -> Type
 type Column context a =
   Field context (GetLabel a)
     (GetNecessity (UnwrapLabel a))
-    (Unnullify (UnwrapDefault (UnwrapLabel a)))
     (UnwrapDefault (UnwrapLabel a))
 
 

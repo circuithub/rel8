@@ -30,7 +30,8 @@ import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
+  ( Nullify
+  , Nullability( Nullable, NonNullable )
   )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
@@ -155,23 +156,23 @@ fromHTheseTable HTheseTable {hhereTag, hhere, hthereTag, hthere} =
 {-# INLINABLE fromHTheseTable #-}
 
 
-null :: Col Identity ('Spec labels necessity db (Maybe db))
+null :: Col Identity ('Spec labels necessity (Maybe a))
 null = Result Nothing
 
 
 nullifier :: ()
-  => SSpec ('Spec labels necessity db a)
-  -> Col Identity ('Spec labels necessity db a)
-  -> Col Identity ('Spec labels necessity db (Maybe db))
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (Nullify a))
 nullifier SSpec {nullability} (Result a) = Result $ case nullability of
   Nullable -> a
   NonNullable -> Just a
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels necessity db a)
-  -> Col Identity ('Spec labels necessity db (Maybe db))
-  -> Maybe (Col Identity ('Spec labels necessity db a))
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (Nullify a))
+  -> Maybe (Col Identity ('Spec labels necessity a))
 unnullifier SSpec {nullability} (Result a) =
   case nullability of
     Nullable -> pure $ Result a
@@ -179,20 +180,20 @@ unnullifier SSpec {nullability} (Result a) =
 
 
 vectorizer :: Functor f
-  => SSpec ('Spec labels necessity db a)
-  -> f (Col Identity ('Spec labels necessity db a))
-  -> Col Identity ('Spec labels necessity (f a) (f a))
+  => SSpec ('Spec labels necessity a)
+  -> f (Col Identity ('Spec labels necessity a))
+  -> Col Identity ('Spec labels necessity (f a))
 vectorizer _ = Result . fmap (\(Result a) -> a)
 
 
 unvectorizer :: Functor f
-  => SSpec ('Spec labels necessity db a)
-  -> Col Identity ('Spec labels necessity (f a) (f a))
-  -> f (Col Identity ('Spec labels necessity db a))
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (f a))
+  -> f (Col Identity ('Spec labels necessity a))
 unvectorizer _ (Result results) = Result <$> results
 
 
 relabel :: ()
-  => HIdentity ('Spec labels necessity db a) (Col Identity)
-  -> HIdentity ('Spec relabels necessity db a) (Col Identity)
+  => HIdentity ('Spec labels necessity a) (Col Identity)
+  -> HIdentity ('Spec relabels necessity a) (Col Identity)
 relabel (HIdentity (Result a)) = HIdentity (Result a)

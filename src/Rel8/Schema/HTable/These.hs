@@ -25,9 +25,9 @@ import Rel8.Type.Tag ( MaybeTag )
 
 type HTheseTable :: K.HTable -> K.HTable -> K.HTable
 data HTheseTable here there context = HTheseTable
-  { hhereTag :: HIdentity ('Spec '["hasHere"] 'Required MaybeTag (Maybe MaybeTag)) context
+  { hhereTag :: HIdentity ('Spec '["hasHere"] 'Required (Maybe MaybeTag)) context
   , hhere :: HNullify here context
-  , hthereTag :: HIdentity ('Spec '["hasThere"] 'Required MaybeTag (Maybe MaybeTag)) context
+  , hthereTag :: HIdentity ('Spec '["hasThere"] 'Required (Maybe MaybeTag)) context
   , hthere :: HNullify there context
   }
   deriving stock Generic

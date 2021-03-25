@@ -14,7 +14,6 @@ module Rel8.Expr.Aggregate
   , stringAgg
   , groupByExpr
   , listAggExpr, nonEmptyAggExpr
-  , sgroupByExpr
   )
 where
 
@@ -38,7 +37,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability ( Nullability, Sql, nullabilization )
+import Rel8.Schema.Nullability ( Sql )
 import Rel8.Type.Array ( fromPrimArray )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )
@@ -150,7 +149,7 @@ stringAgg delimiter =
 
 -- | Aggregate a value by grouping by it.
 groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
-groupByExpr = sgroupByExpr nullabilization
+groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 
 listAggExpr :: Expr a -> Aggregate (Expr [a])
@@ -173,7 +172,3 @@ nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
     }
   where
     from = fromPrimExpr . fromPrimArray
-
-
-sgroupByExpr :: DBEq db => Nullability db a -> Expr a -> Aggregate (Expr a)
-sgroupByExpr _ = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing

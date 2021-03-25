@@ -35,6 +35,7 @@ import Rel8.Schema.HTable
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import qualified Rel8.Schema.Nullability as Type ( Nullify )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 -- semigroupoids
@@ -55,8 +56,8 @@ newtype HNullify table context = HNullify (HMapTable Nullify table context)
 data Nullify :: Spec -> Exp Spec
 
 
-type instance Eval (Nullify ('Spec labels necessity dbType _)) = 
-  'Spec labels necessity dbType (Maybe dbType)
+type instance Eval (Nullify ('Spec labels necessity a)) =
+  'Spec labels necessity (Type.Nullify a)
 
 
 instance MapSpec Nullify where
@@ -72,8 +73,8 @@ instance MapSpec Nullify where
 
 
 hnulls :: HTable t
-  => (forall labels necessity dbType. ()
-    => context ('Spec labels necessity dbType (Maybe dbType)))
+  => (forall labels necessity a. ()
+    => context ('Spec labels necessity (Maybe a)))
   -> HNullify t context
 hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
   SSpec {} -> null
@@ -81,10 +82,10 @@ hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspe
 
 
 hnullify :: HTable t
-  => (forall labels necessity dbType a. ()
-    => SSpec ('Spec labels necessity dbType a)
-    -> context ('Spec labels necessity dbType a)
-    -> context ('Spec labels necessity dbType (Maybe dbType)))
+  => (forall labels necessity a. ()
+    => SSpec ('Spec labels necessity a)
+    -> context ('Spec labels necessity a)
+    -> context ('Spec labels necessity (Type.Nullify a)))
   -> t context
   -> HNullify t context
 hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
@@ -94,10 +95,10 @@ hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
 
 
 hunnullify :: (HTable t, Apply m)
-  => (forall labels necessity dbType a. ()
-    => SSpec ('Spec labels necessity dbType a)
-    -> context ('Spec labels necessity dbType (Maybe dbType))
-    -> m (context ('Spec labels necessity dbType a)))
+  => (forall labels necessity a. ()
+    => SSpec ('Spec labels necessity a)
+    -> context ('Spec labels necessity (Type.Nullify a))
+    -> m (context ('Spec labels necessity a)))
   -> HNullify t context
   -> m (t context)
 hunnullify unnullifier (HNullify as) =

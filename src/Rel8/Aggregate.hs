@@ -70,7 +70,7 @@ instance Interpretation Aggregate where
   data Col Aggregate _spec where
     Aggregation :: ()
       => Aggregate (Expr a)
-      -> Col Aggregate ('Spec labels necessity db a)
+      -> Col Aggregate ('Spec labels necessity a)
 
 
 instance Table Expr a => Table Aggregate (Aggregate a) where

@@ -76,8 +76,8 @@ data Insert a where
 
 instance Interpretation Insert where
   data Col Insert _spec where
-    RequiredInsert :: Expr a -> Col Insert ('Spec labels 'Required db a)
-    OptionalInsert :: Maybe (Expr a) -> Col Insert ('Spec labels 'Optional db a)
+    RequiredInsert :: Expr a -> Col Insert ('Spec labels 'Required a)
+    OptionalInsert :: Maybe (Expr a) -> Col Insert ('Spec labels 'Optional a)
 
 
 type Insertion :: K.Context

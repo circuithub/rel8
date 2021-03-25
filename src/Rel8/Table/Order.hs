@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -20,8 +21,11 @@ import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hdicts, hspecs)
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.Nullability
+  ( Unnullify, Nullability( Nullable, NonNullable )
+  , Sql, nullabilization
+  )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec ) )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table
 import Rel8.Table.Ord
@@ -33,12 +37,13 @@ import Rel8.Type.Ord
 ascTable :: forall a. OrdTable a => Order a
 ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {nullability} -> case hfield ords field of
-      Dict -> Const $ unDB . (`hfield` field) >$< case nullability of
-        Nullable -> nullsFirst asc
-        NonNullable -> asc
-    where
-      ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
+    SSpec {} -> case hfield ords field of
+      dict@Dict -> case ord dict of
+        Dict -> Const $ unDB . (`hfield` field) >$< case nullability dict of
+          Nullable -> nullsFirst asc
+          NonNullable -> asc
+  where
+    ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
 
 
 -- | Construct an 'Order' for a 'Table' by sorting all columns into descending
@@ -46,9 +51,30 @@ ascTable = contramap toColumns $ getConst $
 descTable :: forall a. OrdTable a => Order a
 descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {nullability} -> case hfield ords field of
-      Dict -> Const $ unDB . (`hfield` field) >$< case nullability of
-        Nullable -> nullsLast desc
-        NonNullable -> desc
-    where
-      ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
+    SSpec {} -> case hfield ords field of
+      dict@Dict -> case ord dict of
+        Dict -> Const $ unDB . (`hfield` field) >$< case nullability dict of
+          Nullable -> nullsLast desc
+          NonNullable -> desc
+  where
+    ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
+
+
+nullability :: Dict (ConstrainDBType DBOrd) ('Spec l n a) -> Nullability a
+nullability = step2 . step1
+  where
+    step1 :: Dict (ConstrainDBType DBOrd) ('Spec l n a) -> Dict (Sql DBOrd) a
+    step1 Dict = Dict
+
+    step2 :: Dict (Sql DBOrd) a -> Nullability a
+    step2 Dict = nullabilization
+
+
+ord :: Dict (ConstrainDBType DBOrd) ('Spec l n a) -> Dict DBOrd (Unnullify a)
+ord = step2 . step1
+  where
+    step1 :: Dict (ConstrainDBType DBOrd) ('Spec l n a) -> Dict (Sql DBOrd) a
+    step1 Dict = Dict
+
+    step2 :: Dict (Sql DBOrd) a -> Dict DBOrd (Unnullify a)
+    step2 Dict = Dict

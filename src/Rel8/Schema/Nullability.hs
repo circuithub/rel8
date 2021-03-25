@@ -15,7 +15,7 @@ module Rel8.Schema.Nullability
   ( IsMaybe, Nullify, Unnullify
   , Nullability( Nullable, NonNullable )
   , Sql
-  , Nullabilizes, nullabilization
+  , HasNullability, nullabilization
   )
 where
 
@@ -53,35 +53,34 @@ type Nullify :: Type -> Type
 type Nullify a = Maybe (Unnullify a)
 
 
-type Nullability :: Type -> Type -> Type
-data Nullability a ma where
-  NonNullable :: IsMaybe a ~ 'False => Nullability a a
-  Nullable :: IsMaybe a ~ 'False => Nullability a (Maybe a)
+type Nullability :: Type -> Type
+data Nullability a where
+  NonNullable :: IsMaybe a ~ 'False => Nullability a
+  Nullable :: IsMaybe a ~ 'False => Nullability (Maybe a)
 
 
-type Nullabilizes' :: Bool -> Type -> Type -> Constraint
+type HasNullability' :: Bool -> Type -> Constraint
 class
-  ( IsMaybe ma ~ isMaybe
-  , IsMaybe a ~ 'False
-  , Unnullify ma ~ a
-  , Nullify' isMaybe a ~ ma
-  ) => Nullabilizes' isMaybe a ma | isMaybe ma -> a, isMaybe a -> ma
+  ( IsMaybe a ~ isMaybe
+  , IsMaybe (Unnullify a) ~ 'False
+  , Nullify' isMaybe (Unnullify a) ~ a
+  ) => HasNullability' isMaybe a
  where
-  nullabilization' :: Nullability a ma
+  nullabilization' :: Nullability a
 
 
-instance IsMaybe a ~ 'False => Nullabilizes' 'False a a where
+instance IsMaybe a ~ 'False => HasNullability' 'False a where
   nullabilization' = NonNullable
 
 
-instance IsMaybe a ~ 'False => Nullabilizes' 'True a (Maybe a) where
+instance IsMaybe a ~ 'False => HasNullability' 'True (Maybe a) where
   nullabilization' = Nullable
 
 
-type Nullabilizes :: Type -> Type -> Constraint
-class Nullabilizes' (IsMaybe ma) a ma => Nullabilizes a ma
-instance Nullabilizes' (IsMaybe ma) a ma => Nullabilizes a ma
-instance {-# OVERLAPPING #-} Nullabilizes Opaque Opaque
+type HasNullability :: Type -> Constraint
+class HasNullability' (IsMaybe a) a => HasNullability a
+instance HasNullability' (IsMaybe a) a => HasNullability a
+instance {-# OVERLAPPING #-} HasNullability Opaque
 
 
 -- | The @Sql@ type class describes both null and not null database values,
@@ -93,14 +92,13 @@ instance {-# OVERLAPPING #-} Nullabilizes Opaque Opaque
 type Sql :: (Type -> Constraint) -> Type -> Constraint
 class
   ( (forall c. (forall x. (constraint x => c x)) => Sql c a)
-  , Nullabilizes (Unnullify a) a
+  , HasNullability a
   , constraint (Unnullify a)
   )
   => Sql constraint a
-instance (constraint db, Nullabilizes db a) => Sql constraint a
+instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
 instance {-# OVERLAPPING #-} (constraint Opaque, Sql constraint Opaque) => Sql constraint Opaque
--- instance {-# OVERLAPPING #-} Sql OpaqueC Opaque => Sql OpaqueC Opaque
 
 
-nullabilization :: forall a db. Nullabilizes db a => Nullability db a
+nullabilization :: HasNullability a => Nullability a
 nullabilization = nullabilization'

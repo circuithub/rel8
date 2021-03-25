@@ -22,16 +22,11 @@ import Prelude hiding ( seq )
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
-import Rel8.Expr.Eq ( seq )
-import Rel8.Expr.Ord ( slt, sgt)
+import Rel8.Expr.Eq ( (==.) )
+import Rel8.Expr.Ord ( (<.), (>.) )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable
-  ( HConstrainTable
-  , htabulateA, hfield
-  , hdicts, hspecs
-  )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.HTable ( HConstrainTable, htabulateA, hfield, hdicts )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Columns, toColumns )
 import Rel8.Table.Bool ( bool )
@@ -61,12 +56,9 @@ instance {-# OVERLAPPING #-} OrdTable Opaque
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
-        Dict -> case hfield specs field of
-          SSpec {nullability} ->
-            Const [(slt nullability a b, seq nullability a b)]
+        Dict -> Const [(a <. b, a ==. b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
-    specs = hspecs @(Columns a)
     go (lt, eq) a = lt ||. (eq &&. a)
 infix 4 <:
 
@@ -78,12 +70,9 @@ infix 4 <:
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
-        Dict -> case hfield specs field of
-          SSpec {nullability} ->
-            Const [(slt nullability a b, seq nullability a b)]
+        Dict -> Const [(a <. b, a ==. b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
-    specs = hspecs @(Columns a)
     go (lt, eq) a = lt ||. (eq &&. a)
 infix 4 <=:
 
@@ -95,12 +84,9 @@ infix 4 <=:
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
-        Dict -> case hfield specs field of
-          SSpec {nullability} ->
-            Const [(slt nullability a b, seq nullability a b)]
+        Dict -> Const [(a >. b, a ==. b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
-    specs = hspecs @(Columns a)
     go (gt, eq) a = gt ||. (eq &&. a)
 infix 4 >:
 
@@ -112,12 +98,9 @@ infix 4 >:
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
       (DB a, DB b) -> case hfield dicts field of
-        Dict -> case hfield specs field of
-          SSpec {nullability} ->
-            Const [(sgt nullability a b, seq nullability a b)]
+        Dict -> Const [(a >. b, a ==. b)]
   where
     dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
-    specs = hspecs @(Columns a)
     go (gt, eq) a = gt ||. (eq &&. a)
 infix 4 >=:
 

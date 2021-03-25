@@ -23,7 +23,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (||.), boolExpr )
 import Rel8.Expr.Opaleye ( scastExpr, mapPrimExpr )
-import Rel8.Schema.Nullability ( Nullability( Nullable ), IsMaybe )
+import Rel8.Schema.Nullability ( IsMaybe )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -93,14 +93,13 @@ liftOpNullable f ma mb =
     (isNull ma ||. isNull mb)
 
 
-snull :: Nullability a (Maybe a) -> TypeInformation a -> Expr (Maybe a)
-snull nullability info =
-  scastExpr nullability info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
+snull :: TypeInformation a -> Expr (Maybe a)
+snull info = scastExpr info $ Expr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
 -- | Corresponds to SQL @null@.
 null :: (IsMaybe a ~ 'False, DBType a) => Expr (Maybe a)
-null = snull Nullable typeInformation
+null = snull typeInformation
 
 
 unsafeMapNullable :: IsMaybe b ~ 'False

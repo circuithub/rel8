@@ -23,12 +23,12 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 type Labelable :: Context -> Constraint
 class Interpretation context => Labelable context where
   labeler :: ()
-    => Col context ('Spec labels necessity db a)
-    -> Col context ('Spec (label ': labels) necessity db a)
+    => Col context ('Spec labels necessity a)
+    -> Col context ('Spec (label ': labels) necessity a)
 
   unlabeler :: ()
-    => Col context ('Spec (label ': labels) necessity db a)
-    -> Col context ('Spec labels necessity db a)
+    => Col context ('Spec (label ': labels) necessity a)
+    -> Col context ('Spec labels necessity a)
 
 
 instance Labelable Identity where
@@ -39,12 +39,12 @@ instance Labelable Identity where
 type HLabelable :: HContext -> Constraint
 class HLabelable context where
   hlabeler :: ()
-    => context ('Spec labels necessity db a)
-    -> context ('Spec (label ': labels) necessity db a)
+    => context ('Spec labels necessity a)
+    -> context ('Spec (label ': labels) necessity a)
 
   hunlabeler :: ()
-    => context ('Spec (label ': labels) necessity db a)
-    -> context ('Spec labels necessity db a)
+    => context ('Spec (label ': labels) necessity a)
+    -> context ('Spec labels necessity a)
 
 
 instance Labelable context => HLabelable (Col context) where

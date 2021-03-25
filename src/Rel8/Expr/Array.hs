@@ -39,7 +39,7 @@ sappend1 :: Expr (NonEmpty a) -> Expr (NonEmpty a) -> Expr (NonEmpty a)
 sappend1 = zipPrimExprsWith (zipPrimArraysWith (Opaleye.BinExpr (Opaleye.:||)))
 
 
-sempty :: Nullability t a -> TypeInformation t -> Expr [a]
+sempty :: Nullability a -> TypeInformation (Unnullify a) -> Expr [a]
 sempty _ info = fromPrimExpr $ array info []
 
 
