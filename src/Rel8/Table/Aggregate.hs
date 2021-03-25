@@ -9,7 +9,8 @@ module Rel8.Table.Aggregate
   ( groupBy
   , listAgg
   , nonEmptyAgg
-  , runAggregation
+  , sequenceAggregate
+  , distributeAggregate
   )
 where
 
@@ -74,5 +75,9 @@ nonEmptyAgg (toColumns -> exprs) = fromColumns $
     (pure exprs)
 
 
-runAggregation :: Aggregates aggregates exprs => aggregates -> Aggregate exprs
-runAggregation = fromColumns . toColumns
+sequenceAggregate :: Aggregates aggregates exprs => aggregates -> Aggregate exprs
+sequenceAggregate = fromColumns . toColumns
+
+
+distributeAggregate :: Aggregates aggregates exprs => Aggregate exprs -> aggregates
+distributeAggregate = fromColumns . toColumns

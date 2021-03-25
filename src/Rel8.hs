@@ -182,7 +182,8 @@ module Rel8
     -- ** Aggregation
   , Aggregate
   , aggregate
-  , runAggregation
+  , sequenceAggregate
+  , distrubteAggregate
   , listAgg
   , nonEmptyAgg
   , groupBy
