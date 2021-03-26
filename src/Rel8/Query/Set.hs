@@ -72,5 +72,5 @@ except = zipOpaleyeWith (Opaleye.exceptExplicit binaryspec)
 --
 -- >>> select c $ values [lit True, lit False, lit False] `exceptAll` values [lit True]
 -- [False,False]
-exceptAll :: Table Expr a => Query a -> Query a -> Query a
+exceptAll :: EqTable a => Query a -> Query a -> Query a
 exceptAll = zipOpaleyeWith (Opaleye.exceptAllExplicit binaryspec)
