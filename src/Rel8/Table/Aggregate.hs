@@ -23,25 +23,21 @@ import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( htabulate, hfield, hdicts )
+import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Table, Columns, toColumns, fromColumns )
-import Rel8.Table.Eq ( EqTable )
+import Rel8.Table ( Table, toColumns, fromColumns )
+import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Type.Eq ( DBEq )
 
 
 -- | Group equal tables together. This works by aggregating each column in the
 -- given table with 'groupByExpr'.
 groupBy :: forall exprs. EqTable exprs => exprs -> Aggregate exprs
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
-  case hfield dicts field of
+  case hfield (eqTable @exprs) field of
     Dict -> case hfield exprs field of
       DB expr -> Aggregation $ groupByExpr expr
-  where
-    dicts = hdicts @(Columns exprs) @(ConstrainDBType DBEq)
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated

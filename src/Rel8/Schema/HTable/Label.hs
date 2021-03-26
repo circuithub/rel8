@@ -19,7 +19,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.HTable.Label
-  ( HLabel
+  ( HLabel, Label
   , hlabel, hunlabel
   )
 where

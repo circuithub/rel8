@@ -1,6 +1,10 @@
+{-# language AllowAmbiguousTypes #-}
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -11,7 +15,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Eq
-  ( EqTable, (==:), (/=:)
+  ( EqTable( eqTable ), (==:), (/=:)
   )
 where
 
@@ -26,24 +30,39 @@ import Prelude
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( HConstrainTable, htabulateA, hfield, hdicts )
+import Rel8.Schema.HTable ( HConstrainTable, HPairField(..), GHField(..), htabulate, htabulateA, hfield, hdicts, hspecs )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Columns, toColumns )
 import Rel8.Type.Eq ( DBEq )
+import Rel8.Schema.HTable.MapTable ( HMapTableField(..) )
+import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Nullability ( Sql )
 
 
 type EqTable :: Type -> Constraint
-class
-  ( Table Expr a
-  , HConstrainTable (Columns a) (ConstrainDBType DBEq)
-  ) => EqTable a
-instance
-  ( Table Expr a
-  , HConstrainTable (Columns a) (ConstrainDBType DBEq)
-  ) => EqTable a
-instance {-# OVERLAPPING #-} EqTable Opaque
+class Table Expr a => EqTable a where
+  eqTable :: Columns a (Dict (ConstrainDBType DBEq))
+
+  default eqTable :: HConstrainTable (Columns a) (ConstrainDBType DBEq) => Columns a (Dict (ConstrainDBType DBEq))
+  eqTable = hdicts @(Columns a) @(ConstrainDBType DBEq)
+
+
+instance (Table Expr (t Expr), f ~ Expr, HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)) => EqTable (t f)
+
+
+instance Sql DBEq a => EqTable (Expr a)
+
+
+instance (EqTable a, EqTable b) => EqTable (a, b) where
+  eqTable = htabulate \case
+    HFst (GHField (HMapTableField i)) -> 
+      case hfield hspecs i of
+        SSpec{} -> case hfield (eqTable @a) i of Dict -> Dict
+
+    HSnd (GHField (HMapTableField i)) -> 
+      case hfield hspecs i of
+        SSpec{} -> case hfield (eqTable @b) i of Dict -> Dict
 
 
 -- | Compare two 'Table's for equality. This corresponds to comparing all
@@ -53,10 +72,8 @@ instance {-# OVERLAPPING #-} EqTable Opaque
 (toColumns -> as) ==: (toColumns -> bs) =
   foldl1' (&&.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a ==. b))
-  where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
 infix 4 ==:
 
 
@@ -67,10 +84,8 @@ infix 4 ==:
 (toColumns -> as) /=: (toColumns -> bs) =
   foldl1' (||.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a /=. b))
-  where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBEq)
 infix 4 /=:
 
 

@@ -20,7 +20,7 @@ import Rel8.Expr ( unDB )
 import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable (htabulateA, hfield, hdicts, hspecs)
+import Rel8.Schema.HTable (htabulateA, hfield, hspecs)
 import Rel8.Schema.Nullability
   ( Unnullify, Nullability( Nullable, NonNullable )
   , Sql, nullabilization
@@ -37,13 +37,11 @@ import Rel8.Type.Ord
 ascTable :: forall a. OrdTable a => Order a
 ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield ords field of
+    SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case ord dict of
         Dict -> Const $ unDB . (`hfield` field) >$< case nullability dict of
           Nullable -> nullsFirst asc
           NonNullable -> asc
-  where
-    ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
 
 
 -- | Construct an 'Order' for a 'Table' by sorting all columns into descending
@@ -51,13 +49,11 @@ ascTable = contramap toColumns $ getConst $
 descTable :: forall a. OrdTable a => Order a
 descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield ords field of
+    SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case ord dict of
         Dict -> Const $ unDB . (`hfield` field) >$< case nullability dict of
           Nullable -> nullsLast desc
           NonNullable -> desc
-  where
-    ords = hdicts @(Columns a) @(ConstrainDBType DBOrd)
 
 
 nullability :: Dict (ConstrainDBType DBOrd) ('Spec l n a) -> Nullability a

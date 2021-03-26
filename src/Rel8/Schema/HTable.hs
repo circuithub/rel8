@@ -19,6 +19,8 @@ module Rel8.Schema.HTable
   , htabulateA
 
   , HPair(..)
+  , HPairField(..)
+  , GHField(..)
   )
 where
 

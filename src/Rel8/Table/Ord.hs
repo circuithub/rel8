@@ -1,4 +1,6 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language FlexibleInstances #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -10,7 +12,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Ord
-  ( OrdTable, (<:), (<=:), (>:), (>=:), least, greatest
+  ( OrdTable( ordTable ), (<:), (<=:), (>:), (>=:), least, greatest
   )
 where
 
@@ -24,7 +26,6 @@ import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HConstrainTable, htabulateA, hfield, hdicts )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
@@ -32,21 +33,24 @@ import Rel8.Table ( Columns, toColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Type.Ord ( DBOrd )
+import Rel8.Schema.Nullability (Sql)
 
 
 -- | The class of 'Table's that can be ordered. Ordering on tables is defined
 -- by their lexicographic ordering of all columns, so this class means "all
 -- columns in a 'Table' have an instance of 'DBOrd'".
 type OrdTable :: Type -> Constraint
-class
-  ( EqTable a
-  , HConstrainTable (Columns a) (ConstrainDBType DBOrd)
-  ) => OrdTable a
-instance
-  ( EqTable a
-  , HConstrainTable (Columns a) (ConstrainDBType DBOrd)
-  ) => OrdTable a
-instance {-# OVERLAPPING #-} OrdTable Opaque
+class EqTable a => OrdTable a where
+  ordTable :: Columns a (Dict (ConstrainDBType DBOrd))
+
+  default ordTable :: HConstrainTable (Columns a) (ConstrainDBType DBOrd) => Columns a (Dict (ConstrainDBType DBOrd))
+  ordTable = hdicts @(Columns a) @(ConstrainDBType DBOrd)
+
+
+instance (EqTable (t Expr), f ~ Expr, HConstrainTable (Columns (t Expr)) (ConstrainDBType DBOrd)) => OrdTable (t f)
+
+
+instance Sql DBOrd a => OrdTable (Expr a)
 
 
 -- | Test if one 'Table' sorts before another. Corresponds to comparing all
@@ -55,10 +59,9 @@ instance {-# OVERLAPPING #-} OrdTable Opaque
 (toColumns -> as) <: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     go (lt, eq) a = lt ||. (eq &&. a)
 infix 4 <:
 
@@ -69,10 +72,9 @@ infix 4 <:
 (toColumns -> as) <=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     go (lt, eq) a = lt ||. (eq &&. a)
 infix 4 <=:
 
@@ -83,10 +85,9 @@ infix 4 <=:
 (toColumns -> as) >: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     go (gt, eq) a = gt ||. (eq &&. a)
 infix 4 >:
 
@@ -97,10 +98,9 @@ infix 4 >:
 (toColumns -> as) >=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield dicts field of
+      (DB a, DB b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
-    dicts = hdicts @(Columns a) @(ConstrainDBType DBOrd)
     go (gt, eq) a = gt ||. (eq &&. a)
 infix 4 >=:
 
