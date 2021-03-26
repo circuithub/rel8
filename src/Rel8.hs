@@ -34,6 +34,7 @@ module Rel8
   , DBSemigroup(..)
   , DBMonoid(..)
   , DBNum
+  , DBIntegral
   , DBFractional
 
     -- * Tables and higher-kinded tables
