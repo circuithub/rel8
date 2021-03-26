@@ -234,6 +234,9 @@ module Rel8
     -- ** @.. RETURNING@
   , Returning(..)
 
+    -- ** @CREATE VIEW@
+  , createView
+
     -- * TODO
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
@@ -288,6 +291,7 @@ import Rel8.Statement.Insert
 import Rel8.Statement.Returning
 import Rel8.Statement.Select
 import Rel8.Statement.Update
+import Rel8.Statement.View
 import Rel8.Table
 import Rel8.Table.Aggregate
 import Rel8.Table.Alternative
