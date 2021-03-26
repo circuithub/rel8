@@ -209,3 +209,33 @@ test-suite doctests
 
   main-is:          Doctest.hs
   default-language: Haskell2010
+
+
+test-suite random-queries
+  type:             exitcode-stdio-1.0
+  build-depends:
+      base
+    , bytestring
+    , case-insensitive
+    , containers
+    , hasql
+    , hedgehog          ^>=1.0.2
+    , lifted-base       ^>=0.2.3.12
+    , monad-control     ^>=1.0.2.3
+    , rel8
+    , scientific
+    , tasty
+    , tasty-hedgehog
+    , text
+    , time
+    , tmp-postgres      ^>=1.34.1.0
+    , uuid
+
+  main-is:          ArbitraryQueries.hs
+  hs-source-dirs:   tests
+  default-language: Haskell2010
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-deprecations -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures -Wno-implicit-prelude
