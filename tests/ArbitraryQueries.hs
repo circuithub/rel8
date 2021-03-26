@@ -17,6 +17,8 @@
 
 module Main ( main ) where
 
+import Data.Function ( (&) )
+import Control.Applicative ( liftA2 )
 import Data.Kind ( Type, Constraint )
 import qualified Rel8
 import Hedgehog
@@ -35,7 +37,7 @@ import Data.Functor ((<&>))
 import Data.Int (Int16, Int32, Int64)
 import Data.Scientific (Scientific)
 import Data.Time 
-import Data.Word (Word16, Word32, Word8)
+import Data.Word (Word8)
 import qualified Data.Text as StrictText
 import qualified Data.Text.Lazy as LazyText
 import Data.CaseInsensitive (CI, mk)
@@ -44,6 +46,9 @@ import qualified Data.ByteString.Lazy as LazyByteString
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 import Data.List (intersect)
+import qualified Data.Set as Set
+import Data.Containers.ListUtils ( nubOrd )
+import Data.Char (ord)
 
 
 data Dict :: Constraint -> Type where
@@ -51,9 +56,14 @@ data Dict :: Constraint -> Type where
 
 
 data Query :: Type -> Type -> Type where
-  Values   :: [Table i o] -> Query i o
-  UnionAll :: Query i o -> Query i o -> Query i o
-  IntersectAll :: Query i o -> Query i o -> Query i o
+  Values       :: (Rel8.Table Rel8.Expr i, Ord o) => [Table i o] -> Query i o
+  Union        :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
+  UnionAll     :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query i o -> Query i o
+  Intersect    :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
+  IntersectAll :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
+  Except       :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
+  ExceptAll    :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
+  Many         :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query (Rel8.ListTable i) [o]
 
 
 deriving stock instance Show (Query i o)
@@ -63,23 +73,49 @@ genQuery :: TTable i o -> Gen (Query i o)
 genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice 
   [ Values <$> Gen.list (Range.linear 0 10) (genTable t) 
   ]
-  [ UnionAll <$> genQuery t <*> genQuery t 
-  , IntersectAll <$> genQuery t <*> genQuery t 
-  ]
+  (concat
+    [ [ UnionAll <$> genQuery t <*> genQuery t 
+      ]
+    , case t of
+        TListTable t'@(isTableExpr -> Dict) -> 
+          [ Many <$> genQuery t' ]
+        _ -> []
+    , isEqTable t & foldMap \Dict ->
+        [ Union <$> genQuery t <*> genQuery t 
+        , Intersect <$> genQuery t <*> genQuery t 
+        , IntersectAll <$> genQuery t <*> genQuery t 
+        , Except <$> genQuery t <*> genQuery t 
+        , ExceptAll <$> genQuery t <*> genQuery t 
+        ]
+    ]
+  )
 
 
-compileQuery :: TTable i o -> Query i o -> Rel8.Query i
-compileQuery t@(isTableExpr -> Dict) = \case
-  Values xs -> Rel8.values $ compileTable t <$> xs
-  UnionAll x y -> Rel8.unionAll (compileQuery t x) (compileQuery t y)
-  IntersectAll x y -> Rel8.intersectAll (compileQuery t x) (compileQuery t y)
+compileQuery :: Query i o -> Rel8.Query i
+compileQuery = \case
+  Values xs -> Rel8.values $ compileTable <$> xs
+  Union x y -> Rel8.union (compileQuery x) (compileQuery y)
+  UnionAll x y -> Rel8.unionAll (compileQuery x) (compileQuery y)
+  Intersect x y -> Rel8.intersect (compileQuery x) (compileQuery y)
+  IntersectAll x y -> Rel8.intersectAll (compileQuery x) (compileQuery y)
+  Except x y -> Rel8.except (compileQuery x) (compileQuery y)
+  ExceptAll x y -> Rel8.exceptAll (compileQuery x) (compileQuery y)
+  Many q -> Rel8.many (compileQuery q)
 
 
-evalQuery :: Query i o -> [o]
+evalQuery :: Ord o => Query i o -> [o]
 evalQuery = \case
   Values xs -> evalTable <$> xs
+  Union x y -> nubOrd $ evalQuery x ++ evalQuery y
   UnionAll x y -> evalQuery x ++ evalQuery y
-  IntersectAll x y -> evalQuery x `intersect` evalQuery y
+  Intersect x y -> Set.toList $ Set.fromList (evalQuery x) `Set.intersection` Set.fromList (evalQuery y)
+  IntersectAll x y -> intersect (evalQuery x) (evalQuery y)
+  Except x y -> Set.toList $ Set.fromList (evalQuery x) `Set.difference` Set.fromList (evalQuery y)
+  ExceptAll x y -> filter (`notElem` ys) (evalQuery x)
+    where ys = evalQuery y
+
+  Many q -> [evalQuery q]
+
 
 data Table :: Type -> Type -> Type where
   ExprTable :: Expr i o -> Table i o
@@ -91,6 +127,7 @@ deriving stock instance Show (Table i o)
 
 genTable :: TTable i o -> Gen (Table i o)
 genTable t = case (recursiveCases, nonRecursiveCases) of
+  ([], []) -> Gen.discard
   ([], ys) -> Gen.choice ys
   (xs, []) -> Gen.choice xs
   _        -> Gen.recursive Gen.choice nonRecursiveCases recursiveCases 
@@ -98,16 +135,18 @@ genTable t = case (recursiveCases, nonRecursiveCases) of
     recursiveCases = case t of
       TProduct x y -> [ Product <$> genTable x <*> genTable y ]
       TExprTable _ -> []
+      TListTable t -> []
 
     nonRecursiveCases = case t of
       TExprTable exprType -> [ ExprTable <$> genExpr exprType ]
       TProduct _ _ -> []
+      TListTable _ -> []
 
 
-compileTable :: TTable i o -> Table i o -> i
-compileTable t e = case (t, e) of
-  (TExprTable t', ExprTable expr) -> compileExpr t' expr
-  (TProduct x' y', Product x y) -> (compileTable x' x, compileTable y' y)
+compileTable :: Table i o -> i
+compileTable = \case
+  ExprTable expr -> compileExpr expr
+  Product x y -> (compileTable x, compileTable y)
 
 
 evalTable :: Table i o -> o
@@ -117,8 +156,8 @@ evalTable = \case
 
 
 data Expr :: Type -> Type -> Type where
-  LitNN :: CanShow i -> Expr (Rel8.Expr i) i
-  LitN  :: Maybe (CanShow i) -> Expr (Rel8.Expr (Maybe i)) (Maybe i)
+  LitNN :: Rel8.DBType i => CanShow i -> Expr (Rel8.Expr i) i
+  LitN  :: Rel8.DBType i => Maybe (CanShow i) -> Expr (Rel8.Expr (Maybe i)) (Maybe i)
 
 
 deriving stock instance Show (Expr i o)
@@ -126,15 +165,14 @@ deriving stock instance Show (Expr i o)
 
 genExpr :: TExpr i o -> Gen (Expr i o)
 genExpr = \case
-  TNotNull dbType -> LitNN <$> genLiteral dbType
-  TNull dbType    -> LitN <$> Gen.maybe (genLiteral dbType)
+  TNotNull t@(tdbtypeImplies -> Dict) -> LitNN <$> genLiteral t
+  TNull t@(tdbtypeImplies -> Dict)    -> LitN <$> Gen.maybe (genLiteral t)
 
 
-compileExpr :: TExpr i o -> Expr i o -> i
-compileExpr t e = case (t, e) of
-  (TNotNull (tdbtypeImplies -> Dict), LitNN x) -> Rel8.lit $ showing x
-  (TNull (tdbtypeImplies -> Dict), LitN x)  -> Rel8.lit $ showing <$> x
-  (TNull (tdbtypeImplies -> Dict), LitNN x)  -> Rel8.lit $ showing  x
+compileExpr :: Expr i o -> i
+compileExpr = \case
+  LitNN x -> Rel8.lit $ showing x
+  LitN x  -> Rel8.lit $ showing <$> x
 
 
 evalExpr :: Expr i o -> o
@@ -163,22 +201,27 @@ data TTable :: Type -> Type -> Type where
   -- | An Expr is a table.
   TExprTable :: TExpr i o -> TTable i o
   TProduct :: TTable i1 o1 -> TTable i2 o2 -> TTable (i1, i2) (o1, o2)
+  TListTable :: TTable i o -> TTable (Rel8.ListTable i) [o]
 
 
 deriving stock instance Show (TTable i o)
 
 
-isTableExpr :: TTable i o -> Dict (Rel8.Table Rel8.Expr i)
+isTableExpr :: TTable i o -> Dict (Rel8.Table Rel8.Expr i, Ord o, Rel8.Serializable i o, Show o)
 isTableExpr = \case
   TExprTable (TNotNull (tdbtypeImplies -> Dict)) -> Dict
   TExprTable (TNull (tdbtypeImplies -> Dict)) -> Dict
   TProduct (isTableExpr -> Dict) (isTableExpr -> Dict) -> Dict
+  TListTable (isTableExpr -> Dict) -> Dict
 
 
-ttableEq :: TTable a b -> Dict (Eq b, Show b, Rel8.Serializable a b)
-ttableEq t = case t of
-  TExprTable (texprEq -> Dict) -> Dict
-  TProduct (ttableEq -> Dict) (ttableEq -> Dict) -> Dict
+isEqTable :: TTable i o -> Maybe (Dict (Rel8.EqTable i))
+isEqTable = \case
+  TExprTable (TNotNull dbType) -> isDBEq dbType <&> \Dict -> Dict
+  TExprTable (TNull dbType)    -> isDBEq dbType <&> \Dict -> Dict
+  TProduct x y                 -> liftA2 (\Dict Dict -> Dict) (isEqTable x) (isEqTable y)
+  TListTable t -> Nothing
+
 
 
 genTTable :: Gen (Some (Uncurry TTable))
@@ -199,7 +242,7 @@ data TExpr :: Type -> Type -> Type where
 deriving stock instance Show (TExpr i o)
 
 
-texprEq :: TExpr a b -> Dict (Eq b, Show b, Rel8.Serializable a b)
+texprEq :: TExpr a b -> Dict (Ord b, Show b, Rel8.Serializable a b)
 texprEq t = case t of
   TNotNull (tdbtypeImplies -> Dict) -> Dict
   TNull (tdbtypeImplies -> Dict) -> Dict
@@ -239,7 +282,7 @@ data TDBType :: Type -> Type where
 deriving stock instance Show (TDBType a)
 
 
-tdbtypeImplies :: TDBType a -> Dict (Eq a, Show a, Rel8.Serializable (Rel8.Expr a) a, Rel8.DBType a)
+tdbtypeImplies :: TDBType a -> Dict (Ord a, Show a, Rel8.Serializable (Rel8.Expr a) a, Rel8.DBType a)
 tdbtypeImplies = \case
   TBool            -> Dict
   TChar            -> Dict
@@ -264,6 +307,31 @@ tdbtypeImplies = \case
   TUUID            -> Dict
 
 
+isDBEq :: TDBType a -> Maybe (Dict (Rel8.DBEq a))
+isDBEq = \case
+  TBool            -> Just Dict
+  TChar            -> Just Dict
+  TInt16           -> Just Dict
+  TInt32           -> Just Dict
+  TInt64           -> Just Dict
+  TFloat           -> Just Dict
+  TDouble          -> Just Dict
+  TScientific      -> Just Dict
+  TUTCTime         -> Just Dict
+  TDay             -> Just Dict
+  TLocalTime       -> Just Dict
+  TTimeOfDay       -> Just Dict
+  TDiffTime        -> Just Dict
+  TNominalDiffTime -> Just Dict
+  TText            -> Just Dict
+  TLazyText        -> Just Dict
+  TCIText          -> Just Dict
+  TCILazyText      -> Just Dict
+  TByteString      -> Just Dict
+  TLazyByteString  -> Just Dict
+  TUUID            -> Just Dict
+
+
 genTDBType :: Gen (Some TDBType)
 genTDBType = Gen.element 
   [ Some TBool, Some TChar, Some TInt16, Some TInt32, Some TInt64, Some TFloat
@@ -276,7 +344,7 @@ genTDBType = Gen.element
 genLiteral :: TDBType a -> Gen (CanShow a)
 genLiteral = \case
   TBool       -> CanShow <$> Gen.element [True, False]
-  TChar       -> CanShow <$> Gen.unicode
+  TChar       -> CanShow <$> Gen.filter (\c -> ord c > 0) Gen.unicode
   TInt16      -> CanShow <$> Gen.integral Range.linearBounded
   TInt32      -> CanShow <$> Gen.integral Range.linearBounded
   TInt64      -> CanShow <$> Gen.integral Range.linearBounded
@@ -335,16 +403,19 @@ main =
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
   withResource (connect getTestDatabase) release \getC ->
   testProperty "Random queries" $ property do
-    Opaque (Some (Uncurry t)) <- forAll $ Opaque <$> genTTable
-    annotateShow t
+    Opaque (Some (Uncurry t')) <- forAll $ Opaque <$> genTTable
+    annotateShow t'
+
+    let t = TListTable t'
 
     q <- forAll (genQuery t)
 
-    case ttableEq t of 
+    case isTableExpr t of 
       Dict -> test do
-        annotate $ Rel8.showQuery $ compileQuery t q
+        let query = compileQuery q
+        annotate $ Rel8.showQuery query
         c <- liftIO getC
-        results <- evalIO $ Rel8.select c $ compileQuery t q
+        results <- evalIO $ Rel8.select c query
         results === evalQuery q
 
   where
