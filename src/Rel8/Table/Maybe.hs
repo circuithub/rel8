@@ -202,3 +202,4 @@ f $? ma@(MaybeTable _ a) = case nullabilization @b of
   Nullable -> boolExpr (f a) null (isNothingTable ma)
   NonNullable -> boolExpr (nullify (f a)) null (isNothingTable ma)
 infixl 4 $?
+

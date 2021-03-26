@@ -17,7 +17,8 @@
 
 module Main ( main ) where
 
-import Data.List.NonEmpty ( NonEmpty )
+import Data.These ( These( These, This, That ) )
+import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.Function ( (&) )
 import Control.Applicative ( liftA2 )
 import Data.Kind ( Type, Constraint )
@@ -50,6 +51,7 @@ import Data.List (intersect)
 import qualified Data.Set as Set
 import Data.Containers.ListUtils ( nubOrd )
 import Data.Char (ord)
+import Data.String (fromString)
 
 
 data Dict :: Constraint -> Type where
@@ -70,13 +72,15 @@ data Query :: Type -> Type -> Type where
   Distinct      :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o
   Limit         :: (Ord o)                         => Word -> Query i o -> Query i o
   Offset        :: (Ord o)                         => Word -> Query i o -> Query i o
+  Exists        ::                                    Query i o -> Query (Rel8.Expr Bool) Bool
 
   -- | 'whereExists' is not runnable on its own, in that we can't say 
   -- 'select c (whereExists q)', as 'whereExists' returns '()' which is not a
-  -- table. To work around this, in these tests we actually run 
+  -- Table. To work around this, in these tests we actually run 
   -- 'x <$ whereExists q' (for some random 'Table Expr' x), which can be ran in
   -- isolation.
-  WhereExists   :: Query i' o' -> Table i o -> Query i o
+  WhereExists    :: Query i' o' -> Table i o -> Query i o
+  WhereNotExists :: Query i' o' -> Table i o -> Query i o
 
 
 deriving stock instance Show (Query i o)
@@ -90,10 +94,14 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
     [ [ UnionAll <$> genQuery t <*> genQuery t 
       , Limit <$> Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1)) <*> genQuery t
       , Offset <$> Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1)) <*> genQuery t
-      , do Exists (Uncurry t') <- genTTable
+      , do Sigma (Uncurry t') <- genTTable
            q <- genQuery t'
            out <- genTable t
            return $ WhereExists q out
+      , do Sigma (Uncurry t') <- genTTable
+           q <- genQuery t'
+           out <- genTable t
+           return $ WhereNotExists q out
       ]
     , case t of
         TListTable t'@(isTableExpr -> Dict) -> 
@@ -104,6 +112,11 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
 
         TMaybeTable t'@(isTableExpr -> Dict) -> 
           [ Optional <$> genQuery t' ]
+
+        TExprTable (TNotNull TBool) -> pure $ do 
+          Sigma (Uncurry t') <- genTTable
+          q <- genQuery t'
+          return $ Exists q
 
         _ -> []
     , isEqTable t & foldMap \Dict ->
@@ -120,20 +133,22 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
 
 compileQuery :: Query i o -> Rel8.Query i
 compileQuery = \case
-  Values xs         -> Rel8.values $ compileTable <$> xs
-  Union x y         -> Rel8.union (compileQuery x) (compileQuery y)
-  UnionAll x y      -> Rel8.unionAll (compileQuery x) (compileQuery y)
-  Intersect x y     -> Rel8.intersect (compileQuery x) (compileQuery y)
-  IntersectAll x y  -> Rel8.intersectAll (compileQuery x) (compileQuery y)
-  Except x y        -> Rel8.except (compileQuery x) (compileQuery y)
-  ExceptAll x y     -> Rel8.exceptAll (compileQuery x) (compileQuery y)
-  Many q            -> Rel8.many (compileQuery q)
-  Some q            -> Rel8.some (compileQuery q)
-  Optional q        -> Rel8.optional (compileQuery q)
-  Distinct q        -> Rel8.distinct (compileQuery q)
-  Limit n q         -> Rel8.limit n (compileQuery q)
-  Offset n q        -> Rel8.offset n (compileQuery q)
-  WhereExists q t   -> compileTable t <$ Rel8.whereExists (compileQuery q)
+  Values xs          -> Rel8.values $ compileTable <$> xs
+  Union x y          -> Rel8.union (compileQuery x) (compileQuery y)
+  UnionAll x y       -> Rel8.unionAll (compileQuery x) (compileQuery y)
+  Intersect x y      -> Rel8.intersect (compileQuery x) (compileQuery y)
+  IntersectAll x y   -> Rel8.intersectAll (compileQuery x) (compileQuery y)
+  Except x y         -> Rel8.except (compileQuery x) (compileQuery y)
+  ExceptAll x y      -> Rel8.exceptAll (compileQuery x) (compileQuery y)
+  Many q             -> Rel8.many (compileQuery q)
+  Some q             -> Rel8.some (compileQuery q)
+  Optional q         -> Rel8.optional (compileQuery q)
+  Distinct q         -> Rel8.distinct (compileQuery q)
+  Limit n q          -> Rel8.limit n (compileQuery q)
+  Offset n q         -> Rel8.offset n (compileQuery q)
+  Exists q           -> Rel8.exists (compileQuery q)
+  WhereExists q t    -> compileTable t <$ Rel8.whereExists (compileQuery q)
+  WhereNotExists q t -> compileTable t <$ Rel8.whereNotExists (compileQuery q)
 
 
 evalQuery :: Ord o => Query i o -> [o]
@@ -159,11 +174,16 @@ evalQuery = \case
 
 
 data Table :: Type -> Type -> Type where
-  ExprTable    :: Expr i o -> Table i o
-  Product      :: Table i1 o1 -> Table i2 o2 -> Table (i1, i2) (o1, o2)
-  JustTable    :: Table i o -> Table (Rel8.MaybeTable i) (Maybe o)
-  NothingTable :: Rel8.Table Rel8.Expr i => Table (Rel8.MaybeTable i) (Maybe o)
-  LitTable     :: (Rel8.Serializable i o, Show o) => o -> Table i o
+  ExprTable    :: ()                                                 => Expr i o -> Table i o
+  Product      :: ()                                                 => Table i1 o1 -> Table i2 o2 -> Table (i1, i2) (o1, o2)
+  JustTable    :: ()                                                 => Table i o -> Table (Rel8.MaybeTable i) (Maybe o)
+  NothingTable :: (Rel8.Table Rel8.Expr i)                           => Table (Rel8.MaybeTable i) (Maybe o)
+  LitTable     :: (Rel8.Serializable i o, Show o)                    => o -> Table i o
+  ThisTable    :: (Rel8.Table Rel8.Expr x)                           => Table i o -> Table (Rel8.TheseTable i x) (These o y)
+  ThatTable    :: (Rel8.Table Rel8.Expr x)                           => Table i o -> Table (Rel8.TheseTable x i) (These y o)
+  TheseTable   :: (Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2) => Table i1 o1 -> Table i2 o2 -> Table (Rel8.TheseTable i1 i2) (These o1 o2)
+  LeftTable    :: (Rel8.Table Rel8.Expr x)                           => Table i o -> Table (Rel8.EitherTable i x) (Either o y)
+  RightTable   :: (Rel8.Table Rel8.Expr x)                           => Table i o -> Table (Rel8.EitherTable x i) (Either y o)
 
 
 deriving stock instance Show (Table i o)
@@ -174,17 +194,38 @@ genTable t@(isTableExpr -> Dict) = Gen.choice $
   fmap LitTable (genLitTable t) :
   case t of
     TProduct x y -> [ Product <$> genTable x <*> genTable y ]
-    TMaybeTable t@(isTableExpr -> Dict) -> [ JustTable <$> genTable t, pure NothingTable ]
+    TMaybeTable t'@(isTableExpr -> Dict) -> [ JustTable <$> genTable t', pure NothingTable ]
     TExprTable exprType -> [ ExprTable <$> genExpr exprType ]
+    TTheseTable x@(isTableExpr -> Dict) y@(isTableExpr -> Dict) -> 
+      [ ThisTable <$> genTable x
+      , ThatTable <$> genTable y
+      , TheseTable <$> genTable x <*> genTable y
+      ]
+
+    TEitherTable x@(isTableExpr -> Dict) y@(isTableExpr -> Dict) ->
+      [ LeftTable <$> genTable x
+      , RightTable <$> genTable y
+      ]
+
+    -- Other literals, there is no pure way to create these tables
     TListTable _ -> []
     TNonEmptyTable _ -> []
 
 
 genLitTable :: TTable i o -> Gen o
 genLitTable = \case
-  TProduct x y -> liftA2 (,) (genLitTable x) (genLitTable y)
-  TExprTable t -> genExprLit t
-  TListTable t -> Gen.list (Range.linear 0 10) (genLitTable t)
+  TProduct x y     -> liftA2 (,) (genLitTable x) (genLitTable y)
+  TExprTable t     -> genExprLit t
+  TListTable t     -> Gen.list (Range.linear 0 10) (genLitTable t)
+  TNonEmptyTable t -> liftA2 (:|) (genLitTable t) (Gen.list (Range.linear 0 10) (genLitTable t))
+  TMaybeTable t    -> Gen.maybe (genLitTable t)
+  TEitherTable x y -> Gen.either (genLitTable x) (genLitTable y)
+  TTheseTable x y  -> Gen.choice
+    [ This <$> genLitTable x
+    , That <$> genLitTable y
+    , These <$> genLitTable x <*> genLitTable y
+    ]
+
 
 
 compileTable :: Table i o -> i
@@ -194,6 +235,11 @@ compileTable = \case
   JustTable t    -> Rel8.justTable (compileTable t)
   NothingTable   -> Rel8.nothingTable
   LitTable a     -> Rel8.lit a
+  ThisTable x    -> Rel8.thisTable (compileTable x)
+  ThatTable x    -> Rel8.thatTable (compileTable x)
+  TheseTable x y -> Rel8.thoseTable (compileTable x) (compileTable y)
+  LeftTable x    -> Rel8.leftTable (compileTable x)
+  RightTable x   -> Rel8.rightTable (compileTable x)
 
 
 evalTable :: Table i o -> o
@@ -243,8 +289,8 @@ data CanShow a = Show a => CanShow { showing :: a }
 deriving stock instance Show (CanShow a)
 
 
-data Exists :: (k -> Type) -> Type where
-  Exists :: k a -> Exists k
+data Sigma :: (k -> Type) -> Type where
+  Sigma :: k a -> Sigma k
 
 
 data Uncurry :: (a -> b -> Type) -> (a, b) -> Type where
@@ -254,12 +300,13 @@ data Uncurry :: (a -> b -> Type) -> (a, b) -> Type where
 -- | Evidence of types that can be tables, and their corresponding Haskell type
 -- on select.
 data TTable :: Type -> Type -> Type where
-  -- | An Expr is a table.
-  TExprTable :: TExpr i o -> TTable i o
-  TProduct :: TTable i1 o1 -> TTable i2 o2 -> TTable (i1, i2) (o1, o2)
-  TListTable :: TTable i o -> TTable (Rel8.ListTable i) [o]
+  TExprTable     :: TExpr i o -> TTable i o
+  TProduct       :: TTable i1 o1 -> TTable i2 o2 -> TTable (i1, i2) (o1, o2)
+  TListTable     :: TTable i o -> TTable (Rel8.ListTable i) [o]
   TNonEmptyTable :: TTable i o -> TTable (Rel8.NonEmptyTable i) (NonEmpty o)
-  TMaybeTable :: TTable i o -> TTable (Rel8.MaybeTable i) (Maybe o)
+  TMaybeTable    :: TTable i o -> TTable (Rel8.MaybeTable i) (Maybe o)
+  TTheseTable    :: TTable i1 o1 -> TTable i2 o2 -> TTable (Rel8.TheseTable i1 i2) (These o1 o2)
+  TEitherTable   :: TTable i1 o1 -> TTable i2 o2 -> TTable (Rel8.EitherTable i1 i2) (Either o1 o2)
 
 
 deriving stock instance Show (TTable i o)
@@ -273,6 +320,8 @@ isTableExpr = \case
   TListTable (isTableExpr -> Dict) -> Dict
   TNonEmptyTable (isTableExpr -> Dict) -> Dict
   TMaybeTable (isTableExpr -> Dict) -> Dict
+  TTheseTable (isTableExpr -> Dict) (isTableExpr -> Dict) -> Dict
+  TEitherTable (isTableExpr -> Dict) (isTableExpr -> Dict) -> Dict
 
 
 isEqTable :: TTable i o -> Maybe (Dict (Rel8.EqTable i))
@@ -280,18 +329,32 @@ isEqTable = \case
   TExprTable (TNotNull dbType) -> isDBEq dbType <&> \Dict -> Dict
   TExprTable (TNull dbType)    -> isDBEq dbType <&> \Dict -> Dict
   TProduct x y                 -> liftA2 (\Dict Dict -> Dict) (isEqTable x) (isEqTable y)
-  TListTable t -> Nothing
-  TNonEmptyTable t -> Nothing
-  TMaybeTable (isTableExpr -> Dict) -> Nothing
+
+  -- TODO
+  TListTable _     -> Nothing
+  TNonEmptyTable _ -> Nothing
+  TMaybeTable _    -> Nothing
+  TEitherTable _ _ -> Nothing
+  TTheseTable _ _  -> Nothing
 
 
 
-genTTable :: Gen (Exists (Uncurry TTable))
+genTTable :: Gen (Sigma (Uncurry TTable))
 genTTable = Gen.recursive Gen.choice
-  [ do genTExpr <&> \(Exists (Uncurry t)) -> Exists $ Uncurry $ TExprTable t
+  [ do genTExpr <&> \(Sigma (Uncurry t)) -> Sigma $ Uncurry $ TExprTable t
   ]
   [ Gen.subterm2 genTTable genTTable
-      (\(Exists (Uncurry x)) (Exists (Uncurry y)) -> Exists (Uncurry (TProduct x y))) 
+      (\(Sigma (Uncurry x)) (Sigma (Uncurry y)) -> Sigma (Uncurry (TProduct x y))) 
+  , Gen.subterm genTTable 
+      (\(Sigma (Uncurry x)) -> Sigma (Uncurry (TListTable x))) 
+  , Gen.subterm genTTable 
+      (\(Sigma (Uncurry x)) -> Sigma (Uncurry (TNonEmptyTable x))) 
+  , Gen.subterm genTTable 
+      (\(Sigma (Uncurry x)) -> Sigma (Uncurry (TMaybeTable x))) 
+  , Gen.subterm2 genTTable genTTable
+      (\(Sigma (Uncurry x)) (Sigma (Uncurry y)) -> Sigma (Uncurry (TEitherTable x y))) 
+  , Gen.subterm2 genTTable genTTable
+      (\(Sigma (Uncurry x)) (Sigma (Uncurry y)) -> Sigma (Uncurry (TTheseTable x y))) 
   ]
 
 
@@ -310,10 +373,10 @@ texprEq t = case t of
   TNull (tdbtypeImplies -> Dict) -> Dict
 
 
-genTExpr :: Gen (Exists (Uncurry TExpr))
+genTExpr :: Gen (Sigma (Uncurry TExpr))
 genTExpr = choice
-  [ genTDBType <&> \(Exists t) -> Exists $ Uncurry $ TNotNull t
-  , genTDBType <&> \(Exists t) -> Exists $ Uncurry $ TNull t 
+  [ genTDBType <&> \(Sigma t) -> Sigma $ Uncurry $ TNotNull t
+  , genTDBType <&> \(Sigma t) -> Sigma $ Uncurry $ TNull t 
   ]
 
 
@@ -394,13 +457,13 @@ isDBEq = \case
   TUUID            -> Just Dict
 
 
-genTDBType :: Gen (Exists TDBType)
+genTDBType :: Gen (Sigma TDBType)
 genTDBType = Gen.element 
-  [ Exists TBool, Exists TChar, Exists TInt16, Exists TInt32, Exists TInt64
-  , Exists TFloat , Exists TDouble, Exists TScientific, Exists TUTCTime
-  , Exists TDay, Exists TLocalTime , Exists TDiffTime, Exists TNominalDiffTime
-  , Exists TText, Exists TLazyText , Exists TCIText, Exists TCILazyText
-  , Exists TByteString, Exists TLazyByteString , Exists TUUID ]
+  [ Sigma TBool, Sigma TChar, Sigma TInt16, Sigma TInt32, Sigma TInt64
+  , Sigma TFloat , Sigma TDouble, Sigma TScientific, Sigma TUTCTime
+  , Sigma TDay, Sigma TLocalTime , Sigma TDiffTime, Sigma TNominalDiffTime
+  , Sigma TText, Sigma TLazyText , Sigma TCIText, Sigma TCILazyText
+  , Sigma TByteString, Sigma TLazyByteString , Sigma TUUID ]
 
 
 genLiteral :: TDBType a -> Gen a
@@ -459,24 +522,70 @@ genLiteral = \case
       <*> Gen.integral Range.linearBounded
 
 
+labelTTable :: Monad m => TTable i o -> PropertyT m ()
+labelTTable = \case
+  TExprTable t -> do
+    label "Expr" 
+    labelTExpr t
+
+  TProduct x y -> do
+    label "Product"
+    labelTTable x
+    labelTTable y
+
+  TListTable x -> do
+    label "ListTable"
+    labelTTable x
+
+  TMaybeTable x -> do
+    label "MaybeTable"
+    labelTTable x
+
+  TNonEmptyTable x -> do
+    label "NonEmptyTable"
+    labelTTable x
+
+  TEitherTable x y -> do
+    label "EitherTable"
+    labelTTable x
+    labelTTable y
+
+  TTheseTable x y -> do
+    label "TheseTable"
+    labelTTable x
+    labelTTable y
+
+
+labelTExpr :: Monad m => TExpr i o -> PropertyT m ()
+labelTExpr = \case
+  TNotNull t -> label "Not Null" >> labelTDBType t
+  TNull t    -> label "Null" >> labelTDBType t
+
+
+labelTDBType :: Monad m => TDBType o -> PropertyT m ()
+labelTDBType = label . fromString . show
+
+
 main :: IO ()
 main =
   defaultMain $
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
   withResource (connect getTestDatabase) release \getC ->
   testProperty "Random queries" $ property do
-    liftIO $ putStrLn "Again!"
-    Opaque (Exists (Uncurry t)) <- forAll $ Opaque <$> genTTable
+    Opaque (Sigma (Uncurry t)) <- forAll $ Opaque <$> genTTable
     annotateShow t
+    labelTTable t
 
     q <- forAll (genQuery t)
 
     case isTableExpr t of 
       Dict -> test do
         let query = compileQuery q
+        annotate $ Rel8.showQuery query
         liftIO $ putStrLn $ Rel8.showQuery query
         c <- liftIO getC
         results <- evalIO $ Rel8.select c query
+        evalIO $ print results
         return ()
         -- results === evalQuery q
 

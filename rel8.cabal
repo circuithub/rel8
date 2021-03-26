@@ -184,6 +184,7 @@ test-suite tests
     , tasty
     , tasty-hedgehog
     , text
+    , these
     , time
     , tmp-postgres      ^>=1.34.1.0
     , uuid
@@ -228,6 +229,7 @@ test-suite random-queries
     , tasty-hedgehog
     , text
     , time
+    , these
     , tmp-postgres      ^>=1.34.1.0
     , uuid
 
