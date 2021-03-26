@@ -225,7 +225,7 @@ instance DBType DiffTime where
   typeInformation = TypeInformation
     { encode =
         Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%-6Es'"
+        formatTime defaultTimeLocale "'%0Es'"
     , decode = Hasql.interval
     , typeName = "interval"
     , out = id
