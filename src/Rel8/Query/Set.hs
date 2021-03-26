@@ -54,7 +54,7 @@ intersect = zipOpaleyeWith (Opaleye.intersectExplicit binaryspec)
 --
 -- >>> select c $ values [lit True, lit True, lit False] `intersectAll` values [lit True, lit True]
 -- [True,True]
-intersectAll :: Table Expr a => Query a -> Query a -> Query a
+intersectAll :: EqTable a => Query a -> Query a -> Query a
 intersectAll = zipOpaleyeWith (Opaleye.intersectAllExplicit binaryspec)
 
 
