@@ -43,6 +43,7 @@ library
     src
   exposed-modules:
     Rel8
+    Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
     Rel8.Tabulate
@@ -57,7 +58,6 @@ library
     Rel8.Expr.Eq
     Rel8.Expr.Function
     Rel8.Expr.Null
-    Rel8.Expr.Num
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Order
