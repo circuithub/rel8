@@ -1,6 +1,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -9,6 +10,7 @@
 
 module Rel8.Table.List
   ( ListTable(..)
+  , listTable
   )
 where
 
@@ -19,12 +21,12 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
-import Rel8.Expr.Array ( sappend, sempty )
+import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
 import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullability )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative
@@ -90,3 +92,10 @@ instance Table Expr a => Semigroup (ListTable a) where
 instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ hempty $ \nullability info ->
     DB (sempty nullability info)
+
+
+listTable :: Table Expr a => [a] -> ListTable a
+listTable =
+  ListTable .
+  hvectorize (\SSpec {info} -> DB . slistOf info . fmap unDB) .
+  fmap toColumns

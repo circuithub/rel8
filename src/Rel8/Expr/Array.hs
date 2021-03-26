@@ -1,13 +1,12 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Array
   ( listOf, nonEmptyOf
+  , slistOf, snonEmptyOf
   , sappend, sappend1, sempty
   )
 where
@@ -43,11 +42,17 @@ sempty :: Nullability a -> TypeInformation (Unnullify a) -> Expr [a]
 sempty _ info = fromPrimExpr $ array info []
 
 
-listOf :: forall a. Sql DBType a => [Expr a] -> Expr [a]
-listOf =
-  fromPrimExpr . array (typeInformation @(Unnullify a)) . fmap toPrimExpr
+slistOf :: TypeInformation (Unnullify a) -> [Expr a] -> Expr [a]
+slistOf info = fromPrimExpr . array info . fmap toPrimExpr
 
 
-nonEmptyOf :: forall a. Sql DBType a => NonEmpty (Expr a) -> Expr (NonEmpty a)
-nonEmptyOf =
-  fromPrimExpr . array (typeInformation @(Unnullify a)) . fmap toPrimExpr
+snonEmptyOf :: TypeInformation (Unnullify a) -> NonEmpty (Expr a) -> Expr (NonEmpty a)
+snonEmptyOf info = fromPrimExpr . array info . fmap toPrimExpr
+
+
+listOf :: Sql DBType a => [Expr a] -> Expr [a]
+listOf = slistOf typeInformation
+
+
+nonEmptyOf :: Sql DBType a => NonEmpty (Expr a) -> Expr (NonEmpty a)
+nonEmptyOf = snonEmptyOf typeInformation
