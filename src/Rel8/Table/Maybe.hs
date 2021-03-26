@@ -29,15 +29,15 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable
-  , encodeTag, decodeTag
-  , nullifier, unnullifier
+  ( Nullifiable, ConstrainTag
+  , hencodeTag, hdecodeTag
+  , hnullifier, hunnullifier
   )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
+import Rel8.Schema.HTable.Maybe ( HMaybeTable(..), HMaybeNullifiable )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Nullability
   ( Nullify
@@ -50,9 +50,11 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Bool ( bool )
+import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Lifted
-  ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
+  ( Table1, Columns1, ConstrainHContext1, fromColumns1, toColumns1
   )
+import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
@@ -124,22 +126,22 @@ instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
 
 instance Table1 MaybeTable where
   type Columns1 MaybeTable = HMaybeTable
-  type ConstrainContext1 MaybeTable = Nullifiable
+  type ConstrainHContext1 MaybeTable = HMaybeNullifiable
 
   toColumns1 f MaybeTable {tag, just} = HMaybeTable
     { htag
-    , hjust = hnullify (nullifier (isNonNull tag)) $ f just
+    , hjust = hnullify (hnullifier (isNonNull tag)) $ f just
     }
     where
-      htag = HIdentity (encodeTag tag)
+      htag = HIdentity (hencodeTag tag)
 
   fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
     { tag
     , just = f $ runIdentity $
-        hunnullify (\a -> pure . unnullifier (isNonNull tag) a) hjust
+        hunnullify (\a -> pure . hunnullifier (isNonNull tag) a) hjust
     }
     where
-      tag = decodeTag htag
+      tag = hdecodeTag htag
 
   {-# INLINABLE fromColumns1 #-}
   {-# INLINABLE toColumns1 #-}
@@ -148,6 +150,7 @@ instance Table1 MaybeTable where
 instance
   ( Table context a
   , Labelable context, Nullifiable context
+  , ConstrainTag context MaybeTag
   ) => Table context (MaybeTable a)
  where
   type Columns (MaybeTable a) = HMaybeTable (HLabel "Just" (Columns a))
@@ -158,10 +161,18 @@ instance
 
 
 instance
-  ( Labelable from, Nullifiable from
-  , Labelable to, Nullifiable to
+  ( Labelable from, Nullifiable from, ConstrainTag from MaybeTag
+  , Labelable to, Nullifiable to, ConstrainTag to MaybeTag
   , Recontextualize from to a b
   ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
+
+
+instance EqTable a => EqTable (MaybeTable a) where
+  eqTable = toColumns1 (hlabel hlabeler) (justTable (eqTable @a))
+
+
+instance OrdTable a => OrdTable (MaybeTable a) where
+  ordTable = toColumns1 (hlabel hlabeler) (justTable (ordTable @a))
 
 
 -- | Check if a @MaybeTable@ is absent of any row.. Like 'isNothing'.

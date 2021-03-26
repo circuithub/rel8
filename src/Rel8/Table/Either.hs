@@ -5,7 +5,9 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -25,22 +27,23 @@ import Prelude hiding ( undefined )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable, NullifiableEq
-  , encodeTag, decodeTag
-  , nullifier, unnullifier
+  ( Nullifiable, ConstrainTag
+  , hencodeTag, hdecodeTag
+  , hnullifier, hunnullifier
   )
-import Rel8.Schema.HTable.Either ( HEitherTable(..) )
+import Rel8.Schema.HTable.Either ( HEitherTable(..), HEitherNullifiable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Bool ( bool )
+import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Lifted
-  ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
-  , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
+  ( Table2, Columns2, ConstrainHContext2, fromColumns2, toColumns2
   )
+import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
@@ -89,42 +92,34 @@ instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
 
 instance Table2 EitherTable where
   type Columns2 EitherTable = HEitherTable
-  type ConstrainContext2 EitherTable = Nullifiable
+  type ConstrainHContext2 EitherTable = HEitherNullifiable
 
   toColumns2 f g EitherTable {tag, left, right} = HEitherTable
     { htag
-    , hleft = hnullify (nullifier (isLeft tag)) $ f left
-    , hright = hnullify (nullifier (isRight tag)) $ g right
+    , hleft = hnullify (hnullifier (isLeft tag)) $ f left
+    , hright = hnullify (hnullifier (isRight tag)) $ g right
     }
     where
-      htag = HIdentity (encodeTag tag)
+      htag = HIdentity (hencodeTag tag)
 
   fromColumns2 f g HEitherTable {htag = htag, hleft, hright} =
     EitherTable
       { tag
       , left = f $ runIdentity $
-          hunnullify (\a -> pure . unnullifier (isLeft tag) a) hleft
+          hunnullify (\a -> pure . hunnullifier (isLeft tag) a) hleft
       , right = g $ runIdentity $
-          hunnullify (\a -> pure . unnullifier (isRight tag) a) hright
+          hunnullify (\a -> pure . hunnullifier (isRight tag) a) hright
       }
     where
-      tag = decodeTag $ unHIdentity htag
+      tag = hdecodeTag $ unHIdentity htag
 
   {-# INLINABLE fromColumns2 #-}
   {-# INLINABLE toColumns2 #-}
 
 
-instance Table context a => Table1 (EitherTable a) where
-  type Columns1 (EitherTable a) = HEitherTable (Columns a)
-  type ConstrainContext1 (EitherTable a) = NullifiableEq (Context a)
-
-  toColumns1 = toColumns2 toColumns
-  fromColumns1 = fromColumns2 fromColumns
-
-
 instance
   ( Table context a, Table context b
-  , Labelable context, Nullifiable context
+  , Labelable context, Nullifiable context, ConstrainTag context EitherTag
   ) =>
   Table context (EitherTable a b)
  where
@@ -143,12 +138,24 @@ instance
 
 
 instance
-  ( Nullifiable from, Labelable from
-  , Nullifiable to, Labelable to
+  ( Nullifiable from, Labelable from, ConstrainTag from EitherTag
+  , Nullifiable to, Labelable to, ConstrainTag to EitherTag
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   ) =>
   Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
+
+
+instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
+  eqTable =
+    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
+      (rightTableWith (eqTable @a) (eqTable @b))
+
+
+instance (OrdTable a, OrdTable b) => OrdTable (EitherTable a b) where
+  ordTable =
+    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
+      (rightTableWith (ordTable @a) (ordTable @b))
 
 
 isLeftTable :: EitherTable a b -> Expr Bool
@@ -170,4 +177,8 @@ leftTable a = EitherTable (litExpr IsLeft) a undefined
 
 
 rightTable :: Table Expr a => b -> EitherTable a b
-rightTable = EitherTable (litExpr IsRight) undefined
+rightTable = rightTableWith undefined
+
+
+rightTableWith :: a -> b -> EitherTable a b
+rightTableWith = EitherTable (litExpr IsRight)

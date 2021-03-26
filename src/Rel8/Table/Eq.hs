@@ -2,6 +2,7 @@
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
@@ -30,13 +31,20 @@ import Prelude
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
+import Rel8.Schema.Context.Label ( hlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( HConstrainTable, HPairField(..), GHField(..), htabulate, htabulateA, hfield, hdicts, hspecs )
+import Rel8.Schema.HTable
+  ( HTable, HConstrainTable
+  , htabulateA, hfield, hdicts
+  )
+import Rel8.Schema.HTable.Label ( hlabel )
+import Rel8.Schema.HTable.Pair ( HPair(..) )
+import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
+import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
+import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Columns, toColumns )
 import Rel8.Type.Eq ( DBEq )
-import Rel8.Schema.HTable.MapTable ( HMapTableField(..) )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
 import Rel8.Schema.Nullability ( Sql )
 
 
@@ -44,25 +52,70 @@ type EqTable :: Type -> Constraint
 class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (ConstrainDBType DBEq))
 
-  default eqTable :: HConstrainTable (Columns a) (ConstrainDBType DBEq) => Columns a (Dict (ConstrainDBType DBEq))
+  default eqTable :: ()
+    => HConstrainTable (Columns a) (ConstrainDBType DBEq)
+    => Columns a (Dict (ConstrainDBType DBEq))
   eqTable = hdicts @(Columns a) @(ConstrainDBType DBEq)
 
 
-instance (Table Expr (t Expr), f ~ Expr, HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)) => EqTable (t f)
+instance
+  ( Table Expr (t Expr)
+  , f ~ Expr
+  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
+  )
+  => EqTable (t f)
+
+
+instance
+  ( HTable t
+  , f ~ Col Expr
+  , HConstrainTable t (ConstrainDBType DBEq)
+  )
+  => EqTable (t f)
 
 
 instance Sql DBEq a => EqTable (Expr a)
 
 
 instance (EqTable a, EqTable b) => EqTable (a, b) where
-  eqTable = htabulate \case
-    HFst (GHField (HMapTableField i)) -> 
-      case hfield hspecs i of
-        SSpec{} -> case hfield (eqTable @a) i of Dict -> Dict
+  eqTable =
+    HPair
+      { hfst = hlabel hlabeler (eqTable @a)
+      , hsnd = hlabel hlabeler (eqTable @b)
+      }
 
-    HSnd (GHField (HMapTableField i)) -> 
-      case hfield hspecs i of
-        SSpec{} -> case hfield (eqTable @b) i of Dict -> Dict
+
+instance (EqTable a, EqTable b, EqTable c) => EqTable (a, b, c) where
+  eqTable =
+    HTrio
+      { hfst = hlabel hlabeler (eqTable @a)
+      , hsnd = hlabel hlabeler (eqTable @b)
+      , htrd = hlabel hlabeler (eqTable @c)
+      }
+
+
+instance (EqTable a, EqTable b, EqTable c, EqTable d) => EqTable (a, b, c, d)
+ where
+  eqTable =
+    HQuartet
+      { hfst = hlabel hlabeler (eqTable @a)
+      , hsnd = hlabel hlabeler (eqTable @b)
+      , htrd = hlabel hlabeler (eqTable @c)
+      , hfrt = hlabel hlabeler (eqTable @d)
+      }
+
+
+instance (EqTable a, EqTable b, EqTable c, EqTable d, EqTable e) =>
+  EqTable (a, b, c, d, e)
+ where
+  eqTable =
+    HQuintet
+      { hfst = hlabel hlabeler (eqTable @a)
+      , hsnd = hlabel hlabeler (eqTable @b)
+      , htrd = hlabel hlabeler (eqTable @c)
+      , hfrt = hlabel hlabeler (eqTable @d)
+      , hfft = hlabel hlabeler (eqTable @e)
+      }
 
 
 -- | Compare two 'Table's for equality. This corresponds to comparing all

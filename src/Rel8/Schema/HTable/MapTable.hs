@@ -14,7 +14,13 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Schema.HTable.MapTable ( HMapTable(..), MapSpec(..), Precompose(..), HMapTableField(..) ) where
+module Rel8.Schema.HTable.MapTable
+  ( HMapTable(..)
+  , MapSpec(..)
+  , Precompose(..)
+  , HMapTableField(..)
+  )
+where
 
 -- base
 import Data.Kind ( Constraint, Type )

@@ -1,6 +1,8 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -11,16 +13,23 @@ module Rel8.Table.NonEmpty
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Array ( sappend1 )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Vectorize ( happend )
+import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
+import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Spec ( SSpec( SSpec ) )
+import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullability )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
+import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
@@ -41,6 +50,26 @@ instance Table context a => Table context (NonEmptyTable a) where
 
 instance Recontextualize from to a b =>
   Recontextualize from to (NonEmptyTable a) (NonEmptyTable b)
+
+
+instance EqTable a => EqTable (NonEmptyTable a) where
+  eqTable =
+    hvectorize
+      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
+          Dict -> case dbTypeNullability dict of
+            Nullable -> Dict
+            NonNullable -> Dict)
+      (Identity (eqTable @a))
+
+
+instance OrdTable a => OrdTable (NonEmptyTable a) where
+  ordTable =
+    hvectorize
+      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
+          Dict -> case dbTypeNullability dict of
+            Nullable -> Dict
+            NonNullable -> Dict)
+      (Identity (ordTable @a))
 
 
 instance AltTable NonEmptyTable where
