@@ -57,16 +57,26 @@ data Dict :: Constraint -> Type where
 
 
 data Query :: Type -> Type -> Type where
-  Values       :: (Rel8.Table Rel8.Expr i, Ord o) => [Table i o] -> Query i o
-  Union        :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
-  UnionAll     :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query i o -> Query i o
-  Intersect    :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
-  IntersectAll :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
-  Except       :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
-  ExceptAll    :: (Rel8.EqTable i, Ord o)         => Query i o -> Query i o -> Query i o
-  Many         :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query (Rel8.ListTable i) [o]
-  Some         :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query (Rel8.NonEmptyTable i) (NonEmpty o)
-  Optional     :: (Rel8.Table Rel8.Expr i, Ord o) => Query i o -> Query (Rel8.MaybeTable i) (Maybe o)
+  Values        :: (Ord o, Rel8.Table Rel8.Expr i) => [Table i o] -> Query i o
+  Union         :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o -> Query i o
+  UnionAll      :: (Ord o, Rel8.Table Rel8.Expr i) => Query i o -> Query i o -> Query i o
+  Intersect     :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o -> Query i o
+  IntersectAll  :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o -> Query i o
+  Except        :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o -> Query i o
+  ExceptAll     :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o -> Query i o
+  Many          :: (Ord o, Rel8.Table Rel8.Expr i) => Query i o -> Query (Rel8.ListTable i) [o]
+  Some          :: (Ord o, Rel8.Table Rel8.Expr i) => Query i o -> Query (Rel8.NonEmptyTable i) (NonEmpty o)
+  Optional      :: (Ord o, Rel8.Table Rel8.Expr i) => Query i o -> Query (Rel8.MaybeTable i) (Maybe o)
+  Distinct      :: (Ord o, Rel8.EqTable i)         => Query i o -> Query i o
+  Limit         :: (Ord o)                         => Word -> Query i o -> Query i o
+  Offset        :: (Ord o)                         => Word -> Query i o -> Query i o
+
+  -- | 'whereExists' is not runnable on its own, in that we can't say 
+  -- 'select c (whereExists q)', as 'whereExists' returns '()' which is not a
+  -- table. To work around this, in these tests we actually run 
+  -- 'x <$ whereExists q' (for some random 'Table Expr' x), which can be ran in
+  -- isolation.
+  WhereExists   :: Query i' o' -> Table i o -> Query i o
 
 
 deriving stock instance Show (Query i o)
@@ -78,6 +88,12 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
   ]
   (concat
     [ [ UnionAll <$> genQuery t <*> genQuery t 
+      , Limit <$> Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1)) <*> genQuery t
+      , Offset <$> Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1)) <*> genQuery t
+      , do Exists (Uncurry t') <- genTTable
+           q <- genQuery t'
+           out <- genTable t
+           return $ WhereExists q out
       ]
     , case t of
         TListTable t'@(isTableExpr -> Dict) -> 
@@ -96,6 +112,7 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
         , IntersectAll <$> genQuery t <*> genQuery t 
         , Except <$> genQuery t <*> genQuery t 
         , ExceptAll <$> genQuery t <*> genQuery t 
+        , Distinct <$> genQuery t
         ]
     ]
   )
@@ -103,16 +120,20 @@ genQuery t@(isTableExpr -> Dict) = Gen.recursive Gen.choice
 
 compileQuery :: Query i o -> Rel8.Query i
 compileQuery = \case
-  Values xs        -> Rel8.values $ compileTable <$> xs
-  Union x y        -> Rel8.union (compileQuery x) (compileQuery y)
-  UnionAll x y     -> Rel8.unionAll (compileQuery x) (compileQuery y)
-  Intersect x y    -> Rel8.intersect (compileQuery x) (compileQuery y)
-  IntersectAll x y -> Rel8.intersectAll (compileQuery x) (compileQuery y)
-  Except x y       -> Rel8.except (compileQuery x) (compileQuery y)
-  ExceptAll x y    -> Rel8.exceptAll (compileQuery x) (compileQuery y)
-  Many q           -> Rel8.many (compileQuery q)
-  Some q           -> Rel8.some (compileQuery q)
-  Optional q       -> Rel8.optional (compileQuery q)
+  Values xs         -> Rel8.values $ compileTable <$> xs
+  Union x y         -> Rel8.union (compileQuery x) (compileQuery y)
+  UnionAll x y      -> Rel8.unionAll (compileQuery x) (compileQuery y)
+  Intersect x y     -> Rel8.intersect (compileQuery x) (compileQuery y)
+  IntersectAll x y  -> Rel8.intersectAll (compileQuery x) (compileQuery y)
+  Except x y        -> Rel8.except (compileQuery x) (compileQuery y)
+  ExceptAll x y     -> Rel8.exceptAll (compileQuery x) (compileQuery y)
+  Many q            -> Rel8.many (compileQuery q)
+  Some q            -> Rel8.some (compileQuery q)
+  Optional q        -> Rel8.optional (compileQuery q)
+  Distinct q        -> Rel8.distinct (compileQuery q)
+  Limit n q         -> Rel8.limit n (compileQuery q)
+  Offset n q        -> Rel8.offset n (compileQuery q)
+  WhereExists q t   -> compileTable t <$ Rel8.whereExists (compileQuery q)
 
 
 evalQuery :: Ord o => Query i o -> [o]
@@ -131,52 +152,62 @@ evalQuery = \case
                   [] -> [Nothing]
                   xs -> Just <$> xs
 
+  Distinct q -> Set.toList $ Set.fromList $ evalQuery q
+
+  Limit n q -> take (fromIntegral n) $ evalQuery q
+  Offset n q -> drop (fromIntegral n) $ evalQuery q
+
 
 data Table :: Type -> Type -> Type where
-  ExprTable :: Expr i o -> Table i o
-  Product :: Table i1 o1 -> Table i2 o2 -> Table (i1, i2) (o1, o2)
+  ExprTable    :: Expr i o -> Table i o
+  Product      :: Table i1 o1 -> Table i2 o2 -> Table (i1, i2) (o1, o2)
+  JustTable    :: Table i o -> Table (Rel8.MaybeTable i) (Maybe o)
+  NothingTable :: Rel8.Table Rel8.Expr i => Table (Rel8.MaybeTable i) (Maybe o)
+  LitTable     :: (Rel8.Serializable i o, Show o) => o -> Table i o
 
 
 deriving stock instance Show (Table i o)
 
 
 genTable :: TTable i o -> Gen (Table i o)
-genTable t = case (recursiveCases, nonRecursiveCases) of
-  ([], []) -> Gen.discard
-  ([], ys) -> Gen.choice ys
-  (xs, []) -> Gen.choice xs
-  _        -> Gen.recursive Gen.choice nonRecursiveCases recursiveCases 
-  where
-    recursiveCases = case t of
-      TProduct x y -> [ Product <$> genTable x <*> genTable y ]
-      TExprTable _ -> []
-      TListTable t -> []
-      TNonEmptyTable t -> []
-      TMaybeTable t -> []
+genTable t@(isTableExpr -> Dict) = Gen.choice $
+  fmap LitTable (genLitTable t) :
+  case t of
+    TProduct x y -> [ Product <$> genTable x <*> genTable y ]
+    TMaybeTable t@(isTableExpr -> Dict) -> [ JustTable <$> genTable t, pure NothingTable ]
+    TExprTable exprType -> [ ExprTable <$> genExpr exprType ]
+    TListTable _ -> []
+    TNonEmptyTable _ -> []
 
-    nonRecursiveCases = case t of
-      TExprTable exprType -> [ ExprTable <$> genExpr exprType ]
-      TProduct _ _ -> []
-      TListTable _ -> []
-      TNonEmptyTable t -> []
-      TMaybeTable t -> []
+
+genLitTable :: TTable i o -> Gen o
+genLitTable = \case
+  TProduct x y -> liftA2 (,) (genLitTable x) (genLitTable y)
+  TExprTable t -> genExprLit t
+  TListTable t -> Gen.list (Range.linear 0 10) (genLitTable t)
 
 
 compileTable :: Table i o -> i
 compileTable = \case
   ExprTable expr -> compileExpr expr
-  Product x y -> (compileTable x, compileTable y)
+  Product x y    -> (compileTable x, compileTable y)
+  JustTable t    -> Rel8.justTable (compileTable t)
+  NothingTable   -> Rel8.nothingTable
+  LitTable a     -> Rel8.lit a
 
 
 evalTable :: Table i o -> o
 evalTable = \case
   ExprTable expr -> evalExpr expr
-  (Product x y) -> (evalTable x, evalTable y)
+  (Product x y)  -> (evalTable x, evalTable y)
+  JustTable t    -> Just (evalTable t)
+  NothingTable   -> Nothing
+  LitTable o     -> o
 
 
 data Expr :: Type -> Type -> Type where
-  LitNN :: Rel8.DBType i => CanShow i -> Expr (Rel8.Expr i) i
-  LitN  :: Rel8.DBType i => Maybe (CanShow i) -> Expr (Rel8.Expr (Maybe i)) (Maybe i)
+  LitNN :: (Rel8.DBType i, Show i) => i -> Expr (Rel8.Expr i) i
+  LitN  :: (Rel8.DBType i, Show i) => Maybe i -> Expr (Rel8.Expr (Maybe i)) (Maybe i)
 
 
 deriving stock instance Show (Expr i o)
@@ -188,16 +219,22 @@ genExpr = \case
   TNull t@(tdbtypeImplies -> Dict)    -> LitN <$> Gen.maybe (genLiteral t)
 
 
+genExprLit :: TExpr i o -> Gen o
+genExprLit = \case
+  TNotNull t -> genLiteral t
+  TNull t    -> Gen.maybe (genLiteral t)
+
+
 compileExpr :: Expr i o -> i
 compileExpr = \case
-  LitNN x -> Rel8.lit $ showing x
-  LitN x  -> Rel8.lit $ showing <$> x
+  LitNN x -> Rel8.lit x
+  LitN x  -> Rel8.lit x
 
 
 evalExpr :: Expr i o -> o
 evalExpr = \case
-  LitNN l -> showing l
-  LitN l -> showing <$> l
+  LitNN l -> l
+  LitN l -> l
 
 
 data CanShow a = Show a => CanShow { showing :: a }
@@ -366,55 +403,55 @@ genTDBType = Gen.element
   , Exists TByteString, Exists TLazyByteString , Exists TUUID ]
 
 
-genLiteral :: TDBType a -> Gen (CanShow a)
+genLiteral :: TDBType a -> Gen a
 genLiteral = \case
-  TBool       -> CanShow <$> Gen.element [True, False]
-  TChar       -> CanShow <$> Gen.filter (\c -> ord c > 0) Gen.unicode
-  TInt16      -> CanShow <$> Gen.integral Range.linearBounded
-  TInt32      -> CanShow <$> Gen.integral Range.linearBounded
-  TInt64      -> CanShow <$> Gen.integral Range.linearBounded
-  TFloat      -> CanShow <$> Gen.float (fromIntegral <$> Range.linearBounded @Int32)
-  TDouble     -> CanShow <$> Gen.double (fromIntegral <$> Range.linearBounded @Int32)
-  TScientific -> CanShow <$> Gen.realFrac_ (fromIntegral <$> Range.linearBounded @Int32)
+  TBool       -> Gen.element [True, False]
+  TChar       -> Gen.filter (\c -> ord c > 0) Gen.unicode
+  TInt16      -> Gen.integral Range.linearBounded
+  TInt32      -> Gen.integral Range.linearBounded
+  TInt64      -> Gen.integral Range.linearBounded
+  TFloat      -> Gen.float (fromIntegral <$> Range.linearBounded @Int32)
+  TDouble     -> Gen.double (fromIntegral <$> Range.linearBounded @Int32)
+  TScientific -> Gen.realFrac_ (fromIntegral <$> Range.linearBounded @Int32)
 
-  TUTCTime    -> CanShow <$> do
+  TUTCTime    -> do
     UTCTime 
-      <$> (showing <$> genLiteral TDay) 
+      <$> genLiteral TDay 
       <*> do fromIntegral @Int32 <$> Gen.integral (Range.linear 0 86401)
 
-  TDay        -> CanShow <$> do
+  TDay        -> do
     Gen.just $ fromGregorianValid 
       <$> Gen.integral (Range.linear 1970 3000) 
       <*> Gen.integral (Range.linear 1 12) 
       <*> Gen.integral (Range.linear 1 31)
 
-  TLocalTime -> CanShow <$> do
-    LocalTime <$> do showing <$> genLiteral TDay
-              <*> do showing <$> genLiteral TTimeOfDay
+  TLocalTime -> do
+    LocalTime <$> genLiteral TDay
+              <*> genLiteral TTimeOfDay
 
-  TTimeOfDay -> CanShow <$> do
+  TTimeOfDay -> do
     Gen.just $ 
       makeTimeOfDayValid 
         <$> Gen.integral (Range.linear 0 23) 
         <*> Gen.integral (Range.linear 0 59) 
         <*> do fromInteger <$> Gen.integral (Range.linear 0 60)
 
-  TDiffTime -> CanShow <$> do
+  TDiffTime -> do
     fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
 
-  TNominalDiffTime -> CanShow <$> do
+  TNominalDiffTime -> 
     fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
 
-  TText -> CanShow <$> Gen.text (Range.linear 0 512) Gen.unicode
-  TLazyText -> CanShow . LazyText.fromStrict . showing <$> genLiteral TText
+  TText -> Gen.text (Range.linear 0 512) (genLiteral TChar)
+  TLazyText -> LazyText.fromStrict <$> genLiteral TText
 
-  TCIText -> CanShow . mk . showing <$> genLiteral TText
-  TCILazyText -> CanShow . mk . showing <$> genLiteral TLazyText
+  TCIText -> mk <$> genLiteral TText
+  TCILazyText -> mk <$> genLiteral TLazyText
 
-  TByteString -> CanShow . StrictByteString.pack <$> Gen.list (Range.linear 0 512) (Gen.integral (Range.linearBounded @Word8))
-  TLazyByteString -> CanShow . LazyByteString.pack <$> Gen.list (Range.linear 0 512) (Gen.integral (Range.linearBounded @Word8))
+  TByteString -> StrictByteString.pack <$> Gen.list (Range.linear 0 512) (Gen.integral (Range.linearBounded @Word8))
+  TLazyByteString -> LazyByteString.pack <$> Gen.list (Range.linear 0 512) (Gen.integral (Range.linearBounded @Word8))
 
-  TUUID -> CanShow <$> do 
+  TUUID -> 
     UUID.fromWords
       <$> Gen.integral Range.linearBounded 
       <*> Gen.integral Range.linearBounded
@@ -428,17 +465,16 @@ main =
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
   withResource (connect getTestDatabase) release \getC ->
   testProperty "Random queries" $ property do
-    Opaque (Exists (Uncurry t')) <- forAll $ Opaque <$> genTTable
-    annotateShow t'
-
-    let t = TListTable t'
+    liftIO $ putStrLn "Again!"
+    Opaque (Exists (Uncurry t)) <- forAll $ Opaque <$> genTTable
+    annotateShow t
 
     q <- forAll (genQuery t)
 
     case isTableExpr t of 
       Dict -> test do
         let query = compileQuery q
-        annotate $ Rel8.showQuery query
+        liftIO $ putStrLn $ Rel8.showQuery query
         c <- liftIO getC
         results <- evalIO $ Rel8.select c query
         return ()
