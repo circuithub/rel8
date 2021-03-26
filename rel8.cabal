@@ -219,7 +219,7 @@ test-suite random-queries
     , case-insensitive
     , containers
     , hasql
-    , hedgehog          ^>=1.0.2
+    , hedgehog          ^>=1.0.5
     , lifted-base       ^>=0.2.3.12
     , monad-control     ^>=1.0.2.3
     , rel8
@@ -238,4 +238,4 @@ test-suite random-queries
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
-    -Wno-missing-local-signatures -Wno-implicit-prelude
+    -Wno-missing-local-signatures -Wno-implicit-prelude -Wno-all-missed-specialisations
