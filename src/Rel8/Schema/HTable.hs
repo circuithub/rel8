@@ -17,10 +17,6 @@ module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
   , htabulateA
-
-  , HPair(..)
-  , HPairField(..)
-  , GHField(..)
   )
 where
 

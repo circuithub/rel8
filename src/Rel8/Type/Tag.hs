@@ -59,7 +59,7 @@ isLeft = (litExpr IsLeft ==.)
 
 
 isRight :: Expr EitherTag -> Expr Bool
-isRight = (litExpr IsLeft ==.)
+isRight = (litExpr IsRight ==.)
 
 
 type MaybeTag :: Type

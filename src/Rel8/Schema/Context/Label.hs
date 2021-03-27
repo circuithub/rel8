@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language FlexibleInstances #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
@@ -16,8 +17,10 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.Schema.Context ( Interpretation, Col(..) )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Kind ( Context, HContext )
 import Rel8.Schema.Spec ( Spec( Spec ) )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 
 
 type Labelable :: Context -> Constraint
@@ -50,3 +53,8 @@ class HLabelable context where
 instance Labelable context => HLabelable (Col context) where
   hlabeler = labeler
   hunlabeler = unlabeler
+
+
+instance HLabelable (Dict (ConstrainDBType constraint)) where
+  hlabeler Dict = Dict
+  hunlabeler Dict = Dict

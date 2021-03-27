@@ -5,8 +5,10 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -29,28 +31,31 @@ import Prelude hiding ( undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable, NullifiableEq
-  , encodeTag, decodeTag
-  , nullifier, unnullifier
+  ( Nullifiable, ConstrainTag
+  , hencodeTag, hdecodeTag
+  , hnullifier, hunnullifier
   )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import Rel8.Schema.HTable.Maybe ( HMaybeNullifiable )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Lifted
-  ( Table1, Columns1, ConstrainContext1, fromColumns1, toColumns1
-  , Table2, Columns2, ConstrainContext2, fromColumns2, toColumns2
+  ( Table2, Columns2, ConstrainHContext2, fromColumns2, toColumns2
   )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
   )
+import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Undefined ( undefined )
+import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
@@ -108,37 +113,37 @@ instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
 
 instance Table2 TheseTable where
   type Columns2 TheseTable = HTheseTable
-  type ConstrainContext2 TheseTable = Nullifiable
+  type ConstrainHContext2 TheseTable = HMaybeNullifiable
 
   toColumns2 f g TheseTable {here, there} = HTheseTable
-    { hhereTag = HIdentity $ encodeTag (tag here)
-    , hhere = hnullify (nullifier (isNonNull (tag here))) $ f (just here)
-    , hthereTag = HIdentity $ encodeTag (tag there)
-    , hthere = hnullify (nullifier (isNonNull (tag there))) $ g (just there)
+    { hhereTag = HIdentity $ hencodeTag (tag here)
+    , hhere = hnullify (hnullifier (isNonNull (tag here))) $ f (just here)
+    , hthereTag = HIdentity $ hencodeTag (tag there)
+    , hthere = hnullify (hnullifier (isNonNull (tag there))) $ g (just there)
     }
 
   fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} =
     TheseTable
       { here =
           let
-            tag = decodeTag $ unHIdentity hhereTag
+            tag = hdecodeTag $ unHIdentity hhereTag
           in
             MaybeTable
               { tag
               , just = f $
                   runIdentity $
-                  hunnullify (\a -> pure . unnullifier (isNonNull tag) a)
+                  hunnullify (\a -> pure . hunnullifier (isNonNull tag) a)
                   hhere
               }
       , there =
           let
-            tag = decodeTag $ unHIdentity hthereTag
+            tag = hdecodeTag $ unHIdentity hthereTag
           in
             MaybeTable
               { tag
               , just = g $
                   runIdentity $
-                  hunnullify (\a -> pure . unnullifier (isNonNull tag) a)
+                  hunnullify (\a -> pure . hunnullifier (isNonNull tag) a)
                   hthere
               }
       }
@@ -147,17 +152,9 @@ instance Table2 TheseTable where
   {-# INLINABLE toColumns2 #-}
 
 
-instance Table context a => Table1 (TheseTable a) where
-  type Columns1 (TheseTable a) = HTheseTable (Columns a)
-  type ConstrainContext1 (TheseTable a) = NullifiableEq (Context a)
-
-  toColumns1 = toColumns2 toColumns
-  fromColumns1 = fromColumns2 fromColumns
-
-
 instance
   ( Table context a, Table context b
-  , Labelable context, Nullifiable context
+  , Labelable context, Nullifiable context, ConstrainTag context MaybeTag
   ) => Table context (TheseTable a b)
  where
   type Columns (TheseTable a b) =
@@ -175,12 +172,24 @@ instance
 
 
 instance
-  ( Labelable from, Nullifiable from
-  , Labelable to, Nullifiable to
+  ( Labelable from, Nullifiable from, ConstrainTag from MaybeTag
+  , Labelable to, Nullifiable to, ConstrainTag to MaybeTag
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   ) =>
   Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
+
+
+instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
+  eqTable =
+    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
+      (thoseTable (eqTable @a) (eqTable @b))
+
+
+instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
+  ordTable =
+    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
+      (thoseTable (ordTable @a) (ordTable @b))
 
 
 isThisTable :: TheseTable a b -> Expr Bool

@@ -1,6 +1,7 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleInstances #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -26,12 +27,22 @@ import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
+import Rel8.Schema.Context.Label ( hlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( HConstrainTable, htabulateA, hfield, hdicts )
+import Rel8.Schema.HTable
+  ( HTable, HConstrainTable
+  , htabulateA, hfield, hdicts
+  )
+import Rel8.Schema.HTable.Label ( hlabel )
+import Rel8.Schema.HTable.Pair ( HPair(..) )
+import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
+import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
+import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Columns, toColumns )
+import Rel8.Table ( Table, Columns, toColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
+import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 import Rel8.Schema.Nullability (Sql)
 
@@ -47,10 +58,66 @@ class EqTable a => OrdTable a where
   ordTable = hdicts @(Columns a) @(ConstrainDBType DBOrd)
 
 
-instance (EqTable (t Expr), f ~ Expr, HConstrainTable (Columns (t Expr)) (ConstrainDBType DBOrd)) => OrdTable (t f)
+instance
+  ( Table Expr (t Expr)
+  , f ~ Expr
+  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
+  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBOrd)
+  )
+  => OrdTable (t f)
+
+
+instance
+  ( HTable t
+  , f ~ Col Expr
+  , HConstrainTable t (ConstrainDBType DBEq)
+  , HConstrainTable t (ConstrainDBType DBOrd)
+  )
+  => OrdTable (t f)
 
 
 instance Sql DBOrd a => OrdTable (Expr a)
+
+
+instance (OrdTable a, OrdTable b) => OrdTable (a, b) where
+  ordTable =
+    HPair
+      { hfst = hlabel hlabeler (ordTable @a)
+      , hsnd = hlabel hlabeler (ordTable @b)
+      }
+
+
+instance (OrdTable a, OrdTable b, OrdTable c) => OrdTable (a, b, c) where
+  ordTable =
+    HTrio
+      { hfst = hlabel hlabeler (ordTable @a)
+      , hsnd = hlabel hlabeler (ordTable @b)
+      , htrd = hlabel hlabeler (ordTable @c)
+      }
+
+
+instance (OrdTable a, OrdTable b, OrdTable c, OrdTable d) => OrdTable (a, b, c, d)
+ where
+  ordTable =
+    HQuartet
+      { hfst = hlabel hlabeler (ordTable @a)
+      , hsnd = hlabel hlabeler (ordTable @b)
+      , htrd = hlabel hlabeler (ordTable @c)
+      , hfrt = hlabel hlabeler (ordTable @d)
+      }
+
+
+instance (OrdTable a, OrdTable b, OrdTable c, OrdTable d, OrdTable e) =>
+  OrdTable (a, b, c, d, e)
+ where
+  ordTable =
+    HQuintet
+      { hfst = hlabel hlabeler (ordTable @a)
+      , hsnd = hlabel hlabeler (ordTable @b)
+      , htrd = hlabel hlabeler (ordTable @c)
+      , hfrt = hlabel hlabeler (ordTable @d)
+      , hfft = hlabel hlabeler (ordTable @e)
+      }
 
 
 -- | Test if one 'Table' sorts before another. Corresponds to comparing all
