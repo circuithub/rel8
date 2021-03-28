@@ -89,10 +89,12 @@ module Rel8
 
     -- ** @ListTable@
   , ListTable
+  , listTable
   , many
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
+  , nonEmptyTable
   , some
 
     -- ** Table schemas

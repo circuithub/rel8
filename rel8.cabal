@@ -198,6 +198,7 @@ test-suite tests
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
+  buildable: False
 
 test-suite doctests
   type:             exitcode-stdio-1.0
@@ -211,7 +212,7 @@ test-suite doctests
 
   main-is:          Doctest.hs
   default-language: Haskell2010
-
+  buildable: False
 
 test-suite random-queries
   type:             exitcode-stdio-1.0

@@ -19,7 +19,8 @@
 
 module Main ( main ) where
 
-import Data.These ( These )
+import qualified Data.Map.Lazy as LazyMap
+import Data.These ( These(..) )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.Kind ( Type )
 import qualified Rel8
@@ -51,13 +52,17 @@ import Data.Char (ord)
 import Data.Maybe (catMaybes)
 import Data.Type.Equality
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List (permutations)
+import Data.Foldable (foldl', fold)
+import qualified Data.Set as Set
+import Data.Containers.ListUtils (nubOrd)
 
 
 type Context = [(Type, Type)]
 
 
 data ATypedQuery :: Context -> Type where
-  ATypedQuery :: (Show o, Rel8.Serializable i o) 
+  ATypedQuery :: (Show o, Rel8.Serializable i o, Ord o) 
     => TypedQuery env i o 
     -> ATypedQuery env
 
@@ -74,7 +79,7 @@ data TypedQuery env i o = TypedQuery
 
 -- | A reified 'Query' value.
 data Query :: Context -> Type -> Type -> Type where
-  Values :: Rel8.Table Rel8.Expr i            
+  Values :: (Rel8.Table Rel8.Expr i, Ord o)
     => [Table env i o] -> Query env i o
 
   Union :: Rel8.EqTable i                    
@@ -119,7 +124,7 @@ data Query :: Context -> Type -> Type -> Type where
   Distinct :: (Rel8.EqTable i)                  
     => TypedQuery env i o -> Query env i o
 
-  Bind :: Show y 
+  Bind :: (Show y, Ord y) 
     => TypedQuery env x y -> TypedQuery ('(x, y) ': env) i o -> Query env i o
 
   ReturnTable :: ()
@@ -131,7 +136,7 @@ deriving stock instance Show o => Show (Query env i o)
 
 -- | Extend a query with a new 'Bind'. The new 'Bind' has access to an updated
 -- environment with the result of any previous binds.
-bindQuery :: (Functor m, Show y)
+bindQuery :: (Functor m, Show y, Ord y)
   => Environment env 
   -> TypedQuery env x y 
   -> (forall env'. Environment env' -> m (TypedQuery env' i o))
@@ -293,8 +298,6 @@ compileQuery env TypedQuery{ query } =
     Some q               -> Rel8.some (compileQuery env q)
     Optional q           -> Rel8.optional (compileQuery env q)
     Distinct q           -> Rel8.distinct (compileQuery env q)
-  -- Exists q           -> Rel8.exists (compileQuery q)
-
 
 
 data Table :: Context -> Type -> Type -> Type where
@@ -417,7 +420,7 @@ genTable t env = Gen.choice $ catMaybes
     listTable = do
       TListTable t' <- pure t
       return do
-        xs <- Gen.list (Range.linear 0 100) (genTable t' env)
+        xs <- Gen.list (Range.linear 0 10) (genTable t' env)
         return $ ListTable xs
 
     nonEmptyTable = do
@@ -426,7 +429,7 @@ genTable t env = Gen.choice $ catMaybes
         xs <- 
           Gen.just $ 
             NonEmpty.nonEmpty <$> 
-              Gen.list (Range.linear 1 100) (genTable t' env)
+              Gen.list (Range.linear 1 10) (genTable t' env)
         return $ NonEmptyTable xs
 
 
@@ -464,6 +467,12 @@ data Expr :: Context -> Type -> Type -> Type where
   IsNothingTable :: Show o        
     => Table env (Rel8.MaybeTable i) (Maybe o) -> Expr env (Rel8.Expr Bool) Bool
 
+  IsLeftTable :: (Show o1, Show o2)
+    => Table env (Rel8.EitherTable i1 i2) (Either o1 o2) -> Expr env (Rel8.Expr Bool) Bool
+
+  IsRightTable :: (Show o1, Show o2)
+    => Table env (Rel8.EitherTable i1 i2) (Either o1 o2) -> Expr env (Rel8.Expr Bool) Bool
+
 
 deriving stock instance Show o => Show (Expr env i o)
 
@@ -471,7 +480,7 @@ deriving stock instance Show o => Show (Expr env i o)
 genExpr :: Environment env -> TExpr i o -> Gen (Expr env i o)
 genExpr env t = Gen.recursive Gen.choice nonrecursive recursive
   where
-    recursive = catMaybes [ isJustTable, isNothingTable ]
+    recursive = catMaybes [ isJustTable, isNothingTable, isLeftTable, isRightTable ]
       where
         isJustTable = do
           TNotNull TBool <- pure t
@@ -484,6 +493,20 @@ genExpr env t = Gen.recursive Gen.choice nonrecursive recursive
           pure do
             ATTable t' <- genTTable
             IsJustTable <$> genTable (TMaybeTable t') env
+
+        isLeftTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t1 <- genTTable
+            ATTable t2 <- genTTable
+            IsLeftTable <$> genTable (TEitherTable t1 t2) env
+
+        isRightTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t1 <- genTTable
+            ATTable t2 <- genTTable
+            IsRightTable <$> genTable (TEitherTable t1 t2) env
 
     nonrecursive = catMaybes [ notNullLiteral, nullLiteral ]
       where
@@ -504,15 +527,17 @@ compileExpr env = \case
   LitN x           -> Rel8.lit x
   IsJustTable t    -> Rel8.isJustTable (compileTable env t)
   IsNothingTable t -> Rel8.isNothingTable (compileTable env t)
+  IsLeftTable t    -> Rel8.isLeftTable (compileTable env t)
+  IsRightTable t   -> Rel8.isRightTable (compileTable env t)
 
 
 data ATTable :: Type where
-  ATTable :: (Rel8.Table Rel8.Expr i, Show o, Rel8.Serializable i o) 
+  ATTable :: (Rel8.Table Rel8.Expr i, Show o, Rel8.Serializable i o, Ord o) 
     => TTable i o -> ATTable
 
 
 data ATEqTable :: Type where
-  ATEqTable :: (Rel8.EqTable i, Show o, Rel8.Serializable i o) 
+  ATEqTable :: (Rel8.EqTable i, Show o, Rel8.Serializable i o, Ord o) 
     => TTable i o -> ATEqTable
 
 
@@ -645,12 +670,12 @@ genTEqTable = Gen.recursive Gen.choice nonrecursive recursive
 
 
 data ATExpr :: Type where
-  ATExpr :: (Show a, Rel8.Sql Rel8.DBType a) 
+  ATExpr :: (Show a, Rel8.Sql Rel8.DBType a, Ord a) 
     => TExpr (Rel8.Expr a) a -> ATExpr
 
 
 data ATEqExpr :: Type where
-  ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a) 
+  ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a, Ord a) 
     => TExpr (Rel8.Expr a) a -> ATEqExpr
 
 
@@ -695,11 +720,11 @@ genTEqExpr = choice
 
 
 data ATDBType :: Type where
-  ATDBType :: (Rel8.DBType a, Show a) => TDBType a -> ATDBType
+  ATDBType :: (Rel8.DBType a, Show a, Ord a) => TDBType a -> ATDBType
 
 
 data ATDBEq :: Type where
-  ATDBEq :: (Rel8.DBEq a, Show a) => TDBType a -> ATDBEq
+  ATDBEq :: (Rel8.DBEq a, Show a, Ord a) => TDBType a -> ATDBEq
 
 
 data TDBType :: Type -> Type where
@@ -843,7 +868,10 @@ main =
     ATypedQuery q <- forAll (genTypedQuery Empty)
     test do
       c <- liftIO getC
-      _ <- evalIO $ Rel8.select c $ compileQuery NoResults q
+
+      res <- evalIO $ Rel8.select c $ compileQuery NoResults q
+      -- diff res Set.member (evalQuery NoEvalResults q)
+
       return ()
 
   where
