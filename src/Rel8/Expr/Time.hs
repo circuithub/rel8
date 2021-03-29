@@ -13,7 +13,7 @@ module Rel8.Expr.Time
   , diffTime
   , subtractTime
 
-  -- * Working with @DiffTime@
+  -- * Working with @NominalDiffTime@
   , scaleInterval
   , second, seconds
   , minute, minutes
@@ -35,7 +35,7 @@ import Rel8.Expr.Opaleye ( unsafeCastExpr, unsafeLiteral )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( DiffTime, UTCTime )
+import Data.Time.Clock ( NominalDiffTime, UTCTime )
 
 
 -- | Corresponds to @date(now())@.
@@ -74,93 +74,93 @@ now = nullaryFunction "now"
 
 
 -- | Add a time interval to a point in time, yielding a new point in time.
-addTime :: Expr DiffTime -> Expr UTCTime -> Expr UTCTime
+addTime :: Expr NominalDiffTime -> Expr UTCTime -> Expr UTCTime
 addTime = flip (binaryOperator "+")
 
 
 -- | Find the duration between two times.
-diffTime :: Expr UTCTime -> Expr UTCTime -> Expr DiffTime
+diffTime :: Expr UTCTime -> Expr UTCTime -> Expr NominalDiffTime
 diffTime = binaryOperator "-"
 
 
 -- | Subtract a time interval from a point in time, yielding a new point in time.
-subtractTime :: Expr DiffTime -> Expr UTCTime -> Expr UTCTime
+subtractTime :: Expr NominalDiffTime -> Expr UTCTime -> Expr UTCTime
 subtractTime = flip (binaryOperator "-")
 
 
-scaleInterval :: Expr Double -> Expr DiffTime -> Expr DiffTime
+scaleInterval :: Expr Double -> Expr NominalDiffTime -> Expr NominalDiffTime
 scaleInterval = binaryOperator "*"
 
 
 -- | An interval of one second.
-second :: Expr DiffTime
+second :: Expr NominalDiffTime
 second = singleton "second"
 
 
 -- | Create a literal interval from a number of seconds.
-seconds :: Expr Double -> Expr DiffTime
+seconds :: Expr Double -> Expr NominalDiffTime
 seconds = (`scaleInterval` second)
 
 
 -- | An interval of one minute.
-minute :: Expr DiffTime
+minute :: Expr NominalDiffTime
 minute = singleton "minute"
 
 
 -- | Create a literal interval from a number of minutes.
-minutes :: Expr Double -> Expr DiffTime
+minutes :: Expr Double -> Expr NominalDiffTime
 minutes = (`scaleInterval` minute)
 
 
 -- | An interval of one hour.
-hour :: Expr DiffTime
+hour :: Expr NominalDiffTime
 hour = singleton "hour"
 
 
 -- | Create a literal interval from a number of hours.
-hours :: Expr Double -> Expr DiffTime
+hours :: Expr Double -> Expr NominalDiffTime
 hours = (`scaleInterval` hour)
 
 
 -- | An interval of one day.
-day :: Expr DiffTime
+day :: Expr NominalDiffTime
 day = singleton "day"
 
 
 -- | Create a literal interval from a number of days.
-days ::  Expr Double -> Expr DiffTime
+days ::  Expr Double -> Expr NominalDiffTime
 days = (`scaleInterval` day)
 
 
 -- | An interval of one week.
-week :: Expr DiffTime
+week :: Expr NominalDiffTime
 week = singleton "week"
 
 
 -- | Create a literal interval from a number of weeks.
-weeks ::  Expr Double -> Expr DiffTime
+weeks ::  Expr Double -> Expr NominalDiffTime
 weeks = (`scaleInterval` week)
 
 
 -- | An interval of one month.
-month :: Expr DiffTime
+month :: Expr NominalDiffTime
 month = singleton "month"
 
 
 -- | Create a literal interval from a number of months.
-months ::  Expr Double -> Expr DiffTime
+months ::  Expr Double -> Expr NominalDiffTime
 months = (`scaleInterval` month)
 
 
 -- | An interval of one year.
-year :: Expr DiffTime
+year :: Expr NominalDiffTime
 year = singleton "year"
 
 
 -- | Create a literal interval from a number of years.
-years ::  Expr Double -> Expr DiffTime
+years ::  Expr Double -> Expr NominalDiffTime
 years = (`scaleInterval` year)
 
 
-singleton :: String -> Expr DiffTime
+singleton :: String -> Expr NominalDiffTime
 singleton unit = unsafeLiteral $ "'1 " ++ unit ++ "'"
