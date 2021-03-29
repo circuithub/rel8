@@ -222,7 +222,7 @@ test-suite random-queries
     , case-insensitive
     , containers
     , hasql
-    , hedgehog          ^>=1.0.5
+    , hedgehog          ^>=1.0.4
     , lifted-base       ^>=0.2.3.12
     , monad-control     ^>=1.0.2.3
     , rel8

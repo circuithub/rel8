@@ -249,6 +249,7 @@ module Rel8
   , HTable
   , Labelable
   , Context
+  , AlternativeTable(..)
   ) where
 
 -- base
