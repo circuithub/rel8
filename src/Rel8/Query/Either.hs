@@ -18,12 +18,10 @@ import Rel8.Expr.Eq ( (==.) )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( optional )
-import Rel8.Query.Set ( unionAll )
 import Rel8.Table ( Table )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Either
   ( EitherTable( EitherTable )
-  , leftTable, rightTable
   , isLeftTable, isRightTable
   )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
@@ -48,18 +46,14 @@ bindEitherTable query e@(EitherTable input a i) = do
     EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
-bitraverseEitherTable :: (Table Expr c, Table Expr d)
+bitraverseEitherTable :: ()
   => (a -> Query c)
   -> (b -> Query d)
   -> EitherTable a b
   -> Query (EitherTable c d)
-bitraverseEitherTable f g e = traverseLeftTable `unionAll` traverseRightTable
-  where
-    traverseLeftTable = do
-      mc@(MaybeTable _ c) <- optional (f =<< keepLeftTable e)
-      where_ $ isJustTable mc ==. isLeftTable e
-      pure $ leftTable c
-    traverseRightTable = do
-      md@(MaybeTable _ d) <- optional (g =<< keepRightTable e)
-      where_ $ isJustTable md ==. isRightTable e
-      pure $ rightTable d
+bitraverseEitherTable f g e@(EitherTable tag _ _) = do
+  mc@(MaybeTable _ c) <- optional (f =<< keepLeftTable e)
+  md@(MaybeTable _ d) <- optional (g =<< keepRightTable e)
+  where_ $ isJustTable mc ==. isLeftTable e
+  where_ $ isJustTable md ==. isRightTable e
+  pure $ EitherTable tag c d
