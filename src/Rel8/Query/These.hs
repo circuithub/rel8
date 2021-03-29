@@ -33,6 +33,7 @@ import Rel8.Table ( Table )
 import Rel8.Table.Either ( EitherTable( EitherTable ) )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 import Rel8.Table.Opaleye ( unpackspec )
+import Rel8.Table.Tag ( Tag(..) )
 import Rel8.Table.These
   ( TheseTable( TheseTable )
   , hasHereTable, hasThereTable
@@ -104,9 +105,10 @@ keepThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
 loseThoseTable :: TheseTable a b -> Query (EitherTable a b)
 loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where_ $ not_ $ isThoseTable t
-  pure $ EitherTable tag a b
+  pure $ EitherTable result a b
   where
     tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
+    result = (mempty `asTypeOf` result) {expr = tag}
 
 
 bindTheseTable :: (Table Expr a, Semigroup a, Monad m)

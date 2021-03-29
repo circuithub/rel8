@@ -147,6 +147,7 @@ library
     Rel8.Table.Order
     Rel8.Table.Recontextualize
     Rel8.Table.Serialize
+    Rel8.Table.Tag
     Rel8.Table.These
     Rel8.Table.Undefined
 

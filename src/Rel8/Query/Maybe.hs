@@ -25,14 +25,16 @@ import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 import Rel8.Table.Opaleye ( unpackspec )
+import Rel8.Table.Tag ( Tag(..), fromExpr )
 
 
 optional :: Query a -> Query (MaybeTable a)
 optional = mapOpaleye $ Opaleye.QueryArr . go
   where
-    go query (i, left, tag) = (MaybeTable t' a, join, Opaleye.next tag')
+    go query (i, left, tag) =
+      (MaybeTable (fromExpr t') a, join, Opaleye.next tag')
       where
-        (MaybeTable t a, right, tag') =
+        (MaybeTable Tag {expr = t} a, right, tag') =
           Opaleye.runSimpleQueryArr (pure <$> query) (i, tag)
         (t', bindings) = Opaleye.run $
           Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
@@ -132,5 +134,5 @@ bindMaybeTable query (MaybeTable input a) = do
 traverseMaybeTable :: (a -> Query b) -> MaybeTable a -> Query (MaybeTable b)
 traverseMaybeTable query ma@(MaybeTable input _) = do
   MaybeTable output b <- optional (query =<< catMaybeTable ma)
-  where_ $ output ==. input
+  where_ $ expr output ==. expr input
   pure $ MaybeTable input b

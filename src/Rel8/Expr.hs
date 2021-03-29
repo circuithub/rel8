@@ -38,16 +38,12 @@ import Rel8.Expr.Opaleye
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
-  , runTag, unnull
-  )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Nullability
   ( Nullability( Nullable, NonNullable )
   , Sql, nullabilization
   )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -128,15 +124,3 @@ instance Sql DBType a => Recontextualize Identity Expr (Identity a) (Expr a)
 instance Labelable Expr where
   labeler (DB a) = DB a
   unlabeler (DB a) = DB a
-
-
-instance Nullifiable Expr where
-  encodeTag = DB
-  decodeTag (DB a) = a
-  nullifier tag SSpec {nullability} (DB a) = DB $ runTag nullability tag a
-  unnullifier _ SSpec {nullability} (DB a) = DB $ unnull nullability a
-
-  {-# INLINABLE encodeTag #-}
-  {-# INLINABLE decodeTag #-}
-  {-# INLINABLE nullifier #-}
-  {-# INLINABLE unnullifier #-}

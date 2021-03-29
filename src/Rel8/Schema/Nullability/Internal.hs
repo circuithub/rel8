@@ -5,6 +5,7 @@
 {-# language FunctionalDependencies #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language RankNTypes #-}
 {-# language QuantifiedConstraints #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -17,7 +18,7 @@ module Rel8.Schema.Nullability.Internal
   , Homonullable
   , Nullability( Nullable, NonNullable )
   , HasNullability, nullabilization
-  , Sql, toSql
+  , Sql, fromSql, mapSql, toSql
   )
 where
 
@@ -116,6 +117,17 @@ class
   )
   => Sql constraint a
 instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
+
+
+fromSql :: Dict (Sql constraint) a -> (Nullability a, Dict constraint (Unnullify a))
+fromSql Dict = (nullabilization, Dict)
+
+
+mapSql :: ()
+  => (forall x. Dict constraint x -> Dict constraint' x)
+  -> Dict (Sql constraint) a -> Dict (Sql constraint') a
+mapSql f dict = case fromSql dict of
+  (nullability, dict') -> toSql nullability (f dict')
 
 
 toSql :: Nullability a -> Dict constraint (Unnullify a) -> Dict (Sql constraint) a

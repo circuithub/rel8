@@ -21,24 +21,18 @@ where
 
 -- base
 import Data.Functor.Identity ( Identity )
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Kind ( Constraint, Type )
 import Data.String ( IsString )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Labels ( KnownLabels, labelsSing, renderLabels )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
-  )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -84,24 +78,6 @@ instance Interpretation Name where
 instance Labelable Name where
   labeler (NameCol a) = NameCol a
   unlabeler (NameCol a) = NameCol a
-
-
-instance Nullifiable Name where
-  encodeTag _ = nameFromLabel
-  decodeTag _ = mempty
-  nullifier _ _ (NameCol name) = NameCol name
-  unnullifier _ _ (NameCol name) = NameCol name
-
-  {-# INLINABLE encodeTag #-}
-  {-# INLINABLE decodeTag #-}
-  {-# INLINABLE nullifier #-}
-  {-# INLINABLE unnullifier #-}
-
-
-nameFromLabel :: forall labels necessity a.
-  KnownLabels labels => Col Name ('Spec labels necessity a)
-nameFromLabel = case labelsSing @labels of
-  labels -> NameCol (NonEmpty.last (renderLabels labels))
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

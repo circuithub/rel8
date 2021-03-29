@@ -2,6 +2,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language InstanceSigs #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -12,29 +13,37 @@
 module Rel8.Schema.Context.Nullify
   ( Nullifiable( ConstrainTag, encodeTag, decodeTag, nullifier, unnullifier )
   , HNullifiable( HConstrainTag, hencodeTag, hdecodeTag, hnullifier, hunnullifier )
-  , unnull, runTag
+  , runTag, runTagExpr, unnull, unnullExpr
   )
 where
 
 -- base
+import Control.Monad ( guard )
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
+import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr )
+import Rel8.Aggregate
+  ( Aggregate, Col(..)
+  , mapInputs
+  , unsafeMakeAggregate
+  )
+import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( fromPrimExpr )
-import Rel8.Kind.Labels ( KnownLabels )
+import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation, Col(..) )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name( Name ), Col(..) )
 import Rel8.Schema.Nullability
   ( Nullify
-  , Nullability( Nullable, NonNullable ), nullabilization
+  , Nullability( Nullable, NonNullable )
   , Sql
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -43,8 +52,10 @@ import Rel8.Schema.Spec.ConstrainDBType
   ( ConstrainDBType
   , dbTypeDict, dbTypeNullability, fromNullabilityDict
   )
-import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
+import Rel8.Table.Tag
+  ( Tag(..), Taggable
+  , fromAggregate, fromExpr, fromIdentity, fromName
+  )
 
 
 type Nullifiable :: K.Context -> Constraint
@@ -52,39 +63,123 @@ class Interpretation context => Nullifiable context where
   type ConstrainTag context :: Type -> Constraint
   type ConstrainTag _context = DefaultConstrainTag
 
-  encodeTag :: (Sql (ConstrainTag context) a, Sql DBEq a, KnownLabels labels)
-    => Expr a
+  encodeTag ::
+    ( Sql (ConstrainTag context) a
+    , KnownSymbol label
+    , Taggable a
+    )
+    => Tag label a
     -> Col context ('Spec labels 'Required a)
 
-  decodeTag :: (Sql (ConstrainTag context) a, Sql DBMonoid a)
+  decodeTag ::
+    ( Sql (ConstrainTag context) a
+    , KnownSymbol label
+    , Taggable a
+    )
     => Col context ('Spec labels 'Required a)
-    -> Expr a
+    -> Tag label a
 
   nullifier :: ()
-    => Expr Bool
-    -> SSpec ('Spec labels necessity a)
-    -> Col context ('Spec labels necessity a)
-    -> Col context ('Spec labels necessity (Nullify a))
+    => Tag label a
+    -> (a -> Bool)
+    -> (Expr a -> Expr Bool)
+    -> SSpec ('Spec labels necessity x)
+    -> Col context ('Spec labels necessity x)
+    -> Col context ('Spec labels necessity (Nullify x))
 
   unnullifier :: ()
-    => Expr Bool
-    -> SSpec ('Spec labels necessity a)
-    -> Col context ('Spec labels necessity (Nullify a))
-    -> Col context ('Spec labels necessity a)
+    => SSpec ('Spec labels necessity x)
+    -> Col context ('Spec labels necessity (Nullify x))
+    -> Col context ('Spec labels necessity x)
 
 
-runTag :: Nullability a -> Expr Bool -> Expr a -> Expr (Nullify a)
-runTag nullability tag a = case nullability of
+instance Nullifiable Aggregate where
+  encodeTag Tag {aggregator, expr} =
+    Aggregation $ unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
+
+  decodeTag (Aggregation aggregate) = fromAggregate aggregate
+
+  nullifier Tag {expr} _ test SSpec {nullability} (Aggregation aggregate) =
+    Aggregation $
+    mapInputs (toPrimExpr . runTagExpr nullability condition . fromPrimExpr) $
+    runTagExpr nullability condition <$> aggregate
+    where
+      condition = test expr
+
+  unnullifier SSpec {nullability} (Aggregation aggregate) =
+    Aggregation $ unnullExpr nullability <$> aggregate
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
+
+instance Nullifiable Expr where
+  encodeTag Tag {expr} = DB expr
+  decodeTag (DB a) = fromExpr a
+  nullifier Tag {expr} _ test SSpec {nullability} (DB a) =
+    DB $ runTagExpr nullability (test expr) a
+  unnullifier SSpec {nullability} (DB a) = DB $ unnullExpr nullability a
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
+
+instance Nullifiable Identity where
+  encodeTag Tag {identity} = Result identity
+  decodeTag (Result a) = fromIdentity a
+  nullifier Tag {identity} test _ SSpec {nullability} (Result a) =
+    Result $ runTag nullability (test identity) a
+  unnullifier SSpec {nullability} (Result a) = Result $ unnull nullability a
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
+
+instance Nullifiable Name where
+  encodeTag Tag {name = Name name} = NameCol name
+  decodeTag (NameCol name) = fromName (Name name)
+  nullifier _ _ _ _ (NameCol name) = NameCol name
+  unnullifier _ (NameCol name) = NameCol name
+
+  {-# INLINABLE encodeTag #-}
+  {-# INLINABLE decodeTag #-}
+  {-# INLINABLE nullifier #-}
+  {-# INLINABLE unnullifier #-}
+
+
+runTagExpr :: Nullability a -> Expr Bool -> Expr a -> Expr (Nullify a)
+runTagExpr nullability tag a = case nullability of
   Nullable -> boolExpr null a tag
   NonNullable -> boolExpr null (nullify a) tag
   where
     null = fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
-unnull :: Nullability a -> Expr (Nullify a) -> Expr a
-unnull nullability a = case nullability of
+unnullExpr :: Nullability a -> Expr (Nullify a) -> Expr a
+unnullExpr nullability a = case nullability of
   Nullable -> a
   NonNullable -> unsafeUnnullify a
+
+
+runTag :: Nullability a -> Bool -> a -> Nullify a
+runTag nullability tag a = case nullability of
+  Nullable -> a <* guard tag
+  NonNullable -> a <$ guard tag
+
+
+unnull :: Nullability a -> Nullify a -> a
+unnull nullability ma = case nullability of
+  Nullable -> ma
+  NonNullable -> case ma of
+    Just a -> a
+    Nothing ->
+      error "Rel8.Schema.Context.Nullify.unnull: mismatch between tag and data"
 
 
 type HNullifiable :: K.HContext -> Constraint
@@ -92,25 +187,26 @@ class HNullifiable context where
   type HConstrainTag context :: Type -> Constraint
   type HConstrainTag _context = DefaultConstrainTag
 
-  hencodeTag :: (Sql (HConstrainTag context) a, Sql DBEq a, KnownLabels labels)
-    => Expr a
+  hencodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
+    => Tag label a
     -> context ('Spec labels 'Required a)
 
-  hdecodeTag :: (Sql (HConstrainTag context) a, Sql DBMonoid a)
+  hdecodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
     => context ('Spec labels 'Required a)
-    -> Expr a
+    -> Tag label a
 
   hnullifier :: ()
-    => Expr Bool
-    -> SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity a)
-    -> context ('Spec labels necessity (Nullify a))
+    => Tag label a
+    -> (a -> Bool)
+    -> (Expr a -> Expr Bool)
+    -> SSpec ('Spec labels necessity x)
+    -> context ('Spec labels necessity x)
+    -> context ('Spec labels necessity (Nullify x))
 
   hunnullifier :: ()
-    => Expr Bool
-    -> SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity (Nullify a))
-    -> context ('Spec labels necessity a)
+    => SSpec ('Spec labels necessity x)
+    -> context ('Spec labels necessity (Nullify x))
+    -> context ('Spec labels necessity x)
 
 
 instance Nullifiable context => HNullifiable (Col context) where
@@ -125,21 +221,14 @@ instance HNullifiable (Dict (ConstrainDBType constraint)) where
   type HConstrainTag (Dict (ConstrainDBType constraint)) = constraint
 
   hencodeTag _ = Dict
+  hdecodeTag = mempty
 
-  hdecodeTag :: forall a context labels. (Sql (HConstrainTag context) a, Sql DBMonoid a)
-    => context ('Spec labels 'Required a)
-    -> Expr a
-  hdecodeTag _ = case nullabilization @a of
-    Nullable -> nullify memptyExpr
-    NonNullable -> memptyExpr
-
-
-  hnullifier _ SSpec {} dict = case dbTypeDict dict of
+  hnullifier _ _ _ SSpec {} dict = case dbTypeDict dict of
     Dict -> case dbTypeNullability dict of
       Nullable -> Dict
       NonNullable -> Dict
 
-  hunnullifier _ SSpec {nullability} dict = case dbTypeDict dict of
+  hunnullifier SSpec {nullability} dict = case dbTypeDict dict of
     Dict -> case nullability of
       Nullable -> Dict
       NonNullable -> case dbTypeNullability dict of
