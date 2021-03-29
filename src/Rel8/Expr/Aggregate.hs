@@ -101,7 +101,7 @@ or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 max :: Sql DBMax a => Expr a -> Aggregate (Expr a)
 max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
-    { operation = Opaleye.AggrSum
+    { operation = Opaleye.AggrMax
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
@@ -111,7 +111,7 @@ max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 min :: Sql DBMin a => Expr a -> Aggregate (Expr a)
 min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
-    { operation = Opaleye.AggrSum
+    { operation = Opaleye.AggrMin
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
