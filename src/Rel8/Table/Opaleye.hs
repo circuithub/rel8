@@ -80,11 +80,9 @@ distinctspec =
 table ::(Selects names exprs, Inserts exprs inserts)
   => TableSchema names -> Opaleye.Table inserts exprs
 table (TableSchema name schema columns) =
-  Opaleye.Table qualified (tableFields columns)
-  where
-    qualified = case schema of
-      Nothing -> name
-      Just qualifier -> qualifier <> "." <> name
+  case schema of
+    Nothing -> Opaleye.Table name (tableFields columns)
+    Just schemaName -> Opaleye.TableWithSchema schemaName name (tableFields columns)
 
 
 tableFields :: (Selects names exprs, Inserts exprs inserts)

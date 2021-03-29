@@ -185,6 +185,7 @@ module Rel8
     -- ** Aggregation
   , Aggregate
   , aggregate
+  , countRows
   , listAgg, listAggExpr
   , nonEmptyAgg, nonEmptyAggExpr
   , groupBy
