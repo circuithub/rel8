@@ -29,6 +29,7 @@ import Prelude hiding ( undefined )
 import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
+import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
@@ -48,7 +49,7 @@ import Rel8.Table.Lifted
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Tag ( Tag(..), fromIdentity, fromName )
+import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
@@ -100,8 +101,8 @@ instance Table2 EitherTable where
 
   toColumns2 f g EitherTable {tag, left, right} = HEitherTable
     { htag
-    , hleft = hnullify (hnullifier tag (== IsLeft) isLeft) $ f left
-    , hright = hnullify (hnullifier tag (== IsRight) isRight) $ g right
+    , hleft = hnullify (hnullifier tag isLeft) $ f left
+    , hright = hnullify (hnullifier tag isRight) $ g right
     }
     where
       htag = HIdentity (hencodeTag tag)
@@ -177,7 +178,7 @@ eitherTable f g EitherTable {tag, left, right} =
 
 
 leftTable :: Table Expr b => a -> EitherTable a b
-leftTable a = EitherTable (fromIdentity IsLeft) a undefined
+leftTable a = EitherTable (fromExpr (litExpr IsLeft)) a undefined
 
 
 rightTable :: Table Expr a => b -> EitherTable a b
@@ -185,7 +186,7 @@ rightTable = rightTableWith undefined
 
 
 rightTableWith :: a -> b -> EitherTable a b
-rightTableWith = EitherTable (fromIdentity IsRight)
+rightTableWith = EitherTable (fromExpr (litExpr IsRight))
 
 
 aggregateEitherTable :: ()

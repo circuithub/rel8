@@ -36,7 +36,7 @@ import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
-  , runTagExpr, unnullExpr
+  , runTag, unnull
   )
 import Rel8.Schema.HTable.Type ( HType(HType) )
 import qualified Rel8.Schema.Kind as K
@@ -138,17 +138,17 @@ instance Nullifiable Insert where
   encodeTag = RequiredInsert . expr
   decodeTag (RequiredInsert a) = fromExpr a
 
-  nullifier Tag {expr} _ test SSpec {nullability} = \case
+  nullifier Tag {expr} test SSpec {nullability} = \case
     RequiredInsert a ->
-      RequiredInsert $ runTagExpr nullability condition a
+      RequiredInsert $ runTag nullability condition a
     OptionalInsert ma ->
-      OptionalInsert $ runTagExpr nullability condition <$> ma
+      OptionalInsert $ runTag nullability condition <$> ma
     where
       condition = test expr
 
   unnullifier SSpec {nullability} = \case
-    RequiredInsert a -> RequiredInsert $ unnullExpr nullability a
-    OptionalInsert ma -> OptionalInsert $ unnullExpr nullability <$> ma
+    RequiredInsert a -> RequiredInsert $ unnull nullability a
+    OptionalInsert ma -> OptionalInsert $ unnull nullability <$> ma
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

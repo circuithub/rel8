@@ -22,10 +22,8 @@ module Rel8.Table.Maybe
 where
 
 -- base
-import qualified Data.Bool as Bool
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Data.Maybe ( isJust, isNothing )
 import Prelude hiding ( null, repeat, undefined, zipWith )
 
 -- rel8
@@ -62,10 +60,10 @@ import Rel8.Table.Lifted
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Tag ( Tag(..), fromIdentity, fromName )
+import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
-import Rel8.Type.Tag ( MaybeTag( IsJust ) )
+import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>), liftF2 )
@@ -114,8 +112,6 @@ instance AltTable MaybeTable where
   ma@(MaybeTable tag a) <|>: MaybeTable tag' b = MaybeTable
     { tag = (tag <> tag')
         { expr = boolExpr (expr tag) (expr tag') condition
-        , identity =
-            Bool.bool (identity tag) (identity tag') (isNothing (identity tag))
         }
     , just = bool a b condition
     }
@@ -141,7 +137,7 @@ instance Table1 MaybeTable where
 
   toColumns1 f MaybeTable {tag, just} = HMaybeTable
     { htag
-    , hjust = hnullify (hnullifier tag isJust isNonNull) $ f just
+    , hjust = hnullify (hnullifier tag isNonNull) $ f just
     }
     where
       htag = HIdentity (hencodeTag tag)
@@ -203,13 +199,13 @@ maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
 
 -- | The null table. Like 'Nothing'.
 nothingTable :: Table Expr a => MaybeTable a
-nothingTable = MaybeTable (fromIdentity Nothing) undefined
+nothingTable = MaybeTable (fromExpr null) undefined
 
 
 -- | Lift any table into 'MaybeTable'. Like 'Just'. Note you can also use
 -- 'pure'.
 justTable :: a -> MaybeTable a
-justTable = MaybeTable (fromIdentity (Just IsJust))
+justTable = MaybeTable (fromExpr mempty)
 
 
 -- | Project a single expression out of a 'MaybeTable'. You can think of this

@@ -27,7 +27,6 @@ where
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Data.Maybe ( isJust )
 import Prelude hiding ( undefined )
 
 -- rel8
@@ -125,10 +124,10 @@ instance Table2 TheseTable where
   toColumns2 f g TheseTable {here, there} = HTheseTable
     { hhereTag = HIdentity $ hencodeTag (toHereTag (tag here))
     , hhere =
-        hnullify (hnullifier (tag here) isJust isNonNull) $ f (just here)
+        hnullify (hnullifier (tag here) isNonNull) $ f (just here)
     , hthereTag = HIdentity $ hencodeTag (toThereTag (tag there))
     , hthere =
-        hnullify (hnullifier (tag there) isJust isNonNull) $ g (just there)
+        hnullify (hnullifier (tag there) isNonNull) $ g (just there)
     }
 
   fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} =
