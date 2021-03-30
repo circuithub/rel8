@@ -64,26 +64,10 @@ import Data.Containers.ListUtils (nubOrd)
 type Context = [(Type, Type)]
 
 
-data ATypedQuery :: Context -> Type where
-  ATypedQuery :: (Show o, Rel8.Serializable i o, Ord o, Rel8.Table Rel8.Expr i)
-    => TypedQuery env i o 
-    -> ATypedQuery env
-
-
-deriving stock instance Show (ATypedQuery env)
-
-
-data TypedQuery env i o = TypedQuery 
-  { queryType :: TTable i o
-  , query :: Query env i o 
-  } 
-  deriving stock (Show)
-
-
 -- | A reified 'Query' value.
 data Query :: Context -> Type -> Type -> Type where
   Values :: (Rel8.Table Rel8.Expr i, Ord o)
-    => [Table env i o] -> Query env i o
+    => [Expr env i o] -> Query env i o
 
   Union :: Rel8.EqTable i                    
     => TypedQuery env i o -> TypedQuery env i o -> Query env i o
@@ -110,10 +94,10 @@ data Query :: Context -> Type -> Type -> Type where
     => Word -> TypedQuery env i o -> Query env i o
 
   WhereExists :: Show y                          
-    => Table env i o -> TypedQuery env x y -> Query env i o
+    => Expr env i o -> TypedQuery env x y -> Query env i o
 
   WhereNotExists  :: Show y                          
-    => Table env i o -> TypedQuery env x y -> Query env i o
+    => Expr env i o -> TypedQuery env x y -> Query env i o
 
   Many :: (Rel8.Table Rel8.Expr i, Show o)  
     => TypedQuery env i o -> Query env (Rel8.ListTable i) [o]
@@ -131,20 +115,35 @@ data Query :: Context -> Type -> Type -> Type where
     => TypedQuery env x y -> TypedQuery ('(x, y) ': env) i o -> Query env i o
 
   ReturnTable :: ()
-    => Table env i o -> Query env i o
+    => Expr env i o -> Query env i o
 
   Where :: ()
-    => Table env (Rel8.Expr Bool) Bool
-    -> Table env i o
+    => Expr env (Rel8.Expr Bool) Bool
+    -> Expr env i o
     -> Query env i o
 
   CatMaybeTable :: ()
-    => Table env (Rel8.MaybeTable i) (Maybe o)
+    => Expr env (Rel8.MaybeTable i) (Maybe o)
     -> Query env i o
 
 
 deriving stock instance Show o => Show (Query env i o)
 
+
+data TypedQuery env i o = TypedQuery 
+  { queryType :: Ty i o
+  , query :: Query env i o 
+  } 
+  deriving stock (Show)
+
+
+data ATypedQuery :: Context -> Type where
+  ATypedQuery :: (Show o, Rel8.Serializable i o, Ord o, Rel8.Table Rel8.Expr i)
+    => TypedQuery env i o 
+    -> ATypedQuery env
+
+
+deriving stock instance Show (ATypedQuery env)
 
 -- | Extend a query with a new 'Bind'. The new 'Bind' has access to an updated
 -- environment with the result of any previous binds.
@@ -166,13 +165,7 @@ bindQuery env TypedQuery{ query, queryType = t } f =
 
 data Environment :: Context -> Type where
   Empty :: Environment '[]
-  Extend :: TTable i o -> Environment env -> Environment ('(i, o) ': env)
-
-
-genQueryOfType :: Rel8.Table Rel8.Expr i => Environment env -> TTable i o -> Gen (TypedQuery env i o)
-genQueryOfType env tableType = do
-  ATypedQuery x <- genTypedQuery env
-  bindQuery env x (fmap (TypedQuery tableType . ReturnTable) . genTable tableType)
+  Extend :: Ty i o -> Environment env -> Environment ('(i, o) ': env)
 
 
 genTypedQuery :: Environment env -> Gen (ATypedQuery env)
@@ -181,24 +174,24 @@ genTypedQuery env = Gen.recursive Gen.choice nonrecursive recursive
     nonrecursive = [ values, returnTable, where_, catMaybeTable ]
       where
         values = do
-          ATTable tableType <- genTTable
-          tables <- Gen.list (Range.linear 0 10) (genTable tableType env)
+          ATTable tableType <- genTableTy
+          tables <- Gen.list (Range.linear 0 10) (genExpr tableType env)
           return $ ATypedQuery $ TypedQuery tableType $ Values tables
 
         returnTable = do
-          ATTable tableType <- genTTable
-          t <- genTable tableType env 
+          ATTable tableType <- genTableTy
+          t <- genExpr tableType env 
           return $ ATypedQuery $ TypedQuery tableType $ ReturnTable t
 
         where_ = do
-          p <- genTable (TTableExpr (TNotNull TBool)) env
-          ATTable returnType <- genTTable
-          t <- genTable returnType env 
+          p <- genExpr (TNotNull TBool) env
+          ATTable returnType <- genTableTy
+          t <- genExpr returnType env 
           return $ ATypedQuery $ TypedQuery returnType $ Where p t
 
         catMaybeTable = do
-          ATTable t <- genTTable
-          table <- genTable (TMaybeTable t) env 
+          ATTable t <- genTableTy
+          table <- genExpr (TMaybeTable t) env 
           return $ ATypedQuery $ TypedQuery t $ CatMaybeTable table
 
     recursive = 
@@ -219,7 +212,7 @@ genTypedQuery env = Gen.recursive Gen.choice nonrecursive recursive
               TypedQuery t $ Union x y
 
         unionAll = do
-          ATTable t <- genTTable
+          ATTable t <- genTableTy
           ATypedQuery <$>
             Gen.subterm2 (genQueryOfType env t) (genQueryOfType env t) \x y -> 
               TypedQuery t $ UnionAll x y
@@ -261,16 +254,16 @@ genTypedQuery env = Gen.recursive Gen.choice nonrecursive recursive
         whereExists = do
           ATypedQuery q <- genTypedQuery env 
 
-          ATTable tableType <- genTTable
-          table <- genTable tableType env
+          ATTable tableType <- genTableTy
+          table <- genExpr tableType env
 
           return $ ATypedQuery $ TypedQuery tableType $ WhereExists table q
 
         whereNotExists = do
           ATypedQuery q <- genTypedQuery env 
 
-          ATTable tableType <- genTTable
-          table <- genTable tableType env
+          ATTable tableType <- genTableTy
+          table <- genExpr tableType env
 
           return $ ATypedQuery $ TypedQuery tableType $ WhereNotExists table q
 
@@ -295,6 +288,13 @@ genTypedQuery env = Gen.recursive Gen.choice nonrecursive recursive
       Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1))
 
 
+genQueryOfType :: Rel8.Table Rel8.Expr i 
+  => Environment env -> Ty i o -> Gen (TypedQuery env i o)
+genQueryOfType env tableType = do
+  ATypedQuery x <- genTypedQuery env
+  bindQuery env x (fmap (TypedQuery tableType . ReturnTable) . genExpr tableType)
+
+
 data Results :: Context -> Type where
   NoResults :: Results '[]
   Store :: i -> Results env -> Results ('(i, o) ': env)
@@ -304,9 +304,9 @@ compileQuery :: Results env -> TypedQuery env i o -> Rel8.Query i
 compileQuery env TypedQuery{ query } = 
   case query of
     Bind x f             -> compileQuery env x >>= \res -> compileQuery (Store res env) f
-    ReturnTable x        -> return $ compileTable env x
+    ReturnTable x        -> return $ compileExpr env x
 
-    Values xs            -> Rel8.values $ compileTable env <$> xs
+    Values xs            -> Rel8.values $ compileExpr env <$> xs
     Union x y            -> Rel8.union (compileQuery env x) (compileQuery env y)
     UnionAll x y         -> Rel8.unionAll (compileQuery env x) (compileQuery env y)
     Intersect x y        -> Rel8.intersect (compileQuery env x) (compileQuery env y)
@@ -315,91 +315,113 @@ compileQuery env TypedQuery{ query } =
     ExceptAll x y        -> Rel8.exceptAll (compileQuery env x) (compileQuery env y)
     Limit n q            -> Rel8.limit n (compileQuery env q)
     Offset n q           -> Rel8.offset n (compileQuery env q)
-    WhereExists ret q    -> compileTable env ret <$ Rel8.whereExists (compileQuery env q)
-    WhereNotExists ret q -> compileTable env ret <$ Rel8.whereExists (compileQuery env q)
+    WhereExists ret q    -> compileExpr env ret <$ Rel8.whereExists (compileQuery env q)
+    WhereNotExists ret q -> compileExpr env ret <$ Rel8.whereExists (compileQuery env q)
     Many q               -> Rel8.many (compileQuery env q)
     Some q               -> Rel8.some (compileQuery env q)
     Optional q           -> Rel8.optional (compileQuery env q)
     Distinct q           -> Rel8.distinct (compileQuery env q)
-    Where p ret          -> compileTable env ret <$ Rel8.where_ (compileTable env p)
-    CatMaybeTable t      -> Rel8.catMaybeTable (compileTable env t)
+    Where p ret          -> compileExpr env ret <$ Rel8.where_ (compileExpr env p)
+    CatMaybeTable t      -> Rel8.catMaybeTable (compileExpr env t)
 
 
-data Table :: Context -> Type -> Type -> Type where
-  ExprTable :: ()                 
-    => Expr env i o -> Table env i o
+data Expr :: Context -> Type -> Type -> Type where
+  LitNN :: Rel8.DBType a
+    => a -> Expr env (Rel8.Expr a) a
+
+  LitN :: Rel8.DBType a 
+    => Maybe a -> Expr env (Rel8.Expr (Maybe a)) (Maybe a)
+
+  IsJustTable :: Show o        
+    => Expr env (Rel8.MaybeTable i) (Maybe o) 
+    -> Expr env (Rel8.Expr Bool) Bool
+
+  IsNothingTable :: Show o        
+    => Expr env (Rel8.MaybeTable i) (Maybe o) 
+    -> Expr env (Rel8.Expr Bool) Bool
+
+  IsLeftTable :: (Show o1, Show o2)
+    => Expr env (Rel8.EitherTable i1 i2) (Either o1 o2) 
+    -> Expr env (Rel8.Expr Bool) Bool
+
+  IsRightTable :: (Show o1, Show o2)
+    => Expr env (Rel8.EitherTable i1 i2) (Either o1 o2) 
+    -> Expr env (Rel8.Expr Bool) Bool
+
+  EqTable :: (Rel8.EqTable i, Show o)
+    => Expr env i o -> Expr env i o -> Expr env (Rel8.Expr Bool) Bool
 
   PairTable :: (Show o1, Show o2) 
-    => Table env i1 o1 -> Table env i2 o2 -> Table env (i1, i2) (o1, o2)
+    => Expr env i1 o1 -> Expr env i2 o2 -> Expr env (i1, i2) (o1, o2)
 
   TrioTable :: (Show o1, Show o2, Show o3) 
-    => Table env i1 o1 
-    -> Table env i2 o2 
-    -> Table env i3 o3 
-    -> Table env (i1, i2, i3) (o1, o2, o3)
+    => Expr env i1 o1 
+    -> Expr env i2 o2 
+    -> Expr env i3 o3 
+    -> Expr env (i1, i2, i3) (o1, o2, o3)
 
   QuartetTable :: (Show o1, Show o2, Show o3, Show o4) 
-    => Table env i1 o1 
-    -> Table env i2 o2 
-    -> Table env i3 o3 
-    -> Table env i4 o4 
-    -> Table env (i1, i2, i3, i4) (o1, o2, o3, o4)
+    => Expr env i1 o1 
+    -> Expr env i2 o2 
+    -> Expr env i3 o3 
+    -> Expr env i4 o4 
+    -> Expr env (i1, i2, i3, i4) (o1, o2, o3, o4)
 
   QuintetTable :: (Show o1, Show o2, Show o3, Show o4, Show o5) 
-    => Table env i1 o1 
-    -> Table env i2 o2 
-    -> Table env i3 o3 
-    -> Table env i4 o4 
-    -> Table env i5 o5 
-    -> Table env (i1, i2, i3, i4, i5) (o1, o2, o3, o4, o5)
+    => Expr env i1 o1 
+    -> Expr env i2 o2 
+    -> Expr env i3 o3 
+    -> Expr env i4 o4 
+    -> Expr env i5 o5 
+    -> Expr env (i1, i2, i3, i4, i5) (o1, o2, o3, o4, o5)
 
   Lookup :: ()                 
-    => TableIx env i o -> Table env i o
+    => TableIx env i o -> Expr env i o
 
   JustTable :: (Show o)           
-    => Table env i o -> Table env (Rel8.MaybeTable i) (Maybe o)
+    => Expr env i o -> Expr env (Rel8.MaybeTable i) (Maybe o)
 
   NothingTable :: Rel8.Table Rel8.Expr i 
-    => Table env (Rel8.MaybeTable i) (Maybe o)
+    => Expr env (Rel8.MaybeTable i) (Maybe o)
 
   LeftTable :: (Rel8.Table Rel8.Expr x, Show o) 
-    => Table env i o -> Table env (Rel8.EitherTable i x) (Either o y)
+    => Expr env i o -> Expr env (Rel8.EitherTable i x) (Either o y)
 
   RightTable :: (Rel8.Table Rel8.Expr x, Show o)
-    => Table env i o -> Table env (Rel8.EitherTable x i) (Either y o)
+    => Expr env i o -> Expr env (Rel8.EitherTable x i) (Either y o)
 
   ThisTable :: (Rel8.Table Rel8.Expr x, Show o) 
-    => Table env i o -> Table env (Rel8.TheseTable i x) (These o y)
+    => Expr env i o -> Expr env (Rel8.TheseTable i x) (These o y)
 
   ThatTable :: (Rel8.Table Rel8.Expr x, Show o)           
-    => Table env i o -> Table env (Rel8.TheseTable x i) (These y o)
+    => Expr env i o -> Expr env (Rel8.TheseTable x i) (These y o)
 
   ThoseTable :: (Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2, Show o1, Show o2)
-    => Table env i1 o1 
-    -> Table env i2 o2 
-    -> Table env (Rel8.TheseTable i1 i2) (These o1 o2)
+    => Expr env i1 o1 
+    -> Expr env i2 o2 
+    -> Expr env (Rel8.TheseTable i1 i2) (These o1 o2)
 
   ListTable :: (Rel8.Table Rel8.Expr i, Show o)
-    => [Table env i o]
-    -> Table env (Rel8.ListTable i) [o]
+    => [Expr env i o]
+    -> Expr env (Rel8.ListTable i) [o]
 
   NonEmptyTable :: (Rel8.Table Rel8.Expr i, Show o)
-    => NonEmpty (Table env i o)
-    -> Table env (Rel8.NonEmptyTable i) (NonEmpty o)
+    => NonEmpty (Expr env i o)
+    -> Expr env (Rel8.NonEmptyTable i) (NonEmpty o)
 
   EmptyTable :: (Rel8.AlternativeTable f, Rel8.Table Rel8.Expr i)
-    => Table env (f i) (g j)
+    => Expr env (f i) (g j)
 
   AltTable :: (Rel8.AltTable f, Rel8.Table Rel8.Expr i)
-    => Table env (f i) (g j) -> Table env (f i) (g j) -> Table env (f i) (g j)
+    => Expr env (f i) (g j) -> Expr env (f i) (g j) -> Expr env (f i) (g j)
 
   Case :: (Rel8.Table Rel8.Expr i)
-    => [(Table env (Rel8.Expr Bool) Bool, Table env i o)]
-    -> Table env i o
-    -> Table env i o
+    => [(Expr env (Rel8.Expr Bool) Bool, Expr env i o)]
+    -> Expr env i o
+    -> Expr env i o
 
 
-deriving stock instance Show o => Show (Table env i o)
+deriving stock instance Show o => Show (Expr env i o)
 
 
 data TableIx :: Context -> Type -> Type -> Type where
@@ -410,65 +432,64 @@ data TableIx :: Context -> Type -> Type -> Type where
 deriving stock instance Show (TableIx env i o)
 
 
-findIxs :: TTable i o -> Environment env -> [TableIx env i o]
+findIxs :: Ty i o -> Environment env -> [TableIx env i o]
 findIxs _ Empty = []
 findIxs t (Extend t' env) =
-  case eqTTable t t' of
+  case eqTy t t' of
     Just Refl -> Here : map There (findIxs t env)
     Nothing -> map There (findIxs t env)
 
 
-genTableIx :: TTable i o -> Environment env -> Maybe (Gen (TableIx env i o))
+genTableIx :: Ty i o -> Environment env -> Maybe (Gen (TableIx env i o))
 genTableIx t env = 
   case findIxs t env of
     [] -> Nothing
     xs -> Just $ Gen.element xs
 
 
--- | Generate a 'Table Expr' term for a particular table type.
-genTable :: Rel8.Table Rel8.Expr i => TTable i o -> Environment env -> Gen (Table env i o)
-genTable t env = Gen.recursive Gen.choice nonrecursive recursive
+genExpr :: Rel8.Table Rel8.Expr i 
+  => Ty i o -> Environment env -> Gen (Expr env i o)
+genExpr t env = Gen.recursive Gen.choice nonrecursive recursive
   where 
+    -- Many of these nonrecursive cases do call 'genExpr', but they only do so
+    -- by following the structural recursion formed by the input ty. As such,
+    -- we don't need to partition these out for Gen.recursive, as the tree is
+    -- already of a bounded size.
     nonrecursive = catMaybes 
-      [ exprTable, pairTable, trioTable, quartetTable, quintetTable
-      , existingTable, justTable, nothingTable, leftTable, rightTable
-      , thisTable, thatTable, thoseTable, listTable, nonEmptyTable 
-      , emptyTableListTable
+      [ pairTable, trioTable, quartetTable, quintetTable, existingTable
+      , justTable, nothingTable, leftTable, rightTable , thisTable, thatTable
+      , thoseTable, listTable, nonEmptyTable , emptyTableListTable
+      , notNullLiteral, nullLiteral
       ]
       where
-        exprTable = do
-          TTableExpr exprType <- pure t
-          return do
-            ExprTable <$> genExpr env exprType
-
         pairTable = do
           TTablePair x y <- pure t
           return do
-            PairTable <$> genTable x env <*> genTable y env
+            PairTable <$> genExpr x env <*> genExpr y env
 
         trioTable = do
           TTableTrio x1 x2 x3 <- pure t
           return do
-            TrioTable <$> genTable x1 env <*> genTable x2 env <*> genTable x3 env
+            TrioTable <$> genExpr x1 env <*> genExpr x2 env <*> genExpr x3 env
 
         quartetTable = do
           TTableQuartet x1 x2 x3 x4 <- pure t
           return do
             QuartetTable 
-              <$> genTable x1 env 
-              <*> genTable x2 env 
-              <*> genTable x3 env 
-              <*> genTable x4 env
+              <$> genExpr x1 env 
+              <*> genExpr x2 env 
+              <*> genExpr x3 env 
+              <*> genExpr x4 env
 
         quintetTable = do
           TTableQuintet x1 x2 x3 x4 x5 <- pure t
           return do
             QuintetTable 
-              <$> genTable x1 env 
-              <*> genTable x2 env 
-              <*> genTable x3 env 
-              <*> genTable x4 env 
-              <*> genTable x5 env
+              <$> genExpr x1 env 
+              <*> genExpr x2 env 
+              <*> genExpr x3 env 
+              <*> genExpr x4 env 
+              <*> genExpr x5 env
 
         existingTable = do
           genIx <- genTableIx t env 
@@ -476,7 +497,7 @@ genTable t env = Gen.recursive Gen.choice nonrecursive recursive
 
         justTable = do
           TMaybeTable t' <- pure t
-          return $ JustTable <$> genTable t' env
+          return $ JustTable <$> genExpr t' env
 
         nothingTable = do
           TMaybeTable _ <- pure t
@@ -484,28 +505,28 @@ genTable t env = Gen.recursive Gen.choice nonrecursive recursive
 
         leftTable = do
           TEitherTable x _ <- pure t
-          return $ LeftTable <$> genTable x env
+          return $ LeftTable <$> genExpr x env
 
         rightTable = do
           TEitherTable _ y <- pure t
-          return $ RightTable <$> genTable y env
+          return $ RightTable <$> genExpr y env
 
         thisTable = do
           TTheseTable x _ <- pure t
-          return $ ThisTable <$> genTable x env
+          return $ ThisTable <$> genExpr x env
 
         thatTable = do
           TTheseTable _ y <- pure t
-          return $ ThatTable <$> genTable y env
+          return $ ThatTable <$> genExpr y env
 
         thoseTable = do
           TTheseTable x y <- pure t
-          return $ ThoseTable <$> genTable x env <*> genTable y env
+          return $ ThoseTable <$> genExpr x env <*> genExpr y env
 
         listTable = do
           TListTable t' <- pure t
           return do
-            xs <- Gen.list (Range.linear 0 10) (genTable t' env)
+            xs <- Gen.list (Range.linear 0 10) (genExpr t' env)
             return $ ListTable xs
 
         nonEmptyTable = do
@@ -514,127 +535,14 @@ genTable t env = Gen.recursive Gen.choice nonrecursive recursive
             xs <- 
               Gen.just $ 
                 NonEmpty.nonEmpty <$> 
-                  Gen.list (Range.linear 1 10) (genTable t' env)
+                  Gen.list (Range.linear 1 10) (genExpr t' env)
             return $ NonEmptyTable xs
 
         emptyTableListTable = do
           TListTable t' <- pure t
           Dict <- hasAlternativeTableInstance t
           Just $ return EmptyTable
- 
-    recursive = catMaybes [ case_, altTableListTable ]
-      where
-        case_ = Just $
-          -- TODO Sorely needs to be used with frequency. This generator is
-          -- almost always applicable.
-          Case 
-            <$> do Gen.list (Range.linear 0 3) $
-                     liftA2 (,) 
-                       (genTable (TTableExpr (TNotNull TBool)) env)
-                       (genTable t env)
-            <*> genTable t env
 
-        altTableListTable = do
-          Nothing -- TODO
-          TListTable t' <- pure t
-          Dict <- hasAltTableInstance t
-          Just $ AltTable <$> genTable t env <*> genTable t env
-
-
-find :: TableIx env i o -> Results env -> i
-find Here       (Store x _)   = x
-find (There ix) (Store _ env) = find ix env
-
-
-compileTable :: Results env -> Table env i o -> i
-compileTable env = \case
-  ExprTable expr   -> compileExpr env expr
-  PairTable x y    -> (compileTable env x, compileTable env y)
-  TrioTable x1 x2 x3 -> (compileTable env x1, compileTable env x2, compileTable env x3)
-  QuartetTable x1 x2 x3 x4 -> (compileTable env x1, compileTable env x2, compileTable env x3, compileTable env x4)
-  QuintetTable x1 x2 x3 x4 x5 -> (compileTable env x1, compileTable env x2, compileTable env x3, compileTable env x4, compileTable env x5)
-  Lookup ix        -> find ix env
-  JustTable t      -> Rel8.justTable (compileTable env t)
-  NothingTable     -> Rel8.nothingTable
-  LeftTable t      -> Rel8.leftTable (compileTable env t)
-  RightTable t     -> Rel8.rightTable (compileTable env t)
-  ThisTable t      -> Rel8.thisTable (compileTable env t)
-  ThatTable t      -> Rel8.thatTable (compileTable env t)
-  ThoseTable x y   -> Rel8.thoseTable (compileTable env x) (compileTable env y)
-  ListTable xs     -> Rel8.listTable $ compileTable env <$> xs
-  NonEmptyTable xs -> Rel8.nonEmptyTable $ compileTable env <$> xs
-  EmptyTable       -> Rel8.emptyTable
-  AltTable x y     -> compileTable env x Rel8.<|>: compileTable env y
-  Case alts def    -> Rel8.case_ (map (bimap (compileTable env) (compileTable env)) alts) (compileTable env def)
-
-
-data Expr :: Context -> Type -> Type -> Type where
-  LitNN :: Rel8.DBType a
-        => a -> Expr env (Rel8.Expr a) a
-
-  LitN :: Rel8.DBType a 
-       => Maybe a -> Expr env (Rel8.Expr (Maybe a)) (Maybe a)
-
-  IsJustTable :: Show o        
-              => Table env (Rel8.MaybeTable i) (Maybe o) -> Expr env (Rel8.Expr Bool) Bool
-
-  IsNothingTable :: Show o        
-                 => Table env (Rel8.MaybeTable i) (Maybe o) -> Expr env (Rel8.Expr Bool) Bool
-
-  IsLeftTable :: (Show o1, Show o2)
-              => Table env (Rel8.EitherTable i1 i2) (Either o1 o2) -> Expr env (Rel8.Expr Bool) Bool
-
-  IsRightTable :: (Show o1, Show o2)
-               => Table env (Rel8.EitherTable i1 i2) (Either o1 o2) -> Expr env (Rel8.Expr Bool) Bool
-
-  EqTable :: (Rel8.EqTable i, Show o)
-          => Table env i o -> Table env i o -> Expr env (Rel8.Expr Bool) Bool
-
-
-deriving stock instance Show o => Show (Expr env i o)
-
-
-genExpr :: Environment env -> TExpr i o -> Gen (Expr env i o)
-genExpr env t = Gen.recursive Gen.choice nonrecursive recursive
-  where
-    -- These are recursive because although they follow the structure of the
-    -- type, they might produce a Table that is a larger expression.
-    recursive = catMaybes [ isJustTable, isNothingTable, isLeftTable, isRightTable, eqTableListTable ]
-      where
-        isJustTable = do
-          TNotNull TBool <- pure t
-          pure do
-            ATTable t' <- genTTable
-            IsJustTable <$> genTable (TMaybeTable t') env
-
-        isNothingTable = do
-          TNotNull TBool <- pure t
-          pure do
-            ATTable t' <- genTTable
-            IsJustTable <$> genTable (TMaybeTable t') env
-
-        isLeftTable = do
-          TNotNull TBool <- pure t
-          pure do
-            ATTable t1 <- genTTable
-            ATTable t2 <- genTTable
-            IsLeftTable <$> genTable (TEitherTable t1 t2) env
-
-        isRightTable = do
-          TNotNull TBool <- pure t
-          pure do
-            ATTable t1 <- genTTable
-            ATTable t2 <- genTTable
-            IsRightTable <$> genTable (TEitherTable t1 t2) env
-
-        eqTableListTable = do
-          TNotNull TBool <- pure t
-          pure do
-            ATEqTable t <- genTEqTable
-            EqTable <$> genTable (TListTable t) env <*> genTable (TListTable t) env
-
-    nonrecursive = catMaybes [ notNullLiteral, nullLiteral ]
-      where
         notNullLiteral = do
           TNotNull tdbType <- pure t
           pure do
@@ -644,22 +552,98 @@ genExpr env t = Gen.recursive Gen.choice nonrecursive recursive
           TNull tdbType <- pure t
           pure do
             LitN <$> Gen.maybe (genLiteral tdbType)
+ 
+    recursive = catMaybes 
+      [ case_, altTableListTable, isJustTable, isNothingTable, isLeftTable
+      , isRightTable, eqTableListTable
+      ]
+      where
+        case_ = Just $
+          -- TODO Sorely needs to be used with frequency. This generator is
+          -- almost always applicable.
+          Case 
+            <$> do Gen.list (Range.linear 0 3) $
+                     liftA2 (,) 
+                       (genExpr (TNotNull TBool) env)
+                       (genExpr t env)
+            <*> genExpr t env
+
+        altTableListTable = do
+          Nothing -- TODO
+          TListTable t' <- pure t
+          Dict <- hasAltTableInstance t
+          Just $ AltTable <$> genExpr t env <*> genExpr t env
+
+        isJustTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t' <- genTableTy
+            IsJustTable <$> genExpr (TMaybeTable t') env
+
+        isNothingTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t' <- genTableTy
+            IsJustTable <$> genExpr (TMaybeTable t') env
+
+        isLeftTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t1 <- genTableTy
+            ATTable t2 <- genTableTy
+            IsLeftTable <$> genExpr (TEitherTable t1 t2) env
+
+        isRightTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATTable t1 <- genTableTy
+            ATTable t2 <- genTableTy
+            IsRightTable <$> genExpr (TEitherTable t1 t2) env
+
+        eqTableListTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATEqTable t <- genTEqTable
+            EqTable <$> genExpr (TListTable t) env <*> genExpr (TListTable t) env
+
+
+find :: TableIx env i o -> Results env -> i
+find Here       (Store x _)   = x
+find (There ix) (Store _ env) = find ix env
 
 
 compileExpr :: Results env -> Expr env i o -> i
 compileExpr env = \case
+  PairTable x y    -> (compileExpr env x, compileExpr env y)
+  TrioTable x1 x2 x3 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3)
+  QuartetTable x1 x2 x3 x4 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3, compileExpr env x4)
+  QuintetTable x1 x2 x3 x4 x5 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3, compileExpr env x4, compileExpr env x5)
+  Lookup ix        -> find ix env
+  JustTable t      -> Rel8.justTable (compileExpr env t)
+  NothingTable     -> Rel8.nothingTable
+  LeftTable t      -> Rel8.leftTable (compileExpr env t)
+  RightTable t     -> Rel8.rightTable (compileExpr env t)
+  ThisTable t      -> Rel8.thisTable (compileExpr env t)
+  ThatTable t      -> Rel8.thatTable (compileExpr env t)
+  ThoseTable x y   -> Rel8.thoseTable (compileExpr env x) (compileExpr env y)
+  ListTable xs     -> Rel8.listTable $ compileExpr env <$> xs
+  NonEmptyTable xs -> Rel8.nonEmptyTable $ compileExpr env <$> xs
+  EmptyTable       -> Rel8.emptyTable
+  AltTable x y     -> compileExpr env x Rel8.<|>: compileExpr env y
+  Case alts def    -> Rel8.case_ (map (bimap (compileExpr env) (compileExpr env)) alts) (compileExpr env def)
   LitNN x          -> Rel8.lit x
   LitN x           -> Rel8.lit x
-  IsJustTable t    -> Rel8.isJustTable (compileTable env t)
-  IsNothingTable t -> Rel8.isNothingTable (compileTable env t)
-  IsLeftTable t    -> Rel8.isLeftTable (compileTable env t)
-  IsRightTable t   -> Rel8.isRightTable (compileTable env t)
-  EqTable x y      -> compileTable env x Rel8.==: compileTable env y
+  IsJustTable t    -> Rel8.isJustTable (compileExpr env t)
+  IsNothingTable t -> Rel8.isNothingTable (compileExpr env t)
+  IsLeftTable t    -> Rel8.isLeftTable (compileExpr env t)
+  IsRightTable t   -> Rel8.isRightTable (compileExpr env t)
+  EqTable x y      -> compileExpr env x Rel8.==: compileExpr env y
+
 
 
 data ATTable :: Type where
   ATTable :: (Rel8.Table Rel8.Expr i, Show o, Rel8.Serializable i o, Ord o) 
-          => TTable i o -> ATTable
+    => Ty i o -> ATTable
 
 
 deriving stock instance Show ATTable
@@ -667,126 +651,134 @@ deriving stock instance Show ATTable
 
 data ATEqTable :: Type where
   ATEqTable :: (Rel8.EqTable i, Show o, Rel8.Serializable i o, Ord o) 
-            => TTable i o -> ATEqTable
+    => Ty i o -> ATEqTable
 
 
 -- | Types that can be tables. For any 'TTable i o', we know 'Table Expr i'
 -- and 'Serializable i o'.
-data TTable :: Type -> Type -> Type where
-  TTableExpr :: ()                 
-    => TExpr (Rel8.Expr i) i -> TTable (Rel8.Expr i) i
+data Ty :: Type -> Type -> Type where
+  TNotNull :: Rel8.DBType a 
+    => TDBType a -> Ty (Rel8.Expr a) a
+
+  TNull :: Rel8.DBType a 
+    => TDBType a -> Ty (Rel8.Expr (Maybe a)) (Maybe a)
 
   TTablePair :: (Show o1, Show o2, Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2) 
-    => TTable i1 o1 -> TTable i2 o2 -> TTable (i1, i2) (o1, o2)
+    => Ty i1 o1 -> Ty i2 o2 -> Ty (i1, i2) (o1, o2)
 
   TTableTrio :: (Show o1, Show o2, Show o3, Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2, Rel8.Table Rel8.Expr i3) 
-    => TTable i1 o1 
-    -> TTable i2 o2 
-    -> TTable i3 o3 
-    -> TTable (i1, i2, i3) (o1, o2, o3)
+    => Ty i1 o1 
+    -> Ty i2 o2 
+    -> Ty i3 o3 
+    -> Ty (i1, i2, i3) (o1, o2, o3)
 
   TTableQuartet :: (Show o1, Show o2, Show o3, Show o4, Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2, Rel8.Table Rel8.Expr i3, Rel8.Table Rel8.Expr i4) 
-    => TTable i1 o1 
-    -> TTable i2 o2 
-    -> TTable i3 o3 
-    -> TTable i4 o4 
-    -> TTable (i1, i2, i3, i4) (o1, o2, o3, o4)
+    => Ty i1 o1 
+    -> Ty i2 o2 
+    -> Ty i3 o3 
+    -> Ty i4 o4 
+    -> Ty (i1, i2, i3, i4) (o1, o2, o3, o4)
 
   TTableQuintet :: (Show o1, Show o2, Show o3, Show o4, Show o5, Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2, Rel8.Table Rel8.Expr i3, Rel8.Table Rel8.Expr i4, Rel8.Table Rel8.Expr i5) 
-    => TTable i1 o1 
-    -> TTable i2 o2 
-    -> TTable i3 o3 
-    -> TTable i4 o4 
-    -> TTable i5 o5 
-    -> TTable (i1, i2, i3, i4, i5) (o1, o2, o3, o4, o5)
+    => Ty i1 o1 
+    -> Ty i2 o2 
+    -> Ty i3 o3 
+    -> Ty i4 o4 
+    -> Ty i5 o5 
+    -> Ty (i1, i2, i3, i4, i5) (o1, o2, o3, o4, o5)
 
   TListTable :: (Rel8.Table Rel8.Expr i, Show o)
-             => TTable i o -> TTable (Rel8.ListTable i) [o]
+    => Ty i o -> Ty (Rel8.ListTable i) [o]
 
   TNonEmptyTable :: (Rel8.Table Rel8.Expr i, Show o)
-                 => TTable i o -> TTable (Rel8.NonEmptyTable i) (NonEmpty o)
+    => Ty i o -> Ty (Rel8.NonEmptyTable i) (NonEmpty o)
 
   TMaybeTable :: (Show o, Rel8.Table Rel8.Expr i) 
-              => TTable i o -> TTable (Rel8.MaybeTable i) (Maybe o)
+    => Ty i o -> Ty (Rel8.MaybeTable i) (Maybe o)
 
   TTheseTable :: (Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2, Show o1, Show o2)
-              => TTable i1 o1 -> TTable i2 o2 -> TTable (Rel8.TheseTable i1 i2) (These o1 o2)
+    => Ty i1 o1 -> Ty i2 o2 -> Ty (Rel8.TheseTable i1 i2) (These o1 o2)
 
   TEitherTable :: (Show o1, Show o2, Rel8.Table Rel8.Expr i1, Rel8.Table Rel8.Expr i2) 
-               => TTable i1 o1 -> TTable i2 o2 -> TTable (Rel8.EitherTable i1 i2) (Either o1 o2)
+    => Ty i1 o1 -> Ty i2 o2 -> Ty (Rel8.EitherTable i1 i2) (Either o1 o2)
 
 
-deriving stock instance Show (TTable i o)
+deriving stock instance Show (Ty i o)
 
 
 data Dict :: Constraint -> Type where
   Dict :: c => Dict c
 
 
-hasAlternativeTableInstance :: TTable (f i) (g j) -> Maybe (Dict (Rel8.AlternativeTable f))
+hasAlternativeTableInstance :: Ty (f i) (g j) -> Maybe (Dict (Rel8.AlternativeTable f))
 hasAlternativeTableInstance = \case
   TListTable _ -> Just Dict
   _ -> Nothing
 
 
-hasAltTableInstance :: TTable (f i) (g j) -> Maybe (Dict (Rel8.AltTable f))
+hasAltTableInstance :: Ty (f i) (g j) -> Maybe (Dict (Rel8.AltTable f))
 hasAltTableInstance = \case
   TListTable _ -> Just Dict
   _ -> Nothing
 
 
-eqTTable :: TTable i o -> TTable i' o' -> Maybe ((i, o) :~: (i', o'))
-eqTTable x y =
+eqTy :: Ty i o -> Ty i' o' -> Maybe ((i, o) :~: (i', o'))
+eqTy x y =
   case (x, y) of
-    (TTableExpr e1, TTableExpr e2) -> 
-      eqTExpr e1 e2
+    (TNotNull a, TNotNull b) -> do
+      Refl <- eqDBType a b
+      return Refl
+
+    (TNull a, TNull b) -> do
+      Refl <- eqDBType a b
+      return Refl
 
     (TTablePair x1 y1, TTablePair x2 y2) -> do
-      Refl <- eqTTable x1 x2
-      Refl <- eqTTable y1 y2
+      Refl <- eqTy x1 x2
+      Refl <- eqTy y1 y2
       return Refl
 
     (TTableTrio x1 x2 x3, TTableTrio y1 y2 y3) -> do
-      Refl <- eqTTable x1 y1
-      Refl <- eqTTable x2 y2
-      Refl <- eqTTable x3 y3
+      Refl <- eqTy x1 y1
+      Refl <- eqTy x2 y2
+      Refl <- eqTy x3 y3
       return Refl
 
     (TTableQuartet x1 x2 x3 x4, TTableQuartet y1 y2 y3 y4) -> do
-      Refl <- eqTTable x1 y1
-      Refl <- eqTTable x2 y2
-      Refl <- eqTTable x3 y3
-      Refl <- eqTTable x4 y4
+      Refl <- eqTy x1 y1
+      Refl <- eqTy x2 y2
+      Refl <- eqTy x3 y3
+      Refl <- eqTy x4 y4
       return Refl
 
     (TTableQuintet x1 x2 x3 x4 x5, TTableQuintet y1 y2 y3 y4 y5) -> do
-      Refl <- eqTTable x1 y1
-      Refl <- eqTTable x2 y2
-      Refl <- eqTTable x3 y3
-      Refl <- eqTTable x4 y4
-      Refl <- eqTTable x5 y5
+      Refl <- eqTy x1 y1
+      Refl <- eqTy x2 y2
+      Refl <- eqTy x3 y3
+      Refl <- eqTy x4 y4
+      Refl <- eqTy x5 y5
       return Refl
 
     (TListTable a, TListTable b) -> do
-      Refl <- eqTTable a b
+      Refl <- eqTy a b
       return Refl
 
     (TNonEmptyTable a, TNonEmptyTable b) -> do
-      Refl <- eqTTable a b
+      Refl <- eqTy a b
       return Refl
 
     (TMaybeTable a, TMaybeTable b) -> do
-      Refl <- eqTTable a b
+      Refl <- eqTy a b
       return Refl
 
     (TTheseTable x1 y1, TTheseTable x2 y2) -> do
-      Refl <- eqTTable x1 x2
-      Refl <- eqTTable y1 y2
+      Refl <- eqTy x1 x2
+      Refl <- eqTy y1 y2
       return Refl
 
     (TEitherTable x1 y1, TEitherTable x2 y2) -> do
-      Refl <- eqTTable x1 x2
-      Refl <- eqTTable y1 y2
+      Refl <- eqTy x1 x2
+      Refl <- eqTy y1 y2
       return Refl
 
     _ ->
@@ -794,18 +786,15 @@ eqTTable x y =
 
 
 -- | Generate a type that is an instance of 'Table Expr'.
-genTTable :: Gen ATTable
-genTTable = do 
-  x <- Gen.recursive Gen.choice nonrecursive recursive
-  traceM (show x)
-  return x
+genTableTy :: Gen ATTable
+genTableTy = Gen.recursive Gen.choice nonrecursive recursive
   where
     nonrecursive = [ exprAsTable ]
       where
         exprAsTable :: Gen ATTable
         exprAsTable = do
           ATExpr exprType <- genTExpr
-          return $ ATTable $ TTableExpr exprType
+          return $ ATTable exprType
 
     recursive =
       [ pair, trio, quartet, quintet, eitherTable, maybeTable, theseTable
@@ -813,41 +802,41 @@ genTTable = do
       ]
       where
         pair =
-          Gen.subterm2 genTTable genTTable \(ATTable x) (ATTable y) ->
+          Gen.subterm2 genTableTy genTableTy \(ATTable x) (ATTable y) ->
             ATTable $ TTablePair x y
 
         trio =
-          Gen.subterm3 genTTable genTTable genTTable \(ATTable x) (ATTable y) (ATTable z) ->
+          Gen.subterm3 genTableTy genTableTy genTableTy \(ATTable x) (ATTable y) (ATTable z) ->
             ATTable $ TTableTrio x y z
 
         quartet =
-          Gen.subtermM2 genTTable genTTable \(ATTable x1) (ATTable x2) ->
-          Gen.subterm2 genTTable genTTable \(ATTable x3) (ATTable x4) ->
+          Gen.subtermM2 genTableTy genTableTy \(ATTable x1) (ATTable x2) ->
+          Gen.subterm2 genTableTy genTableTy \(ATTable x3) (ATTable x4) ->
             ATTable $ TTableQuartet x1 x2 x3 x4
 
         quintet =
-          Gen.subtermM2 genTTable genTTable \(ATTable x1) (ATTable x2) ->
-          Gen.subterm3 genTTable genTTable genTTable \(ATTable x3) (ATTable x4) (ATTable x5) ->
+          Gen.subtermM2 genTableTy genTableTy \(ATTable x1) (ATTable x2) ->
+          Gen.subterm3 genTableTy genTableTy genTableTy \(ATTable x3) (ATTable x4) (ATTable x5) ->
             ATTable $ TTableQuintet x1 x2 x3 x4 x5
 
         eitherTable =
-          Gen.subterm2 genTTable genTTable \(ATTable x) (ATTable y) ->
+          Gen.subterm2 genTableTy genTableTy \(ATTable x) (ATTable y) ->
             ATTable $ TEitherTable x y
 
         theseTable =
-          Gen.subterm2 genTTable genTTable \(ATTable x) (ATTable y) ->
+          Gen.subterm2 genTableTy genTableTy \(ATTable x) (ATTable y) ->
             ATTable $ TTheseTable x y
 
         maybeTable = 
-          Gen.subterm genTTable \(ATTable x) ->
+          Gen.subterm genTableTy \(ATTable x) ->
             ATTable $ TMaybeTable x
 
         listTable = 
-          Gen.subterm genTTable \(ATTable x) ->
+          Gen.subterm genTableTy \(ATTable x) ->
             ATTable $ TListTable x
 
         nonEmptyTable = 
-          Gen.subterm genTTable \(ATTable x) ->
+          Gen.subterm genTableTy \(ATTable x) ->
             ATTable $ TNonEmptyTable x
 
 
@@ -859,7 +848,7 @@ genTEqTable = Gen.recursive Gen.choice nonrecursive recursive
         exprAsTable :: Gen ATEqTable
         exprAsTable = do
           ATEqExpr exprType <- genTEqExpr
-          return $ ATEqTable $ TTableExpr exprType
+          return $ ATEqTable exprType
 
     recursive = 
       [ pair, trio, quartet, quintet, eitherTable, maybeTable, theseTable
@@ -907,38 +896,12 @@ genTEqTable = Gen.recursive Gen.choice nonrecursive recursive
 
 data ATExpr :: Type where
   ATExpr :: (Show a, Rel8.Sql Rel8.DBType a, Ord a) 
-    => TExpr (Rel8.Expr a) a -> ATExpr
+    => Ty (Rel8.Expr a) a -> ATExpr
 
 
 data ATEqExpr :: Type where
   ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a, Ord a) 
-    => TExpr (Rel8.Expr a) a -> ATEqExpr
-
-
-data TExpr :: Type -> Type -> Type where
-  TNotNull :: Rel8.DBType a 
-    => TDBType a -> TExpr (Rel8.Expr a) a
-
-  TNull :: Rel8.DBType a 
-    => TDBType a -> TExpr (Rel8.Expr (Maybe a)) (Maybe a)
-
-
-deriving stock instance Show (TExpr i o)
-
-
-eqTExpr :: TExpr i1 o1 -> TExpr i2 o2 -> Maybe ((i1, o1) :~: (i2, o2))
-eqTExpr x y =
-  case (x, y) of
-    (TNotNull a, TNotNull b) -> do
-      Refl <- eqDBType a b
-      return Refl
-
-    (TNull a, TNull b) -> do
-      Refl <- eqDBType a b
-      return Refl
-
-    _ ->
-      Nothing
+    => Ty (Rel8.Expr a) a -> ATEqExpr
 
 
 genTExpr :: Gen ATExpr

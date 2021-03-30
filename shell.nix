@@ -2,10 +2,11 @@ let
   sources = import ./nix/sources.nix;
   pkgs = import sources.nixpkgs {};
   hsPkgs = import ./default.nix;
+  unstable = import sources.nixpkgs-unstable {};
 in
   hsPkgs.shellFor {
     withHoogle = true;
     tools = { cabal = "3.2.0.0"; haskell-language-server = "latest"; };
     exactDeps = false;
-    buildInputs = [ pkgs.postgresql_12 ];
+    buildInputs = [ unstable.postgresql_13 ];
   }
