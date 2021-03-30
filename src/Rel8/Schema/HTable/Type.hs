@@ -53,3 +53,9 @@ instance Sql DBType a => HTable (HType a) where
     , info = typeInformation
     , nullability = nullabilization
     }
+
+  {-# INLINABLE hfield #-}
+  {-# INLINABLE htabulate #-}
+  {-# INLINABLE htraverse #-}
+  {-# INLINABLE hdicts #-}
+  {-# INLINABLE hspecs #-}

@@ -18,7 +18,6 @@ module Rel8.Schema.Context.Nullify
 where
 
 -- base
-import Control.Monad ( guard )
 import Data.Kind ( Constraint, Type )
 import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )

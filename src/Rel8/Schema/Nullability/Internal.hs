@@ -121,6 +121,7 @@ instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
 
 fromSql :: Dict (Sql constraint) a -> (Nullability a, Dict constraint (Unnullify a))
 fromSql Dict = (nullabilization, Dict)
+{-# INLINABLE fromSql #-}
 
 
 mapSql :: ()
@@ -133,3 +134,4 @@ mapSql f dict = case fromSql dict of
 toSql :: Nullability a -> Dict constraint (Unnullify a) -> Dict (Sql constraint) a
 toSql NonNullable Dict = Dict
 toSql Nullable Dict = Dict
+{-# INLINABLE toSql #-}

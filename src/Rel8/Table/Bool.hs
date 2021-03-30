@@ -24,6 +24,7 @@ bool (toColumns -> false) (toColumns -> true) condition =
     case (hfield false field, hfield true field) of
       (DB falseExpr, DB trueExpr) ->
         DB (boolExpr falseExpr trueExpr condition)
+{-# INLINABLE bool #-}
 
 
 case_ :: Table Expr a => [(Expr Bool, a)] -> a -> a

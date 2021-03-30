@@ -62,6 +62,7 @@ instance Sql DBMonoid a => Taggable a where
           | x == y -> name b
           | otherwise -> name a
     }
+  {-# INLINABLE tappend #-}
 
   tempty :: forall label. KnownSymbol label => Tag label a
   tempty = Tag
@@ -69,6 +70,7 @@ instance Sql DBMonoid a => Taggable a where
     , aggregator = empty
     , name = Name (symbolVal (Proxy @label))
     }
+  {-# INLINABLE tempty #-}
 
 
 instance (KnownSymbol label, Taggable a) => Semigroup (Tag label a) where
@@ -95,7 +97,7 @@ fromExpr expr = (tempty @a @label) {expr}
 
 
 fromName :: forall a label. Taggable a => Name a -> Tag label a
-fromName name = (mempty @(Tag "" a)) {name}
+fromName name = (tempty @a @"") {name}
 
 
 dbSemigroupFromDBMonoid :: Dict DBMonoid a -> Dict DBSemigroup a

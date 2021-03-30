@@ -195,6 +195,7 @@ isJustTable (MaybeTable tag _) = isNonNull (expr tag)
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
 maybeTable :: Table Expr b => b -> (a -> b) -> MaybeTable a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
+{-# INLINABLE maybeTable #-}
 
 
 -- | The null table. Like 'Nothing'.
