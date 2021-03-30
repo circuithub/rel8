@@ -14,13 +14,21 @@ module Rel8.Time
   , diffTime
   , subtractTime
 
-  -- NominalDiffTime
+  -- CalendarDiffTime
+  , second
   , seconds
+  , minute
   , minutes
+  , hour
   , hours
+  , day
   , days
+  , month
   , months
+  , year
   , years
+  , week
+  , weeks
   ) where
 
 -- base
@@ -37,8 +45,7 @@ import Rel8
   )
 
 -- time
-import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime, NominalDiffTime )
+import Data.Time ( CalendarDiffTime, Day, UTCTime )
 
 
 today :: Expr Day
@@ -69,42 +76,91 @@ now :: Expr UTCTime
 now = dbNow
 
 
-addTime :: Expr NominalDiffTime -> Expr UTCTime -> Expr UTCTime
+addTime :: Expr CalendarDiffTime -> Expr UTCTime -> Expr UTCTime
 addTime = flip (dbBinOp "+")
 
 
-diffTime :: Expr UTCTime -> Expr UTCTime -> Expr NominalDiffTime
+diffTime :: Expr UTCTime -> Expr UTCTime -> Expr CalendarDiffTime
 diffTime = dbBinOp "-"
 
 
-subtractTime :: Expr NominalDiffTime -> Expr UTCTime -> Expr UTCTime
+subtractTime :: Expr CalendarDiffTime -> Expr UTCTime -> Expr UTCTime
 subtractTime = flip (dbBinOp "-")
 
 
-seconds :: Int -> Expr NominalDiffTime
-seconds = interval "seconds"
+scaleInterval :: Expr Double -> Expr CalendarDiffTime -> Expr CalendarDiffTime
+scaleInterval = dbBinOp "*"
 
 
-minutes :: Int -> Expr NominalDiffTime
-minutes = interval "minutes"
+-- | An interval of one second.
+second :: Expr CalendarDiffTime
+second = singleton "second"
 
 
-hours ::  Int -> Expr NominalDiffTime
-hours = interval "hours"
+-- | Create a literal interval from a number of seconds.
+seconds :: Expr Double -> Expr CalendarDiffTime
+seconds = (`scaleInterval` second)
 
 
-days ::  Int -> Expr NominalDiffTime
-days = interval "days"
+-- | An interval of one minute.
+minute :: Expr CalendarDiffTime
+minute = singleton "minute"
 
 
-months ::  Int -> Expr NominalDiffTime
-months = interval "months"
+-- | Create a literal interval from a number of minutes.
+minutes :: Expr Double -> Expr CalendarDiffTime
+minutes = (`scaleInterval` minute)
 
 
-years ::  Int -> Expr NominalDiffTime
-years = interval "years"
+-- | An interval of one hour.
+hour :: Expr CalendarDiffTime
+hour = singleton "hour"
 
 
-interval :: String -> Int -> Expr NominalDiffTime
-interval unit quantity =
-  unsafeLiteral ("interval '" ++ show quantity ++ " " ++ unit ++ "'")
+-- | Create a literal interval from a number of hours.
+hours :: Expr Double -> Expr CalendarDiffTime
+hours = (`scaleInterval` hour)
+
+
+-- | An interval of one day.
+day :: Expr CalendarDiffTime
+day = singleton "day"
+
+
+-- | Create a literal interval from a number of days.
+days ::  Expr Double -> Expr CalendarDiffTime
+days = (`scaleInterval` day)
+
+
+-- | An interval of one week.
+week :: Expr CalendarDiffTime
+week = singleton "week"
+
+
+-- | Create a literal interval from a number of weeks.
+weeks ::  Expr Double -> Expr CalendarDiffTime
+weeks = (`scaleInterval` week)
+
+
+-- | An interval of one month.
+month :: Expr CalendarDiffTime
+month = singleton "month"
+
+
+-- | Create a literal interval from a number of months.
+months ::  Expr Double -> Expr CalendarDiffTime
+months = (`scaleInterval` month)
+
+
+-- | An interval of one year.
+year :: Expr CalendarDiffTime
+year = singleton "year"
+
+
+-- | Create a literal interval from a number of years.
+years ::  Expr Double -> Expr CalendarDiffTime
+years = (`scaleInterval` year)
+
+
+singleton :: String -> Expr CalendarDiffTime
+singleton unit = unsafeCastExpr "interval" $ unsafeLiteral $ "'1 " ++ unit ++ "'"

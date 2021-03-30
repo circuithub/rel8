@@ -34,7 +34,7 @@ import Data.Text (Text, pack)
 import qualified Data.Text.Lazy as LazyText
 import Data.Text.Lazy.Builder (toLazyText)
 import Data.Text.Lazy.Builder.Scientific (scientificBuilder)
-import Data.Time (UTCTime, Day, LocalTime, TimeOfDay)
+import Data.Time (UTCTime, Day, LocalTime, TimeOfDay, CalendarDiffTime)
 import Data.Typeable (Typeable)
 import Data.UUID (UUID)
 import Data.Vector (Vector)
@@ -48,6 +48,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.PGTypes as O hiding ( literalColumn )
 import qualified Opaleye.Internal.PGTypes as O ( literalColumn )
 import Prelude hiding (not, (.), id)
+import Data.Time.Format.ISO8601 (formatShow, iso8601Format)
 
 --------------------------------------------------------------------------------
 -- | 'TypeInfo' records information about a database type - both how it can
@@ -168,6 +169,13 @@ instance DBType Scientific where
 -- | json
 instance DBType Value where
   dbTypeInfo = typeInfoFromOpaleye O.pgValueJSON
+
+instance DBType CalendarDiffTime where
+  dbTypeInfo = TypeInfo
+    { formatLit = O.CastExpr "interval" . O.ConstExpr . O.StringLit . formatShow iso8601Format
+    , dbTypeName = "interval"
+    }
+
 
 instance (DBType a, Typeable a) =>
          DBType (Vector a) where
