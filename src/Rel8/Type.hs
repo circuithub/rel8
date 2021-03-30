@@ -58,8 +58,12 @@ import qualified Data.Text.Lazy.Encoding as Lazy ( decodeUtf8 )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( DiffTime, NominalDiffTime, UTCTime )
-import Data.Time.LocalTime ( LocalTime, TimeOfDay )
+import Data.Time.Clock ( UTCTime )
+import Data.Time.LocalTime
+  ( CalendarDiffTime( CalendarDiffTime )
+  , LocalTime
+  , TimeOfDay
+  )
 import Data.Time.Format ( formatTime, defaultTimeLocale )
 
 -- uuid
@@ -221,20 +225,15 @@ instance DBType TimeOfDay where
 
 
 -- | Corresponds to @interval@
-instance DBType DiffTime where
+instance DBType CalendarDiffTime where
   typeInformation = TypeInformation
     { encode =
         Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%0Es'"
-    , decode = Hasql.interval
+        formatTime defaultTimeLocale "'%bmon %0Es'"
+    , decode = CalendarDiffTime 0 . realToFrac <$> Hasql.interval
     , typeName = "interval"
     , out = id
     }
-
-
-instance DBType NominalDiffTime where
-  typeInformation =
-    mapTypeInformation @DiffTime realToFrac realToFrac typeInformation
 
 
 -- | Corresponds to @text@

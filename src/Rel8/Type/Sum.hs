@@ -24,7 +24,7 @@ import Rel8.Type ( DBType )
 import Data.Scientific ( Scientific )
 
 -- time
-import Data.Time.Clock ( DiffTime, NominalDiffTime )
+import Data.Time.LocalTime ( CalendarDiffTime )
 
 
 -- | The class of database types that support the @sum()@ aggregation function.
@@ -36,8 +36,7 @@ instance DBSum Int64
 instance DBSum Float
 instance DBSum Double
 instance DBSum Scientific
-instance DBSum DiffTime
-instance DBSum NominalDiffTime
+instance DBSum CalendarDiffTime
 
 
 instance {-# INCOHERENT #-} (HasNullability a, DBSum (Unnullify a)) =>

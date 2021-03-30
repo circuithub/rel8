@@ -39,8 +39,8 @@ import qualified Data.Text.Lazy as Lazy ( Text )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime, DiffTime, NominalDiffTime )
-import Data.Time.LocalTime ( TimeOfDay, LocalTime )
+import Data.Time.Clock ( UTCTime )
+import Data.Time.LocalTime ( CalendarDiffTime, LocalTime, TimeOfDay )
 
 -- uuid
 import Data.UUID ( UUID )
@@ -95,8 +95,7 @@ instance DBEq UTCTime
 instance DBEq Day
 instance DBEq LocalTime
 instance DBEq TimeOfDay
-instance DBEq DiffTime
-instance DBEq NominalDiffTime
+instance DBEq CalendarDiffTime
 instance DBEq Text
 instance DBEq Lazy.Text
 instance DBEq (CI Text)
