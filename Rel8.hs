@@ -48,6 +48,7 @@ module Rel8
   , O.offset
 
     -- ** Ordering
+  , O.Order
   , asc, desc, orderNulls, O.orderBy, OrderNulls(..)
   , distinctOn, distinctOnBy
 
