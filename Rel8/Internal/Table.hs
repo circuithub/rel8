@@ -77,7 +77,7 @@ instance (a ~ (a1, a2, a3, a4)) => ExprFor a (b1, b2, b3, b4)
 instance (a ~ (a1, a2, a3, a4, a5)) => ExprFor a (b1, b2, b3, b4, b5)
 
 
-class (Representable (HRowF t), Traversable (HRowF t)) => HigherKindedTable t where
+class (Representable (HRowF t), Traversable (HRowF t)) => Rel8able t where
   type HRowF t :: * -> *
   type HRowF t = MkRowF (Rep (t Expr))
 
@@ -129,7 +129,7 @@ class (Representable (HRowF t), Traversable (HRowF t)) => HigherKindedTable t wh
   hdefaultNames = to . gdefaultNames
 
 
-instance (s ~ t, expr ~ Expr, HigherKindedTable t, queryResult ~ QueryResult) => Table (s expr) (t queryResult) where
+instance (s ~ t, expr ~ Expr, Rel8able t, queryResult ~ QueryResult) => Table (s expr) (t queryResult) where
   type RowF (s expr) = HRowF s
   expressions_ _ = cloneIso hexpressions
   rowParser_ _ = hrowParser
@@ -770,7 +770,7 @@ instance Bindings (Name a) (Expr a) where
       symbol = O.Symbol name Nothing
 
 
-instance HigherKindedTable t => Bindings (t Name) (t Expr) where
+instance Rel8able t => Bindings (t Name) (t Expr) where
   bindings = hbindings
 
 
@@ -824,7 +824,7 @@ class DefaultNames a where
   defaultNames = to . gdefaultNames
 
 
-instance HigherKindedTable t => DefaultNames (t Name) where
+instance Rel8able t => DefaultNames (t Name) where
   defaultNames = hdefaultNames
 
 

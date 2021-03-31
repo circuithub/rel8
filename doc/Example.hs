@@ -22,7 +22,7 @@ data Small f =
        -- , partColor  :: C f "Color" 'NoDefault Int32
        -- , partWeight :: C f "Weight" 'NoDefault Double
        -- , partCity   :: C f "City" 'NoDefault String
-       } deriving (Generic, HigherKindedTable)
+       } deriving (Generic, Rel8able)
 
 instance BaseTable Small where
   tableName = "small"
@@ -42,7 +42,7 @@ data Part f =
        , partColor  :: C f "Color" 'NoDefault Int32
        , partWeight :: C f "Weight" 'NoDefault Double
        , partCity   :: C f "City" 'NoDefault String
-       } deriving (Generic, HigherKindedTable)
+       } deriving (Generic, Rel8able)
 
 instance BaseTable Part where tableName = "part"
 deriving instance Show (Part QueryResult)
@@ -62,7 +62,7 @@ data Supplier f = Supplier
   , supplierName :: C f "SName" 'NoDefault String
   , supplierStatus :: C f "Status" 'NoDefault Int32
   , supplierCity :: C f "City" 'NoDefault String
-  } deriving (Generic, HigherKindedTable)
+  } deriving (Generic, Rel8able)
 
 instance BaseTable Supplier where tableName = "supplier"
 deriving instance Show (Supplier QueryResult)

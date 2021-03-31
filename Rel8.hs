@@ -27,7 +27,7 @@ module Rel8
   , BaseTable(tableName, tableSchema)
   , Table
   , ExprFor
-  , HigherKindedTable
+  , Rel8able
 
     -- * Querying Tables
   , O.Query
