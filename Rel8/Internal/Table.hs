@@ -517,17 +517,17 @@ instance GTabular SchemaInfo (K1 i (SchemaInfo '( (a :: Symbol), (b :: HasDefaul
       (\(SchemaInfo a) -> Identity (Colimit (SchemaInfo a)))
       (\(Identity (Colimit (SchemaInfo a))) -> SchemaInfo a)
 
--- This is only proper if OverrideDefault DefaultInsertExpr can't occur.
-instance GTabular Insert (K1 i (Default (Expr a))) Identity where
+-- This is only proper if Just DefaultInsertExpr can't occur.
+instance GTabular Insert (K1 i (Maybe (Expr a))) Identity where
   gtabular _ = _K1 . iso forward backward
     where
-      forward (OverrideDefault a) = Identity (Colimit (InsertExpr a))
-      forward InsertDefault =
+      forward (Just a) = Identity (Colimit (InsertExpr a))
+      forward Nothing =
         Identity (Colimit (InsertExpr (Expr O.DefaultInsertExpr)))
       backward (Identity (Colimit (InsertExpr (Expr O.DefaultInsertExpr)))) =
-        InsertDefault
+        Nothing
       backward (Identity (Colimit (InsertExpr (Expr prim)))) =
-        OverrideDefault (Expr prim)
+        Just (Expr prim)
 
 instance GTabular Insert (K1 i (Expr a)) Identity where
   gtabular _ = _K1 . iso forward backward

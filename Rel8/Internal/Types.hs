@@ -37,19 +37,6 @@ data SchemaInfo a =
 newtype Name a = Name String
   deriving (IsString, Show)
 
-
---------------------------------------------------------------------------------
--- | When inserting into tables, some columns may be marked as allowing
--- defaults (indicated by the argument @'HasDefault@ to 'C'). If this is the
--- case, you will need to supply @Default Expr@s as column values. 'Default'
--- indicates that you are either supplying a value explictly
--- (with 'OverrideDefault'), or you wish the databse to provide a value (with
--- 'InsertDefault'). The latter is useful for automatically generated primary
--- keys, or timestamps.
-data Default a
-  = OverrideDefault a
-  | InsertDefault
-
 --------------------------------------------------------------------------------
 {-| All metadata about a column in a table.
 
@@ -67,7 +54,7 @@ type family C f columnName hasDefault columnType :: * where
   C Expr _name _def t = Expr t
   C QueryResult _name _def t = t
   C SchemaInfo name hasDefault t = SchemaInfo '(name, hasDefault, t)
-  C Insert name 'HasDefault t = Default (Expr t)
+  C Insert name 'HasDefault t = Maybe (Expr t)
   C Insert name 'NoDefault t = Expr t
   C Aggregate name _ t = Aggregate t
   C Name _ _ t = Name t

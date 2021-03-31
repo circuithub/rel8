@@ -107,7 +107,7 @@ module Rel8
   , select
 
     -- ** @INSERT@
-  , Default(..), Insert
+  , Insert
   , insert {- , insertReturning -}
 
     -- ** @UPDATE@
