@@ -107,7 +107,7 @@ module Rel8
 
     -- ** @INSERT@
   , Default(..), Insert
-  , insert, insert1Returning {- , insertReturning -}
+  , insert {- , insertReturning -}
 
     -- ** @UPDATE@
   , update {- , updateReturning -}
