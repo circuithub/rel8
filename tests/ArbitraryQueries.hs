@@ -19,6 +19,7 @@
 
 module Main ( main ) where
 
+import Data.IORef
 import Debug.Trace
 import Data.Bifunctor ( bimap )
 import Control.Applicative ( liftA2 )
@@ -1060,13 +1061,20 @@ genLiteral = \case
 
 main :: IO ()
 main =
+  newIORef (0 :: Int) >>= \ref ->
   defaultMain $
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
   withResource (connect getTestDatabase) release \getC ->
   testProperty "Random queries" $ property do
+    liftIO $ readIORef ref >>= print
+    liftIO $ modifyIORef ref (+1)
+
     ATypedQuery q <- forAll (genTypedQuery Empty)
+    liftIO $ putStrLn "Y"
     let q' = compileQuery NoResults q
     annotate $ Rel8.showQuery q'
+    liftIO $ print (length (Rel8.showQuery q'))
+    liftIO $ putStrLn "Z"
 
     test do
       c <- liftIO getC
