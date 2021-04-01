@@ -9,6 +9,7 @@ module Rel8.Aggregate.Context
 {-# DEPRECATED "This is purely for backwards compatibility with prehistoric Rel8 and will be removed at some point." #-}
   ( Aggregates
   , aggregate
+  , aggregateTabulation
   , groupBy
   , listAgg
   , nonEmptyAgg
@@ -36,11 +37,20 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.Opaleye ( aggregator )
+import Rel8.Tabulate ( Tabulation )
+import qualified Rel8.Tabulate
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
 aggregate :: Aggregates aggregates exprs => Query aggregates -> Query exprs
 aggregate = mapOpaleye (Opaleye.aggregate aggregator) . fmap (fromColumns . toColumns)
+
+
+aggregateTabulation
+  :: (EqTable k, Aggregates aggregates exprs)
+  => (t -> aggregates) -> Tabulation k t -> Tabulation k exprs
+aggregateTabulation f =
+  Rel8.Tabulate.aggregateTabulation . fmap (fromColumns . toColumns . f)
 
 
 -- | Group equal tables together. This works by aggregating each column in the
