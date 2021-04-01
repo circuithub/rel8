@@ -7,5 +7,5 @@ in
     withHoogle = true;
     tools = { cabal = "3.2.0.0"; haskell-language-server = "latest"; };
     exactDeps = false;
-    buildInputs = [ pkgs.postgresql ];
+    buildInputs = [ pkgs.postgresql pkgs.pythonPackages.sphinx ];
   }
