@@ -49,7 +49,7 @@ library
     Rel8.Tabulate
 
     -- deprecated
-    Rel8.Aggregate.Context
+    Rel8.Aggregate.Legacy
 
   other-modules:
     Rel8.Aggregate

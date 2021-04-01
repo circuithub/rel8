@@ -5,8 +5,7 @@
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
-module Rel8.Aggregate.Context
-{-# DEPRECATED "This is purely for backwards compatibility with prehistoric Rel8 and will be removed at some point." #-}
+module Rel8.Aggregate.Legacy
   ( Aggregates
   , aggregate
   , aggregateTabulation
