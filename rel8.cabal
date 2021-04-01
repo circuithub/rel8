@@ -48,6 +48,9 @@ library
     Rel8.Expr.Time
     Rel8.Tabulate
 
+    -- deprecated
+    Rel8.Aggregate.Context
+
   other-modules:
     Rel8.Aggregate
 

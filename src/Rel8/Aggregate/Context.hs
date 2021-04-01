@@ -5,8 +5,11 @@
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
-module Rel8.Table.Aggregate
-  ( groupBy
+module Rel8.Aggregate.Context
+{-# DEPRECATED "This is purely for backwards compatibility with prehistoric Rel8 and will be removed at some point." #-}
+  ( Aggregates
+  , aggregate
+  , groupBy
   , listAgg
   , nonEmptyAgg
   )
@@ -16,22 +19,34 @@ where
 import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
+-- opaleye
+import qualified Opaleye.Aggregate as Opaleye
+
 -- rel8
-import Rel8.Aggregate ( Aggregate, Col(..) )
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Aggregate ( Aggregates, Col(..) )
+import Rel8.Expr ( Col(..) )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
+import Rel8.Query ( Query )
+import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
-import Rel8.Table ( Table, toColumns, fromColumns )
+import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.Opaleye ( aggregator )
+
+
+-- | Apply an aggregation to all rows returned by a 'Query'.
+aggregate :: Aggregates aggregates exprs => Query aggregates -> Query exprs
+aggregate = mapOpaleye (Opaleye.aggregate aggregator) . fmap (fromColumns . toColumns)
 
 
 -- | Group equal tables together. This works by aggregating each column in the
 -- given table with 'groupByExpr'.
-groupBy :: forall exprs. EqTable exprs => exprs -> Aggregate exprs
+groupBy :: forall exprs aggregates. (EqTable exprs, Aggregates aggregates exprs)
+  => exprs -> aggregates
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield (eqTable @exprs) field of
     Dict -> case hfield exprs field of
@@ -54,7 +69,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
+listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
@@ -62,7 +77,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)

@@ -198,11 +198,6 @@ module Rel8
   , and
   , or
 
-  , Aggregates
-  , sequenceAggregate
-  , distributeAggregate
-
-
     -- ** Ordering
   , orderBy
   , Order
