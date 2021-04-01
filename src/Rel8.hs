@@ -39,7 +39,7 @@ module Rel8
 
     -- * Tables and higher-kinded tables
   , Rel8able
-  , Column
+  , Column, Field, Necessity( Required, Optional )
   , Default, Label
   , HMaybe
   , HList
@@ -322,6 +322,8 @@ import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
 import Rel8.Expr.Opaleye (unsafeCastExpr)
+import Rel8.Kind.Necessity
+import Rel8.Schema.Field (Field)
 
 
 -- $setup
