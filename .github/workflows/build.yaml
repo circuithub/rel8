@@ -22,4 +22,4 @@ jobs:
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
     - run: nix-build -A hsPkgs.rel8.components.library
-    - run: nix-build -A hsPkgs.rel8.components.checks.tests
+    - run: nix-build -A hsPkgs.rel8.checks.tests
