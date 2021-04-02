@@ -31,6 +31,9 @@ import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
+-- | Given a 'TableSchema' and 'Query', @createView@ runs a @CREATE VIEW@
+-- statement that will save the given query as a view. This can be useful if
+-- you want to share Rel8 queries with other applications.
 createView :: Selects names exprs
   => TableSchema names -> Query exprs -> Connection -> IO ()
 createView (TableSchema name mschema names) query =

@@ -34,6 +34,8 @@ castExpr :: Sql DBType a => Expr a -> Expr a
 castExpr = scastExpr typeInformation
 
 
+-- | Cast an expression to a different type. Corresponds to a @CAST()@ function
+-- call.
 unsafeCastExpr :: Sql DBType b => Expr a -> Expr b
 unsafeCastExpr = sunsafeCastExpr typeInformation
 

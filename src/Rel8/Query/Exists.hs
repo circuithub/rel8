@@ -46,17 +46,23 @@ whereNotExists :: Query a -> Query ()
 whereNotExists = mapOpaleye Opaleye.restrictNotExists
 
 
+-- | @with@ is similar to 'filter', but allows the predicate to be a full query.
+--
+-- @with f a = a <$ whereExists (f a)@, but this form matches 'filter'.
 with :: (a -> Query b) -> a -> Query a
 with f a = a <$ whereExists (f a)
 
 
-withBy :: (a -> b -> Expr Bool) -> Query b -> a -> Query a
+-- | Like @with@, but with a custom membership test.
+withBy :: (a -> b -> Expr Bool)  -> Query b -> a -> Query a
 withBy predicate bs = with $ \a -> bs >>= filter (predicate a)
 
 
+-- | Filter rows where @a -> Query b@ yields no rows.
 without :: (a -> Query b) -> a -> Query a
 without f a = a <$ whereNotExists (f a)
 
 
+-- | Like @without@, but with a custom membership test.
 withoutBy :: (a -> b -> Expr Bool) -> Query b -> a -> Query a
 withoutBy predicate bs = without $ \a -> bs >>= filter (predicate a)

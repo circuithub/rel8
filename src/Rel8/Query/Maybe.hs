@@ -28,6 +28,11 @@ import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Tag ( Tag(..), fromExpr )
 
 
+-- | Convert a query that might return zero rows to a query that always returns
+-- at least one row.
+--
+-- To speak in more concrete terms, 'optional' is most useful to write @LEFT
+-- JOIN@s.
 optional :: Query a -> Query (MaybeTable a)
 optional = mapOpaleye $ Opaleye.QueryArr . go
   where

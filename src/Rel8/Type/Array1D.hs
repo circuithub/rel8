@@ -66,6 +66,7 @@ import Data.Semialign ( Semialign )
 import Data.Zip ( Repeat, Unzip, Zip )
 
 
+-- | A one dimensional array.
 newtype Array1D a = Array1D [a]
   deriving stock Traversable
   deriving newtype

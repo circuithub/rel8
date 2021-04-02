@@ -48,6 +48,9 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Schema.Nullability ( Sql )
 
 
+-- | The class of 'Table's that can be compared for equality. Equality on
+-- tables is defined by equality of all columns all columns, so this class
+-- means "all columns in a 'Table' have an instance of 'DBEq'".
 type EqTable :: Type -> Constraint
 class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (ConstrainDBType DBEq))

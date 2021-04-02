@@ -57,12 +57,15 @@ type Nullify :: Type -> Type
 type Nullify a = Maybe (Unnullify a)
 
 
+-- | @NotNull a@ means @a@ cannot take @null@ as a value.
 type NotNull :: Type -> Constraint
 class (HasNullability a, IsMaybe a ~ 'False) => NotNull a
 instance (HasNullability a, IsMaybe a ~ 'False) => NotNull a
 instance {-# OVERLAPPING #-} NotNull Opaque
 
 
+-- | @Homonullable a b@ means that both @a@ and @b@ can be @null@, or neither
+-- @a@ or @b@ can be @null@.
 type Homonullable :: Type -> Type -> Constraint
 class IsMaybe a ~ IsMaybe b => Homonullable a b
 instance IsMaybe a ~ IsMaybe b => Homonullable a b
@@ -93,6 +96,8 @@ instance IsMaybe a ~ 'False => HasNullability' 'True (Maybe a) where
   nullabilization' = Nullable
 
 
+-- | @HasNullability a@ means that @rel8@ is able to check if the type @a@ is a
+-- type that can take @null@ values or not.
 type HasNullability :: Type -> Constraint
 class HasNullability' (IsMaybe a) a => HasNullability a
 instance HasNullability' (IsMaybe a) a => HasNullability a

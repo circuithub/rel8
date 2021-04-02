@@ -130,6 +130,7 @@ sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
     }
 
 
+-- | Take the sum of all expressions that satisfy a predicate.
 sumWhere :: (Sql DBNum a, Sql DBSum a)
   => Expr Bool -> Expr a -> Aggregate (Expr a)
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
@@ -152,6 +153,7 @@ groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
 groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 
+-- | Collect expressions values as a list.
 listAggExpr :: Expr a -> Aggregate (Expr [a])
 listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
@@ -163,6 +165,7 @@ listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
     from = fromPrimExpr . fromPrimArray
 
 
+-- | Collect expressions values as a non-empty list.
 nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
 nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
