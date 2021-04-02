@@ -21,6 +21,7 @@ The main objectives of Rel8 are:
    :caption: Contents:
 
    tutorial
+   cookbook
 
 
 More Resources
