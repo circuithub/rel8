@@ -47,6 +47,7 @@ import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning )
 import Rel8.Table ( Table(..) )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Tag ( Tag(..), fromExpr )
 import Rel8.Type ( DBType )
 
 
@@ -134,14 +135,18 @@ instance Labelable Insert where
 
 
 instance Nullifiable Insert where
-  encodeTag = RequiredInsert
-  decodeTag (RequiredInsert a) = a
+  encodeTag = RequiredInsert . expr
+  decodeTag (RequiredInsert a) = fromExpr a
 
-  nullifier tag SSpec {nullability} = \case
-    RequiredInsert a -> RequiredInsert $ runTag nullability tag a
-    OptionalInsert ma -> OptionalInsert $ runTag nullability tag <$> ma
+  nullifier Tag {expr} test SSpec {nullability} = \case
+    RequiredInsert a ->
+      RequiredInsert $ runTag nullability condition a
+    OptionalInsert ma ->
+      OptionalInsert $ runTag nullability condition <$> ma
+    where
+      condition = test expr
 
-  unnullifier _ SSpec {nullability} = \case
+  unnullifier SSpec {nullability} = \case
     RequiredInsert a -> RequiredInsert $ unnull nullability a
     OptionalInsert ma -> OptionalInsert $ unnull nullability <$> ma
 
@@ -149,7 +154,6 @@ instance Nullifiable Insert where
   {-# INLINABLE decodeTag #-}
   {-# INLINABLE nullifier #-}
   {-# INLINABLE unnullifier #-}
-
 
 
 -- | @Inserts a b@ means that the columns in @a@ are compatible for inserting

@@ -25,9 +25,6 @@ import Rel8.Table.Opaleye ( distinctspec, unpackspec )
 
 -- | Select all distinct rows from a query, removing duplicates.  @distinct q@
 -- is equivalent to the SQL statement @SELECT DISTINCT q@.
---
--- >>> select c $ distinct $ values [ lit True, lit True, lit False ]
--- [False,True]
 distinct :: EqTable a => Query a -> Query a
 distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
 

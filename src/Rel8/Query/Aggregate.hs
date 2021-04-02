@@ -29,5 +29,8 @@ aggregate :: Query (Aggregate exprs) -> Query exprs
 aggregate = mapOpaleye (Opaleye.aggregate aggregator)
 
 
+-- | Count the number of rows returned by a query. Note that this is different
+-- from @countStar@, as even if the given query yields no rows, @countRows@
+-- will return @0@.
 countRows :: Query a -> Query (Expr Int64)
 countRows = fmap (maybeTable 0 id) . optional . aggregate . fmap (const countStar)

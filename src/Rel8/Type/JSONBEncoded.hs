@@ -19,7 +19,7 @@ import Rel8.Type.Information ( TypeInformation(..) )
 import Data.Text ( pack )
 
 
--- | Like 'JSONEncoded', but works for @jsonb@ columns.
+-- | Like 'Rel8.JSONEncoded', but works for @jsonb@ columns.
 newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
 
 
@@ -28,5 +28,4 @@ instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
     { encode = encode typeInformation . toJSON . fromJSONBEncoded
     , decode = Hasql.refine (first pack . fmap JSONBEncoded . parseEither parseJSON) Hasql.jsonb
     , typeName = "jsonb"
-    , out = id
     }

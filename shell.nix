@@ -6,7 +6,7 @@ let
 in
   hsPkgs.shellFor {
     withHoogle = true;
-    tools = { cabal = "3.2.0.0"; haskell-language-server = "latest"; };
+    tools = { cabal = "latest"; };
     exactDeps = false;
-    buildInputs = [ unstable.postgresql_13 ];
+    buildInputs = [ unstable.postgresql_13 pkgs.pythonPackages.sphinx ];
   }

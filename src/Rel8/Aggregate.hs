@@ -12,7 +12,7 @@
 {-# language UndecidableSuperClasses #-}
 
 module Rel8.Aggregate
-  ( Aggregate(..)
+  ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
   , Col( Aggregation )
@@ -20,12 +20,9 @@ module Rel8.Aggregate
 where
 
 -- base
-import Control.Applicative ( empty )
-import Data.Foldable ( fold )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Data.Monoid ( First( First ), getFirst )
 import Prelude
 
 -- opaleye
@@ -35,14 +32,9 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
-  , runTag, unnull
-  )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Nullability ( Sql )
@@ -56,7 +48,7 @@ import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
--- unpack an @Aggregate@ back to @a@ by running it with 'aggregate'. As
+-- unpack an @Aggregate@ back to @a@ by running it with 'Rel8.aggregate'. As
 -- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
 -- operation. This means 'Aggregate' is an instance of 'Apply', and you can
 -- combine @Aggregate@s using the @<.>@ combinator.
@@ -115,30 +107,6 @@ instance Sql DBType a =>
 instance Labelable Aggregate where
   labeler (Aggregation aggregate) = Aggregation aggregate
   unlabeler (Aggregation aggregate) = Aggregation aggregate
-
-
-instance Nullifiable Aggregate where
-  encodeTag = Aggregation . groupByExpr
-    where
-      groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
-  decodeTag (Aggregation aggregate) = fold $ undoGroupBy aggregate
-    where
-      undoGroupBy = getFirst . foldInputs go
-        where
-          go Nothing = pure . fromPrimExpr
-          go _ = const $ First empty
-
-  nullifier tag SSpec {nullability} (Aggregation aggregate) = Aggregation $
-    mapInputs (toPrimExpr . runTag nullability tag . fromPrimExpr) $
-    runTag nullability tag <$> aggregate
-
-  unnullifier _ SSpec {nullability} (Aggregation aggregate) =
-    Aggregation $ unnull nullability <$> aggregate
-
-  {-# INLINABLE encodeTag #-}
-  {-# INLINABLE decodeTag #-}
-  {-# INLINABLE nullifier #-}
-  {-# INLINABLE unnullifier #-}
 
 
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's

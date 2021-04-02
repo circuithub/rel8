@@ -5,13 +5,15 @@ let
 
   nixpkgsArgs = haskellNix.nixpkgsArgs;
 
-  compiler-nix-name = "ghc8103";
+  compiler-nix-name = "ghc8104";
 
   pkgs = import nixpkgsSrc nixpkgsArgs;
 
 in 
 pkgs.haskell-nix.project {
   inherit compiler-nix-name;
+
+  cabalProjectLocal = builtins.readFile ./cabal.project.haskell-nix;
 
   src = pkgs.haskell-nix.haskellLib.cleanGit {
     name = "rel8";

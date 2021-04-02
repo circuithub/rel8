@@ -5,6 +5,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
@@ -18,6 +19,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
+  , aggregateTheseTable, nameTheseTable
   )
 where
 
@@ -28,6 +30,7 @@ import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
@@ -42,6 +45,7 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Maybe ( HMaybeNullifiable )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
+import Rel8.Schema.Name ( Name  )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Lifted
@@ -51,14 +55,16 @@ import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
+  , aggregateMaybeTable, nameMaybeTable
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Tag ( Tag(..) )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>) )
+import Data.Functor.Apply ( Apply, (<.>), liftF2 )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
@@ -67,7 +73,7 @@ data TheseTable a b = TheseTable
   { here :: MaybeTable a
   , there :: MaybeTable b
   }
-  deriving stock (Show, Functor)
+  deriving stock Functor
 
 
 instance Bifunctor TheseTable where
@@ -116,10 +122,12 @@ instance Table2 TheseTable where
   type ConstrainHContext2 TheseTable = HMaybeNullifiable
 
   toColumns2 f g TheseTable {here, there} = HTheseTable
-    { hhereTag = HIdentity $ hencodeTag (tag here)
-    , hhere = hnullify (hnullifier (isNonNull (tag here))) $ f (just here)
-    , hthereTag = HIdentity $ hencodeTag (tag there)
-    , hthere = hnullify (hnullifier (isNonNull (tag there))) $ g (just there)
+    { hhereTag = HIdentity $ hencodeTag (toHereTag (tag here))
+    , hhere =
+        hnullify (hnullifier (tag here) isNonNull) $ f (just here)
+    , hthereTag = HIdentity $ hencodeTag (toThereTag (tag there))
+    , hthere =
+        hnullify (hnullifier (tag there) isNonNull) $ g (just there)
     }
 
   fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} =
@@ -132,7 +140,7 @@ instance Table2 TheseTable where
               { tag
               , just = f $
                   runIdentity $
-                  hunnullify (\a -> pure . hunnullifier (isNonNull tag) a)
+                  hunnullify (\a -> pure . hunnullifier a)
                   hhere
               }
       , there =
@@ -143,7 +151,7 @@ instance Table2 TheseTable where
               { tag
               , just = g $
                   runIdentity $
-                  hunnullify (\a -> pure . hunnullifier (isNonNull tag) a)
+                  hunnullify (\a -> pure . hunnullifier a)
                   hthere
               }
       }
@@ -190,6 +198,14 @@ instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
   ordTable =
     toColumns2 (hlabel hlabeler) (hlabel hlabeler)
       (thoseTable (ordTable @a) (ordTable @b))
+
+
+toHereTag :: Tag "isJust" a -> Tag "hasHere" a
+toHereTag Tag {..} = Tag {..}
+
+
+toThereTag :: Tag "isJust" a -> Tag "hasThere" a
+toThereTag Tag {..} = Tag {..}
 
 
 isThisTable :: TheseTable a b -> Expr Bool
@@ -239,3 +255,25 @@ theseTable f g h TheseTable {here, there} =
     (maybeTable undefined f here)
     (\b -> maybeTable (g b) (`h` b) here)
     there
+
+
+aggregateTheseTable :: ()
+  => (a -> Aggregate c)
+  -> (b -> Aggregate d)
+  -> TheseTable a b
+  -> Aggregate (TheseTable c d)
+aggregateTheseTable f g TheseTable {here, there} =
+  liftF2 TheseTable (aggregateMaybeTable f here) (aggregateMaybeTable g there)
+
+
+nameTheseTable :: ()
+  => Name (Maybe MaybeTag)
+  -> Name (Maybe MaybeTag)
+  -> a
+  -> b
+  -> TheseTable a b
+nameTheseTable here there a b =
+  TheseTable
+    { here = nameMaybeTable here a
+    , there = nameMaybeTable there b
+    }

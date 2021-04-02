@@ -61,26 +61,6 @@ data Update a where
 
 
 -- | Run an @UPDATE@ statement.
---
--- >>> mapM_ print =<< select c (each projectSchema)
--- Project {projectAuthorId = 1, projectName = "rel8"}
--- Project {projectAuthorId = 2, projectName = "aeson"}
--- Project {projectAuthorId = 2, projectName = "text"}
---
--- >>> :{
--- update c Update
---   { target = projectSchema
---   , set = \p -> p { projectName = "Rel8!" }
---   , updateWhere = \p -> projectName p ==. lit "rel8"
---   , returning = NumberOfRowsAffected
---   }
--- :}
--- 1
---
--- >>> mapM_ print =<< select c (each projectSchema)
--- Project {projectAuthorId = 2, projectName = "aeson"}
--- Project {projectAuthorId = 2, projectName = "text"}
--- Project {projectAuthorId = 1, projectName = "Rel8!"}
 update :: Connection -> Update a -> IO a
 update c Update {target, set, updateWhere, returning} =
   case returning of

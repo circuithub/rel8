@@ -32,68 +32,28 @@ true = litExpr True
 
 
 -- | The SQL @AND@ operator.
---
--- >>> :{
--- mapM_ print =<< select c do
---   x <- values [lit True, lit False]
---   y <- values [lit True, lit False]
---   return (x, y, x &&. y)
--- :}
--- (True,True,True)
--- (True,False,False)
--- (False,True,False)
--- (False,False,False)
 (&&.) :: Expr Bool -> Expr Bool -> Expr Bool
 (&&.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpAnd)
 infixr 3 &&.
 
 
 -- | The SQL @OR@ operator.
---
--- >>> :{
--- mapM_ print =<< select c do
---   x <- values [lit True, lit False]
---   y <- values [lit True, lit False]
---   return (x, y, x ||. y)
--- :}
--- (True,True,True)
--- (True,False,True)
--- (False,True,True)
--- (False,False,False)
 (||.) :: Expr Bool -> Expr Bool -> Expr Bool
 (||.) = zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpOr)
 infixr 2 ||.
 
 
 -- | The SQL @NOT@ operator.
---
--- >>> select c $ pure $ not_ $ lit True
--- [False]
---
--- >>> select c $ pure $ not_ $ lit False
--- [True]
 not_ :: Expr Bool -> Expr Bool
 not_ = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNot)
 
 
 -- | Fold @AND@ over a collection of expressions.
---  
--- >>> select c $ pure $ and_ [ lit True ==. lit False, lit False, lit True ]
--- [False]
---  
--- >>> select c $ pure $ and_ []
--- [True]
 and_ :: Foldable f => f (Expr Bool) -> Expr Bool
 and_ = foldl' (&&.) true
 
 
 -- | Fold @OR@ over a collection of expressions.
--- 
--- >>> select c $ pure $ or_ [ lit True ==. lit False, lit False, lit True ]
--- [True]
---  
--- >>> select c $ pure $ or_ []
--- [False]
 or_ :: Foldable f => f (Expr Bool) -> Expr Bool
 or_ = foldl' (||.) false
 
@@ -118,6 +78,10 @@ caseExpr branches (Expr fallback) =
     go (Expr condition, Expr value) = (condition, value)
 
 
+-- | Convert a @Expr (Maybe Bool)@ to a @Expr Bool@ by treating @Nothing@ as
+-- @False@. This can be useful when combined with 'Rel8.where_', which expects
+-- a @Bool@, and produces expressions that optimize better than general case
+-- analysis.
 coalesce :: Expr (Maybe Bool) -> Expr Bool
 coalesce (Expr a) = Expr a &&. Expr (Opaleye.FunExpr "COALESCE" [a, untrue])
   where

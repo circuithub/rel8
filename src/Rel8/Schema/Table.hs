@@ -15,20 +15,7 @@ import Prelude
 -- the columns within this table.
 -- 
 -- For each selectable table in your database, you should provide a
--- @TableSchema@ in order to interact with the table via Rel8. For a table
--- storing a list of projects (as defined in the introduction):
--- 
--- >>> :{
--- projectSchema :: TableSchema (Project ColumnSchema)
--- projectSchema = TableSchema
---   { tableName = "project"
---   , tableSchema = Nothing -- Assumes that the 'project' table is reachable from your connection's search_path
---   , tableColumns = Project 
---       { projectAuthorId = "author_id"
---       , projectName = "name"
---       }
---   }
--- :}
+-- @TableSchema@ in order to interact with the table via Rel8.
 data TableSchema names = TableSchema
   { name :: String
     -- ^ The name of the table.

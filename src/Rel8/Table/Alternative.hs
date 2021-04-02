@@ -20,8 +20,8 @@ import Rel8.Table ( Table )
 -- | Like 'Alt' in Haskell. This class is purely a Rel8 concept, and allows you
 -- to take a choice between two tables. See also 'AlternativeTable'.
 --
--- For example, using '<|>:' on 'MaybeTable' allows you to combine two tables
--- and to return the first one that is a "just" MaybeTable.
+-- For example, using '<|>:' on 'Rel8.MaybeTable' allows you to combine two
+-- tables and to return the first one that is a "just" MaybeTable.
 type AltTable :: (Type -> Type) -> Constraint
 class AltTable f where
   -- | An associative binary operation on 'Table's.

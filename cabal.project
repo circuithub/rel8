@@ -1,1 +1,6 @@
 packages: .
+
+allow-newer: generic-monoid:base
+allow-newer: cryptohash-sha1:base
+allow-newer: cryptohash-md5:base
+allow-newer: entropy:Cabal

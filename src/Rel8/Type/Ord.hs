@@ -37,8 +37,8 @@ import qualified Data.Text.Lazy as Lazy ( Text )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( DiffTime, NominalDiffTime, UTCTime )
-import Data.Time.LocalTime ( TimeOfDay, LocalTime )
+import Data.Time.Clock ( UTCTime )
+import Data.Time.LocalTime ( CalendarDiffTime, LocalTime, TimeOfDay )
 
 -- uuid
 import Data.UUID ( UUID )
@@ -60,8 +60,7 @@ instance DBOrd UTCTime
 instance DBOrd Day
 instance DBOrd LocalTime
 instance DBOrd TimeOfDay
-instance DBOrd DiffTime
-instance DBOrd NominalDiffTime
+instance DBOrd CalendarDiffTime
 instance DBOrd Text
 instance DBOrd Lazy.Text
 instance DBOrd (CI Text)
@@ -93,8 +92,7 @@ instance DBMax UTCTime
 instance DBMax Day
 instance DBMax LocalTime
 instance DBMax TimeOfDay
-instance DBMax DiffTime
-instance DBMax NominalDiffTime
+instance DBMax CalendarDiffTime
 instance DBMax Text
 instance DBMax Lazy.Text
 instance DBMax (CI Text)
@@ -124,8 +122,7 @@ instance DBMin UTCTime
 instance DBMin Day
 instance DBMin LocalTime
 instance DBMin TimeOfDay
-instance DBMin DiffTime
-instance DBMin NominalDiffTime
+instance DBMin CalendarDiffTime
 instance DBMin Text
 instance DBMin Lazy.Text
 instance DBMin (CI Text)

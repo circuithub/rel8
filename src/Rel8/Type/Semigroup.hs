@@ -39,11 +39,11 @@ import Data.Text ( Text )
 import qualified Data.Text.Lazy as Lazy ( Text )
 
 -- time
-import Data.Time.Clock ( DiffTime, NominalDiffTime )
+import Data.Time.LocalTime ( CalendarDiffTime )
 
 
--- | The class of 'DBType's that form a semigroup. This class is purely a Rel8
--- concept, and exists to mirror the 'Semigroup' class.
+-- | The class of 'Rel8.DBType's that form a semigroup. This class is purely a
+-- Rel8 concept, and exists to mirror the 'Semigroup' class.
 type DBSemigroup :: Type -> Constraint
 class DBType a => DBSemigroup a where
   -- | An associative operation.
@@ -59,11 +59,7 @@ instance Sql DBType a => DBSemigroup (NonEmpty a) where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-instance DBSemigroup DiffTime where
-  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
-
-
-instance DBSemigroup NominalDiffTime where
+instance DBSemigroup CalendarDiffTime where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
 
 

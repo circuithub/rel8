@@ -28,23 +28,19 @@ import qualified Data.Text as Text
 -- from database queries. The @typeName@ is the name of the type in the
 -- database, which is used to accurately type literals. 
 type TypeInformation :: Type -> Type
-data TypeInformation a where
-  TypeInformation ::
-    { encode :: a -> Opaleye.PrimExpr
-      -- ^ How to encode a single Haskell value as a SQL expression.
-    , decode :: Hasql.Value x
-      -- ^ How to deserialize a single result back to Haskell.
-    , typeName :: String
-      -- ^ The name of the SQL type.
-    , out :: x -> a
-      -- ^ A final output function - usually this will just be 'id'. This is
-      -- needed to allow @TypeInformation@s to be coerced.
-    } -> TypeInformation a
+data TypeInformation a = TypeInformation
+  { encode :: a -> Opaleye.PrimExpr
+    -- ^ How to encode a single Haskell value as a SQL expression.
+  , decode :: Hasql.Value a
+    -- ^ How to deserialize a single result back to Haskell.
+  , typeName :: String
+    -- ^ The name of the SQL type.
+  }
 
 
 -- | Simultaneously map over how a type is both encoded and decoded, while
 -- retaining the name of the type. This operation is useful if you want to
--- essentially @newtype@ another 'DBType'.
+-- essentially @newtype@ another 'Rel8.DBType'.
 -- 
 -- The mapping is required to be total. If you have a partial mapping, see
 -- 'parseTypeInformation'.
@@ -60,31 +56,12 @@ mapTypeInformation = parseTypeInformation . fmap pure
 -- a given 'TypeInformation'. The parser is applied when deserializing rows
 -- returned - the encoder assumes that the input data is already in the
 -- appropriate form.
--- 
--- One example where this may be useful is with a database that stores data in
--- some legacy encoding:
--- 
--- >>> import Data.Text (Text)
--- 
--- >>> data Color = Red | Green | Blue
--- >>> :{
--- instance DBType Color where
---   typeInformation = parseTypeInformation parseLegacy toLegacy typeInformation
---     where
---       parseLegacy :: Text -> Either String Color
---       parseLegacy "red"   = Right Red
---       parseLegacy "green" = Right Green
---       parseLegacy _       = Left "Unexpected Color"
---       toLegacy Red   = "red"
---       toLegacy Green = "green"
--- :}
 parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
-parseTypeInformation to from TypeInformation {encode, decode, typeName, out} =
+parseTypeInformation to from TypeInformation {encode, decode, typeName} =
   TypeInformation
     { encode = encode . from
-    , decode = Hasql.refine (first Text.pack . to) (out <$> decode)
+    , decode = Hasql.refine (first Text.pack . to) decode
     , typeName
-    , out = id
     }

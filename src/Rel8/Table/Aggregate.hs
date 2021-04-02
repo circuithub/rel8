@@ -9,8 +9,6 @@ module Rel8.Table.Aggregate
   ( groupBy
   , listAgg
   , nonEmptyAgg
-  , sequenceAggregate
-  , distributeAggregate
   )
 where
 
@@ -19,7 +17,7 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
+import Rel8.Aggregate ( Aggregate, Col(..) )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -69,11 +67,3 @@ nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
     (pure exprs)
-
-
-sequenceAggregate :: Aggregates aggregates exprs => aggregates -> Aggregate exprs
-sequenceAggregate = fromColumns . toColumns
-
-
-distributeAggregate :: Aggregates aggregates exprs => Aggregate exprs -> aggregates
-distributeAggregate = fromColumns . toColumns

@@ -40,12 +40,6 @@ unsafeUnnullify (Expr a) = Expr a
 
 
 -- | Like 'maybe', but to eliminate @null@.
---
--- >>> select c $ pure $ null 0 id (nullExpr :: Expr (Maybe Int32))
--- [0]
---
--- >>> select c $ pure $ null 0 id (lit (Just 42) :: Expr (Maybe Int32))
--- [42]
 nullable :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
 nullable b f ma = boolExpr (f (unsafeUnnullify ma)) b (isNull ma)
 
@@ -54,18 +48,12 @@ nullableOf :: DBType a => Maybe (Expr a) -> Expr (Maybe a)
 nullableOf = maybe null nullify
 
 
--- | Like 'isNothing', but for @null@.
---
--- >>> select c $ pure $ isNull (nullExpr :: Expr (Maybe Int32))
--- [True]
---
--- >>> select c $ pure $ isNull (lit (Just 42) :: Expr (Maybe Int32))
--- [False]
+-- | Like 'Data.Maybe.isNothing', but for @null@.
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
--- | Like 'isJust', but for @null@.
+-- | Like 'Data.Maybe.isJust', but for @null@.
 isNonNull :: Expr (Maybe a) -> Expr Bool
 isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 

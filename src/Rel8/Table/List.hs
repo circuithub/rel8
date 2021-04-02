@@ -39,7 +39,7 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
--- @ListTable@s with 'many' or 'listAgg'.
+-- @ListTable@s with 'Rel8.many' or 'Rel8.listAgg'.
 type ListTable :: Type -> Type
 newtype ListTable a = ListTable (HListTable (Columns a) (Col (Context a)))
 

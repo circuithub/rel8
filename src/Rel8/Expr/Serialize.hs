@@ -30,6 +30,10 @@ import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
+-- | Produce an expression from a literal.
+--
+-- Note that you can usually use 'Rel8.lit', but @litExpr@ can solve problems
+-- of inference in polymorphic code.
 litExpr :: Sql DBType a => a -> Expr a
 litExpr = slitExpr nullabilization typeInformation
 
@@ -44,6 +48,6 @@ slitExpr nullability info@TypeInformation {encode} =
 
 
 sparseValue :: Nullability a -> TypeInformation (Unnullify a) -> Hasql.Row a
-sparseValue nullability TypeInformation {decode, out} = case nullability of
-  Nullable -> Hasql.column $ Hasql.nullable $ out <$> decode
-  NonNullable -> Hasql.column $ Hasql.nonNullable $ out <$> decode
+sparseValue nullability TypeInformation {decode} = case nullability of
+  Nullable -> Hasql.column $ Hasql.nullable decode
+  NonNullable -> Hasql.column $ Hasql.nonNullable decode

@@ -39,11 +39,11 @@ import Data.Text ( Text )
 import qualified Data.Text.Lazy as Lazy ( Text )
 
 -- time
-import Data.Time.Clock ( DiffTime, NominalDiffTime )
+import Data.Time.LocalTime ( CalendarDiffTime( CalendarDiffTime ) )
 
 
--- | The class of 'DBType's that form a semigroup. This class is purely a Rel8
--- concept, and exists to mirror the 'Monoid' class.
+-- | The class of 'Rel8.DBType's that form a semigroup. This class is purely a
+-- Rel8 concept, and exists to mirror the 'Monoid' class.
 type DBMonoid :: Type -> Constraint
 class DBSemigroup a => DBMonoid a where
   -- The identity for '<>.'
@@ -54,12 +54,8 @@ instance Sql DBType a => DBMonoid [a] where
   memptyExpr = sempty nullabilization typeInformation
 
 
-instance DBMonoid DiffTime where
-  memptyExpr = litExpr 0
-
-
-instance DBMonoid NominalDiffTime where
-  memptyExpr = litExpr 0
+instance DBMonoid CalendarDiffTime where
+  memptyExpr = litExpr (CalendarDiffTime 0 0)
 
 
 instance DBMonoid Text where

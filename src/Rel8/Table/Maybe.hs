@@ -16,6 +16,8 @@ module Rel8.Table.Maybe
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
   , ($?)
+  , aggregateMaybeTable
+  , nameMaybeTable
   )
 where
 
@@ -25,10 +27,11 @@ import Data.Kind ( Type )
 import Prelude hiding ( null, repeat, undefined, zipWith )
 
 -- rel8
+import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
@@ -39,6 +42,7 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..), HMaybeNullifiable )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Nullability
   ( Nullify
   , Nullability( Nullable, NonNullable )
@@ -56,12 +60,13 @@ import Rel8.Table.Lifted
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
-import Rel8.Type.Tag ( MaybeTag( IsJust ) )
+import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>) )
+import Data.Functor.Apply ( Apply, (<.>), liftF2 )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
@@ -75,10 +80,10 @@ import Data.Functor.Bind ( Bind, (>>-) )
 -- a "nullTag" - to track whether or not the outer join produced any rows.
 type MaybeTable :: Type -> Type
 data MaybeTable a = MaybeTable
-  { tag :: Expr (Maybe MaybeTag)
+  { tag :: Tag "isJust" (Maybe MaybeTag)
   , just :: a
   }
-  deriving stock (Show, Functor)
+  deriving stock Functor
 
 
 instance Apply MaybeTable where
@@ -86,7 +91,7 @@ instance Apply MaybeTable where
 
 
 -- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
--- 'traverseMaybeTable'.
+-- 'Rel8.traverseMaybeTable'.
 instance Applicative MaybeTable where
   (<*>) = (<.>)
   pure = justTable
@@ -98,14 +103,16 @@ instance Bind MaybeTable where
 
 
 -- | Has the same behavior as the @Monad@ instance for @Maybe@. See also:
--- 'bindMaybeTable'.
+-- 'Rel8.bindMaybeTable'.
 instance Monad MaybeTable where
   (>>=) = (>>-)
 
 
 instance AltTable MaybeTable where
   ma@(MaybeTable tag a) <|>: MaybeTable tag' b = MaybeTable
-    { tag = boolExpr tag tag' condition
+    { tag = (tag <> tag')
+        { expr = boolExpr (expr tag) (expr tag') condition
+        }
     , just = bool a b condition
     }
     where
@@ -130,7 +137,7 @@ instance Table1 MaybeTable where
 
   toColumns1 f MaybeTable {tag, just} = HMaybeTable
     { htag
-    , hjust = hnullify (hnullifier (isNonNull tag)) $ f just
+    , hjust = hnullify (hnullifier tag isNonNull) $ f just
     }
     where
       htag = HIdentity (hencodeTag tag)
@@ -138,7 +145,7 @@ instance Table1 MaybeTable where
   fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
     { tag
     , just = f $ runIdentity $
-        hunnullify (\a -> pure . hunnullifier (isNonNull tag) a) hjust
+        hunnullify (\a -> pure . hunnullifier a) hjust
     }
     where
       tag = hdecodeTag htag
@@ -175,38 +182,36 @@ instance OrdTable a => OrdTable (MaybeTable a) where
   ordTable = toColumns1 (hlabel hlabeler) (justTable (ordTable @a))
 
 
--- | Check if a @MaybeTable@ is absent of any row.. Like 'isNothing'.
+-- | Check if a @MaybeTable@ is absent of any row. Like 'Data.Maybe.isNothing'.
 isNothingTable :: MaybeTable a -> Expr Bool
-isNothingTable (MaybeTable tag _) = isNull tag
+isNothingTable (MaybeTable tag _) = isNull (expr tag)
 
 
--- | Check if a @MaybeTable@ contains a row. Like 'isJust'.
+-- | Check if a @MaybeTable@ contains a row. Like 'Data.Maybe.isJust'.
 isJustTable :: MaybeTable a -> Expr Bool
-isJustTable (MaybeTable tag _) = isNonNull tag
+isJustTable (MaybeTable tag _) = isNonNull (expr tag)
 
 
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
 maybeTable :: Table Expr b => b -> (a -> b) -> MaybeTable a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
+{-# INLINABLE maybeTable #-}
 
 
 -- | The null table. Like 'Nothing'.
 nothingTable :: Table Expr a => MaybeTable a
-nothingTable = MaybeTable null undefined
+nothingTable = MaybeTable (fromExpr null) undefined
 
 
 -- | Lift any table into 'MaybeTable'. Like 'Just'. Note you can also use
 -- 'pure'.
 justTable :: a -> MaybeTable a
-justTable = MaybeTable (nullify (litExpr IsJust))
+justTable = MaybeTable (fromExpr mempty)
 
 
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
 -- operator like the '$' operator, but it also has the ability to return
 -- @null@.
---
--- >>> select c $ fmap (fst $?) (optional (values [lit (True, False)]))
--- [Just True]
 ($?) :: forall a b. Sql DBType b
   => (a -> Expr b) -> MaybeTable a -> Expr (Nullify b)
 f $? ma@(MaybeTable _ a) = case nullabilization @b of
@@ -214,3 +219,14 @@ f $? ma@(MaybeTable _ a) = case nullabilization @b of
   NonNullable -> boolExpr (nullify (f a)) null (isNothingTable ma)
 infixl 4 $?
 
+
+aggregateMaybeTable :: ()
+  => (a -> Aggregate b) -> MaybeTable a -> Aggregate (MaybeTable b)
+aggregateMaybeTable f MaybeTable {tag = tag@Tag {aggregator, expr}, just} =
+  liftF2 MaybeTable (tag <$ aggregate) (f just)
+  where
+    aggregate = unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
+
+
+nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a
+nameMaybeTable = MaybeTable . fromName

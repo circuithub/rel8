@@ -39,8 +39,8 @@ import qualified Data.Text.Lazy as Lazy ( Text )
 
 -- time
 import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime, DiffTime, NominalDiffTime )
-import Data.Time.LocalTime ( TimeOfDay, LocalTime )
+import Data.Time.Clock ( UTCTime )
+import Data.Time.LocalTime ( CalendarDiffTime, LocalTime, TimeOfDay )
 
 -- uuid
 import Data.UUID ( UUID )
@@ -49,36 +49,6 @@ import Data.UUID ( UUID )
 -- | Database types that can be compared for equality in queries. If a type is
 -- an instance of 'DBEq', it means we can compare expressions for equality
 -- using the SQL @=@ operator.
--- 
--- [ @DBEq@ with @newtype@s ]
--- 
--- Like with 'Rel8.DBType', @DBEq@ plays well with generalized newtype
--- deriving.  The example given for @DBType@ added a @UserId@ @newtype@, but
--- without a @DBEq@ instance won't actually be able to use that in joins or
--- where-clauses, because it lacks equality. We can add this by changing our
--- @newtype@ definition to:
--- 
--- >>> newtype UserId = UserId { toInt32 :: Int32 } deriving newtype (DBType, DBEq)
--- 
--- This will re-use the equality logic for @Int32@, which is to just use the
--- @=@ operator.
--- 
--- [ @DBEq@ with @DeriveAnyType@ ]
--- 
--- You can also use @DBEq@ with the @DeriveAnyType@ extension to easily add
--- equality to your type, assuming that @=@ is sufficient on @DBType@ encoded
--- values. Extending the example from 'Rel8.ReadShow''s 'Rel8.DBType' instance,
--- we could add equality to @Color@ by writing:
--- 
--- >>> :{
--- data Color = Red | Green | Blue | Purple | Gold
---   deriving (Generic, Show, Read, DBEq)
---   deriving DBType via ReadShow Color
--- :}
--- 
--- This means @Color@s will be treated as the literal strings @"Red"@,
--- @"Green"@, etc, in the database, and they can be compared for equality by
--- just using @=@.
 type DBEq :: Type -> Constraint
 class DBType a => DBEq a
 
@@ -95,8 +65,7 @@ instance DBEq UTCTime
 instance DBEq Day
 instance DBEq LocalTime
 instance DBEq TimeOfDay
-instance DBEq DiffTime
-instance DBEq NominalDiffTime
+instance DBEq CalendarDiffTime
 instance DBEq Text
 instance DBEq Lazy.Text
 instance DBEq (CI Text)

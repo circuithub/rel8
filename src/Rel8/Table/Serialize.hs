@@ -279,6 +279,8 @@ instance (ToExprs a exprs, a ~ FromExprs exprs) => Serializable exprs a
 instance {-# OVERLAPPING #-} Sql DBType a => Serializable (Expr a) a
 
 
+-- | Use @lit@ to turn literal Haskell values into expressions. @lit@ is
+-- capable of lifting single @Expr@s to full tables.
 lit :: forall exprs a. Serializable exprs a => a -> exprs
 lit = fromColumns . litHTable . toIdentity' @exprs
 

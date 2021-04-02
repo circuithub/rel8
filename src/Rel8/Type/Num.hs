@@ -40,6 +40,9 @@ instance {-# INCOHERENT #-} (HasNullability a, DBNum (Unnullify a)) =>
   Sql DBNum a
 
 
+-- | The class of database types that can be coerced to from integral
+-- expressions. This is a Rel8 concept, and allows us to provide
+-- 'fromIntegral'.
 type DBIntegral :: Type -> Constraint
 class DBNum a => DBIntegral a
 instance DBIntegral Int16

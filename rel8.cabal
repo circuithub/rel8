@@ -6,18 +6,12 @@ license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
-build-type:          Custom
-
-custom-setup
- setup-depends:
-   base >= 4 && <5,
-   Cabal,
-   cabal-doctest >= 1 && <1.1
+build-type:          Simple
 
 library
   build-depends:
       aeson
-    , base ^>=4.12 || ^>= 4.13 || ^>= 4.14
+    , base ^>= 4.14 || ^>=4.15
     , bytestring
     , case-insensitive
     , casing
@@ -47,6 +41,9 @@ library
     Rel8.Expr.Text
     Rel8.Expr.Time
     Rel8.Tabulate
+
+    -- deprecated
+    Rel8.Aggregate.Legacy
 
   other-modules:
     Rel8.Aggregate
@@ -147,6 +144,7 @@ library
     Rel8.Table.Order
     Rel8.Table.Recontextualize
     Rel8.Table.Serialize
+    Rel8.Table.Tag
     Rel8.Table.These
     Rel8.Table.Undefined
 
@@ -198,21 +196,6 @@ test-suite tests
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
-  buildable: False
-
-test-suite doctests
-  type:             exitcode-stdio-1.0
-  build-depends:
-      base
-    , base-compat
-    , bytestring
-    , doctest
-    , hasql
-    , tmp-postgres
-
-  main-is:          Doctest.hs
-  default-language: Haskell2010
-  buildable: False
 
 test-suite random-queries
   type:             exitcode-stdio-1.0
