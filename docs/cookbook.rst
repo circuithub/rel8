@@ -161,7 +161,7 @@ In Rel8, we can write this query as::
       limit 3 $ 
       orderBy (commentCreatedAt >$< desc) do
         comment <- each commentSchema
-        where (commentPostId comment ==. postId post)
+        where_ (commentPostId comment ==. postId post)
 
     return (post, tags, latestComments)
 
