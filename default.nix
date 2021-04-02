@@ -13,6 +13,8 @@ in
 pkgs.haskell-nix.project {
   inherit compiler-nix-name;
 
+  cabalProjectLocal = builtins.readFile ./cabal.project.haskell-nix;
+
   src = pkgs.haskell-nix.haskellLib.cleanGit {
     name = "rel8";
     src = ./.;
