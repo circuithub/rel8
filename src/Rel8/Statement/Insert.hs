@@ -39,16 +39,6 @@ import Data.Text.Encoding ( encodeUtf8 )
 
 
 -- | Run an @INSERT@ statement
---
--- >>> :{
--- insert c Insert
---   { into = authorSchema
---   , rows = [ lit Author{ authorName = "Gabriel Gonzales", authorId = AuthorId 4, authorUrl = Just "https://haskellforall.com" } ]
---   , onConflict = Abort
---   , returning = NumberOfRowsAffected
---   }
--- :}
--- 1
 insert :: Connection -> Insert a -> IO a
 insert c Insert {into, rows, onConflict, returning} =
   case (rows, returning) of

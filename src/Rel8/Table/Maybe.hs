@@ -212,9 +212,6 @@ justTable = MaybeTable (fromExpr mempty)
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
 -- operator like the '$' operator, but it also has the ability to return
 -- @null@.
---
--- >>> select c $ fmap (fst $?) (optional (values [lit (True, False)]))
--- [Just True]
 ($?) :: forall a b. Sql DBType b
   => (a -> Expr b) -> MaybeTable a -> Expr (Nullify b)
 f $? ma@(MaybeTable _ a) = case nullabilization @b of

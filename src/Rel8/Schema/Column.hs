@@ -80,32 +80,6 @@ type family UnwrapDefault a where
 -- data types are single columns in queries. This type family has special
 -- support when a query is executed, allowing you to use a single data type for
 -- both query data and rows decoded to Haskell.
--- 
--- To understand why this type family is special, let's consider a simple
--- higher-kinded data type of Haskell packages:
--- 
--- >>> :{
--- data Package f = Package
---   { packageName   :: Column f Text
---   , packageAuthor :: Column f Text
---   }
--- :}
--- 
--- In queries, @f@ will be some type of 'Expr', and @Column Expr a@ reduces to
--- just @Expr a@:
--- 
--- >>> :t packageName (undefined :: Package Expr)
--- packageName (undefined :: Package Expr) :: Expr Text
--- 
--- When we 'select' queries of this type, @f@ will be instantiated as
--- @Identity@, at which point all wrapping entire disappears:
--- 
--- >>> :t packageName (undefined :: Package Identity)
--- packageName (undefined :: Package Identity) :: Text
--- 
--- In @rel8@ we try hard to always know what @f@ is, which means holes should
--- mention precise types, rather than the @Column@ type family. You should only
--- need to be aware of the type family when defining your table types.
 type Column :: K.Context -> Type -> Type
 type Column context a =
   Field context (GetLabel a)

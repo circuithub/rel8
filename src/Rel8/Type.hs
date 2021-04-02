@@ -79,18 +79,6 @@ import qualified Data.UUID as UUID
 -- should only need to derive instances of this class for custom database
 -- types, such as types defined in PostgreSQL extensions, or custom domain
 -- types.
--- 
--- [ Creating @DBType@s using @newtype@ ]
--- 
--- Generalized newtype deriving can be used when you want use a @newtype@
--- around a database type for clarity and accuracy in your Haskell code. A
--- common example is to @newtype@ row id types:
--- 
--- >>> newtype UserId = UserId { toInt32 :: Int32 } deriving newtype (DBType)
--- 
--- You can now write queries using @UserId@ instead of @Int32@, which may help
--- avoid making bad joins. However, when SQL is generated, it will be as if you
--- just used integers (the type distinction does not impact query generation).
 type DBType :: Type -> Constraint
 class NotNull a => DBType a where
   typeInformation :: TypeInformation a

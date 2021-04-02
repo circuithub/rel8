@@ -56,24 +56,6 @@ data Delete a where
 
 
 -- | Run a @DELETE@ statement.
---
--- >>> mapM_ print =<< select c (each projectSchema)
--- Project {projectAuthorId = 1, projectName = "rel8"}
--- Project {projectAuthorId = 2, projectName = "aeson"}
--- Project {projectAuthorId = 2, projectName = "text"}
---
--- >>> :{
--- delete c Delete
---   { from = projectSchema
---   , deleteWhere = \p -> projectName p ==. lit "rel8"
---   , returning = Projection projectName
---   }
--- :}
--- ["rel8"]
---
--- >>> mapM_ print =<< select c (each projectSchema)
--- Project {projectAuthorId = 2, projectName = "aeson"}
--- Project {projectAuthorId = 2, projectName = "text"}
 delete :: Connection -> Delete a -> IO a
 delete c Delete {from, deleteWhere, returning} =
   case returning of

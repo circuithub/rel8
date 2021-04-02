@@ -23,11 +23,5 @@ import Rel8.Table.Opaleye ( valuesspec )
 -- | Construct a query that returns the given input list of rows. This is like
 -- folding a list of 'return' statements under 'union', but uses the SQL
 -- @VALUES@ expression for efficiency.
---
--- Typically @values@ will be used with 'lit':
---
--- >>> mapM_ Data.Text.IO.putStrLn =<< select c (values [ lit "Hello", lit "World!" ])
--- Hello
--- World!
 values :: (Table Expr a, Foldable f) => f a -> Query a
 values = fromOpaleye . Opaleye.valuesExplicit valuesspec . toList

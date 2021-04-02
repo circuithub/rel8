@@ -56,24 +56,6 @@ mapTypeInformation = parseTypeInformation . fmap pure
 -- a given 'TypeInformation'. The parser is applied when deserializing rows
 -- returned - the encoder assumes that the input data is already in the
 -- appropriate form.
--- 
--- One example where this may be useful is with a database that stores data in
--- some legacy encoding:
--- 
--- >>> import Data.Text (Text)
--- 
--- >>> data Color = Red | Green | Blue
--- >>> :{
--- instance DBType Color where
---   typeInformation = parseTypeInformation parseLegacy toLegacy typeInformation
---     where
---       parseLegacy :: Text -> Either String Color
---       parseLegacy "red"   = Right Red
---       parseLegacy "green" = Right Green
---       parseLegacy _       = Left "Unexpected Color"
---       toLegacy Red   = "red"
---       toLegacy Green = "green"
--- :}
 parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b

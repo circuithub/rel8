@@ -74,12 +74,6 @@ infix 4 /=.
 --
 -- This corresponds to the SQL @=@ operator, though it will always return a
 -- 'Bool'.
---
--- >>> select c $ pure $ lit Nothing ==? lit True
--- False
---
--- >>> select c $ pure $ lit Nothing ==? lit Nothing
--- False
 (==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a ==? b = coalesce $ unsafeLiftOpNullable eq a b
 infix 4 ==?
@@ -89,12 +83,6 @@ infix 4 ==?
 --
 -- This corresponds to the SQL @<>@ operator, though it will always return a
 -- 'Bool'.
---
--- >>> select c $ pure $ lit Nothing /=? lit True
--- True
---
--- >>> select c $ pure $ lit Nothing /=? lit Nothing
--- False
 (/=?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a /=? b = coalesce $ unsafeLiftOpNullable ne a b
 infix 4 /=?
@@ -102,12 +90,6 @@ infix 4 /=?
 
 -- | Like the SQL @IN@ operator, but implemented by folding over a list with
 -- '==.' and '||.'.
---
--- >>> select c $ return $ lit (5 :: Int32) `in_` [ lit x | x <- [1..5] ]
--- [True]
---
--- >>> select c $ return $ lit (42 :: Int32) `in_` [ lit x | x <- [1..5] ]
--- [False]
 in_ :: forall a f. (Sql DBEq a, Foldable f)
   => Expr a -> f (Expr a) -> Expr Bool
 in_ a (toList -> as) = case nullabilization @a of
