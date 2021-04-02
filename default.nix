@@ -5,7 +5,7 @@ let
 
   nixpkgsArgs = haskellNix.nixpkgsArgs;
 
-  compiler-nix-name = "ghc8103";
+  compiler-nix-name = "ghc901";
 
   pkgs = import nixpkgsSrc nixpkgsArgs;
 
