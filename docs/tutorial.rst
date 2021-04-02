@@ -282,7 +282,7 @@ Our final query is then::
 Left Joins
 ~~~~~~~~~~
 
-Rel8 is also capable of performing ``LEFT JOIN``s. To perform ``LEFT JOIN``\s,
+Rel8 is also capable of performing ``LEFT JOIN``\s. To perform ``LEFT JOIN``\s,
 we follow the same approach as before, but use the ``optional`` query
 transformer to allow for the possibility of the join to fail.
 
