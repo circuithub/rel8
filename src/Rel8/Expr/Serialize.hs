@@ -32,8 +32,8 @@ import Rel8.Type.Information ( TypeInformation(..) )
 
 -- | Produce an expression from a literal.
 --
--- Note that you can usually use 'lit', but @litExpr@ can solve problems of
--- inference in polymorphic code.
+-- Note that you can usually use 'Rel8.lit', but @litExpr@ can solve problems
+-- of inference in polymorphic code.
 litExpr :: Sql DBType a => a -> Expr a
 litExpr = slitExpr nullabilization typeInformation
 

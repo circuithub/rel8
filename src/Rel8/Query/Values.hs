@@ -21,7 +21,7 @@ import Rel8.Table.Opaleye ( valuesspec )
 
 
 -- | Construct a query that returns the given input list of rows. This is like
--- folding a list of 'return' statements under 'union', but uses the SQL
+-- folding a list of 'return' statements under 'Rel8.union', but uses the SQL
 -- @VALUES@ expression for efficiency.
 values :: (Table Expr a, Foldable f) => f a -> Query a
 values = fromOpaleye . Opaleye.valuesExplicit valuesspec . toList

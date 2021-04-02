@@ -79,8 +79,8 @@ caseExpr branches (Expr fallback) =
 
 
 -- | Convert a @Expr (Maybe Bool)@ to a @Expr Bool@ by treating @Nothing@ as
--- @False@. This can be useful when combined with 'where_', which expects a
--- @Bool@, and produces expressions that optimize better than general case
+-- @False@. This can be useful when combined with 'Rel8.where_', which expects
+-- a @Bool@, and produces expressions that optimize better than general case
 -- analysis.
 coalesce :: Expr (Maybe Bool) -> Expr Bool
 coalesce (Expr a) = Expr a &&. Expr (Opaleye.FunExpr "COALESCE" [a, untrue])

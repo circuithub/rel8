@@ -42,11 +42,13 @@ import Rel8.Type ( DBType )
 -- types that have a finite number of columns. Each of these columns contains
 -- data under a shared context, and contexts describe how to interpret the
 -- metadata about a column to a particular Haskell type. In Rel8, we have
--- contexts for expressions (the 'Expr' context), aggregations (the 'Aggregate'
--- context), insert values (the 'Insert' contex), among others.
+-- contexts for expressions (the 'Rel8.Expr' context), aggregations (the
+-- 'Rel8.Aggregate' context), insert values (the 'Rel8.Insert' contex), among
+-- others.
 --
 -- In typical usage of Rel8 you don't need to derive instances of 'Table'
--- yourself, as anything that's an instance of 'Rel8able' is always a 'Table'.
+-- yourself, as anything that's an instance of 'Rel8.Rel8able' is always a
+-- 'Table'.
 type Table :: K.Context -> Type -> Constraint
 class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
   -- | The 'HTable' functor that describes the schema of this table.

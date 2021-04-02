@@ -19,7 +19,7 @@ import Rel8.Type.Information ( TypeInformation(..) )
 import Data.Text ( pack )
 
 
--- | Like 'JSONEncoded', but works for @jsonb@ columns.
+-- | Like 'Rel8.JSONEncoded', but works for @jsonb@ columns.
 newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
 
 

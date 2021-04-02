@@ -48,7 +48,7 @@ import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
--- unpack an @Aggregate@ back to @a@ by running it with 'aggregate'. As
+-- unpack an @Aggregate@ back to @a@ by running it with 'Rel8.aggregate'. As
 -- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
 -- operation. This means 'Aggregate' is an instance of 'Apply', and you can
 -- combine @Aggregate@s using the @<.>@ combinator.

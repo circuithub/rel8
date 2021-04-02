@@ -42,8 +42,8 @@ import qualified Data.Text.Lazy as Lazy ( Text )
 import Data.Time.LocalTime ( CalendarDiffTime( CalendarDiffTime ) )
 
 
--- | The class of 'DBType's that form a semigroup. This class is purely a Rel8
--- concept, and exists to mirror the 'Monoid' class.
+-- | The class of 'Rel8.DBType's that form a semigroup. This class is purely a
+-- Rel8 concept, and exists to mirror the 'Monoid' class.
 type DBMonoid :: Type -> Constraint
 class DBSemigroup a => DBMonoid a where
   -- The identity for '<>.'

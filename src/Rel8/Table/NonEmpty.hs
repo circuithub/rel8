@@ -38,7 +38,7 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 
 
 -- | A @NonEmptyTable@ value contains one or more instances of @a@. You
--- construct @NonEmptyTable@s with 'some' or 'nonEmptyAgg'.
+-- construct @NonEmptyTable@s with 'Rel8.some' or 'nonEmptyAgg'.
 type NonEmptyTable :: Type -> Type
 newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Col (Context a)))

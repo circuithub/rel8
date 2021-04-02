@@ -91,7 +91,7 @@ instance Apply MaybeTable where
 
 
 -- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
--- 'traverseMaybeTable'.
+-- 'Rel8.traverseMaybeTable'.
 instance Applicative MaybeTable where
   (<*>) = (<.>)
   pure = justTable
@@ -103,7 +103,7 @@ instance Bind MaybeTable where
 
 
 -- | Has the same behavior as the @Monad@ instance for @Maybe@. See also:
--- 'bindMaybeTable'.
+-- 'Rel8.bindMaybeTable'.
 instance Monad MaybeTable where
   (>>=) = (>>-)
 
@@ -182,12 +182,12 @@ instance OrdTable a => OrdTable (MaybeTable a) where
   ordTable = toColumns1 (hlabel hlabeler) (justTable (ordTable @a))
 
 
--- | Check if a @MaybeTable@ is absent of any row.. Like 'isNothing'.
+-- | Check if a @MaybeTable@ is absent of any row. Like 'Data.Maybe.isNothing'.
 isNothingTable :: MaybeTable a -> Expr Bool
 isNothingTable (MaybeTable tag _) = isNull (expr tag)
 
 
--- | Check if a @MaybeTable@ contains a row. Like 'isJust'.
+-- | Check if a @MaybeTable@ contains a row. Like 'Data.Maybe.isJust'.
 isJustTable :: MaybeTable a -> Expr Bool
 isJustTable (MaybeTable tag _) = isNonNull (expr tag)
 

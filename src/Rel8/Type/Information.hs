@@ -40,7 +40,7 @@ data TypeInformation a = TypeInformation
 
 -- | Simultaneously map over how a type is both encoded and decoded, while
 -- retaining the name of the type. This operation is useful if you want to
--- essentially @newtype@ another 'DBType'.
+-- essentially @newtype@ another 'Rel8.DBType'.
 -- 
 -- The mapping is required to be total. If you have a partial mapping, see
 -- 'parseTypeInformation'.

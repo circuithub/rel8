@@ -60,7 +60,8 @@ catMaybeTable ma@(MaybeTable _ a) = do
 
 -- | @bindMaybeTable f x@ is similar to the monadic bind (@>>=@) operation. It
 -- allows you to "extend" an optional query with another query. If either the
--- input or output are 'noTable', then the result is 'noTable'.
+-- input or output are 'Rel8.nothingTable', then the result is
+-- 'Rel8.nothingTable'.
 --
 -- This is similar to 'traverseMaybeTable', followed by a @join@ on the
 -- resulting @MaybeTable@s.

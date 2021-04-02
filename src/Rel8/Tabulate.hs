@@ -177,13 +177,7 @@ ifilter f tabulation = snd <$> do
   filter (uncurry f) `postbind` indexed tabulation
 
 
--- | Map a 'Query' over the input side of a 'Tabulation'. In particular, you
--- can turn a @'Tabulation' k a@ into a @'Tabulation' k a@ (for use with
--- 'leftAlign' and friends) by 'prebind'ing with 'queryTable', like this:
---
--- @
--- tabulation `'prebind'` 'queryTable'
--- @
+-- | Map a 'Query' over the input side of a 'Tabulation'. 
 prebind :: (a -> Tabulation k b) -> Query a -> Tabulation k b
 prebind f as = Tabulation $ \k -> do
   a <- as
@@ -242,7 +236,7 @@ alignWith f kas kbs = do
 -- | If 'zip' makes an @INNER JOIN@, then 'leftAlign' makes a @LEFT JOIN@.
 -- This means it will return at least one row for every row in the left
 -- 'Tabulation', even if there is no corresponding row in the right (hence the
--- 'MaybeTable').
+-- 'Rel8.MaybeTable').
 --
 -- Analagous to
 -- [@rpadZip@](https://hackage.haskell.org/package/semialign/docs/Data-Semialign.html#v:rpadZip).
@@ -268,9 +262,9 @@ leftAlignWith f left right = liftA2 f left (optionalTabulation right)
 --
 -- You can think of it as @'Data.Map.Strict.intersectionWith'
 -- ('Control.Applicative.liftA2' (,))@.  That is, @intersect@ the two
--- `Tabulation`s by 'match'ing their keys together, and combine their values
--- (remembering that 'Tabulation' is a 'MultiMap' so that the values are keys)
--- by getting their cartesian product.
+-- `Tabulation`s by matching their keys together (with 'Rel8.==:'), and combine
+-- their values (remembering that 'Tabulation' is a 'MultiMap' so that the
+-- values are keys) by getting their cartesian product.
 --
 -- You can think of it as performing a cross product of the underlying 'Query's
 -- of the given 'Tabulation's and filtering the results for 'match'ing keys.
@@ -305,7 +299,7 @@ zipWith = liftA2
 -- each entry would contain the /product/ of the number of rows of their
 -- respective entries in @x@ and @y@.
 --
--- See 'with'.
+-- See 'Rel8.with'.
 similarity :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 similarity kas kbs = do
   as <- toQuery kas
@@ -317,7 +311,7 @@ similarity kas kbs = do
 -- exist in the right 'Tabulation'. This corresponds to an antijoin in
 -- relational algebra.
 --
--- See 'without'.
+-- See 'Rel8.without'.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 difference kas kbs = do
   as <- toQuery kas

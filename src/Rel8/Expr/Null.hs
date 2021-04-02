@@ -48,12 +48,12 @@ nullableOf :: DBType a => Maybe (Expr a) -> Expr (Maybe a)
 nullableOf = maybe null nullify
 
 
--- | Like 'isNothing', but for @null@.
+-- | Like 'Data.Maybe.isNothing', but for @null@.
 isNull :: Expr (Maybe a) -> Expr Bool
 isNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNull)
 
 
--- | Like 'isJust', but for @null@.
+-- | Like 'Data.Maybe.isJust', but for @null@.
 isNonNull :: Expr (Maybe a) -> Expr Bool
 isNonNull = mapPrimExpr (Opaleye.UnExpr Opaleye.OpIsNotNull)
 
