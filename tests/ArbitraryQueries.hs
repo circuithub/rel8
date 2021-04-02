@@ -67,7 +67,7 @@ type Context = [(Type, Type)]
 
 -- | A reified 'Query' value.
 data Query :: Context -> Type -> Type -> Type where
-  Values :: (Rel8.Table Rel8.Expr i, Ord o)
+  Values :: (Rel8.Table Rel8.Expr i, Eq o)
     => [Expr env i o] -> Query env i o
 
   Union :: Rel8.EqTable i                    
@@ -112,7 +112,7 @@ data Query :: Context -> Type -> Type -> Type where
   Distinct :: (Rel8.EqTable i)                  
     => TypedQuery env i o -> Query env i o
 
-  Bind :: (Show y, Ord y) 
+  Bind :: (Show y, Eq y) 
     => TypedQuery env x y -> TypedQuery ('(x, y) ': env) i o -> Query env i o
 
   ReturnTable :: ()
@@ -139,7 +139,7 @@ data TypedQuery env i o = TypedQuery
 
 
 data ATypedQuery :: Context -> Type where
-  ATypedQuery :: (Show o, Rel8.Serializable i o, Ord o, Rel8.Table Rel8.Expr i)
+  ATypedQuery :: (Show o, Rel8.Serializable i o, Eq o, Rel8.Table Rel8.Expr i)
     => TypedQuery env i o 
     -> ATypedQuery env
 
@@ -148,7 +148,7 @@ deriving stock instance Show (ATypedQuery env)
 
 -- | Extend a query with a new 'Bind'. The new 'Bind' has access to an updated
 -- environment with the result of any previous binds.
-bindQuery :: (Functor m, Show y, Ord y)
+bindQuery :: (Functor m, Show y, Eq y)
   => Environment env 
   -> TypedQuery env x y 
   -> (forall env'. Environment env' -> m (TypedQuery env' i o))
@@ -643,7 +643,7 @@ compileExpr env = \case
 
 
 data ATTable :: Type where
-  ATTable :: (Rel8.Table Rel8.Expr i, Show o, Rel8.Serializable i o, Ord o) 
+  ATTable :: (Rel8.Table Rel8.Expr i, Show o, Rel8.Serializable i o, Eq o) 
     => Ty i o -> ATTable
 
 
@@ -651,7 +651,7 @@ deriving stock instance Show ATTable
 
 
 data ATEqTable :: Type where
-  ATEqTable :: (Rel8.EqTable i, Show o, Rel8.Serializable i o, Ord o) 
+  ATEqTable :: (Rel8.EqTable i, Show o, Rel8.Serializable i o, Eq o) 
     => Ty i o -> ATEqTable
 
 
@@ -896,12 +896,12 @@ genTEqTable = Gen.recursive Gen.choice nonrecursive recursive
 
 
 data ATExpr :: Type where
-  ATExpr :: (Show a, Rel8.Sql Rel8.DBType a, Ord a) 
+  ATExpr :: (Show a, Rel8.Sql Rel8.DBType a, Eq a) 
     => Ty (Rel8.Expr a) a -> ATExpr
 
 
 data ATEqExpr :: Type where
-  ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a, Ord a) 
+  ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a, Eq a) 
     => Ty (Rel8.Expr a) a -> ATEqExpr
 
 
@@ -920,35 +920,34 @@ genTEqExpr = choice
 
 
 data ATDBType :: Type where
-  ATDBType :: (Rel8.DBType a, Show a, Ord a) => TDBType a -> ATDBType
+  ATDBType :: (Rel8.DBType a, Show a, Eq a) => TDBType a -> ATDBType
 
 
 data ATDBEq :: Type where
-  ATDBEq :: (Rel8.DBEq a, Show a, Ord a) => TDBType a -> ATDBEq
+  ATDBEq :: (Rel8.DBEq a, Show a, Eq a) => TDBType a -> ATDBEq
 
 
 data TDBType :: Type -> Type where
-  TBool            :: TDBType Bool
-  TChar            :: TDBType Char
-  TInt16           :: TDBType Int16
-  TInt32           :: TDBType Int32
-  TInt64           :: TDBType Int64
-  TFloat           :: TDBType Float
-  TDouble          :: TDBType Double
-  TScientific      :: TDBType Scientific
-  TUTCTime         :: TDBType UTCTime
-  TDay             :: TDBType Day
-  TLocalTime       :: TDBType LocalTime
-  TTimeOfDay       :: TDBType TimeOfDay
-  TDiffTime        :: TDBType DiffTime
-  TNominalDiffTime :: TDBType DiffTime
-  TText            :: TDBType StrictText.Text
-  TLazyText        :: TDBType LazyText.Text
-  TCIText          :: TDBType (CI StrictText.Text)
-  TCILazyText      :: TDBType (CI LazyText.Text)
-  TByteString      :: TDBType StrictByteString.ByteString
-  TLazyByteString  :: TDBType LazyByteString.ByteString
-  TUUID            :: TDBType UUID
+  TBool             :: TDBType Bool
+  TChar             :: TDBType Char
+  TInt16            :: TDBType Int16
+  TInt32            :: TDBType Int32
+  TInt64            :: TDBType Int64
+  TFloat            :: TDBType Float
+  TDouble           :: TDBType Double
+  TScientific       :: TDBType Scientific
+  TUTCTime          :: TDBType UTCTime
+  TDay              :: TDBType Day
+  TLocalTime        :: TDBType LocalTime
+  TTimeOfDay        :: TDBType TimeOfDay
+  TCalendarDiffTime :: TDBType CalendarDiffTime
+  TText             :: TDBType StrictText.Text
+  TLazyText         :: TDBType LazyText.Text
+  TCIText           :: TDBType (CI StrictText.Text)
+  TCILazyText       :: TDBType (CI LazyText.Text)
+  TByteString       :: TDBType StrictByteString.ByteString
+  TLazyByteString   :: TDBType LazyByteString.ByteString
+  TUUID             :: TDBType UUID
 
 
 deriving stock instance Show (TDBType a)
@@ -957,49 +956,47 @@ deriving stock instance Show (TDBType a)
 eqDBType :: TDBType a -> TDBType b -> Maybe (a :~: b)
 eqDBType x y =
   case (x, y) of
-    (TBool, TBool)                       -> Just Refl
-    (TChar, TChar)                       -> Just Refl
-    (TInt16, TInt16)                     -> Just Refl
-    (TInt32, TInt32)                     -> Just Refl
-    (TInt64, TInt64)                     -> Just Refl
-    (TFloat, TFloat)                     -> Just Refl
-    (TDouble, TDouble)                   -> Just Refl
-    (TScientific, TScientific)           -> Just Refl
-    (TUTCTime, TUTCTime)                 -> Just Refl
-    (TDay, TDay)                         -> Just Refl
-    (TLocalTime, TLocalTime)             -> Just Refl
-    (TTimeOfDay, TTimeOfDay)             -> Just Refl
-    (TDiffTime, TDiffTime)               -> Just Refl
-    (TNominalDiffTime, TNominalDiffTime) -> Just Refl
-    (TText, TText)                       -> Just Refl
-    (TLazyText, TLazyText)               -> Just Refl
-    (TCIText, TCIText)                   -> Just Refl
-    (TCILazyText, TCILazyText)           -> Just Refl
-    (TByteString, TByteString)           -> Just Refl
-    (TLazyByteString, TLazyByteString)   -> Just Refl
-    (TUUID, TUUID)                       -> Just Refl
-    _                                    -> Nothing
+    (TBool, TBool)                         -> Just Refl
+    (TChar, TChar)                         -> Just Refl
+    (TInt16, TInt16)                       -> Just Refl
+    (TInt32, TInt32)                       -> Just Refl
+    (TInt64, TInt64)                       -> Just Refl
+    (TFloat, TFloat)                       -> Just Refl
+    (TDouble, TDouble)                     -> Just Refl
+    (TScientific, TScientific)             -> Just Refl
+    (TUTCTime, TUTCTime)                   -> Just Refl
+    (TDay, TDay)                           -> Just Refl
+    (TLocalTime, TLocalTime)               -> Just Refl
+    (TTimeOfDay, TTimeOfDay)               -> Just Refl
+    (TCalendarDiffTime, TCalendarDiffTime) -> Just Refl
+    (TText, TText)                         -> Just Refl
+    (TLazyText, TLazyText)                 -> Just Refl
+    (TCIText, TCIText)                     -> Just Refl
+    (TCILazyText, TCILazyText)             -> Just Refl
+    (TByteString, TByteString)             -> Just Refl
+    (TLazyByteString, TLazyByteString)     -> Just Refl
+    (TUUID, TUUID)                         -> Just Refl
+    _                                      -> Nothing
 
 
 genTDBType :: Gen ATDBType
 genTDBType = Gen.element 
-  [ ATDBType TBool, ATDBType TChar, ATDBType TInt16, ATDBType TInt32
-  , ATDBType TInt64, ATDBType TFloat, ATDBType TDouble, ATDBType TScientific
-  , ATDBType TUTCTime, ATDBType TDay, ATDBType TLocalTime, ATDBType TDiffTime 
-  , ATDBType TNominalDiffTime, ATDBType TText, ATDBType TLazyText
-  , ATDBType TCIText, ATDBType TCILazyText, ATDBType TByteString
+  [ ATDBType TBool, ATDBType TChar, ATDBType TInt16, ATDBType TInt32 
+  , ATDBType TInt64, ATDBType TFloat, ATDBType TDouble, ATDBType TScientific 
+  , ATDBType TUTCTime, ATDBType TDay, ATDBType TLocalTime
+  , ATDBType TCalendarDiffTime, ATDBType TText, ATDBType TLazyText 
+  , ATDBType TCIText, ATDBType TCILazyText, ATDBType TByteString 
   , ATDBType TLazyByteString, ATDBType TUUID 
   ]
 
 
 genTDBEq :: Gen ATDBEq
 genTDBEq = Gen.element 
-  [ ATDBEq TBool, ATDBEq TChar, ATDBEq TInt16, ATDBEq TInt32
-  , ATDBEq TInt64, ATDBEq TFloat, ATDBEq TDouble, ATDBEq TScientific
-  , ATDBEq TUTCTime, ATDBEq TDay, ATDBEq TLocalTime, ATDBEq TDiffTime 
-  , ATDBEq TNominalDiffTime, ATDBEq TText, ATDBEq TLazyText
-  , ATDBEq TCIText, ATDBEq TCILazyText, ATDBEq TByteString
-  , ATDBEq TLazyByteString, ATDBEq TUUID 
+  [ ATDBEq TBool, ATDBEq TChar, ATDBEq TInt16, ATDBEq TInt32 
+  , ATDBEq TInt64, ATDBEq TFloat, ATDBEq TDouble, ATDBEq TScientific 
+  , ATDBEq TUTCTime, ATDBEq TDay, ATDBEq TLocalTime, ATDBEq TCalendarDiffTime 
+  , ATDBEq TText, ATDBEq TLazyText, ATDBEq TCIText, ATDBEq TCILazyText
+  , ATDBEq TByteString, ATDBEq TLazyByteString, ATDBEq TUUID 
   ]
 
 
@@ -1036,11 +1033,10 @@ genLiteral = \case
         <*> Gen.integral (Range.linear 0 59) 
         <*> do fromInteger <$> Gen.integral (Range.linear 0 60)
 
-  TDiffTime -> do
-    fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
-
-  TNominalDiffTime -> 
-    fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
+  TCalendarDiffTime -> do
+    CalendarDiffTime
+      <$> do fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
+      <*> do fromIntegral <$> Gen.integral (Range.linearBounded @Int32)
 
   TText -> Gen.text (Range.linear 0 512) (genLiteral TChar)
   TLazyText -> LazyText.fromStrict <$> genLiteral TText
@@ -1061,28 +1057,18 @@ genLiteral = \case
 
 main :: IO ()
 main =
-  newIORef (0 :: Int) >>= \ref ->
   defaultMain $
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
   withResource (connect getTestDatabase) release \getC ->
   testProperty "Random queries" $ property do
-    liftIO $ readIORef ref >>= print
-    liftIO $ modifyIORef ref (+1)
-
     ATypedQuery q <- forAll (genTypedQuery Empty)
-    liftIO $ putStrLn "Y"
     let q' = compileQuery NoResults q
     annotate $ Rel8.showQuery q'
-    liftIO $ print (length (Rel8.showQuery q'))
-    liftIO $ putStrLn "Z"
 
     test do
       c <- liftIO getC
 
       res <- evalIO $ Rel8.select c q' 
-      liftIO $ print (length (show res))
-      -- diff res Set.member (evalQuery NoEvalResults q)
-
       return ()
 
   where
