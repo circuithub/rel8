@@ -40,15 +40,14 @@ listTypeInformation :: ()
   -> TypeInformation [a]
 listTypeInformation nullability info = 
   case info of
-    TypeInformation{ encode, decode, out } -> TypeInformation
+    TypeInformation{ encode, decode } -> TypeInformation
       { decode = row $ case nullability of
-          Nullable -> Hasql.listArray (Hasql.nullable (out <$> decode))
-          NonNullable -> Hasql.listArray (Hasql.nonNullable (out <$> decode))
+          Nullable -> Hasql.listArray (Hasql.nullable decode)
+          NonNullable -> Hasql.listArray (Hasql.nonNullable decode)
       , encode = case nullability of
           Nullable -> array info . fmap (maybe null encode)
           NonNullable -> array info . fmap encode
       , typeName = "record"
-      , out = id
       }
   where
     row = Hasql.composite . Hasql.field . Hasql.nonNullable

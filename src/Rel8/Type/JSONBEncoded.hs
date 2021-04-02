@@ -28,5 +28,4 @@ instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
     { encode = encode typeInformation . toJSON . fromJSONBEncoded
     , decode = Hasql.refine (first pack . fmap JSONBEncoded . parseEither parseJSON) Hasql.jsonb
     , typeName = "jsonb"
-    , out = id
     }

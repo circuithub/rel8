@@ -44,6 +44,6 @@ slitExpr nullability info@TypeInformation {encode} =
 
 
 sparseValue :: Nullability a -> TypeInformation (Unnullify a) -> Hasql.Row a
-sparseValue nullability TypeInformation {decode, out} = case nullability of
-  Nullable -> Hasql.column $ Hasql.nullable $ out <$> decode
-  NonNullable -> Hasql.column $ Hasql.nonNullable $ out <$> decode
+sparseValue nullability TypeInformation {decode} = case nullability of
+  Nullable -> Hasql.column $ Hasql.nullable decode
+  NonNullable -> Hasql.column $ Hasql.nonNullable decode

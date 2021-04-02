@@ -102,7 +102,6 @@ instance DBType Bool where
     { encode = Opaleye.ConstExpr . Opaleye.BoolLit
     , decode = Hasql.bool
     , typeName = "bool"
-    , out = id
     }
 
 
@@ -112,7 +111,6 @@ instance DBType Char where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
     , decode = Hasql.char
     , typeName = "char"
-    , out = id
     }
 
 
@@ -122,7 +120,6 @@ instance DBType Int16 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int2
     , typeName = "int2"
-    , out = id
     }
 
 
@@ -132,7 +129,6 @@ instance DBType Int32 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int4
     , typeName = "int4"
-    , out = id
     }
 
 
@@ -142,7 +138,6 @@ instance DBType Int64 where
     { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode = Hasql.int8
     , typeName = "int8"
-    , out = id
     }
 
 
@@ -152,7 +147,6 @@ instance DBType Float where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
     , decode = Hasql.float4
     , typeName = "float4"
-    , out = id
     }
 
 
@@ -162,7 +156,6 @@ instance DBType Double where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
     , decode = Hasql.float8
     , typeName = "float8"
-    , out = id
     }
 
 
@@ -172,7 +165,6 @@ instance DBType Scientific where
     { encode = Opaleye.ConstExpr . Opaleye.NumericLit
     , decode = Hasql.numeric
     , typeName = "numeric"
-    , out = id
     }
 
 
@@ -184,7 +176,6 @@ instance DBType UTCTime where
         formatTime defaultTimeLocale "'%FT%T%QZ'"
     , decode = Hasql.timestamptz
     , typeName = "timestamptz"
-    , out = id
     }
 
 
@@ -196,7 +187,6 @@ instance DBType Day where
         formatTime defaultTimeLocale "'%F'"
     , decode = Hasql.date
     , typeName = "date"
-    , out = id
     }
 
 
@@ -208,7 +198,6 @@ instance DBType LocalTime where
         formatTime defaultTimeLocale "'%FT%T%Q'"
     , decode = Hasql.timestamp
     , typeName = "timestamp"
-    , out = id
     }
 
 
@@ -220,7 +209,6 @@ instance DBType TimeOfDay where
         formatTime defaultTimeLocale "'%T%Q'"
     , decode = Hasql.time
     , typeName = "time"
-    , out = id
     }
 
 
@@ -232,7 +220,6 @@ instance DBType CalendarDiffTime where
         formatTime defaultTimeLocale "'%bmon %0Es'"
     , decode = CalendarDiffTime 0 . realToFrac <$> Hasql.interval
     , typeName = "interval"
-    , out = id
     }
 
 
@@ -242,7 +229,6 @@ instance DBType Text where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
     , decode = Hasql.text
     , typeName = "text"
-    , out = id
     }
 
 
@@ -272,7 +258,6 @@ instance DBType ByteString where
     { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
     , decode = Hasql.bytea
     , typeName = "bytea"
-    , out = id
     }
 
 
@@ -289,7 +274,6 @@ instance DBType UUID where
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
     , decode = Hasql.uuid
     , typeName = "uuid"
-    , out = id
     }
 
 
@@ -302,7 +286,6 @@ instance DBType Value where
         Lazy.unpack . Lazy.decodeUtf8 . Aeson.encode
     , decode = Hasql.jsonb
     , typeName = "jsonb"
-    , out = id
     }
 
 
