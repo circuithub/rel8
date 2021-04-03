@@ -83,3 +83,27 @@ definition using ``ReadShow`` is::
   data OrderStatus = PaymentPending | Paid | Packed | Shipped
     deriving stock (Read, Show)
     deriving DBType via ReadShow OrderStatus
+
+Storing structured data with ``JSONEncoded``
+--------------------------------------------
+
+It can occasionally be useful to treat PostgreSQL more like a document store,
+storing structured documents as JSON objects. Rel8 comes with support for
+serializing values into structured representations through the ``JSONEncoded``
+and ``JSONBEncoded`` deriving-via helpers.
+
+There usage is very similar to ``ReadShow`` - simply derive ``DBType via
+JSONEncoded``, and Rel8 will use ``ToJSON`` and ``FromJSON`` instances (from
+``aeson``) to serialize the given type.
+
+For example, a project might use event sourcing with a table of events. Each row
+in this table is an event, but this event is stored as a JSON object. We can use
+this type with Rel8 by writing::
+
+  data Event = UserCreated UserCreatedData | OrderCreated OrderCreatedData
+    deriving stock Generic
+    deriving anyclass (ToJSON, FromJSON)
+    deriving DBType via JSONBEncoded Event
+
+Here we used ``JSONBEncoded``, which will serialize to PostgreSQL ``jsonb``
+(binary JSON) type, which is generally the best choice.
