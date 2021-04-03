@@ -17,11 +17,20 @@ The main objectives of Rel8 are:
 * *Familiar*: writing Rel8 queries should feel like normal Haskell programming.
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Contents:
+  :maxdepth: 3
+  :caption: Contents:
 
-   tutorial
-   cookbook
+  tutorial
+
+.. toctree::
+  :caption: Rel8 concepts
+
+  concepts
+
+.. toctree::
+  :caption: Tips and tricks
+
+  cookbook
 
 
 More Resources
