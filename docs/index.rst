@@ -1,5 +1,5 @@
 Welcome to Rel8!
-================================
+================
 
 Welcome to Rel8! Rel8 is a Haskell library for interacting with PostgreSQL
 databases, built on top of the fantastic `Opaleye
@@ -18,14 +18,16 @@ The main objectives of Rel8 are:
 
 .. toctree::
   :maxdepth: 3
-  :caption: Contents:
+  :caption: Getting Started
 
   tutorial
 
 .. toctree::
   :caption: Rel8 concepts
 
-  concepts
+  concepts/dbtype
+  concepts/expr
+  concepts/tables
 
 .. toctree::
   :caption: Tips and tricks
