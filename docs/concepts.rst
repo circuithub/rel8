@@ -26,15 +26,21 @@ If our database has users and orders, these tables might both have ids, but they
 are clearly not meant to be treated as a common type. Instead, we can make these
 types clearly different by writing::
 
-  newtype UserId = UserId Int64
+  newtype UserId = UserId { getUserId :: Int64 }
     deriving newtype DBType
 
-  newtype OrderId = OrderId Int64
+  newtype OrderId = OrderId { getOrderId :: Int64 }
     deriving newtype DBType
 
 Now we can use ``UserId`` and ``OrderId`` in our Rel8 queries and definitions,
 and Haskell will make sure we don't accidentally use an ``OrderId`` when we're
 looking up a user.
+
+If you would like to use this approach but can't use generalized newtype
+deriving, the same can be achived by using ``mapTypeInformation``::
+
+  instance DBType UserId where
+    typeInformation = mapTypeInformation UserId getUserId typeInformation
 
 Parsing with ``DBType``
 -----------------------
