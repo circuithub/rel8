@@ -79,12 +79,12 @@ which allows you to refine an existing ``DBType``::
         printer Shipped = "Shipped"
 
 Deriving ``DBType`` via ``ReadShow``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------
 
-This is a perfectly reasonable definition, though it is quite verbose and
-tedious. Rel8 makes it easy to map Haskell types that are encoded using
-``Read``/``Show`` via the ``ReadShow`` wrapper. An equivalent ``DBType``
-definition using ``ReadShow`` is::
+The ``DBType`` definition for ``OrderStatus`` above is a perfectly reasonable
+definition, though it is quite verbose and tedious. Rel8 makes it easy to map
+Haskell types that are encoded using ``Read``/``Show`` via the ``ReadShow``
+wrapper. An equivalent ``DBType`` definition using ``ReadShow`` is::
 
   data OrderStatus = PaymentPending | Paid | Packed | Shipped
     deriving stock (Read, Show)
