@@ -289,7 +289,7 @@ genTypedQuery env = Gen.recursive Gen.choice nonrecursive recursive
       Gen.integral (Range.linear 0 ((maxBound `div` 2) - 1))
 
 
-genQueryOfType :: Rel8.Table Rel8.Expr i 
+genQueryOfType :: (Rel8.Table Rel8.Expr i, Show o)
   => Environment env -> Ty i o -> Gen (TypedQuery env i o)
 genQueryOfType env tableType = do
   ATypedQuery x <- genTypedQuery env
@@ -421,6 +421,16 @@ data Expr :: Context -> Type -> Type -> Type where
     -> Expr env i o
     -> Expr env i o
 
+  (:<>) :: (Rel8.DBSemigroup i)
+    => Expr env (Rel8.Expr i) o 
+    -> Expr env (Rel8.Expr i) o 
+    -> Expr env (Rel8.Expr i) o
+
+  (:<:) :: (Rel8.OrdTable i, Show o)
+    => Expr env i o 
+    -> Expr env i o 
+    -> Expr env (Rel8.Expr Bool) Bool
+
 
 deriving stock instance Show o => Show (Expr env i o)
 
@@ -448,7 +458,7 @@ genTableIx t env =
     xs -> Just $ Gen.element xs
 
 
-genExpr :: Rel8.Table Rel8.Expr i 
+genExpr :: (Rel8.Table Rel8.Expr i, Show o)
   => Ty i o -> Environment env -> Gen (Expr env i o)
 genExpr t env = Gen.recursive Gen.choice nonrecursive recursive
   where 
@@ -556,7 +566,7 @@ genExpr t env = Gen.recursive Gen.choice nonrecursive recursive
  
     recursive = catMaybes 
       [ case_, altTableListTable, isJustTable, isNothingTable, isLeftTable
-      , isRightTable, eqTableListTable
+      , isRightTable, eqTableListTable, semigroupOp, ltTable
       ]
       where
         case_ = Just $
@@ -607,6 +617,18 @@ genExpr t env = Gen.recursive Gen.choice nonrecursive recursive
             ATEqTable t <- genTEqTable
             EqTable <$> genExpr (TListTable t) env <*> genExpr (TListTable t) env
 
+        semigroupOp = do
+          TNotNull _ <- pure t
+          Dict <- hasDBSemigroupInstance t
+          pure do
+            (:<>) <$> genExpr t env <*> genExpr t env
+
+        ltTable = do
+          TNotNull TBool <- pure t
+          pure do
+            ATOrdTable t' <- genTOrdTable
+            (:<:) <$> genExpr t' env <*> genExpr t' env
+
 
 find :: TableIx env i o -> Results env -> i
 find Here       (Store x _)   = x
@@ -615,30 +637,32 @@ find (There ix) (Store _ env) = find ix env
 
 compileExpr :: Results env -> Expr env i o -> i
 compileExpr env = \case
-  PairTable x y    -> (compileExpr env x, compileExpr env y)
-  TrioTable x1 x2 x3 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3)
-  QuartetTable x1 x2 x3 x4 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3, compileExpr env x4)
+  PairTable x y               -> (compileExpr env x, compileExpr env y)
+  TrioTable x1 x2 x3          -> (compileExpr env x1, compileExpr env x2, compileExpr env x3)
+  QuartetTable x1 x2 x3 x4    -> (compileExpr env x1, compileExpr env x2, compileExpr env x3, compileExpr env x4)
   QuintetTable x1 x2 x3 x4 x5 -> (compileExpr env x1, compileExpr env x2, compileExpr env x3, compileExpr env x4, compileExpr env x5)
-  Lookup ix        -> find ix env
-  JustTable t      -> Rel8.justTable (compileExpr env t)
-  NothingTable     -> Rel8.nothingTable
-  LeftTable t      -> Rel8.leftTable (compileExpr env t)
-  RightTable t     -> Rel8.rightTable (compileExpr env t)
-  ThisTable t      -> Rel8.thisTable (compileExpr env t)
-  ThatTable t      -> Rel8.thatTable (compileExpr env t)
-  ThoseTable x y   -> Rel8.thoseTable (compileExpr env x) (compileExpr env y)
-  ListTable xs     -> Rel8.listTable $ compileExpr env <$> xs
-  NonEmptyTable xs -> Rel8.nonEmptyTable $ compileExpr env <$> xs
-  EmptyTable       -> Rel8.emptyTable
-  AltTable x y     -> compileExpr env x Rel8.<|>: compileExpr env y
-  Case alts def    -> Rel8.case_ (map (bimap (compileExpr env) (compileExpr env)) alts) (compileExpr env def)
-  LitNN x          -> Rel8.lit x
-  LitN x           -> Rel8.lit x
-  IsJustTable t    -> Rel8.isJustTable (compileExpr env t)
-  IsNothingTable t -> Rel8.isNothingTable (compileExpr env t)
-  IsLeftTable t    -> Rel8.isLeftTable (compileExpr env t)
-  IsRightTable t   -> Rel8.isRightTable (compileExpr env t)
-  EqTable x y      -> compileExpr env x Rel8.==: compileExpr env y
+  Lookup ix                   -> find ix env
+  JustTable t                 -> Rel8.justTable (compileExpr env t)
+  NothingTable                -> Rel8.nothingTable
+  LeftTable t                 -> Rel8.leftTable (compileExpr env t)
+  RightTable t                -> Rel8.rightTable (compileExpr env t)
+  ThisTable t                 -> Rel8.thisTable (compileExpr env t)
+  ThatTable t                 -> Rel8.thatTable (compileExpr env t)
+  ThoseTable x y              -> Rel8.thoseTable (compileExpr env x) (compileExpr env y)
+  ListTable xs                -> Rel8.listTable $ compileExpr env <$> xs
+  NonEmptyTable xs            -> Rel8.nonEmptyTable $ compileExpr env <$> xs
+  EmptyTable                  -> Rel8.emptyTable
+  AltTable x y                -> compileExpr env x Rel8.<|>: compileExpr env y
+  Case alts def               -> Rel8.case_ (map (bimap (compileExpr env) (compileExpr env)) alts) (compileExpr env def)
+  LitNN x                     -> Rel8.lit x
+  LitN x                      -> Rel8.lit x
+  IsJustTable t               -> Rel8.isJustTable (compileExpr env t)
+  IsNothingTable t            -> Rel8.isNothingTable (compileExpr env t)
+  IsLeftTable t               -> Rel8.isLeftTable (compileExpr env t)
+  IsRightTable t              -> Rel8.isRightTable (compileExpr env t)
+  EqTable x y                 -> compileExpr env x Rel8.==: compileExpr env y
+  (:<>) x y                   -> compileExpr env x Rel8.<>. compileExpr env y
+  (:<:) x y                   -> compileExpr env x Rel8.<: compileExpr env y
 
 
 
@@ -721,6 +745,40 @@ hasAltTableInstance :: Ty (f i) (g j) -> Maybe (Dict (Rel8.AltTable f))
 hasAltTableInstance = \case
   TListTable _ -> Just Dict
   _ -> Nothing
+
+
+hasOrdTableInstance :: Ty i o -> Maybe (Dict (Rel8.OrdTable i))
+hasOrdTableInstance = \case
+  TNotNull t -> do
+    Dict <- hasDBOrdInstance t
+    Just Dict
+  _ -> Nothing
+
+
+hasDBSemigroupInstance :: Ty (Rel8.Expr i) o -> Maybe (Dict (Rel8.DBSemigroup i))
+hasDBSemigroupInstance = \case
+  TNotNull TText             -> Just Dict
+  TNotNull TLazyText         -> Just Dict
+  TNotNull TByteString       -> Just Dict
+  TNotNull TLazyByteString   -> Just Dict
+  TNotNull TCalendarDiffTime -> Just Dict
+  TNotNull TCIText           -> Just Dict
+  TNotNull TCILazyText       -> Just Dict
+  TNotNull (TList _)         -> Just Dict
+  TNotNull (TNonEmpty _)     -> Just Dict
+  _                          -> Nothing
+  
+
+hasDBOrdInstance :: TDBType i -> Maybe (Dict (Rel8.DBOrd i))
+hasDBOrdInstance = \case
+  TText             -> Just Dict
+  TLazyText         -> Just Dict
+  TByteString       -> Just Dict
+  TLazyByteString   -> Just Dict
+  TCalendarDiffTime -> Just Dict
+  TCIText           -> Just Dict
+  TCILazyText       -> Just Dict
+  _                 -> Nothing
 
 
 eqTy :: Ty i o -> Ty i' o' -> Maybe ((i, o) :~: (i', o'))
@@ -895,6 +953,65 @@ genTEqTable = Gen.recursive Gen.choice nonrecursive recursive
             ATEqTable $ TNonEmptyTable x
 
 
+data ATOrdTable :: Type where
+  ATOrdTable :: (Rel8.OrdTable i, Show o, Rel8.Serializable i o, Eq o) 
+    => Ty i o -> ATOrdTable
+ 
+
+genTOrdTable :: Gen ATOrdTable
+genTOrdTable = Gen.recursive Gen.choice nonrecursive recursive
+  where
+    nonrecursive = [ exprAsTable ]
+      where
+        exprAsTable :: Gen ATOrdTable
+        exprAsTable = do
+          ATOrdExpr exprType <- genTOrdExpr
+          return $ ATOrdTable exprType
+
+    recursive = 
+      [ pair, trio, quartet, quintet, eitherTable, maybeTable, theseTable
+      , listTable, nonEmptyTable 
+      ]
+      where
+        pair = 
+          Gen.subterm2 genTOrdTable genTOrdTable \(ATOrdTable x) (ATOrdTable y) ->
+            ATOrdTable $ TTablePair x y
+
+        trio = 
+          Gen.subterm3 genTOrdTable genTOrdTable genTOrdTable \(ATOrdTable x) (ATOrdTable y) (ATOrdTable z) ->
+            ATOrdTable $ TTableTrio x y z
+
+        quartet =
+          Gen.subtermM2 genTOrdTable genTOrdTable \(ATOrdTable x1) (ATOrdTable x2) ->
+          Gen.subterm2 genTOrdTable genTOrdTable \(ATOrdTable x3) (ATOrdTable x4) ->
+            ATOrdTable $ TTableQuartet x1 x2 x3 x4
+
+        quintet =
+          Gen.subtermM2 genTOrdTable genTOrdTable \(ATOrdTable x1) (ATOrdTable x2) ->
+          Gen.subterm3 genTOrdTable genTOrdTable genTOrdTable \(ATOrdTable x3) (ATOrdTable x4) (ATOrdTable x5) ->
+            ATOrdTable $ TTableQuintet x1 x2 x3 x4 x5
+
+        eitherTable = 
+          Gen.subterm2 genTOrdTable genTOrdTable \(ATOrdTable x) (ATOrdTable y) ->
+            ATOrdTable $ TEitherTable x y
+
+        maybeTable = 
+          Gen.subterm genTOrdTable \(ATOrdTable x) ->
+            ATOrdTable $ TMaybeTable x
+
+        theseTable = 
+          Gen.subterm2 genTOrdTable genTOrdTable \(ATOrdTable x) (ATOrdTable y) ->
+            ATOrdTable $ TTheseTable x y
+
+        listTable = 
+          Gen.subterm genTOrdTable \(ATOrdTable x) ->
+            ATOrdTable $ TListTable x
+
+        nonEmptyTable = 
+          Gen.subterm genTOrdTable \(ATOrdTable x) ->
+            ATOrdTable $ TNonEmptyTable x
+
+
 data ATExpr :: Type where
   ATExpr :: (Show a, Rel8.Sql Rel8.DBType a, Eq a) 
     => Ty (Rel8.Expr a) a -> ATExpr
@@ -903,6 +1020,11 @@ data ATExpr :: Type where
 data ATEqExpr :: Type where
   ATEqExpr :: (Show a, Rel8.Sql Rel8.DBEq a, Eq a) 
     => Ty (Rel8.Expr a) a -> ATEqExpr
+
+
+data ATOrdExpr :: Type where
+  ATOrdExpr :: (Show a, Rel8.Sql Rel8.DBOrd a, Eq a) 
+    => Ty (Rel8.Expr a) a -> ATOrdExpr
 
 
 genTExpr :: Gen ATExpr
@@ -919,12 +1041,27 @@ genTEqExpr = choice
   ]
 
 
+genTOrdExpr :: Gen ATOrdExpr
+genTOrdExpr = choice
+  [ genTDBOrd <&> \(ATDBOrd t) -> ATOrdExpr $ TNotNull t
+  , genTDBOrd <&> \(ATDBOrd t) -> ATOrdExpr $ TNull t 
+  ]
+
+
 data ATDBType :: Type where
   ATDBType :: (Rel8.DBType a, Show a, Eq a) => TDBType a -> ATDBType
 
 
 data ATDBEq :: Type where
   ATDBEq :: (Rel8.DBEq a, Show a, Eq a) => TDBType a -> ATDBEq
+
+
+data ATDBOrd :: Type where
+  ATDBOrd :: (Rel8.DBOrd a, Show a, Eq a) => TDBType a -> ATDBOrd
+
+
+data ATDBSemigroup :: Type where
+  ATDBSemigroup :: (Rel8.DBSemigroup a, Show a, Eq a) => TDBType a -> ATDBSemigroup
 
 
 data TDBType :: Type -> Type where
@@ -948,6 +1085,8 @@ data TDBType :: Type -> Type where
   TByteString       :: TDBType StrictByteString.ByteString
   TLazyByteString   :: TDBType LazyByteString.ByteString
   TUUID             :: TDBType UUID
+  TList             :: Rel8.Sql Rel8.DBType a => TDBType a -> TDBType [a]
+  TNonEmpty         :: Rel8.Sql Rel8.DBType a => TDBType a -> TDBType (NonEmpty a)
 
 
 deriving stock instance Show (TDBType a)
@@ -976,6 +1115,12 @@ eqDBType x y =
     (TByteString, TByteString)             -> Just Refl
     (TLazyByteString, TLazyByteString)     -> Just Refl
     (TUUID, TUUID)                         -> Just Refl
+    (TList x, TList y)                     -> do
+      Refl <- eqDBType x y
+      Just Refl
+    (TNonEmpty x, TNonEmpty y)                     -> do
+      Refl <- eqDBType x y
+      Just Refl
     _                                      -> Nothing
 
 
@@ -997,6 +1142,24 @@ genTDBEq = Gen.element
   , ATDBEq TUTCTime, ATDBEq TDay, ATDBEq TLocalTime, ATDBEq TCalendarDiffTime 
   , ATDBEq TText, ATDBEq TLazyText, ATDBEq TCIText, ATDBEq TCILazyText
   , ATDBEq TByteString, ATDBEq TLazyByteString, ATDBEq TUUID 
+  ]
+
+
+genTDBOrd :: Gen ATDBOrd
+genTDBOrd = Gen.element 
+  [ ATDBOrd TBool, ATDBOrd TChar, ATDBOrd TInt16, ATDBOrd TInt32 
+  , ATDBOrd TInt64, ATDBOrd TFloat, ATDBOrd TDouble, ATDBOrd TScientific 
+  , ATDBOrd TUTCTime, ATDBOrd TDay, ATDBOrd TLocalTime, ATDBOrd TCalendarDiffTime 
+  , ATDBOrd TText, ATDBOrd TLazyText, ATDBOrd TCIText, ATDBOrd TCILazyText
+  , ATDBOrd TByteString, ATDBOrd TLazyByteString, ATDBOrd TUUID 
+  ]
+
+
+genTDBSemigroup :: Gen ATDBSemigroup
+genTDBSemigroup = Gen.element 
+  [ ATDBSemigroup TCalendarDiffTime, ATDBSemigroup TText
+  , ATDBSemigroup TLazyText, ATDBSemigroup TCIText, ATDBSemigroup TCILazyText
+  , ATDBSemigroup TByteString, ATDBSemigroup TLazyByteString
   ]
 
 

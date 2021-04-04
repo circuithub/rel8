@@ -37,7 +37,7 @@ module Rel8
   , Table
   , AltTable((<|>:))
   , EqTable, (==:), (/=:)
-  , OrdTable, ascTable, descTable
+  , OrdTable, (<:), (<=:), (>:), (>=:), ascTable, descTable
   , lit
   , bool
   , case_
