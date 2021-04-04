@@ -94,3 +94,62 @@ have to introduce functions. Expanding on the latter query, we could write::
 Now we have a query that, for each ``User``, fetches all orders for that user.
 The final ``return`` means that for each ``User`` and ``Order``, we'll return a
 single row.
+
+Selecting rows from tables
+--------------------------
+
+With the more theoretical side of ``Query`` considered, we can start looking at
+the more pragmatic side, and how ``Query`` can express some common SQL idioms.
+
+First, one of the most common operations is to select all rows from a *base
+table*. In SQL, this is a ``SELECT * FROM x`` query, and in Rel8 we use ``each``
+with a ``TableSchema``.
+
+Limit and offset
+----------------
+
+.. todo::
+
+  Write this
+
+Filtering queries
+-----------------
+
+.. todo::
+
+  Write this
+
+Inner joins
+-----------
+
+.. todo::
+
+  Write this
+
+Left (outer) joins with ``optional``
+------------------------------------
+
+.. todo::
+
+  Write this
+
+Ordering results
+----------------
+
+.. todo::
+
+  Write this
+
+Aggregating queries
+-------------------
+
+.. todo::
+
+  Write this
+
+Set operations
+--------------
+
+.. todo::
+
+  Write this

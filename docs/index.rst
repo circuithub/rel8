@@ -24,7 +24,7 @@ The main objectives of Rel8 are:
 
 .. toctree::
    :caption: Rel8 concepts
-   :maxdepth: 1
+   :maxdepth: 2
 
    concepts/dbtype
    concepts/expr
