@@ -317,7 +317,9 @@ multiple rows to single values. To perform aggregations in Rel8, we can use the
 the aggregation, and returns aggregated rows.
 
 To start, let's look at a simple aggregation that tells us how many projects
-exist::
+exist:
+
+.. todo::
 
   >>> error "TODO"
 
