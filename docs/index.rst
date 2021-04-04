@@ -29,6 +29,7 @@ The main objectives of Rel8 are:
    concepts/dbtype
    concepts/expr
    concepts/tables
+   concepts/queries
 
 .. toctree::
    :caption: Tips and tricks
