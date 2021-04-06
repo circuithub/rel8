@@ -16,7 +16,7 @@ library
     , case-insensitive
     , casing
     , contravariant
-    , hasql
+    , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.1.0
     , profunctors
     , scientific
