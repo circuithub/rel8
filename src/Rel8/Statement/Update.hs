@@ -36,7 +36,7 @@ import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Insert ( toInsert )
-import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -97,7 +97,7 @@ update c Update {target, set, updateWhere, returning} =
             target' = lmap toInsert $ table $ toColumns <$> target
             set' = toColumns . set . fromColumns
             where' = toColumn . toPrimExpr . updateWhere . fromColumns
-            project' = toColumns . project . fromColumns
+            project' = castTable . toColumns . project . fromColumns
 
   where
     decoder :: forall exprs projection a. Serializable projection a
