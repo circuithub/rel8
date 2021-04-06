@@ -30,7 +30,7 @@ import qualified Opaleye.Manipulation as Opaleye
 import Rel8.Schema.Insert ( Insert(..), OnConflict(..) )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -76,7 +76,7 @@ insert c Insert {into, rows, onConflict, returning} =
           where
             into' = table $ toColumns <$> into
             rows' = toColumns <$> x :| xs
-            project' = toColumns . project . fromColumns
+            project' = castTable . toColumns . project . fromColumns
 
   where
     onConflict' =

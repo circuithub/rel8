@@ -31,6 +31,7 @@ import Rel8.Schema.Name ( Selects, Col(..) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( namesFromLabels )
+import Rel8.Table.Opaleye ( castTable )
 
 
 -- | Convert a query to a 'String' containing the query as a @SELECT@
@@ -59,7 +60,7 @@ optimize = Opaleye.removeEmpty . Opaleye.optimize
 
 selectFrom :: Selects names exprs
   => names -> exprs -> Opaleye.PrimQuery' Void -> Opaleye.Select
-selectFrom (toColumns -> names) (toColumns -> exprs) query =
+selectFrom (toColumns -> names) (toColumns . castTable -> exprs) query =
   Opaleye.SelectFrom $ Opaleye.newSelect
     { Opaleye.attrs = Opaleye.SelectAttrs attributes
     , Opaleye.tables = Opaleye.oneTable select
