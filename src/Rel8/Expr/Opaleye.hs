@@ -1,8 +1,6 @@
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}

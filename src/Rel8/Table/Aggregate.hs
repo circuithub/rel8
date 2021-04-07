@@ -1,5 +1,4 @@
 {-# language FlexibleContexts #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}

@@ -17,13 +17,11 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
@@ -43,49 +41,7 @@ class
     , b from -> a
 
 
-instance KnownSpec spec =>
-  Recontextualize from to (Col from spec) (Col to spec)
-
-
-{-
-instance Sql DBType a =>
-  Recontextualize Aggregate Insertion (Aggregate (Expr a)) (Insertion a)
-
-
-instance Sql DBType a => Recontextualize Expr Insertion (Expr a) (Insertion a)
--}
-
-
 instance Sql DBType a => Recontextualize Identity Identity (Identity a) (Identity a)
-
-
-{-
-instance Sql DBType a =>
-  Recontextualize Identity Insertion (Identity a) (Insertion a)
-
-
-instance Sql DBType a =>
-  Recontextualize Insertion Aggregate (Insertion a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Insertion Expr (Insertion a) (Expr a)
-
-
-instance Sql DBType a =>
-  Recontextualize Insertion Identity (Insertion a) (Identity a)
-
-
-instance Sql DBType a => Recontextualize Insertion Insertion (Insertion a) (Insertion a)
-
-
-instance Sql DBType a => Recontextualize Insertion Name (Insertion a) (Name a)
-
-
-instance Sql DBType a => Recontextualize Name Insertion (Name a) (Insertion a)
--}
-
-
-instance Recontextualize from to (Opaque from a) (Opaque to a)
 
 
 instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))

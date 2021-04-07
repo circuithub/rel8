@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language MonoLocalBinds #-}
 
 module Rel8.Statement.View
   ( createView

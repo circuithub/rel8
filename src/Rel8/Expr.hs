@@ -3,7 +3,6 @@
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}

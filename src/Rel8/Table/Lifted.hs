@@ -1,4 +1,3 @@
-{-# language ConstrainedClassMethods #-}
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}

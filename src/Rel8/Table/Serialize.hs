@@ -9,7 +9,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language ViewPatterns #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize

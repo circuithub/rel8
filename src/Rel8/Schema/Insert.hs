@@ -6,9 +6,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
@@ -31,7 +29,6 @@ import Prelude
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Necessity ( Necessity(Optional, Required) )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.Context.Nullify
@@ -161,4 +158,3 @@ instance Nullifiable Insert where
 type Inserts :: Type -> Type -> Constraint
 class Recontextualize Expr Insert exprs inserts => Inserts exprs inserts
 instance Recontextualize Expr Insert exprs inserts => Inserts exprs inserts
-instance {-# OVERLAPPING #-} Inserts (Opaque Expr Opaque) (Opaque Insert Opaque)

@@ -5,9 +5,7 @@
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
@@ -27,7 +25,6 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
@@ -85,4 +82,3 @@ instance Labelable Name where
 type Selects :: Type -> Type -> Constraint
 class Recontextualize Name Expr names exprs => Selects names exprs
 instance Recontextualize Name Expr names exprs => Selects names exprs
-instance {-# OVERLAPPING #-} Selects (Opaque Name Opaque) (Opaque Expr Opaque)

@@ -27,10 +27,7 @@ import Data.CaseInsensitive ( CI )
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability
-  ( Unnullify
-  , Sql, HasNullability, nullabilization
-  )
+import Rel8.Schema.Nullability ( Sql, nullabilization )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -80,7 +77,3 @@ instance DBMonoid ByteString where
 
 instance DBMonoid Lazy.ByteString where
   memptyExpr = litExpr ""
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBMonoid (Unnullify a)) =>
-  Sql DBMonoid a

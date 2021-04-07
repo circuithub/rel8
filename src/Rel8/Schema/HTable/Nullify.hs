@@ -7,14 +7,11 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
-{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 

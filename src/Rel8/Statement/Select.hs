@@ -1,3 +1,4 @@
+{-# language MonoLocalBinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 

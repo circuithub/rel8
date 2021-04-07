@@ -2,12 +2,10 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language InstanceSigs #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Context.Nullify

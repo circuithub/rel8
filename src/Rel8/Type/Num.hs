@@ -17,7 +17,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Nullability ( HasNullability, Unnullify, Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -36,10 +35,6 @@ instance DBNum Double
 instance DBNum Scientific
 
 
-instance {-# INCOHERENT #-} (HasNullability a, DBNum (Unnullify a)) =>
-  Sql DBNum a
-
-
 -- | The class of database types that can be coerced to from integral
 -- expressions. This is a Rel8 concept, and allows us to provide
 -- 'fromIntegral'.
@@ -50,16 +45,8 @@ instance DBIntegral Int32
 instance DBIntegral Int64
 
 
-instance {-# INCOHERENT #-} (HasNullability a, DBIntegral (Unnullify a)) =>
-  Sql DBIntegral a
-
-
 -- | The class of database types that support the @/@ operator.
 class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
 instance DBFractional Scientific
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBFractional (Unnullify a)) =>
-  Sql DBFractional a

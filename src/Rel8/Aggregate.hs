@@ -32,7 +32,6 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
@@ -114,7 +113,6 @@ instance Labelable Aggregate where
 type Aggregates :: Type -> Type -> Constraint
 class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance {-# OVERLAPPING #-} Aggregates (Opaque Aggregate Opaque) (Opaque Expr Opaque)
 
 
 foldInputs :: Monoid b

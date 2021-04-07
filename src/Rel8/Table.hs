@@ -20,8 +20,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
@@ -199,22 +197,6 @@ instance
     , fromColumns $ hunlabel unlabeler d
     , fromColumns $ hunlabel unlabeler e
     )
-
-
-instance Table Expr Opaque where
-  type Columns Opaque = HType Opaque
-  type Context Opaque = Expr
-
-  fromColumns = error "opaque"
-  toColumns = error "opaque"
-
-
-instance Table context (Opaque context a) where
-  type Columns (Opaque context a) = HType Opaque
-  type Context (Opaque context a) = context
-
-  fromColumns = error "opaque"
-  toColumns = error "opaque"
 
 
 type Congruent :: Type -> Type -> Constraint

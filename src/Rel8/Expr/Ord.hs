@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language GADTs #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}

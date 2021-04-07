@@ -3,7 +3,6 @@
 {-# language DefaultSignatures #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleInstances #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
