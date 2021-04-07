@@ -25,7 +25,7 @@ import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   )
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
 
 

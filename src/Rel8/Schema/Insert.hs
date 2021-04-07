@@ -38,8 +38,8 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Type ( HType(HType) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name, Selects )
-import Rel8.Schema.Nullability ( Sql )
-import Rel8.Schema.Spec ( SSpec(SSpec, nullability), Spec(Spec) )
+import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Spec ( SSpec(SSpec, nullity), Spec(Spec) )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning )
 import Rel8.Table ( Table(..) )
@@ -135,17 +135,17 @@ instance Nullifiable Insert where
   encodeTag = RequiredInsert . expr
   decodeTag (RequiredInsert a) = fromExpr a
 
-  nullifier Tag {expr} test SSpec {nullability} = \case
+  nullifier Tag {expr} test SSpec {nullity} = \case
     RequiredInsert a ->
-      RequiredInsert $ runTag nullability condition a
+      RequiredInsert $ runTag nullity condition a
     OptionalInsert ma ->
-      OptionalInsert $ runTag nullability condition <$> ma
+      OptionalInsert $ runTag nullity condition <$> ma
     where
       condition = test expr
 
-  unnullifier SSpec {nullability} = \case
-    RequiredInsert a -> RequiredInsert $ unnull nullability a
-    OptionalInsert ma -> OptionalInsert $ unnull nullability <$> ma
+  unnullifier SSpec {nullity} = \case
+    RequiredInsert a -> RequiredInsert $ unnull nullity a
+    OptionalInsert ma -> OptionalInsert $ unnull nullity <$> ma
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

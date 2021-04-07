@@ -516,7 +516,7 @@ testCatMaybe = databasePropertyTest "catMaybe" \transaction -> evalM do
 
   transaction \connection -> do
     selected <- evalM $ liftIO $ Rel8.select connection do
-      Rel8.catNullable =<< Rel8.values (map Rel8.lit rows)
+      Rel8.catNull =<< Rel8.values (map Rel8.lit rows)
 
     sort selected === sort (catMaybes rows)
 

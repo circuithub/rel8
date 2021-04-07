@@ -1,5 +1,5 @@
 module Rel8.Query.Null
-  ( catNullable
+  ( catNull
   )
 where
 
@@ -17,7 +17,7 @@ import Rel8.Query.Filter ( where_ )
 -- @null@s.
 --
 -- Corresponds to 'Data.Maybe.catMaybes'.
-catNullable :: Expr (Maybe a) -> Query (Expr a)
-catNullable a = do
+catNull :: Expr (Maybe a) -> Query (Expr a)
+catNull a = do
   where_ $ isNonNull a
   pure $ unsafeUnnullify a

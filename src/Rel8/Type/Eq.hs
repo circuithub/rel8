@@ -27,7 +27,7 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
 
 -- scientific

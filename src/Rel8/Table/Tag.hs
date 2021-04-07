@@ -31,7 +31,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( fromPrimExpr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Name ( Name( Name ) )
-import Rel8.Schema.Nullability ( Sql, mapSql )
+import Rel8.Schema.Null ( Sql, mapSql )
 import Rel8.Type.Monoid ( DBMonoid )
 import Rel8.Type.Semigroup ( DBSemigroup )
 

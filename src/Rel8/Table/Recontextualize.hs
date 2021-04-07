@@ -21,7 +21,7 @@ import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 

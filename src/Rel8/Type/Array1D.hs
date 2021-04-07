@@ -42,11 +42,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability
-  ( Unnullify
-  , Nullability( Nullable, NonNullable )
-  , Sql, nullabilization
-  )
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
@@ -94,18 +90,18 @@ type family IsArray1D a where
 
 
 array1DTypeInformation :: IsArray1D (Unnullify a) ~ 'False
-  => Nullability a
+  => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation (Array1D a)
-array1DTypeInformation nullability info = 
+array1DTypeInformation nullity info =
   case info of
     TypeInformation{ encode, decode, typeName } -> TypeInformation
-      { decode = case nullability of
-          Nullable -> Array1D <$> Hasql.listArray (Hasql.nullable decode)
-          NonNullable -> Array1D <$> Hasql.listArray (Hasql.nonNullable decode)
-      , encode = case nullability of
-          Nullable -> Opaleye.ArrayExpr . fmap (maybe null encode) . getArray1D
-          NonNullable -> Opaleye.ArrayExpr . fmap encode . getArray1D
+      { decode = case nullity of
+          Null -> Array1D <$> Hasql.listArray (Hasql.nullable decode)
+          NotNull -> Array1D <$> Hasql.listArray (Hasql.nonNullable decode)
+      , encode = case nullity of
+          Null -> Opaleye.ArrayExpr . fmap (maybe null encode) . getArray1D
+          NotNull -> Opaleye.ArrayExpr . fmap encode . getArray1D
       , typeName = typeName <> "[]"
       }
   where
@@ -113,7 +109,7 @@ array1DTypeInformation nullability info =
 
 
 instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBType (Array1D a) where
-  typeInformation = array1DTypeInformation nullabilization typeInformation
+  typeInformation = array1DTypeInformation nullable typeInformation
 
 
 instance (Sql DBEq a, IsArray1D (Unnullify a) ~ 'False) => DBEq (Array1D a)

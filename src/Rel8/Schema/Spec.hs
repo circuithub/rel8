@@ -6,7 +6,7 @@
 
 module Rel8.Schema.Spec
   ( Spec( Spec )
-  , SSpec( SSpec, labels, necessity, info, nullability )
+  , SSpec( SSpec, labels, necessity, info, nullity )
   , KnownSpec( specSing )
   , KContext, HKTable
   , KTable
@@ -24,7 +24,7 @@ import Rel8.Kind.Necessity
   , SNecessity
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Nullability ( Nullability, Sql, Unnullify, nullabilization )
+import Rel8.Schema.Null ( Nullity, Sql, Unnullify, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -39,7 +39,7 @@ data SSpec spec where
     { labels :: SLabels labels
     , necessity :: SNecessity necessity
     , info :: TypeInformation (Unnullify a)
-    , nullability :: Nullability a
+    , nullity :: Nullity a
     }
     -> SSpec ('Spec labels necessity a)
 
@@ -60,7 +60,7 @@ instance
     { labels = labelsSing
     , necessity = necessitySing
     , info = typeInformation
-    , nullability = nullabilization
+    , nullity = nullable
     }
 
 

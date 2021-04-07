@@ -29,10 +29,7 @@ import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
-import Rel8.Schema.Nullability
-  ( Nullify
-  , Nullability( Nullable, NonNullable )
-  )
+import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
 
@@ -164,19 +161,19 @@ nullifier :: ()
   => SSpec ('Spec labels necessity a)
   -> Col Identity ('Spec labels necessity a)
   -> Col Identity ('Spec labels necessity (Nullify a))
-nullifier SSpec {nullability} (Result a) = Result $ case nullability of
-  Nullable -> a
-  NonNullable -> Just a
+nullifier SSpec {nullity} (Result a) = Result $ case nullity of
+  Null -> a
+  NotNull -> Just a
 
 
 unnullifier :: ()
   => SSpec ('Spec labels necessity a)
   -> Col Identity ('Spec labels necessity (Nullify a))
   -> Maybe (Col Identity ('Spec labels necessity a))
-unnullifier SSpec {nullability} (Result a) =
-  case nullability of
-    Nullable -> pure $ Result a
-    NonNullable -> Result <$> a
+unnullifier SSpec {nullity} (Result a) =
+  case nullity of
+    Null -> pure $ Result a
+    NotNull -> Result <$> a
 
 
 vectorizer :: Functor f

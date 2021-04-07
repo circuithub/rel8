@@ -23,7 +23,7 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Sql, nullabilization )
+import Rel8.Schema.Null ( Sql, nullable )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type ( DBType, typeInformation )
 
@@ -51,7 +51,7 @@ instance Sql DBType a => HTable (HType a) where
     { labels = SLabel Proxy
     , necessity = SRequired
     , info = typeInformation
-    , nullability = nullabilization
+    , nullity = nullable
     }
 
   {-# INLINABLE hfield #-}

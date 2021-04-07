@@ -10,12 +10,12 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Schema.Nullability
+module Rel8.Schema.Null
   ( Nullify, Unnullify
   , NotNull
   , Homonullable
-  , Nullability( Nullable, NonNullable )
-  , HasNullability, nullabilization
+  , Nullity( Null, NotNull )
+  , Nullable, nullable
   , Sql, fromSql, mapSql, toSql
   )
 where
@@ -56,8 +56,8 @@ type Nullify a = Maybe (Unnullify a)
 
 -- | @nullify a@ means @a@ cannot take @null@ as a value.
 type NotNull :: Type -> Constraint
-class (HasNullability a, IsMaybe a ~ 'False) => NotNull a
-instance (HasNullability a, IsMaybe a ~ 'False) => NotNull a
+class (Nullable a, IsMaybe a ~ 'False) => NotNull a
+instance (Nullable a, IsMaybe a ~ 'False) => NotNull a
 
 
 -- | @Homonullable a b@ means that both @a@ and @b@ can be @null@, or neither
@@ -67,39 +67,39 @@ class IsMaybe a ~ IsMaybe b => Homonullable a b
 instance IsMaybe a ~ IsMaybe b => Homonullable a b
 
 
-type Nullability :: Type -> Type
-data Nullability a where
-  NonNullable :: NotNull a => Nullability a
-  Nullable :: NotNull a => Nullability (Maybe a)
+type Nullity :: Type -> Type
+data Nullity a where
+  NotNull :: NotNull a => Nullity a
+  Null :: NotNull a => Nullity (Maybe a)
 
 
-type HasNullability' :: Bool -> Type -> Constraint
+type Nullable' :: Bool -> Type -> Constraint
 class
   ( IsMaybe a ~ isMaybe
   , IsMaybe (Unnullify a) ~ 'False
   , Nullify' isMaybe (Unnullify a) ~ a
-  ) => HasNullability' isMaybe a
+  ) => Nullable' isMaybe a
  where
-  nullabilization' :: Nullability a
+  nullable' :: Nullity a
 
 
-instance IsMaybe a ~ 'False => HasNullability' 'False a where
-  nullabilization' = NonNullable
+instance IsMaybe a ~ 'False => Nullable' 'False a where
+  nullable' = NotNull
 
 
-instance IsMaybe a ~ 'False => HasNullability' 'True (Maybe a) where
-  nullabilization' = Nullable
+instance IsMaybe a ~ 'False => Nullable' 'True (Maybe a) where
+  nullable' = Null
 
 
--- | @HasNullability a@ means that @rel8@ is able to check if the type @a@ is a
+-- | @Nullable a@ means that @rel8@ is able to check if the type @a@ is a
 -- type that can take @null@ values or not.
-type HasNullability :: Type -> Constraint
-class HasNullability' (IsMaybe a) a => HasNullability a
-instance HasNullability' (IsMaybe a) a => HasNullability a
+type Nullable :: Type -> Constraint
+class Nullable' (IsMaybe a) a => Nullable a
+instance Nullable' (IsMaybe a) a => Nullable a
 
 
-nullabilization :: HasNullability a => Nullability a
-nullabilization = nullabilization'
+nullable :: Nullable a => Nullity a
+nullable = nullable'
 
 
 -- | The @Sql@ type class describes both null and not null database values,
@@ -109,12 +109,12 @@ nullabilization = nullabilization'
 -- supports equality, and @a@ can either be exactly an @a@, or it could also be
 -- @Maybe a@.
 type Sql :: (Type -> Constraint) -> Type -> Constraint
-class (constraint (Unnullify a), HasNullability a) => Sql constraint a
-instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
+class (constraint (Unnullify a), Nullable a) => Sql constraint a
+instance (constraint (Unnullify a), Nullable a) => Sql constraint a
 
 
-fromSql :: Dict (Sql constraint) a -> (Nullability a, Dict constraint (Unnullify a))
-fromSql Dict = (nullabilization, Dict)
+fromSql :: Dict (Sql constraint) a -> (Nullity a, Dict constraint (Unnullify a))
+fromSql Dict = (nullable, Dict)
 {-# INLINABLE fromSql #-}
 
 
@@ -122,10 +122,10 @@ mapSql :: ()
   => (forall x. Dict constraint x -> Dict constraint' x)
   -> Dict (Sql constraint) a -> Dict (Sql constraint') a
 mapSql f dict = case fromSql dict of
-  (nullability, dict') -> toSql nullability (f dict')
+  (nullity, dict') -> toSql nullity (f dict')
 
 
-toSql :: Nullability a -> Dict constraint (Unnullify a) -> Dict (Sql constraint) a
-toSql NonNullable Dict = Dict
-toSql Nullable Dict = Dict
+toSql :: Nullity a -> Dict constraint (Unnullify a) -> Dict (Sql constraint) a
+toSql NotNull Dict = Dict
+toSql Null Dict = Dict
 {-# INLINABLE toSql #-}

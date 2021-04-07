@@ -27,7 +27,7 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr.Null ( liftOpNullable, nullify )
+import Rel8.Expr.Null ( liftOpNull, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr
@@ -38,10 +38,7 @@ import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
-import Rel8.Schema.Nullability
-  ( Nullability( Nullable, NonNullable )
-  , Sql, nullabilization
-  )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -59,23 +56,23 @@ newtype Expr a = Expr Opaleye.PrimExpr
 
 
 instance Sql DBSemigroup a => Semigroup (Expr a) where
-  (<>) = case nullabilization @a of
-    Nullable -> liftOpNullable (<>.)
-    NonNullable -> (<>.)
+  (<>) = case nullable @a of
+    Null -> liftOpNull (<>.)
+    NotNull -> (<>.)
   {-# INLINABLE (<>) #-}
 
 
 instance Sql DBMonoid a => Monoid (Expr a) where
-  mempty = case nullabilization @a of
-    Nullable -> nullify memptyExpr
-    NonNullable -> memptyExpr
+  mempty = case nullable @a of
+    Null -> nullify memptyExpr
+    NotNull -> memptyExpr
   {-# INLINABLE mempty #-}
 
 
 instance (Sql IsString a, Sql DBType a) => IsString (Expr a) where
-  fromString = litExpr . case nullabilization @a of
-    Nullable -> Just . fromString
-    NonNullable -> fromString
+  fromString = litExpr . case nullable @a of
+    Null -> Just . fromString
+    NotNull -> fromString
 
 
 instance Sql DBNum a => Num (Expr a) where

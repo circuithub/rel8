@@ -29,7 +29,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
 
 -- text

@@ -29,7 +29,7 @@ import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )

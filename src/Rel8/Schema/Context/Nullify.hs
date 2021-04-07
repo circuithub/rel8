@@ -37,16 +37,12 @@ import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ), Col(..) )
-import Rel8.Schema.Nullability
-  ( Nullify
-  , Nullability( Nullable, NonNullable )
-  , Sql
-  )
+import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType
   ( ConstrainDBType
-  , dbTypeDict, dbTypeNullability, fromNullabilityDict
+  , dbTypeDict, dbTypeNullity, fromNullityDict
   )
 import Rel8.Table.Tag ( Tag(..), Taggable, fromAggregate, fromExpr, fromName )
 
@@ -91,15 +87,15 @@ instance Nullifiable Aggregate where
 
   decodeTag (Aggregation aggregate) = fromAggregate aggregate
 
-  nullifier Tag {expr} test SSpec {nullability} (Aggregation aggregate) =
+  nullifier Tag {expr} test SSpec {nullity} (Aggregation aggregate) =
     Aggregation $
-    mapInputs (toPrimExpr . runTag nullability condition . fromPrimExpr) $
-    runTag nullability condition <$> aggregate
+    mapInputs (toPrimExpr . runTag nullity condition . fromPrimExpr) $
+    runTag nullity condition <$> aggregate
     where
       condition = test expr
 
-  unnullifier SSpec {nullability} (Aggregation aggregate) =
-    Aggregation $ unnull nullability <$> aggregate
+  unnullifier SSpec {nullity} (Aggregation aggregate) =
+    Aggregation $ unnull nullity <$> aggregate
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -110,9 +106,9 @@ instance Nullifiable Aggregate where
 instance Nullifiable Expr where
   encodeTag Tag {expr} = DB expr
   decodeTag (DB a) = fromExpr a
-  nullifier Tag {expr} test SSpec {nullability} (DB a) =
-    DB $ runTag nullability (test expr) a
-  unnullifier SSpec {nullability} (DB a) = DB $ unnull nullability a
+  nullifier Tag {expr} test SSpec {nullity} (DB a) =
+    DB $ runTag nullity (test expr) a
+  unnullifier SSpec {nullity} (DB a) = DB $ unnull nullity a
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -132,18 +128,18 @@ instance Nullifiable Name where
   {-# INLINABLE unnullifier #-}
 
 
-runTag :: Nullability a -> Expr Bool -> Expr a -> Expr (Nullify a)
-runTag nullability tag a = case nullability of
-  Nullable -> boolExpr null a tag
-  NonNullable -> boolExpr null (nullify a) tag
+runTag :: Nullity a -> Expr Bool -> Expr a -> Expr (Nullify a)
+runTag nullity tag a = case nullity of
+  Null -> boolExpr null a tag
+  NotNull -> boolExpr null (nullify a) tag
   where
     null = fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit
 
 
-unnull :: Nullability a -> Expr (Nullify a) -> Expr a
-unnull nullability a = case nullability of
-  Nullable -> a
-  NonNullable -> unsafeUnnullify a
+unnull :: Nullity a -> Expr (Nullify a) -> Expr a
+unnull nullity a = case nullity of
+  Null -> a
+  NotNull -> unsafeUnnullify a
 
 
 type HNullifiable :: K.HContext -> Constraint
@@ -187,15 +183,15 @@ instance HNullifiable (Dict (ConstrainDBType constraint)) where
   hdecodeTag = mempty
 
   hnullifier _ _ SSpec {} dict = case dbTypeDict dict of
-    Dict -> case dbTypeNullability dict of
-      Nullable -> Dict
-      NonNullable -> Dict
+    Dict -> case dbTypeNullity dict of
+      Null -> Dict
+      NotNull -> Dict
 
-  hunnullifier SSpec {nullability} dict = case dbTypeDict dict of
-    Dict -> case nullability of
-      Nullable -> Dict
-      NonNullable -> case dbTypeNullability dict of
-        Nullable -> fromNullabilityDict nullability Dict
+  hunnullifier SSpec {nullity} dict = case dbTypeDict dict of
+    Dict -> case nullity of
+      Null -> Dict
+      NotNull -> case dbTypeNullity dict of
+        Null -> fromNullityDict nullity Dict
 
 
 type DefaultConstrainTag :: Type -> Constraint
