@@ -6,7 +6,6 @@
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
-{-# language QuantifiedConstraints #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -115,12 +114,7 @@ nullabilization = nullabilization'
 -- supports equality, and @a@ can either be exactly an @a@, or it could also be
 -- @Maybe a@.
 type Sql :: (Type -> Constraint) -> Type -> Constraint
-class
-  ( (forall c. (forall x. (constraint x => c x)) => Sql c a)
-  , HasNullability a
-  , constraint (Unnullify a)
-  )
-  => Sql constraint a
+class (constraint (Unnullify a), HasNullability a) => Sql constraint a
 instance (constraint (Unnullify a), HasNullability a) => Sql constraint a
 
 
