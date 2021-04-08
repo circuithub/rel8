@@ -85,16 +85,6 @@ instance Sql DBType a => Table Identity (Identity a) where
   fromColumns (HType (Result a)) = Identity a
 
 
-{-}
-instance Sql DBType a => Table Insertion (Insertion a) where
-  type Columns (Insertion a) = HType a
-  type Context (Insertion a) = Insertion
-
-  toColumns (Insertion a) = HType (RequiredInsert a)
-  fromColumns (HType (RequiredInsert a)) = Insertion a
--}
-
-
 instance
   ( Table context a, Table context b
   , Labelable context
