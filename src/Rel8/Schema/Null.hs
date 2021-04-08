@@ -16,16 +16,13 @@ module Rel8.Schema.Null
   , Homonullable
   , Nullity( Null, NotNull )
   , Nullable, nullable
-  , Sql, fromSql, mapSql, toSql
+  , Sql
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
 import Prelude
-
--- rel8
-import Rel8.Schema.Dict ( Dict( Dict ) )
 
 
 type IsMaybe :: Type -> Bool
@@ -111,21 +108,3 @@ nullable = nullable'
 type Sql :: (Type -> Constraint) -> Type -> Constraint
 class (constraint (Unnullify a), Nullable a) => Sql constraint a
 instance (constraint (Unnullify a), Nullable a) => Sql constraint a
-
-
-fromSql :: Dict (Sql constraint) a -> (Nullity a, Dict constraint (Unnullify a))
-fromSql Dict = (nullable, Dict)
-{-# INLINABLE fromSql #-}
-
-
-mapSql :: ()
-  => (forall x. Dict constraint x -> Dict constraint' x)
-  -> Dict (Sql constraint) a -> Dict (Sql constraint') a
-mapSql f dict = case fromSql dict of
-  (nullity, dict') -> toSql nullity (f dict')
-
-
-toSql :: Nullity a -> Dict constraint (Unnullify a) -> Dict (Sql constraint) a
-toSql NotNull Dict = Dict
-toSql Null Dict = Dict
-{-# INLINABLE toSql #-}

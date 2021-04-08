@@ -21,7 +21,7 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Null ( Unnullify, Nullity, Sql, nullable, toSql )
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 
 
@@ -60,7 +60,5 @@ dbTypeDict = step2 . step1
 
 
 fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
-fromNullityDict nullity = step2 . toSql nullity
-  where
-    step2 :: Dict (Sql c) a -> Dict (ConstrainDBType c) ('Spec l n a)
-    step2 Dict = Dict
+fromNullityDict Null Dict = Dict
+fromNullityDict NotNull Dict = Dict
