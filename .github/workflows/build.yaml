@@ -23,4 +23,4 @@ jobs:
 
     - run: nix-build -A hsPkgs.rel8.components.library
     - run: nix-build -A hsPkgs.rel8.checks.tests
-    - run: nix-build -f shell.nix
+    - run: nix-build shell.nix
