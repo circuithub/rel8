@@ -169,7 +169,7 @@ module Rel8
   , withoutBy
 
     -- ** Aggregation
-  , Aggregate
+  , Aggregator
   , aggregate
   , countRows
   , listAgg, listAggExpr
