@@ -120,9 +120,43 @@ These operations are similar to Haskell's ``take`` and ``drop`` operations.
 Filtering queries
 -----------------
 
-.. todo::
+Rel8 offers a few different ways to filter the rows selected by a query.
+Perhaps the most familiar operation is to apply a ``WHERE`` clause to a query.
+In Rel8, this is done using ``where_``, which takes any ``Expr Bool``, and
+returns rows where that ``Expr`` is true. For example, to select all public
+blog posts, we could write::
 
-  Write this
+  blogPost <- each blogPostSchema
+  where_ $ blogPostIsPublic blogPost
+
+An alternative way to write ``WHERE`` clauses is to use ``filter``. This
+operator is similar to the ``guard`` function in ``Control.Monad``, but also
+returns the tested row. This allows us to easily chain a filtering operation on
+a query. The above query could thus be written as::
+
+  blogPost <- filter blogPostIsPublic =<< each blogPostSchema
+
+``where_`` and ``filter`` allow you to filter rows based on an expression, but
+sometimes we want to filter based on another query. For this, Rel8 offers
+``whereExists`` and ``whereNotExists``. For example, if all blog posts have a
+list of tags, we could use ``whereExists`` to find all blog posts that have been
+tagged as "Haskell"::
+
+  blogPost <- each blogPostSchema
+  whereExists do
+    filter (("Haskell" ==.) . tagName) =<< tagFromBlogPost blogPost
+
+Notice that this example uses ``whereExists`` with a query that itself uses
+``filter``. For each blog post, ``whereExists`` causes that row to be selected
+only if the associated query finds a tag for that blog post with the ``tagName``
+"Haskell".
+
+Like ``filter`` there is also a chaining variant of ``whereExists`` - ``with``.
+We could rewrite the above query using ``with`` as::
+
+  haskellBlogPost <-
+    each blogPostSchema >>=
+    with (filter (("Haskell" ==.) . tagName) <=< tagFromBlogPost)
 
 Inner joins
 -----------
