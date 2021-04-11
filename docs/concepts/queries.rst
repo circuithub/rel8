@@ -161,9 +161,44 @@ We could rewrite the above query using ``with`` as::
 Inner joins
 -----------
 
-.. todo::
+Inner joins are SQL queries of the form ``SELECT .. FROM x JOIN y ON ..``. Rel8
+doesn't offer a special function for these queries, as the same query can be
+expressed by selecting from two tables (this is called taking the *cartesian
+product* of two queries) and then filtering the result.
 
-  Write this
+If we wanted to join each blog post with the author of the blog post, we would
+write the SQL::
+
+  SELECT * FROM blog_post JOIN author ON author.id = blog_post.id
+
+The alternative way to write this query with ``WHERE`` is::
+
+  SELECT * FROM blog_post, author WHERE author.id = blog_post.id
+
+and this query can be written in Rel8 as::
+
+  blogPost <- each blogPostSchema
+  author <- each authorSchema
+  where_ $ blogPostAuthorId blogPost ==. authorId author
+
+.. hint::
+
+  A good pattern to adopt is to abstract out these joins as functions. A
+  suggested way to write the above would be to extract out an "author for blog
+  post" function::
+
+    blogPost <- each blogPostSchema
+    author <- authorForBlogPost blogPost
+
+  where::
+
+    authorForBlogPost :: BlogPost Expr -> Query (Author Expr)
+    authorForBlogPost blogPost = 
+      filter ((blogPostAuthorId blogPost ==.) authorId author) =<< 
+      each authorSchema
+
+  While this is a little more code over all, in our experience this style
+  dramatically increases the readabality of queries using joins.
 
 Left (outer) joins with ``optional``
 ------------------------------------
