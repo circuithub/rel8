@@ -108,9 +108,14 @@ with a ``TableSchema``.
 Limit and offset
 ----------------
 
-.. todo::
+The SQL ``LIMIT`` and ``OFFSET`` keywords are available in Rel8 as ``limit``
+and ``offset``. Note that, like SQL, the order of these operations matters.
+Usually, the correct thing to do is to first apply an offset with ``offset``,
+and then use ``limit`` to limit the number of rows returned::
 
-  Write this
+  limit n . offset m . orderBy anOrdering
+
+These operations are similar to Haskell's ``take`` and ``drop`` operations.
 
 Filtering queries
 -----------------
