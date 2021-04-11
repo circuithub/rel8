@@ -203,9 +203,40 @@ and this query can be written in Rel8 as::
 Left (outer) joins with ``optional``
 ------------------------------------
 
-.. todo::
+A left join is like an inner join, but allows for the possibility of the join to
+"fail". You use left joins when you want to join optional information against a
+row.
 
-  Write this
+In Rel8, a ``LEFT JOIN`` is introduced by converting an inner join with
+``optional``. While this approach might seem a little foreign at first, it has a
+strong similarity with the ``Control.Applicative.optional`` function, and allows
+you to reuse previous code. 
+
+To see an example of this, let's assume that we want to get the latest comment
+for each blog post. Not all blog posts are popular though, so some blog posts
+might have no comment at all. To write this in Rel8, we could write::
+
+  blogPost <- each blogPostSchema
+
+  latestComment <- 
+    optional $ limit 1 $ 
+      orderBy (commentCreatedAt >$< desc) $ 
+        commentsForBlogPost blogPost
+          
+``optional`` will transform a ``Query a`` into a ``Query (MaybeTable a)``.
+``MaybeTable`` is similar to the normal ``Maybe`` data type in Haskell, and
+represents the choice between a ``justTable x`` and a ``nothingTable`` (like
+``Just x`` and ``Nothing``, respectively). When you execute a query containing
+``MaybeTable x`` with ``select``, Rel8 will return ``Maybe x``. ``MaybeTable``
+comes with a library of routines, similar to the functions that can be used to
+operate on ``Maybe``. For more details, see the API documentation.
+
+.. hint::
+
+  ``optional`` converts an inner join into a ``LEFT JOIN``, but you can also go
+  the other way - and turn a ``LEFT JOIN`` back into an inner join! To do this,
+  you can use ``catMaybeTable``, which will select only the rows when the left
+  join was successful.
 
 Ordering results
 ----------------
