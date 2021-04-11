@@ -42,9 +42,6 @@ library
     Rel8.Expr.Time
     Rel8.Tabulate
 
-    -- deprecated
-    Rel8.Aggregate.Legacy
-
   other-modules:
     Rel8.Aggregate
 

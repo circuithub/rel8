@@ -12,17 +12,15 @@
 {-# language UndecidableSuperClasses #-}
 
 module Rel8.Aggregate
-  ( Aggregate(..), foldInputs, mapInputs
-  , Aggregator(..), unsafeMakeAggregate
-  , Aggregates
+  ( Aggregator(..)
+  , Aggregate(..), unsafeMakeAggregate
   , Col( Aggregation )
   )
 where
 
 -- base
-import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Identity ( Identity )
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Prelude
 
 -- opaleye
@@ -30,9 +28,11 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 
+-- profunctors
+import Data.Profunctor ( Profunctor )
+
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
@@ -47,27 +47,24 @@ import Rel8.Type ( DBType )
 import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
 
 
--- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
--- unpack an @Aggregate@ back to @a@ by running it with 'Rel8.aggregate'. As
--- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
--- operation. This means 'Aggregate' is an instance of 'Apply', and you can
--- combine @Aggregate@s using the @<.>@ combinator.
-type Aggregate :: Type -> Type
-newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
-  deriving newtype Functor
-  deriving Apply via (WrappedApplicative (Opaleye.Aggregator ()))
+-- | An @Aggregator i o@ describes how to aggregate @Table@s of type @i@ into
+-- @Table@s of type @o@. You run @Aggregator@s with 'Rel8.aggregate'.
+type Aggregator :: Type -> Type -> Type
+newtype Aggregator a b = Aggregator { opaleyeAggregator :: Opaleye.Aggregator a b }
+  deriving newtype (Functor, Applicative, Profunctor)
+  deriving (Apply) via (WrappedApplicative (Opaleye.Aggregator a))
 
 
-instance Interpretation Aggregate where
-  data Col Aggregate _spec where
+instance Interpretation (Aggregator i) where
+  data Col (Aggregator i) _spec where
     Aggregation :: ()
-      => Aggregate (Expr a)
-      -> Col Aggregate ('Spec labels necessity a)
+      => Aggregator i (Expr a)
+      -> Col (Aggregator i) ('Spec labels necessity a)
 
 
-instance Table Expr a => Table Aggregate (Aggregate a) where
-  type Columns (Aggregate a) = Columns a
-  type Context (Aggregate a) = Aggregate
+instance Table Expr o => Table (Aggregator i) (Aggregator i o) where
+  type Columns (Aggregator i o) = Columns o
+  type Context (Aggregator i o) = Aggregator i
 
   toColumns a = htabulate $ \field -> case hfield hspecs field of
     SSpec {} -> Aggregation $ unDB . (`hfield` field) . toColumns <$> a
@@ -77,65 +74,40 @@ instance Table Expr a => Table Aggregate (Aggregate a) where
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Aggregate (Aggregate (Expr a)) (Aggregate (Expr a))
+  Recontextualize (Aggregator i) (Aggregator i) (Aggregator i (Expr a)) (Aggregator i (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Expr (Aggregate (Expr a)) (Expr a)
+  Recontextualize (Aggregator i) Expr (Aggregator i (Expr a)) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Identity (Aggregate (Expr a)) (Identity a)
+  Recontextualize (Aggregator i) Identity (Aggregator i (Expr a)) (Identity a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Name (Aggregate (Expr a)) (Name a)
+  Recontextualize (Aggregator i) Name (Aggregator i (Expr a)) (Name a)
 
 
 instance Sql DBType a =>
-  Recontextualize Expr Aggregate (Expr a) (Aggregate (Expr a))
+  Recontextualize Expr (Aggregator i) (Expr a) (Aggregator i (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize Identity Aggregate (Identity a) (Aggregate (Expr a))
+  Recontextualize Identity (Aggregator i) (Identity a) (Aggregator i (Expr a))
 
 
 instance Sql DBType a =>
-  Recontextualize Name Aggregate (Name a) (Aggregate (Expr a))
+  Recontextualize Name (Aggregator i) (Name a) (Aggregator i (Expr a))
 
 
-instance Labelable Aggregate where
+instance Labelable (Aggregator i) where
   labeler (Aggregation aggregate) = Aggregation aggregate
   unlabeler (Aggregation aggregate) = Aggregation aggregate
 
 
--- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
--- for the columns in @b@.
-type Aggregates :: Type -> Type -> Constraint
-class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance {-# OVERLAPPING #-} Aggregates (Opaque Aggregate Opaque) (Opaque Expr Opaque)
-
-
-foldInputs :: Monoid b
-  => (Maybe Aggregator -> Opaleye.PrimExpr -> b) -> Aggregate a -> b
-foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
-  getConst $ flip agg () $ \(aggregator, a) ->
-    Const $ f (detuplize <$> aggregator) a
-  where
-    detuplize (operation, ordering, distinction) =
-      Aggregator {operation, ordering, distinction}
-
-
-mapInputs :: ()
-  => (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Aggregate a -> Aggregate a
-mapInputs transform (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
-  Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ agg . \f input ->
-    f (fmap transform input)
-
-
-type Aggregator :: Type
-data Aggregator = Aggregator
+type Aggregate :: Type
+data Aggregate = Aggregate
   { operation :: Opaleye.AggrOp
   , ordering :: [Opaleye.OrderExpr]
   , distinction :: Opaleye.AggrDistinct
@@ -145,12 +117,12 @@ data Aggregator = Aggregator
 unsafeMakeAggregate :: ()
   => (input -> Opaleye.PrimExpr)
   -> (Opaleye.PrimExpr -> output)
-  -> Maybe Aggregator
-  -> input
-  -> Aggregate output
-unsafeMakeAggregate input output aggregator expr =
-  Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ \f _ ->
-    output <$> f (tuplize <$> aggregator, input expr)
+  -> Maybe Aggregate
+  -> (a -> input)
+  -> Aggregator a output
+unsafeMakeAggregate input output aggregator toExpr =
+  Aggregator $ Opaleye.Aggregator $ Opaleye.PackMap $ \f a ->
+    output <$> f (tuplize <$> aggregator, input (toExpr a))
   where
-    tuplize Aggregator {operation, ordering, distinction} =
+    tuplize Aggregate {operation, ordering, distinction} =
       (operation, ordering, distinction)

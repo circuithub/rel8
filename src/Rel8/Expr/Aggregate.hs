@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
@@ -26,7 +27,7 @@ import Prelude hiding ( and, max, min, null, or, sum )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregator(..), unsafeMakeAggregate )
+import Rel8.Aggregate ( Aggregator(..), Aggregate(..), unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( caseExpr )
 import Rel8.Expr.Opaleye
@@ -47,9 +48,9 @@ import Rel8.Type.Sum ( DBSum )
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
-count :: Expr a -> Aggregate (Expr Int64)
+count :: (i -> Expr a) -> Aggregator i (Expr Int64)
 count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrCount
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -58,9 +59,9 @@ count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 -- | Count the number of distinct occurances of a single column. Corresponds to
 -- @COUNT(DISTINCT a)@
-countDistinct :: Sql DBEq a => Expr a -> Aggregate (Expr Int64)
+countDistinct :: Sql DBEq a => (i -> Expr a) -> Aggregator i (Expr Int64)
 countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrCount
     , ordering = []
     , distinction = Opaleye.AggrDistinct
@@ -68,19 +69,19 @@ countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Corresponds to @COUNT(*)@.
-countStar :: Aggregate (Expr Int64)
-countStar = count (litExpr True)
+countStar :: Aggregator i (Expr Int64)
+countStar = count \_ -> litExpr True
 
 
 -- | A count of the number of times a given expression is @true@.
-countWhere :: Expr Bool -> Aggregate (Expr Int64)
-countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
+countWhere :: (i -> Expr Bool) -> Aggregator i (Expr Int64)
+countWhere condition = count \i -> caseExpr [(condition i, litExpr (Just True))] null
 
 
 -- | Corresponds to @bool_and@.
-and :: Expr Bool -> Aggregate (Expr Bool)
+and :: (i -> Expr Bool) -> Aggregator i (Expr Bool)
 and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrBoolAnd
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -88,9 +89,9 @@ and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Corresponds to @bool_or@.
-or :: Expr Bool -> Aggregate (Expr Bool)
+or :: (i -> Expr Bool) -> Aggregator i (Expr Bool)
 or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrBoolOr
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -98,9 +99,9 @@ or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-max :: Sql DBMax a => Expr a -> Aggregate (Expr a)
+max :: Sql DBMax a => (i -> Expr a) -> Aggregator i (Expr a)
 max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrMax
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -108,9 +109,9 @@ max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-min :: Sql DBMin a => Expr a -> Aggregate (Expr a)
+min :: Sql DBMin a => (i -> Expr a) -> Aggregator i (Expr a)
 min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrMin
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -121,9 +122,9 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 -- this, and will add explicit cast back to the original input type. This can
 -- lead to overflows, and if you anticipate very large sums, you should upcast
 -- your input.
-sum :: Sql DBSum a => Expr a -> Aggregate (Expr a)
+sum :: Sql DBSum a => (i -> Expr a) -> Aggregator i (Expr a)
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
-  Just Aggregator
+  Just Aggregate
     { operation = Opaleye.AggrSum
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -132,16 +133,16 @@ sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
 
 -- | Take the sum of all expressions that satisfy a predicate.
 sumWhere :: (Sql DBNum a, Sql DBSum a)
-  => Expr Bool -> Expr a -> Aggregate (Expr a)
-sumWhere condition a = sum (caseExpr [(condition, a)] 0)
+  => (i -> Expr Bool) -> (i -> Expr a) -> Aggregator i (Expr a)
+sumWhere condition f = sum \i -> (caseExpr [(condition i, f i)] 0)
 
 
 -- | Corresponds to @string_agg()@.
 stringAgg :: Sql DBString a
-  => Expr db -> Expr a -> Aggregate (Expr a)
+  => Expr db -> (i -> Expr a) -> Aggregator i (Expr a)
 stringAgg delimiter =
   unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
-    Just Aggregator
+    Just Aggregate
       { operation = Opaleye.AggrStringAggr (toPrimExpr delimiter)
       , ordering = []
       , distinction = Opaleye.AggrAll
@@ -149,14 +150,14 @@ stringAgg delimiter =
 
 
 -- | Aggregate a value by grouping by it.
-groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
+groupByExpr :: Sql DBEq a => (i -> Expr a) -> Aggregator i (Expr a)
 groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 
 -- | Collect expressions values as a list.
-listAggExpr :: Expr a -> Aggregate (Expr [a])
+listAggExpr :: (i -> Expr a) -> Aggregator i (Expr [a])
 listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
-  Aggregator
+  Aggregate
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
@@ -166,9 +167,9 @@ listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
 
 
 -- | Collect expressions values as a non-empty list.
-nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExpr :: (i -> Expr a) -> Aggregator i (Expr (NonEmpty a))
 nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
-  Aggregator
+  Aggregate
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll

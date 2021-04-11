@@ -28,7 +28,7 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate ( Aggregator )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Necessity ( Necessity(Optional, Required) )
 import Rel8.Opaque ( Opaque )
@@ -94,7 +94,7 @@ instance Sql DBType a => Table Insert (Insertion a) where
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Insertion a)
+  Recontextualize (Aggregator i) Insert (Aggregator i (Expr a)) (Insertion a)
 
 
 instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Insertion a)
@@ -105,7 +105,7 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Aggregate (Insertion a) (Aggregate (Expr a))
+  Recontextualize Insert (Aggregator i) (Insertion a) (Aggregator i (Expr a))
 
 
 instance Sql DBType a => Recontextualize Insert Expr (Insertion a) (Expr a)

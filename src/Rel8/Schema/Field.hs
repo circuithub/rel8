@@ -13,7 +13,6 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
@@ -29,6 +28,5 @@ type family Field labels context necessity a where
   Field Expr      _labels _necessity a = Expr a
   Field Insert    _labels 'Required  a = Expr a
   Field Insert    _labels 'Optional  a = Maybe (Expr a)
-  Field Aggregate _labels _necessity a = Aggregate (Expr a)
   Field Structure labels  necessity  a = Shape1 'Column ('Spec labels necessity a)
   Field context   _labels _necessity a = context a

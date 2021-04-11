@@ -5,8 +5,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Opaleye
-  ( aggregator
-  , binaryspec
+  ( binaryspec
   , distinctspec
   , table
   , tableFields
@@ -32,7 +31,6 @@ import qualified Opaleye.Internal.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ) )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
@@ -50,11 +48,6 @@ import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
-
-
-aggregator :: Opaleye.Aggregator (Aggregate exprs) exprs
-aggregator = Opaleye.Aggregator $ Opaleye.PackMap $
-  \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner))) -> inner f ()
 
 
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a

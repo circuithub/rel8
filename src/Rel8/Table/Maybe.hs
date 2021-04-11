@@ -16,7 +16,7 @@ module Rel8.Table.Maybe
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
   , ($?)
-  , aggregateMaybeTable
+  -- , aggregateMaybeTable
   , nameMaybeTable
   )
 where
@@ -27,11 +27,9 @@ import Data.Kind ( Type )
 import Prelude hiding ( null, repeat, undefined, zipWith )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
@@ -66,7 +64,7 @@ import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>), liftF2 )
+import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
@@ -220,12 +218,12 @@ f $? ma@(MaybeTable _ a) = case nullabilization @b of
 infixl 4 $?
 
 
-aggregateMaybeTable :: ()
-  => (a -> Aggregate b) -> MaybeTable a -> Aggregate (MaybeTable b)
-aggregateMaybeTable f MaybeTable {tag = tag@Tag {aggregator, expr}, just} =
-  liftF2 MaybeTable (tag <$ aggregate) (f just)
-  where
-    aggregate = unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
+-- aggregateMaybeTable :: ()
+--   => Aggregate a b -> Aggregate (MaybeTable a) (MaybeTable b)
+-- aggregateMaybeTable f MaybeTable {tag = tag@Tag {aggregator, expr}, just} =
+--   liftF2 MaybeTable (tag <$ aggregate) (f just)
+--   where
+--     aggregate = unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
 
 
 nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a

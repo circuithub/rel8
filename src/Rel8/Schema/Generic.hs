@@ -36,7 +36,6 @@ import GHC.TypeLits ( Symbol, KnownSymbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Col(..) )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Kind.Necessity
   ( SNecessity( SRequired, SOptional )
@@ -106,11 +105,6 @@ class TableHelper context where
    gtoColumns :: Rel8able t => t context -> GRep t (Col context)
 
 
-instance TableHelper Aggregate where
-  gfromColumns = fromAggregateColumns
-  gtoColumns = toAggregateColumns
-
-
 instance TableHelper Expr where
   gfromColumns = fromExprColumns
   gtoColumns = toExprColumns
@@ -177,9 +171,6 @@ type Rel8able :: KTable -> Constraint
 class HTable (GRep t) => Rel8able t where
   type GRep t :: K.HTable
 
-  fromAggregateColumns :: GRep t (Col Aggregate) -> t Aggregate
-  toAggregateColumns :: t Aggregate -> GRep t (Col Aggregate)
-
   fromExprColumns :: GRep t (Col Expr) -> t Expr
   toExprColumns :: t Expr -> GRep t (Col Expr)
 
@@ -193,20 +184,6 @@ class HTable (GRep t) => Rel8able t where
   toNameColumns :: t Name -> GRep t (Col Name)
 
   type GRep t = GColumns (Rep (t Structure))
-
-  default fromAggregateColumns ::
-    ( Generic (t Aggregate)
-    , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Aggregate (Rep (t Structure)) (Rep (t Aggregate))
-    ) => GRep t (Col Aggregate) -> t Aggregate
-  fromAggregateColumns = to . fromGColumns @_ @(Rep (t Structure))
-
-  default toAggregateColumns ::
-    ( Generic (t Aggregate)
-    , GColumns (Rep (t Structure)) ~ GRep t
-    , GRel8able Aggregate (Rep (t Structure)) (Rep (t Aggregate))
-    ) => t Aggregate -> GRep t (Col Aggregate)
-  toAggregateColumns = toGColumns @_ @(Rep (t Structure)) . from
 
   default fromExprColumns ::
     ( Generic (t Expr)
@@ -364,26 +341,6 @@ class isStructure ~ IsStructure structure =>
 
 
 instance
-  ( x ~ Field Aggregate '[] necessity a
-  ) => K1Table label Aggregate 'True (Shape1 'Column ('Spec '[] necessity a)) x
- where
-  fromK1Columns (HIdentity (Aggregation a)) = a
-  toK1Columns = HIdentity . Aggregation
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
-  ( x ~ Field Aggregate (label ': labels) necessity a
-  ) => K1Table _label Aggregate 'True (Shape1 'Column ('Spec (label ': labels) necessity a)) x
- where
-  fromK1Columns (HIdentity (Aggregation a)) = a
-  toK1Columns = HIdentity . Aggregation
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
   ( x ~ Field Expr '[] necessity a
   ) => K1Table label Expr 'True (Shape1 'Column ('Spec '[] necessity a)) x
  where
@@ -469,29 +426,6 @@ instance
  where
   fromK1Columns = Name . (\(NameCol a) -> a) . unlabeler . unHIdentity
   toK1Columns = HIdentity . labeler . NameCol . (\(Name a) -> a)
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
-  ( HTable (K1Columns "Left" structure1)
-  , HTable (K1Columns "Right" structure2)
-  , K1Table "Left" Aggregate (IsStructure structure1) structure1 a
-  , K1Table "Right" Aggregate (IsStructure structure2) structure2 b
-  , e ~ EitherTable a b
-  , KnownSymbol label
-  ) => K1Table label Aggregate 'True (Shape2 'Either structure1 structure2) e
- where
-  fromK1Columns =
-    fromColumns2
-      (fromK1Columns @"Left" @_ @_ @structure1)
-      (fromK1Columns @"Right" @_ @_ @structure2) .
-    hunlabel unlabeler
-  toK1Columns =
-    hlabel labeler .
-    toColumns2
-      (toK1Columns @"Left" @_ @_ @structure1)
-      (toK1Columns @"Right" @_ @_ @structure2)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -591,19 +525,6 @@ instance
 
 
 instance
-  ( Table Aggregate a
-  , K1Columns label structure ~ HLabel label (Columns a)
-  , as ~ ListTable a
-  , KnownSymbol label
-  ) => K1Table label Aggregate 'True (Shape1 'List structure) as
- where
-  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
-  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
   ( Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ ListTable a
@@ -650,23 +571,6 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
   toK1Columns = hrelabel (hlabel hlabeler) . toColumns
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
-  ( HTable (K1Columns "Just" structure)
-  , K1Table "Just" Aggregate (IsStructure structure) structure a
-  , ma ~ MaybeTable a
-  , KnownSymbol label
-  ) => K1Table label Aggregate 'True (Shape1 'Maybe structure) ma
- where
-  fromK1Columns =
-    fromColumns1 (fromK1Columns @"Just" @_ @_ @structure) .
-    hunlabel unlabeler
-  toK1Columns =
-    hlabel labeler .
-    toColumns1 (toK1Columns @"Just" @_ @_ @structure)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 
@@ -742,19 +646,6 @@ instance
 
 
 instance
-  ( Table Aggregate a
-  , K1Columns label structure ~ HLabel label (Columns a)
-  , as ~ NonEmptyTable a
-  , KnownSymbol label
-  ) => K1Table label Aggregate 'True (Shape1 'NonEmpty structure) as
- where
-  fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
-  toK1Columns = hrelabel (hlabel hlabeler) . toColumns
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
   ( Table Expr a
   , K1Columns label structure ~ HLabel label (Columns a)
   , as ~ NonEmptyTable a
@@ -801,29 +692,6 @@ instance
  where
   fromK1Columns = fromColumns . hrelabel (hunlabel hunlabeler)
   toK1Columns = hrelabel (hlabel hlabeler) . toColumns
-  {-# INLINABLE fromK1Columns #-}
-  {-# INLINABLE toK1Columns #-}
-
-
-instance
-  ( HTable (K1Columns "Here" structure1)
-  , HTable (K1Columns "There" structure2)
-  , K1Table "Here" Aggregate (IsStructure structure1) structure1 a
-  , K1Table "There" Aggregate (IsStructure structure2) structure2 b
-  , e ~ TheseTable a b
-  , KnownSymbol label
-  ) => K1Table label Aggregate 'True (Shape2 'These structure1 structure2) e
- where
-  fromK1Columns =
-    fromColumns2
-      (fromK1Columns @"Here" @_ @_ @structure1)
-      (fromK1Columns @"There" @_ @_ @structure2) .
-    hunlabel unlabeler
-  toK1Columns =
-    hlabel labeler .
-    toColumns2
-      (toK1Columns @"Here" @_ @_ @structure1)
-      (toK1Columns @"There" @_ @_ @structure2)
   {-# INLINABLE fromK1Columns #-}
   {-# INLINABLE toK1Columns #-}
 

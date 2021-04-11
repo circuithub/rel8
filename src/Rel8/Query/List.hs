@@ -29,7 +29,7 @@ import Rel8.Table.NonEmpty ( NonEmptyTable )
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
 some :: Table Expr a => Query a -> Query (NonEmptyTable a)
-some = aggregate . fmap nonEmptyAgg
+some = aggregate (nonEmptyAgg id)
 
 
 -- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
@@ -40,4 +40,4 @@ some = aggregate . fmap nonEmptyAgg
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
 many :: Table Expr a => Query a -> Query (ListTable a)
-many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
+many = fmap (maybeTable mempty id) . optional . aggregate (listAgg id)

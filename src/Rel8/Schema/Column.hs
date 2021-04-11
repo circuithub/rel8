@@ -20,7 +20,6 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Labels ( Labels )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
@@ -90,7 +89,6 @@ type Column context a =
 type HEither :: K.Context -> Type -> Type -> Type
 type family HEither context where
   HEither Structure = Shape2 'Either
-  HEither Aggregate = EitherTable
   HEither Expr = EitherTable
   HEither Identity = Either
   HEither Insert = EitherTable
@@ -101,7 +99,6 @@ type family HEither context where
 type HList :: K.Context -> Type -> Type
 type family HList context where
   HList Structure = Shape1 'List
-  HList Aggregate = ListTable
   HList Expr = ListTable
   HList Identity = []
   HList Insert = ListTable
@@ -112,7 +109,6 @@ type family HList context where
 type HMaybe :: K.Context -> Type -> Type
 type family HMaybe context where
   HMaybe Structure = Shape1 'Maybe
-  HMaybe Aggregate = MaybeTable
   HMaybe Expr = MaybeTable
   HMaybe Identity = Maybe
   HMaybe Insert = MaybeTable
@@ -123,7 +119,6 @@ type family HMaybe context where
 type HNonEmpty :: K.Context -> Type -> Type
 type family HNonEmpty context where
   HNonEmpty Structure = Shape1 'NonEmpty
-  HNonEmpty Aggregate = NonEmptyTable
   HNonEmpty Expr = NonEmptyTable
   HNonEmpty Identity = NonEmpty
   HNonEmpty Insert = NonEmptyTable
@@ -134,7 +129,6 @@ type family HNonEmpty context where
 type HThese :: K.Context -> Type -> Type -> Type
 type family HThese context where
   HThese Structure = Shape2 'These
-  HThese Aggregate = TheseTable
   HThese Expr = TheseTable
   HThese Identity = These
   HThese Insert = TheseTable

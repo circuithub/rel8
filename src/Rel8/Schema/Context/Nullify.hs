@@ -26,15 +26,10 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Aggregate
-  ( Aggregate, Col(..)
-  , mapInputs
-  , unsafeMakeAggregate
-  )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
+import Rel8.Expr.Opaleye ( fromPrimExpr )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation )
 import qualified Rel8.Schema.Kind as K
@@ -50,7 +45,7 @@ import Rel8.Schema.Spec.ConstrainDBType
   ( ConstrainDBType
   , dbTypeDict, dbTypeNullability, fromNullabilityDict
   )
-import Rel8.Table.Tag ( Tag(..), Taggable, fromAggregate, fromExpr, fromName )
+import Rel8.Table.Tag ( Tag(..), Taggable, fromExpr, fromName )
 
 
 type Nullifiable :: K.Context -> Constraint
@@ -85,28 +80,6 @@ class Interpretation context => Nullifiable context where
     => SSpec ('Spec labels necessity x)
     -> Col context ('Spec labels necessity (Nullify x))
     -> Col context ('Spec labels necessity x)
-
-
-instance Nullifiable Aggregate where
-  encodeTag Tag {aggregator, expr} =
-    Aggregation $ unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
-
-  decodeTag (Aggregation aggregate) = fromAggregate aggregate
-
-  nullifier Tag {expr} test SSpec {nullability} (Aggregation aggregate) =
-    Aggregation $
-    mapInputs (toPrimExpr . runTag nullability condition . fromPrimExpr) $
-    runTag nullability condition <$> aggregate
-    where
-      condition = test expr
-
-  unnullifier SSpec {nullability} (Aggregation aggregate) =
-    Aggregation $ unnull nullability <$> aggregate
-
-  {-# INLINABLE encodeTag #-}
-  {-# INLINABLE decodeTag #-}
-  {-# INLINABLE nullifier #-}
-  {-# INLINABLE unnullifier #-}
 
 
 instance Nullifiable Expr where

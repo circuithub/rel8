@@ -36,8 +36,11 @@ import Data.Foldable ( traverse_ )
 import Data.Maybe ( fromMaybe )
 import Prelude hiding ( filter, lookup, undefined, zip, zipWith )
 
+-- profunctors
+import Data.Profunctor ( lmap )
+
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate ( Aggregator )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( not_, true )
 import Rel8.Query ( Query )
@@ -57,7 +60,6 @@ import Rel8.Table.Undefined ( undefined )
 import Data.Functor.Apply ( Apply, liftF2 )
 import Data.Functor.Bind ( Bind )
 import qualified Data.Functor.Bind
-import Data.Semigroup.Traversable.Class ( bitraverse1 )
 
 
 -- | @'Tabulation' k a@ is denotionally a @MultiMap k a@ — a @Map@ where each
@@ -320,10 +322,10 @@ difference kas kbs = do
 
 
 aggregateTabulation :: EqTable k
-  => Tabulation k (Aggregate a) -> Tabulation k a
-aggregateTabulation kas = do
+  => Aggregator a b -> Tabulation k a -> Tabulation k b
+aggregateTabulation aggregator kas = do
   as <- toQuery kas
-  fromQuery $ aggregate $ bitraverse1 groupBy id <$> as
+  fromQuery $ aggregate (liftA2 (,) (groupBy fst) (lmap snd aggregator)) as
 
 
 optionalTabulation :: EqTable k
