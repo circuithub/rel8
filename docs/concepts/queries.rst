@@ -108,30 +108,135 @@ with a ``TableSchema``.
 Limit and offset
 ----------------
 
-.. todo::
+The SQL ``LIMIT`` and ``OFFSET`` keywords are available in Rel8 as ``limit``
+and ``offset``. Note that, like SQL, the order of these operations matters.
+Usually, the correct thing to do is to first apply an offset with ``offset``,
+and then use ``limit`` to limit the number of rows returned::
 
-  Write this
+  limit n . offset m . orderBy anOrdering
+
+These operations are similar to Haskell's ``take`` and ``drop`` operations.
 
 Filtering queries
 -----------------
 
-.. todo::
+Rel8 offers a few different ways to filter the rows selected by a query.
+Perhaps the most familiar operation is to apply a ``WHERE`` clause to a query.
+In Rel8, this is done using ``where_``, which takes any ``Expr Bool``, and
+returns rows where that ``Expr`` is true. For example, to select all public
+blog posts, we could write::
 
-  Write this
+  blogPost <- each blogPostSchema
+  where_ $ blogPostIsPublic blogPost
+
+An alternative way to write ``WHERE`` clauses is to use ``filter``. This
+operator is similar to the ``guard`` function in ``Control.Monad``, but also
+returns the tested row. This allows us to easily chain a filtering operation on
+a query. The above query could thus be written as::
+
+  blogPost <- filter blogPostIsPublic =<< each blogPostSchema
+
+``where_`` and ``filter`` allow you to filter rows based on an expression, but
+sometimes we want to filter based on another query. For this, Rel8 offers
+``whereExists`` and ``whereNotExists``. For example, if all blog posts have a
+list of tags, we could use ``whereExists`` to find all blog posts that have been
+tagged as "Haskell"::
+
+  blogPost <- each blogPostSchema
+  whereExists do
+    filter (("Haskell" ==.) . tagName) =<< tagFromBlogPost blogPost
+
+Notice that this example uses ``whereExists`` with a query that itself uses
+``filter``. For each blog post, ``whereExists`` causes that row to be selected
+only if the associated query finds a tag for that blog post with the ``tagName``
+"Haskell".
+
+Like ``filter`` there is also a chaining variant of ``whereExists`` - ``with``.
+We could rewrite the above query using ``with`` as::
+
+  haskellBlogPost <-
+    each blogPostSchema >>=
+    with (filter (("Haskell" ==.) . tagName) <=< tagFromBlogPost)
 
 Inner joins
 -----------
 
-.. todo::
+Inner joins are SQL queries of the form ``SELECT .. FROM x JOIN y ON ..``. Rel8
+doesn't offer a special function for these queries, as the same query can be
+expressed by selecting from two tables (this is called taking the *cartesian
+product* of two queries) and then filtering the result.
 
-  Write this
+If we wanted to join each blog post with the author of the blog post, we would
+write the SQL::
+
+  SELECT * FROM blog_post JOIN author ON author.id = blog_post.id
+
+The alternative way to write this query with ``WHERE`` is::
+
+  SELECT * FROM blog_post, author WHERE author.id = blog_post.id
+
+and this query can be written in Rel8 as::
+
+  blogPost <- each blogPostSchema
+  author <- each authorSchema
+  where_ $ blogPostAuthorId blogPost ==. authorId author
+
+.. hint::
+
+  A good pattern to adopt is to abstract out these joins as functions. A
+  suggested way to write the above would be to extract out an "author for blog
+  post" function::
+
+    blogPost <- each blogPostSchema
+    author <- authorForBlogPost blogPost
+
+  where::
+
+    authorForBlogPost :: BlogPost Expr -> Query (Author Expr)
+    authorForBlogPost blogPost = 
+      filter ((blogPostAuthorId blogPost ==.) authorId author) =<< 
+      each authorSchema
+
+  While this is a little more code over all, in our experience this style
+  dramatically increases the readabality of queries using joins.
 
 Left (outer) joins with ``optional``
 ------------------------------------
 
-.. todo::
+A left join is like an inner join, but allows for the possibility of the join to
+"fail". You use left joins when you want to join optional information against a
+row.
 
-  Write this
+In Rel8, a ``LEFT JOIN`` is introduced by converting an inner join with
+``optional``. While this approach might seem a little foreign at first, it has a
+strong similarity with the ``Control.Applicative.optional`` function, and allows
+you to reuse previous code. 
+
+To see an example of this, let's assume that we want to get the latest comment
+for each blog post. Not all blog posts are popular though, so some blog posts
+might have no comment at all. To write this in Rel8, we could write::
+
+  blogPost <- each blogPostSchema
+
+  latestComment <- 
+    optional $ limit 1 $ 
+      orderBy (commentCreatedAt >$< desc) $ 
+        commentsForBlogPost blogPost
+          
+``optional`` will transform a ``Query a`` into a ``Query (MaybeTable a)``.
+``MaybeTable`` is similar to the normal ``Maybe`` data type in Haskell, and
+represents the choice between a ``justTable x`` and a ``nothingTable`` (like
+``Just x`` and ``Nothing``, respectively). When you execute a query containing
+``MaybeTable x`` with ``select``, Rel8 will return ``Maybe x``. ``MaybeTable``
+comes with a library of routines, similar to the functions that can be used to
+operate on ``Maybe``. For more details, see the API documentation.
+
+.. hint::
+
+  ``optional`` converts an inner join into a ``LEFT JOIN``, but you can also go
+  the other way - and turn a ``LEFT JOIN`` back into an inner join! To do this,
+  you can use ``catMaybeTable``, which will select only the rows when the left
+  join was successful.
 
 Ordering results
 ----------------

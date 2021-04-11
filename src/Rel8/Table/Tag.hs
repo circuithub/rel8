@@ -25,9 +25,8 @@ import Prelude
 import Rel8.Expr ( Expr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Name ( Name( Name ) )
-import Rel8.Schema.Nullability ( Sql, mapSql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type.Monoid ( DBMonoid )
-import Rel8.Type.Semigroup ( DBSemigroup )
 
 
 type Tag :: Symbol -> Type -> Type
@@ -47,8 +46,7 @@ instance Sql DBMonoid a => Taggable a where
   tappend :: forall label. KnownSymbol label
     => Tag label a -> Tag label a -> Tag label a
   tappend a b = Tag
-    { expr = case mapSql dbSemigroupFromDBMonoid (Dict @_ @a) of
-        Dict -> expr a <> expr b
+    { expr = expr a <> expr b
     , name = case (name a, symbolVal (Proxy @label)) of
         (Name x, y)
           | x == y -> name b
@@ -79,7 +77,3 @@ fromExpr expr = (tempty @a @label) {expr}
 
 fromName :: forall a label. Taggable a => Name a -> Tag label a
 fromName name = (tempty @a @"") {name}
-
-
-dbSemigroupFromDBMonoid :: Dict DBMonoid a -> Dict DBSemigroup a
-dbSemigroupFromDBMonoid Dict = Dict

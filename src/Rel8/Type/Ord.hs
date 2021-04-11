@@ -1,5 +1,6 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language MonoLocalBinds #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
@@ -24,8 +25,7 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
-import Rel8.Opaque ( Opaque )
-import Rel8.Schema.Nullability ( Unnullify, Sql, HasNullability )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type.Eq ( DBEq )
 
 -- scientific
@@ -70,11 +70,6 @@ instance DBOrd Lazy.ByteString
 instance DBOrd UUID
 instance Sql DBOrd a => DBOrd [a]
 instance Sql DBOrd a => DBOrd (NonEmpty a)
-instance {-# OVERLAPPING #-} DBOrd Opaque
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBOrd (Unnullify a)) =>
-  Sql DBOrd a
 
 
 -- | The class of database types that support the @max@ aggregation function.
@@ -103,10 +98,6 @@ instance Sql DBMax a => DBMax [a]
 instance Sql DBMax a => DBMax (NonEmpty a)
 
 
-instance {-# INCOHERENT #-} (HasNullability a, DBMax (Unnullify a)) =>
-  Sql DBMax a
-
-
 -- | The class of database types that support the @min@ aggregation function.
 type DBMin :: Type -> Constraint
 class DBOrd a => DBMin a
@@ -131,7 +122,3 @@ instance DBMin ByteString
 instance DBMin Lazy.ByteString
 instance Sql DBMin a => DBMin [a]
 instance Sql DBMin a => DBMin (NonEmpty a)
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBMin (Unnullify a)) =>
-  Sql DBMin a

@@ -118,34 +118,57 @@ The ``DBType`` subtypes
 ``DBEq``
 ^^^^^^^^
 
-.. todo::
-
-  Document this
+The ``DBEq`` type class represents the subclass of database types that support
+equality. By supporting equality, we mean that a type supports the ``=``
+operator, and also has a suitable notion of equality for operations like
+``GROUP BY`` and ``DISTINCT``. On the one hand, this class is like Haskell's
+``Eq`` type class. The main difference is that this class has no methods.
 
 ``DBOrd``
 ^^^^^^^^^
 
-.. todo::
+The ``DBOrd`` type class represents the subclass of database types that support
+the normal comparison operators - ``<``, ``<=``, ``>=`` and ``>``.
 
-  Write this
+``DBMax`` and ``DBMin``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The type classes indicate that a database type supports the ``min()`` and
+``max()`` aggregation functions.
 
 ``DBSemigroup`` and ``DBMonoid``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. todo::
-
-  Write this
+These type classes exist to give Rel8's API a similar feel to Haskell
+programming. Many database types have a sensible monoid structure, with the
+presence of a ``mempty``-like expression, and an associative operation to
+combine ``Expr``\s.
 
 ``DBNum``, ``DBIntegral`` and ``DBFractional``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. todo::
+These type classes are used to present a familiar numeric type hierarchy for
+Haskell programmers.
 
-  Write this
+``DBNum``
+  This class indicates that a type supports the ``+``, ``-``, and ``*``
+  operators, along with the ``abs()``, ``negate()`` and ``sign()`` functions.
+  Database types that are instances of ``DBNum`` allow ``Num (Expr a)`` to be
+  used (allowing you to combine expressions with Haskell's normal ``+``
+  function).
+
+``DBIntegral``
+  If a type is an instance of ``DBIntegral``, it means that the type stores
+  integral (whole) numbers. The ``Rel8.Expr.Num`` module provides familiar
+  ``Expr`` functions like ``fromIntegral`` to convert between types.
+
+``DBFractional``
+  If a type is an instance of ``DBFraction``, it means that the type supports
+  the ``/`` operator, and literals can be created via Haskell's ``Rational``
+  type class. This type class provides the ``Fracitonal (Expr a)`` instance.
 
 ``DBString``
 ^^^^^^^^^^^^
 
-.. todo::
-
-  Write this
+This type class indicates that a database type supports the ``string_agg()``
+aggregation function.

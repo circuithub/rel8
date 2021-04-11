@@ -9,7 +9,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language ViewPatterns #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
@@ -47,7 +46,7 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
-import Rel8.Schema.Nullability ( NotNull, Sql )
+import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
@@ -339,11 +338,11 @@ litTable = lit
 litHTable :: HTable t => t (Col Identity) -> t (Col Expr)
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {nullability, info} -> case hfield as field of
-      Result value -> DB (slitExpr nullability info value)
+    SSpec {nullity, info} -> case hfield as field of
+      Result value -> DB (slitExpr nullity info value)
 
 
 parseHTable :: HTable t => Hasql.Row (t (Col Identity))
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
-    SSpec {nullability, info} -> Result <$> sparseValue nullability info
+    SSpec {nullity, info} -> Result <$> sparseValue nullity info

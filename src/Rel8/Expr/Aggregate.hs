@@ -2,7 +2,6 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
@@ -38,7 +37,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Type.Array ( fromPrimArray )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Num ( DBNum )

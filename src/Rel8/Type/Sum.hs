@@ -17,7 +17,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Nullability ( HasNullability, Unnullify, Sql )
 import Rel8.Type ( DBType )
 
 -- scientific
@@ -37,7 +36,3 @@ instance DBSum Float
 instance DBSum Double
 instance DBSum Scientific
 instance DBSum CalendarDiffTime
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBSum (Unnullify a)) =>
-  Sql DBSum a

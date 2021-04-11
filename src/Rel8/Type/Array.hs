@@ -22,7 +22,7 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Schema.Nullability ( Unnullify, Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ) )
 import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 
 
@@ -35,18 +35,18 @@ array TypeInformation {typeName} =
 
 
 listTypeInformation :: ()
-  => Nullability a
+  => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation [a]
-listTypeInformation nullability info = 
+listTypeInformation nullity info =
   case info of
     TypeInformation{ encode, decode } -> TypeInformation
-      { decode = row $ case nullability of
-          Nullable -> Hasql.listArray (Hasql.nullable decode)
-          NonNullable -> Hasql.listArray (Hasql.nonNullable decode)
-      , encode = case nullability of
-          Nullable -> array info . fmap (maybe null encode)
-          NonNullable -> array info . fmap encode
+      { decode = row $ case nullity of
+          Null -> Hasql.listArray (Hasql.nullable decode)
+          NotNull -> Hasql.listArray (Hasql.nonNullable decode)
+      , encode = case nullity of
+          Null -> array info . fmap (maybe null encode)
+          NotNull -> array info . fmap encode
       , typeName = "record"
       }
   where
@@ -55,11 +55,11 @@ listTypeInformation nullability info =
 
 
 nonEmptyTypeInformation :: ()
-  => Nullability a
+  => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation (NonEmpty a)
-nonEmptyTypeInformation nullability =
-  parseTypeInformation parse toList . listTypeInformation nullability
+nonEmptyTypeInformation nullity =
+  parseTypeInformation parse toList . listTypeInformation nullity
   where
     parse = maybe (Left message) Right . nonEmpty
     message = "failed to decode NonEmptyList: got empty list"

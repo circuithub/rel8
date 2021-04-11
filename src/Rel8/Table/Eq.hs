@@ -5,8 +5,6 @@
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -42,10 +40,10 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Columns, toColumns )
 import Rel8.Type.Eq ( DBEq )
-import Rel8.Schema.Nullability ( Sql )
 
 
 -- | The class of 'Table's that can be compared for equality. Equality on

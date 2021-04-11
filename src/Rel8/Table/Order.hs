@@ -1,5 +1,4 @@
 {-# language DataKinds #-}
-{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -21,10 +20,10 @@ import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hspecs)
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullability )
-import Rel8.Table
+import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
+import Rel8.Table ( Columns, toColumns )
 import Rel8.Table.Ord
 
 
@@ -36,9 +35,9 @@ ascTable = contramap toColumns $ getConst $
     SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case dbTypeDict dict of
         Dict -> Const $ unDB . (`hfield` field) >$<
-          case dbTypeNullability dict of
-            Nullable -> nullsFirst asc
-            NonNullable -> asc
+          case dbTypeNullity dict of
+            Null -> nullsFirst asc
+            NotNull -> asc
 
 
 -- | Construct an 'Order' for a 'Table' by sorting all columns into descending
@@ -49,6 +48,6 @@ descTable = contramap toColumns $ getConst $
     SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case dbTypeDict dict of
         Dict -> Const $ unDB . (`hfield` field) >$<
-          case dbTypeNullability dict of
-            Nullable -> nullsLast desc
-            NonNullable -> desc
+          case dbTypeNullity dict of
+            Null -> nullsLast desc
+            NotNull -> desc

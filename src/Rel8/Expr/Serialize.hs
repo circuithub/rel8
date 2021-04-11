@@ -21,11 +21,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( scastExpr )
-import Rel8.Schema.Nullability
-  ( Unnullify
-  , Nullability( Nullable, NonNullable )
-  , Sql, nullabilization
-  )
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
 
@@ -35,19 +31,19 @@ import Rel8.Type.Information ( TypeInformation(..) )
 -- Note that you can usually use 'Rel8.lit', but @litExpr@ can solve problems
 -- of inference in polymorphic code.
 litExpr :: Sql DBType a => a -> Expr a
-litExpr = slitExpr nullabilization typeInformation
+litExpr = slitExpr nullable typeInformation
 
 
-slitExpr :: Nullability a -> TypeInformation (Unnullify a) -> a -> Expr a
-slitExpr nullability info@TypeInformation {encode} =
+slitExpr :: Nullity a -> TypeInformation (Unnullify a) -> a -> Expr a
+slitExpr nullity info@TypeInformation {encode} =
   scastExpr info . Expr . encoder
   where
-    encoder = case nullability of
-      Nullable -> maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
-      NonNullable -> encode
+    encoder = case nullity of
+      Null -> maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
+      NotNull -> encode
 
 
-sparseValue :: Nullability a -> TypeInformation (Unnullify a) -> Hasql.Row a
-sparseValue nullability TypeInformation {decode} = case nullability of
-  Nullable -> Hasql.column $ Hasql.nullable decode
-  NonNullable -> Hasql.column $ Hasql.nonNullable decode
+sparseValue :: Nullity a -> TypeInformation (Unnullify a) -> Hasql.Row a
+sparseValue nullity TypeInformation {decode} = case nullity of
+  Null -> Hasql.column $ Hasql.nullable decode
+  NotNull -> Hasql.column $ Hasql.nonNullable decode

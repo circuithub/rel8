@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language NamedFieldPuns #-}
@@ -11,6 +12,7 @@ module Rel8.Table.Opaleye
   , tableFields
   , unpackspec
   , valuesspec
+  , castTable
   )
 where
 
@@ -36,9 +38,10 @@ import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , traversePrimExpr
   , fromColumn, toColumn
+  , scastExpr
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
-import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs )
+import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
 import Rel8.Schema.Insert ( Insert, Inserts, Col(..) )
 import Rel8.Schema.Name ( Name, Selects, Col(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -117,3 +120,15 @@ toPackMap as = Opaleye.PackMap $ \f () ->
   unwrapApplicative .
   htraverse (\(DB a) -> WrapApplicative $ DB <$> traversePrimExpr f a) $
   toColumns as
+
+
+-- | Transform a table by adding 'CAST' to all columns. This is most useful for
+-- finalising a SELECT or RETURNING statement, guaranteed that the output
+-- matches what is encoded in each columns TypeInformation.
+castTable :: Table Expr a => a -> a
+castTable (toColumns -> as) = fromColumns $ htabulate \i ->
+  case hfield hspecs i of
+    SSpec{info} -> 
+      case hfield as i of
+        DB expr ->
+          DB (scastExpr info expr)

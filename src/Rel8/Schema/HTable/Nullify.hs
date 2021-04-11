@@ -7,14 +7,11 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
-{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -29,13 +26,10 @@ where
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.HTable
-  ( HTable
-  , hfield, htabulate, htabulateA, hspecs
-  )
+import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
-import qualified Rel8.Schema.Nullability as Type ( Nullify )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
+import qualified Rel8.Schema.Null as Type ( Nullify )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 -- semigroupoids
@@ -62,13 +56,13 @@ type instance Eval (Nullify ('Spec labels necessity a)) =
 
 instance MapSpec Nullify where
   mapInfo = \case
-    SSpec{labels, necessity, info, nullability} -> SSpec
+    SSpec{labels, necessity, info, nullity} -> SSpec
       { labels
       , necessity
       , info
-      , nullability = case nullability of
-          Nullable    -> Nullable
-          NonNullable -> Nullable
+      , nullity = case nullity of
+          Null    -> Null
+          NotNull -> Null
       } 
 
 

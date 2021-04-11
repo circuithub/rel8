@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language GADTs #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
@@ -23,12 +22,10 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (&&.), (||.), coalesce )
-import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNullable )
+import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNull )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Schema.Nullability
-  ( Nullability( NonNullable, Nullable )
-  , Sql, nullabilization
-  )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql )
+import qualified Rel8.Schema.Null as Schema ( nullable )
 import Rel8.Type.Ord ( DBOrd )
 
 
@@ -52,9 +49,9 @@ ge = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
 -- as @null@ will sort below any other value. For a version of @<@ that exactly
 -- matches SQL, see '(<?)'.
 (<.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
-  NonNullable -> lt
+(<.) = case Schema.nullable @a of
+  Null -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
+  NotNull -> lt
 infix 4 <.
 
 
@@ -62,9 +59,9 @@ infix 4 <.
 -- as @null@ will sort below any other value. For a version of @<=@ that exactly
 -- matches SQL, see '(<=?)'.
 (<=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<=.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNull ma ||. ma <=? mb
-  NonNullable -> le
+(<=.) = case Schema.nullable @a of
+  Null -> \ma mb -> isNull ma ||. ma <=? mb
+  NotNull -> le
 infix 4 <=.
 
 
@@ -72,9 +69,9 @@ infix 4 <=.
 -- as @null@ will sort below any other value. For a version of @>@ that exactly
 -- matches SQL, see '(>?)'.
 (>.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
-  NonNullable -> gt
+(>.) = case Schema.nullable @a of
+  Null -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
+  NotNull -> gt
 infix 4 >.
 
 
@@ -82,37 +79,37 @@ infix 4 >.
 -- as @null@ will sort below any other value. For a version of @>=@ that
 -- exactly matches SQL, see '(>=?)'.
 (>=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>=.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNull mb ||. ma >=? mb
-  NonNullable -> ge
+(>=.) = case Schema.nullable @a of
+  Null -> \ma mb -> isNull mb ||. ma >=? mb
+  NotNull -> ge
 infix 4 >=.
 
 
 -- | Corresponds to the SQL @<@ operator. Returns @null@ if either arguments
 -- are @null@.
 (<?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a <? b = coalesce $ unsafeLiftOpNullable lt a b
+a <? b = coalesce $ unsafeLiftOpNull lt a b
 infix 4 <?
 
 
 -- | Corresponds to the SQL @<=@ operator. Returns @null@ if either arguments
 -- are @null@.
 (<=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a <=? b = coalesce $ unsafeLiftOpNullable le a b
+a <=? b = coalesce $ unsafeLiftOpNull le a b
 infix 4 <=?
 
 
 -- | Corresponds to the SQL @>@ operator. Returns @null@ if either arguments
 -- are @null@.
 (>?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a >? b = coalesce $ unsafeLiftOpNullable gt a b
+a >? b = coalesce $ unsafeLiftOpNull gt a b
 infix 4 >?
 
 
 -- | Corresponds to the SQL @>=@ operator. Returns @null@ if either arguments
 -- are @null@.
 (>=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a >=? b = coalesce $ unsafeLiftOpNullable ge a b
+a >=? b = coalesce $ unsafeLiftOpNull ge a b
 infix 4 >=?
 
 
@@ -121,9 +118,9 @@ infix 4 >=?
 -- 
 -- Corresponds to the SQL @least()@ function.
 leastExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
-leastExpr ma mb = case nullabilization @a of
-  Nullable -> nullable ma (\a -> nullable mb (least_ a) mb) ma
-  NonNullable -> least_ ma mb
+leastExpr ma mb = case Schema.nullable @a of
+  Null -> nullable ma (\a -> nullable mb (least_ a) mb) ma
+  NotNull -> least_ ma mb
   where
     least_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "LEAST" [a, b])
 
@@ -133,8 +130,8 @@ leastExpr ma mb = case nullabilization @a of
 -- 
 -- Corresponds to the SQL @greatest()@ function.
 greatestExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
-greatestExpr ma mb = case nullabilization @a of
-  Nullable -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
-  NonNullable -> greatest_ ma mb
+greatestExpr ma mb = case Schema.nullable @a of
+  Null -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
+  NotNull -> greatest_ ma mb
   where
     greatest_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "GREATEST" [a, b])

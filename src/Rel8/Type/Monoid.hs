@@ -27,10 +27,7 @@ import Data.CaseInsensitive ( CI )
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Nullability
-  ( Unnullify
-  , Sql, HasNullability, nullabilization
-  )
+import Rel8.Schema.Null ( Sql, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Semigroup ( DBSemigroup )
 
@@ -51,7 +48,7 @@ class DBSemigroup a => DBMonoid a where
 
 
 instance Sql DBType a => DBMonoid [a] where
-  memptyExpr = sempty nullabilization typeInformation
+  memptyExpr = sempty nullable typeInformation
 
 
 instance DBMonoid CalendarDiffTime where
@@ -80,7 +77,3 @@ instance DBMonoid ByteString where
 
 instance DBMonoid Lazy.ByteString where
   memptyExpr = litExpr ""
-
-
-instance {-# INCOHERENT #-} (HasNullability a, DBMonoid (Unnullify a)) =>
-  Sql DBMonoid a

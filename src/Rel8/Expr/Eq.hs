@@ -1,6 +1,5 @@
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language ViewPatterns #-}
@@ -25,12 +24,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), false, or_, coalesce )
-import Rel8.Expr.Null ( isNull, unsafeLiftOpNullable )
+import Rel8.Expr.Null ( isNull, unsafeLiftOpNull )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, zipPrimExprsWith )
-import Rel8.Schema.Nullability
-  ( Nullability( NonNullable, Nullable )
-  , Sql, nullabilization
-  )
+import Rel8.Schema.Null ( Nullity( NotNull, Null ), Sql, nullable )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -49,10 +45,11 @@ ne = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:<>))
 -- This operator matches Haskell's '==' operator. For an operator identical to
 -- SQL @=@, see '==?'.
 (==.) :: forall a. Sql DBEq a => Expr a -> Expr a -> Expr Bool
-(==.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNull ma &&. isNull mb ||. ma ==? mb
-  NonNullable -> eq
+(==.) = case nullable @a of
+  Null -> \ma mb -> isNull ma &&. isNull mb ||. ma ==? mb
+  NotNull -> eq
 infix 4 ==.
+{-# INLINABLE (==.) #-}
 
 
 -- | Test if two expressions are different (not equal).
@@ -62,10 +59,11 @@ infix 4 ==.
 -- which would return @null@. This operator is closer to Haskell's '=='
 -- operator. For an operator identical to SQL @=@, see '/=?'.
 (/=.) :: forall a. Sql DBEq a => Expr a -> Expr a -> Expr Bool
-(/=.) = case nullabilization @a of
-  Nullable -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
-  NonNullable -> ne
+(/=.) = case nullable @a of
+  Null -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
+  NotNull -> ne
 infix 4 /=.
+{-# INLINABLE (/=.) #-}
 
 
 -- | Test if two expressions are equal. This operator is usually the best
@@ -75,7 +73,7 @@ infix 4 /=.
 -- This corresponds to the SQL @=@ operator, though it will always return a
 -- 'Bool'.
 (==?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a ==? b = coalesce $ unsafeLiftOpNullable eq a b
+a ==? b = coalesce $ unsafeLiftOpNull eq a b
 infix 4 ==?
 
 
@@ -84,7 +82,7 @@ infix 4 ==?
 -- This corresponds to the SQL @<>@ operator, though it will always return a
 -- 'Bool'.
 (/=?) :: DBEq a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
-a /=? b = coalesce $ unsafeLiftOpNullable ne a b
+a /=? b = coalesce $ unsafeLiftOpNull ne a b
 infix 4 /=?
 
 
@@ -92,9 +90,9 @@ infix 4 /=?
 -- '==.' and '||.'.
 in_ :: forall a f. (Sql DBEq a, Foldable f)
   => Expr a -> f (Expr a) -> Expr Bool
-in_ a (toList -> as) = case nullabilization @a of
-  Nullable -> or_ $ map (a ==.) as
-  NonNullable -> case nonEmpty as of
+in_ a (toList -> as) = case nullable @a of
+  Null -> or_ $ map (a ==.) as
+  NotNull -> case nonEmpty as of
      Nothing -> false
      Just xs ->
        fromPrimExpr $

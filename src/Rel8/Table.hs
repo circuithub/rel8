@@ -20,8 +20,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Opaque ( Opaque )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
@@ -33,7 +31,7 @@ import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Nullability ( Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Type ( DBType )
 
@@ -85,16 +83,6 @@ instance Sql DBType a => Table Identity (Identity a) where
 
   toColumns (Identity a) = HType (Result a)
   fromColumns (HType (Result a)) = Identity a
-
-
-{-}
-instance Sql DBType a => Table Insertion (Insertion a) where
-  type Columns (Insertion a) = HType a
-  type Context (Insertion a) = Insertion
-
-  toColumns (Insertion a) = HType (RequiredInsert a)
-  fromColumns (HType (RequiredInsert a)) = Insertion a
--}
 
 
 instance
@@ -199,22 +187,6 @@ instance
     , fromColumns $ hunlabel unlabeler d
     , fromColumns $ hunlabel unlabeler e
     )
-
-
-instance Table Expr Opaque where
-  type Columns Opaque = HType Opaque
-  type Context Opaque = Expr
-
-  fromColumns = error "opaque"
-  toColumns = error "opaque"
-
-
-instance Table context (Opaque context a) where
-  type Columns (Opaque context a) = HType Opaque
-  type Context (Opaque context a) = context
-
-  fromColumns = error "opaque"
-  toColumns = error "opaque"
 
 
 type Congruent :: Type -> Type -> Constraint

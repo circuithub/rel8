@@ -27,9 +27,9 @@ import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
-import Rel8.Schema.Nullability ( Nullability( Nullable, NonNullable ) )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullability )
+import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
 import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
@@ -60,9 +60,9 @@ instance EqTable a => EqTable (NonEmptyTable a) where
   eqTable =
     hvectorize
       (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullability dict of
-            Nullable -> Dict
-            NonNullable -> Dict)
+          Dict -> case dbTypeNullity dict of
+            Null -> Dict
+            NotNull -> Dict)
       (Identity (eqTable @a))
 
 
@@ -70,9 +70,9 @@ instance OrdTable a => OrdTable (NonEmptyTable a) where
   ordTable =
     hvectorize
       (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullability dict of
-            Nullable -> Dict
-            NonNullable -> Dict)
+          Dict -> case dbTypeNullity dict of
+            Null -> Dict
+            NotNull -> Dict)
       (Identity (ordTable @a))
 
 

@@ -9,9 +9,9 @@
 
 module Rel8.Schema.Spec.ConstrainDBType
   ( ConstrainDBType
-  , dbTypeNullability
+  , dbTypeNullity
   , dbTypeDict
-  , fromNullabilityDict
+  , fromNullityDict
   )
 where
 
@@ -21,11 +21,7 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Nullability
-  ( Unnullify
-  , Nullability
-  , Sql, nullabilization, toSql
-  )
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 
 
@@ -43,14 +39,14 @@ instance
   => ConstrainDBType constraint spec
 
 
-dbTypeNullability :: Dict (ConstrainDBType c) ('Spec l n a) -> Nullability a
-dbTypeNullability = step2 . step1
+dbTypeNullity :: Dict (ConstrainDBType c) ('Spec l n a) -> Nullity a
+dbTypeNullity = step2 . step1
   where
     step1 :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict (Sql c) a
     step1 Dict = Dict
 
-    step2 :: Dict (Sql c) a -> Nullability a
-    step2 Dict = nullabilization
+    step2 :: Dict (Sql c) a -> Nullity a
+    step2 Dict = nullable
 
 
 dbTypeDict :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict c (Unnullify a)
@@ -63,8 +59,6 @@ dbTypeDict = step2 . step1
     step2 Dict = Dict
 
 
-fromNullabilityDict :: Nullability a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
-fromNullabilityDict nullability = step2 . toSql nullability
-  where
-    step2 :: Dict (Sql c) a -> Dict (ConstrainDBType c) ('Spec l n a)
-    step2 Dict = Dict
+fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
+fromNullityDict Null Dict = Dict
+fromNullityDict NotNull Dict = Dict

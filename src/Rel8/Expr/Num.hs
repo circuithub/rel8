@@ -15,7 +15,7 @@ import Prelude ()
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Function ( function )
 import Rel8.Expr.Opaleye ( castExpr )
-import Rel8.Schema.Nullability ( Homonullable, Sql )
+import Rel8.Schema.Null ( Homonullable, Sql )
 import Rel8.Type.Num ( DBFractional, DBIntegral, DBNum )
 
 

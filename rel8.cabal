@@ -16,7 +16,7 @@ library
     , case-insensitive
     , casing
     , contravariant
-    , hasql
+    , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.1.0
     , profunctors
     , scientific
@@ -110,8 +110,7 @@ library
     Rel8.Schema.Insert
     Rel8.Schema.Kind
     Rel8.Schema.Name
-    Rel8.Schema.Nullability
-    Rel8.Schema.Nullability.Internal
+    Rel8.Schema.Null
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
@@ -161,7 +160,6 @@ library
     Rel8.Type.Sum
     Rel8.Type.Tag
 
-    Rel8.Opaque
     Rel8.Schema.Structure
 
 test-suite tests

@@ -33,7 +33,7 @@ import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -85,7 +85,7 @@ delete c Delete {from, deleteWhere, returning} =
           where
             from' = table $ toColumns <$> from
             where' = toColumn . toPrimExpr . deleteWhere . fromColumns
-            project' = toColumns . project . fromColumns
+            project' = castTable . toColumns . project . fromColumns
   where
     decoder :: forall exprs projection a. Serializable projection a
       => (exprs -> projection) -> Hasql.Result [a]
