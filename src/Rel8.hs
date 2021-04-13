@@ -28,7 +28,7 @@ module Rel8
     -- * Tables and higher-kinded tables
   , Rel8able
   , Column, Field, Necessity( Required, Optional )
-  , Default, Label
+  , Default
   , HMaybe
   , HList
   , HNonEmpty
@@ -268,7 +268,7 @@ import Rel8.Query.These
 import Rel8.Query.Values
 import Rel8.Schema.Column
 import Rel8.Schema.Context.Label
-import Rel8.Schema.Field (Field)
+import Rel8.Schema.Field
 import Rel8.Schema.Generic
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
@@ -307,5 +307,3 @@ import Rel8.Type.ReadShow
 import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
-
-

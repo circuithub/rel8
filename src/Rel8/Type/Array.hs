@@ -32,6 +32,7 @@ array TypeInformation {typeName} =
   fromPrimArray .
   Opaleye.CastExpr (typeName <> "[]") .
   Opaleye.ArrayExpr . toList
+{-# INLINABLE array #-}
 
 
 listTypeInformation :: ()

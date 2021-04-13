@@ -19,7 +19,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
+import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Expr.Serialize ( litExpr )

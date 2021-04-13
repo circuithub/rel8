@@ -3,8 +3,11 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
+{-# language LambdaCase #-}
+{-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table
@@ -15,25 +18,39 @@ module Rel8.Table
 where
 
 -- base
+import Data.Functor ( ($>) )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
-import Prelude
+import Data.List.NonEmpty ( NonEmpty )
+import Prelude hiding ( null )
 
 -- rel8
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
+import Rel8.Schema.HTable.List ( HListTable )
+import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
+import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
+import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
+import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
+import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Spec ( KnownSpec )
+import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..), KnownSpec )
 import Rel8.Type ( DBType )
+import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
+
+-- these
+import Data.These ( These( This, That, These ) )
+import Data.These.Combinators ( justHere, justThere )
 
 
 -- | @Table@s are one of the foundational elements of Rel8, and describe data
@@ -83,6 +100,106 @@ instance Sql DBType a => Table Identity (Identity a) where
 
   toColumns (Identity a) = HType (Result a)
   fromColumns (HType (Result a)) = Identity a
+
+
+instance (Table Identity a, Table Identity b) => Table Identity (Either a b)
+ where
+  type Columns (Either a b) = HEitherTable (Columns a) (Columns b)
+  type Context (Either a b) = Identity
+
+  toColumns = \case
+    Left table -> HEitherTable
+      { htag = HIdentity (Result IsLeft)
+      , hleft = hlabel labeler (hnullify nullifier (toColumns table))
+      , hright = hlabel labeler (hnulls null)
+      }
+    Right table -> HEitherTable
+      { htag = HIdentity (Result IsRight)
+      , hleft = hlabel labeler (hnulls null)
+      , hright = hlabel labeler (hnullify nullifier (toColumns table))
+      }
+
+  fromColumns HEitherTable {htag, hleft, hright} = case htag of
+    HIdentity (Result tag) -> case tag of
+      IsLeft -> maybe err (Left . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hleft)
+      IsRight -> maybe err (Right . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hright)
+    where
+      err = error "Either.fromColumns: mismatch between tag and data"
+
+
+instance Table Identity a => Table Identity [a] where
+  type Columns [a] = HListTable (Columns a)
+  type Context [a] = Identity
+
+  toColumns = hvectorize vectorizer . fmap toColumns
+  fromColumns = fmap fromColumns . hunvectorize unvectorizer
+
+
+instance Table Identity a => Table Identity (Maybe a) where
+  type Columns (Maybe a) = HMaybeTable (Columns a)
+  type Context (Maybe a) = Identity
+
+  toColumns = \case
+    Nothing -> HMaybeTable
+      { htag = HIdentity (Result Nothing)
+      , hjust = hlabel labeler (hnulls null)
+      }
+    Just table -> HMaybeTable
+      { htag = HIdentity (Result (Just IsJust))
+      , hjust = hlabel labeler (hnullify nullifier (toColumns table))
+      }
+
+  fromColumns HMaybeTable {htag, hjust} = case htag of
+    HIdentity (Result tag) -> tag $>
+      case hunnullify unnullifier (hunlabel unlabeler hjust) of
+        Nothing -> error "Maybe.fromColumns: mismatch between tag and data"
+        Just just -> fromColumns just
+
+
+instance Table Identity a => Table Identity (NonEmpty a) where
+  type Columns (NonEmpty a) = HNonEmptyTable (Columns a)
+  type Context (NonEmpty a) = Identity
+
+  toColumns = hvectorize vectorizer . fmap toColumns
+  fromColumns = fmap fromColumns . hunvectorize unvectorizer
+
+
+instance (Table Identity a, Table Identity b) => Table Identity (These a b)
+ where
+  type Columns (These a b) = HTheseTable (Columns a) (Columns b)
+  type Context (These a b) = Identity
+
+  toColumns tables = HTheseTable
+    { hhereTag = relabel hhereTag
+    , hhere = hlabel labeler (hunlabel unlabeler (toColumns hhere))
+    , hthereTag = relabel hthereTag
+    , hthere = hlabel labeler (hunlabel unlabeler (toColumns hthere))
+    }
+    where
+      HMaybeTable
+        { htag = hhereTag
+        , hjust = hhere
+        } = toColumns (justHere tables)
+      HMaybeTable
+        { htag = hthereTag
+        , hjust = hthere
+        } = toColumns (justThere tables)
+
+  fromColumns HTheseTable {hhereTag, hhere, hthereTag, hthere} =
+    case (fromColumns mhere, fromColumns mthere) of
+      (Just a, Nothing) -> This (fromColumns a)
+      (Nothing, Just b) -> That (fromColumns b)
+      (Just a, Just b) -> These (fromColumns a) (fromColumns b)
+      _ -> error "These.fromColumns: mismatch between tags and data"
+    where
+      mhere = HMaybeTable
+        { htag = relabel hhereTag
+        , hjust = hlabel labeler (hunlabel unlabeler hhere)
+        }
+      mthere = HMaybeTable
+        { htag = relabel hthereTag
+        , hjust = hlabel labeler (hunlabel unlabeler hthere)
+        }
 
 
 instance
@@ -192,3 +309,46 @@ instance
 type Congruent :: Type -> Type -> Constraint
 class Columns a ~ Columns b => Congruent a b
 instance Columns a ~ Columns b => Congruent a b
+
+
+null :: Col Identity ('Spec labels necessity (Maybe a))
+null = Result Nothing
+
+
+nullifier :: ()
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (Nullify a))
+nullifier SSpec {nullity} (Result a) = Result $ case nullity of
+  Null -> a
+  NotNull -> Just a
+
+
+unnullifier :: ()
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (Nullify a))
+  -> Maybe (Col Identity ('Spec labels necessity a))
+unnullifier SSpec {nullity} (Result a) =
+  case nullity of
+    Null -> pure $ Result a
+    NotNull -> Result <$> a
+
+
+vectorizer :: Functor f
+  => SSpec ('Spec labels necessity a)
+  -> f (Col Identity ('Spec labels necessity a))
+  -> Col Identity ('Spec labels necessity (f a))
+vectorizer _ = Result . fmap (\(Result a) -> a)
+
+
+unvectorizer :: Functor f
+  => SSpec ('Spec labels necessity a)
+  -> Col Identity ('Spec labels necessity (f a))
+  -> f (Col Identity ('Spec labels necessity a))
+unvectorizer _ (Result results) = Result <$> results
+
+
+relabel :: ()
+  => HIdentity ('Spec labels necessity a) (Col Identity)
+  -> HIdentity ('Spec relabels necessity a) (Col Identity)
+relabel (HIdentity (Result a)) = HIdentity (Result a)

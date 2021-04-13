@@ -34,23 +34,24 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
+import Rel8.Schema.Context.Label
+  ( Labelable
+  , HLabelable, hlabeler, hunlabeler
+  )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
+  , HNullifiable, HConstrainTag
   , hencodeTag, hdecodeTag
   , hnullifier, hunnullifier
   )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
+import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Maybe ( HMaybeNullifiable )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.Name ( Name  )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Lifted
-  ( Table2, Columns2, ConstrainHContext2, fromColumns2, toColumns2
-  )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
@@ -117,66 +118,16 @@ instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
     }
 
 
-instance Table2 TheseTable where
-  type Columns2 TheseTable = HTheseTable
-  type ConstrainHContext2 TheseTable = HMaybeNullifiable
-
-  toColumns2 f g TheseTable {here, there} = HTheseTable
-    { hhereTag = HIdentity $ hencodeTag (toHereTag (tag here))
-    , hhere =
-        hnullify (hnullifier (tag here) isNonNull) $ f (just here)
-    , hthereTag = HIdentity $ hencodeTag (toThereTag (tag there))
-    , hthere =
-        hnullify (hnullifier (tag there) isNonNull) $ g (just there)
-    }
-
-  fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} =
-    TheseTable
-      { here =
-          let
-            tag = hdecodeTag $ unHIdentity hhereTag
-          in
-            MaybeTable
-              { tag
-              , just = f $
-                  runIdentity $
-                  hunnullify (\a -> pure . hunnullifier a)
-                  hhere
-              }
-      , there =
-          let
-            tag = hdecodeTag $ unHIdentity hthereTag
-          in
-            MaybeTable
-              { tag
-              , just = g $
-                  runIdentity $
-                  hunnullify (\a -> pure . hunnullifier a)
-                  hthere
-              }
-      }
-
-  {-# INLINABLE fromColumns2 #-}
-  {-# INLINABLE toColumns2 #-}
-
-
 instance
   ( Table context a, Table context b
   , Labelable context, Nullifiable context, ConstrainTag context MaybeTag
   ) => Table context (TheseTable a b)
  where
-  type Columns (TheseTable a b) =
-    HTheseTable (HLabel "Here" (Columns a)) (HLabel "There" (Columns b))
+  type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
   type Context (TheseTable a b) = Context a
 
-  toColumns =
-    toColumns2
-      (hlabel labeler . toColumns)
-      (hlabel labeler . toColumns)
-  fromColumns =
-    fromColumns2
-      (fromColumns . hunlabel unlabeler)
-      (fromColumns . hunlabel unlabeler)
+  toColumns = toColumns2 toColumns toColumns
+  fromColumns = fromColumns2 fromColumns fromColumns
 
 
 instance
@@ -189,15 +140,11 @@ instance
 
 
 instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
-  eqTable =
-    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
-      (thoseTable (eqTable @a) (eqTable @b))
+  eqTable = toColumns2 id id (thoseTable (eqTable @a) (eqTable @b))
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
-  ordTable =
-    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
-      (thoseTable (ordTable @a) (ordTable @b))
+  ordTable = toColumns2 id id (thoseTable (ordTable @a) (ordTable @b))
 
 
 toHereTag :: Tag "isJust" a -> Tag "hasHere" a
@@ -277,3 +224,63 @@ nameTheseTable here there a b =
     { here = nameMaybeTable here a
     , there = nameMaybeTable there b
     }
+
+
+toColumns2 ::
+  ( HTable t
+  , HTable u
+  , HConstrainTag context MaybeTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (a -> t context)
+  -> (b -> u context)
+  -> TheseTable a b
+  -> HTheseTable t u context
+toColumns2 f g TheseTable {here, there} = HTheseTable
+  { hhereTag = HIdentity $ hencodeTag (toHereTag (tag here))
+  , hhere =
+      hlabel hlabeler $ hnullify (hnullifier (tag here) isNonNull) $ f (just here)
+  , hthereTag = HIdentity $ hencodeTag (toThereTag (tag there))
+  , hthere =
+      hlabel hlabeler $ hnullify (hnullifier (tag there) isNonNull) $ g (just there)
+  }
+
+
+fromColumns2 ::
+  ( HTable t
+  , HTable u
+  , HConstrainTag context MaybeTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (t context -> a)
+  -> (u context -> b)
+  -> HTheseTable t u context
+  -> TheseTable a b
+fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} = TheseTable
+  { here =
+      let
+        tag = hdecodeTag $ unHIdentity hhereTag
+      in
+        MaybeTable
+          { tag
+          , just = f $
+              runIdentity $
+              hunnullify (\a -> pure . hunnullifier a) $
+              hunlabel hunlabeler
+              hhere
+          }
+  , there =
+      let
+        tag = hdecodeTag $ unHIdentity hthereTag
+      in
+        MaybeTable
+          { tag
+          , just = g $
+              runIdentity $
+              hunnullify (\a -> pure . hunnullifier a) $
+              hunlabel hunlabeler
+              hthere
+          }
+  }

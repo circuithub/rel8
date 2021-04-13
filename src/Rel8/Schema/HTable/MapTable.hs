@@ -35,13 +35,15 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 
 
 type HMapTable :: (a -> Exp b) -> ((a -> Type) -> Type) -> (b -> Type) -> Type
-data HMapTable f t g where
-  HMapTable :: { unHMapTable :: t (Precompose f g) } -> HMapTable f t g
+newtype HMapTable f t g = HMapTable
+  { unHMapTable :: t (Precompose f g)
+  }
 
 
 type Precompose :: (a -> Exp b) -> (b -> Type) -> a -> Type
-newtype Precompose f g x where
-  Precompose :: { precomposed :: g (Eval (f x)) } -> Precompose f g x
+newtype Precompose f g x = Precompose
+  { precomposed :: g (Eval (f x))
+  }
 
 
 type HMapTableField :: (Spec -> Exp a) -> K.HTable -> a -> Type
@@ -64,6 +66,7 @@ instance (HTable t, MapSpec f) => HTable (HMapTable f t) where
 
   htraverse f (HMapTable x) = 
     HMapTable <$> htraverse (fmap Precompose . f . precomposed) x
+  {-# INLINABLE htraverse #-}
 
   hdicts :: forall c. HConstrainTable (HMapTable f t) c => HMapTable f t (Dict c)
   hdicts = 
@@ -73,6 +76,7 @@ instance (HTable t, MapSpec f) => HTable (HMapTable f t) where
 
   hspecs = 
     HMapTable $ htabulate $ Precompose . mapInfo @f . hfield hspecs
+  {-# INLINABLE hspecs #-}
 
 
 type MapSpec :: (Spec -> Exp Spec) -> Constraint

@@ -4,8 +4,6 @@
 {-# language DerivingStrategies #-}
 {-# language DuplicateRecordFields #-}
 
-{-# options_ghc -O0 #-}
-
 module Rel8.Schema.Generic.Test
   ( module Rel8.Schema.Generic.Test
   )
@@ -17,6 +15,7 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Column
+import Rel8.Schema.Field
 import Rel8.Schema.Generic
 
 -- text
@@ -24,7 +23,7 @@ import Data.Text ( Text )
 
 
 data Table f = Table
-  { foo :: Column f (Label "blah" Bool)
+  { foo :: Column f Bool
   , bar :: Column f (Maybe Bool)
   }
   deriving stock Generic
@@ -40,7 +39,7 @@ data TablePair f = TablePair
 
 
 data TableMaybe f = TableMaybe
-  { foo :: Column f (Label "ABC" [Maybe Bool])
+  { foo :: Column f [Maybe Bool]
   , bars :: HMaybe f (TablePair f, TablePair f)
   }
   deriving stock Generic
@@ -49,7 +48,7 @@ data TableMaybe f = TableMaybe
 
 data TableEither f = TableEither
   { foo :: Column f Bool
-  , bars :: HEither f (HMaybe f (TablePair f, TablePair f)) (Column f (Label "XYZ" Char))
+  , bars :: HEither f (HMaybe f (TablePair f, TablePair f)) (Column f Char)
   }
   deriving stock Generic
   deriving anyclass Rel8able

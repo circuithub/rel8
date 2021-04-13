@@ -23,7 +23,6 @@ module Rel8.Schema.HTable.Vectorize
   ( HVectorize
   , hvectorize, hunvectorize
   , happend, hempty
-  , hrelabel
   )
 where
 
@@ -150,10 +149,3 @@ hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield h
 instance HLabelable g => HLabelable (Precompose (Vectorize list) g) where
   hlabeler = Precompose . hlabeler . precomposed
   hunlabeler = Precompose . hunlabeler . precomposed
-
-
-hrelabel :: HLabelable context
-  => (forall ctx. HLabelable ctx => t ctx -> u ctx)
-  -> HVectorize list t context
-  -> HVectorize list u context
-hrelabel f (HVectorize (HMapTable table)) = HVectorize (HMapTable (f table))

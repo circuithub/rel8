@@ -24,7 +24,7 @@ where
 -- base
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Prelude hiding ( null, repeat, undefined, zipWith )
+import Prelude hiding ( null, undefined )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
@@ -32,15 +32,19 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
+import Rel8.Schema.Context.Label
+  ( Labelable, HLabelable, hlabeler, hunlabeler
+  )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
+  , HNullifiable, HConstrainTag
   , hencodeTag, hdecodeTag
   , hnullifier, hunnullifier
   )
+import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Maybe ( HMaybeTable(..), HMaybeNullifiable )
+import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
+import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
@@ -51,9 +55,6 @@ import Rel8.Table.Alternative
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Lifted
-  ( Table1, Columns1, ConstrainHContext1, fromColumns1, toColumns1
-  )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
@@ -127,40 +128,17 @@ instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
   mempty = nothingTable
 
 
-instance Table1 MaybeTable where
-  type Columns1 MaybeTable = HMaybeTable
-  type ConstrainHContext1 MaybeTable = HMaybeNullifiable
-
-  toColumns1 f MaybeTable {tag, just} = HMaybeTable
-    { htag
-    , hjust = hnullify (hnullifier tag isNonNull) $ f just
-    }
-    where
-      htag = HIdentity (hencodeTag tag)
-
-  fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
-    { tag
-    , just = f $ runIdentity $
-        hunnullify (\a -> pure . hunnullifier a) hjust
-    }
-    where
-      tag = hdecodeTag htag
-
-  {-# INLINABLE fromColumns1 #-}
-  {-# INLINABLE toColumns1 #-}
-
-
 instance
   ( Table context a
   , Labelable context, Nullifiable context
   , ConstrainTag context MaybeTag
   ) => Table context (MaybeTable a)
  where
-  type Columns (MaybeTable a) = HMaybeTable (HLabel "Just" (Columns a))
+  type Columns (MaybeTable a) = HMaybeTable (Columns a)
   type Context (MaybeTable a) = Context a
 
-  toColumns = toColumns1 (hlabel labeler . toColumns)
-  fromColumns = fromColumns1 (fromColumns . hunlabel unlabeler)
+  toColumns = toColumns1 toColumns
+  fromColumns = fromColumns1 fromColumns
 
 
 instance
@@ -171,11 +149,11 @@ instance
 
 
 instance EqTable a => EqTable (MaybeTable a) where
-  eqTable = toColumns1 (hlabel hlabeler) (justTable (eqTable @a))
+  eqTable = toColumns1 id (justTable (eqTable @a))
 
 
 instance OrdTable a => OrdTable (MaybeTable a) where
-  ordTable = toColumns1 (hlabel hlabeler) (justTable (ordTable @a))
+  ordTable = toColumns1 id (justTable (ordTable @a))
 
 
 -- | Check if a @MaybeTable@ is absent of any row. Like 'Data.Maybe.isNothing'.
@@ -226,3 +204,38 @@ aggregateMaybeTable f MaybeTable {tag = tag@Tag {aggregator, expr}, just} =
 
 nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a
 nameMaybeTable = MaybeTable . fromName
+
+
+toColumns1 ::
+  ( HTable t
+  , HConstrainTag context MaybeTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (a -> t context)
+  -> MaybeTable a
+  -> HMaybeTable t context
+toColumns1 f MaybeTable {tag, just} = HMaybeTable
+  { htag
+  , hjust = hlabel hlabeler $ hnullify (hnullifier tag isNonNull) $ f just
+  }
+  where
+    htag = HIdentity (hencodeTag tag)
+
+
+fromColumns1 ::
+  ( HTable t
+  , HConstrainTag context MaybeTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (t context -> a)
+  -> HMaybeTable t context
+  -> MaybeTable a
+fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
+  { tag
+  , just = f $ runIdentity $
+      hunnullify (\a -> pure . hunnullifier a) (hunlabel hunlabeler hjust)
+  }
+  where
+    tag = hdecodeTag htag

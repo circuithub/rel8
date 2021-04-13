@@ -30,23 +30,25 @@ import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler, hlabeler )
+import Rel8.Schema.Context.Label
+  ( Labelable
+  , HLabelable, hlabeler, hunlabeler
+  )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
+  , HNullifiable, HConstrainTag
   , hencodeTag, hdecodeTag
   , hnullifier, hunnullifier
   )
-import Rel8.Schema.HTable.Either ( HEitherTable(..), HEitherNullifiable )
+import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
+import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Name ( Name )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Lifted
-  ( Table2, Columns2, ConstrainHContext2, fromColumns2, toColumns2
-  )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
@@ -95,51 +97,17 @@ instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
   a <> b = bool a b (isRightTable a)
 
 
-instance Table2 EitherTable where
-  type Columns2 EitherTable = HEitherTable
-  type ConstrainHContext2 EitherTable = HEitherNullifiable
-
-  toColumns2 f g EitherTable {tag, left, right} = HEitherTable
-    { htag
-    , hleft = hnullify (hnullifier tag isLeft) $ f left
-    , hright = hnullify (hnullifier tag isRight) $ g right
-    }
-    where
-      htag = HIdentity (hencodeTag tag)
-
-  fromColumns2 f g HEitherTable {htag = htag, hleft, hright} =
-    EitherTable
-      { tag
-      , left = f $ runIdentity $
-          hunnullify (\a -> pure . hunnullifier a) hleft
-      , right = g $ runIdentity $
-          hunnullify (\a -> pure . hunnullifier a) hright
-      }
-    where
-      tag = hdecodeTag $ unHIdentity htag
-
-  {-# INLINABLE fromColumns2 #-}
-  {-# INLINABLE toColumns2 #-}
-
-
 instance
   ( Table context a, Table context b
   , Labelable context, Nullifiable context, ConstrainTag context EitherTag
   ) =>
   Table context (EitherTable a b)
  where
-  type Columns (EitherTable a b) =
-    HEitherTable (HLabel "Left" (Columns a)) (HLabel "Right" (Columns b))
+  type Columns (EitherTable a b) = HEitherTable (Columns a) (Columns b)
   type Context (EitherTable a b) = Context a
 
-  toColumns =
-    toColumns2
-      (hlabel labeler . toColumns)
-      (hlabel labeler . toColumns)
-  fromColumns =
-    fromColumns2
-      (fromColumns . hunlabel unlabeler)
-      (fromColumns . hunlabel unlabeler)
+  toColumns = toColumns2 toColumns toColumns
+  fromColumns = fromColumns2 fromColumns fromColumns
 
 
 instance
@@ -152,15 +120,11 @@ instance
 
 
 instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
-  eqTable =
-    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
-      (rightTableWith (eqTable @a) (eqTable @b))
+  eqTable = toColumns2 id id (rightTableWith (eqTable @a) (eqTable @b))
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (EitherTable a b) where
-  ordTable =
-    toColumns2 (hlabel hlabeler) (hlabel hlabeler)
-      (rightTableWith (ordTable @a) (ordTable @b))
+  ordTable = toColumns2 id id (rightTableWith (ordTable @a) (ordTable @b))
 
 
 isLeftTable :: EitherTable a b -> Expr Bool
@@ -203,3 +167,49 @@ aggregateEitherTable f g EitherTable {tag, left, right} =
 
 nameEitherTable :: Name EitherTag -> a -> b -> EitherTable a b
 nameEitherTable = EitherTable . fromName
+
+
+toColumns2 ::
+  ( HTable t
+  , HTable u
+  , HConstrainTag context EitherTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (a -> t context)
+  -> (b -> u context)
+  -> EitherTable a b
+  -> HEitherTable t u context
+toColumns2 f g EitherTable {tag, left, right} = HEitherTable
+  { htag
+  , hleft = hlabel hlabeler $ hnullify (hnullifier tag isLeft) $ f left
+  , hright = hlabel hlabeler $ hnullify (hnullifier tag isRight) $ g right
+  }
+  where
+    htag = HIdentity (hencodeTag tag)
+
+
+fromColumns2 ::
+  ( HTable t
+  , HTable u
+  , HConstrainTag context EitherTag
+  , HLabelable context
+  , HNullifiable context
+  )
+  => (t context -> a)
+  -> (u context -> b)
+  -> HEitherTable t u context
+  -> EitherTable a b
+fromColumns2 f g HEitherTable {htag, hleft, hright} = EitherTable
+  { tag
+  , left = f $ runIdentity $
+     hunnullify (\a -> pure . hunnullifier a) $
+     hunlabel hunlabeler
+     hleft
+  , right = g $ runIdentity $
+     hunnullify (\a -> pure . hunnullifier a) $
+     hunlabel hunlabeler
+     hright
+  }
+  where
+    tag = hdecodeTag $ unHIdentity htag

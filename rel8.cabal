@@ -87,7 +87,6 @@ library
 
     Rel8.Schema.Column
     Rel8.Schema.Context
-    Rel8.Schema.Context.Identity
     Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
@@ -117,6 +116,7 @@ library
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
+    Rel8.Schema.Structure
     Rel8.Schema.Table
 
     Rel8.Statement.Delete
@@ -133,7 +133,6 @@ library
     Rel8.Table.Either
     Rel8.Table.Eq
     Rel8.Table.Insert
-    Rel8.Table.Lifted
     Rel8.Table.List
     Rel8.Table.Maybe
     Rel8.Table.Name
@@ -162,8 +161,6 @@ library
     Rel8.Type.String
     Rel8.Type.Sum
     Rel8.Type.Tag
-
-    Rel8.Schema.Structure
 
 test-suite tests
   type:             exitcode-stdio-1.0

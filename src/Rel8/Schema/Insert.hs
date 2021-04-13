@@ -15,8 +15,8 @@ module Rel8.Schema.Insert
   ( Insert(..)
   , OnConflict(..)
   , Col( RequiredInsert, OptionalInsert )
-  , Insertion(..)
   , Inserts
+  , Insertion(..)
   )
 where
 
@@ -35,7 +35,7 @@ import Rel8.Schema.Context.Nullify
   ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
   , runTag, unnull
   )
-import Rel8.Schema.HTable.Type ( HType(HType) )
+import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name, Selects )
 import Rel8.Schema.Null ( Sql )

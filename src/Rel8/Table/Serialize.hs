@@ -31,13 +31,6 @@ import qualified Hasql.Decoders as Hasql
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Schema.Context ( Col(..) )
-import Rel8.Schema.Context.Identity
-  ( fromHEitherTable, toHEitherTable
-  , fromHListTable, toHListTable
-  , fromHMaybeTable, toHMaybeTable
-  , fromHNonEmptyTable, toHNonEmptyTable
-  , fromHTheseTable, toHTheseTable
-  )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
@@ -104,50 +97,38 @@ instance (ToExprs a exprs1, ToExprs b exprs2, x ~ EitherTable exprs1 exprs2) =>
   ToExprs (Either a b) x
  where
   fromIdentity =
-    bimap
-      (fromIdentity' @exprs1 . hunlabel unlabeler)
-      (fromIdentity' @exprs2 . hunlabel unlabeler) .
-    fromHEitherTable
+    bimap (fromIdentity' @exprs1) (fromIdentity' @exprs2) .
+    fromColumns
   toIdentity =
-    toHEitherTable .
-    bimap
-      (hlabel labeler . toIdentity' @exprs1)
-      (hlabel labeler . toIdentity' @exprs2)
+    toColumns .
+    bimap (toIdentity' @exprs1) (toIdentity' @exprs2)
 
 
 instance ToExprs a exprs => ToExprs [a] (ListTable exprs) where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromHListTable
-  toIdentity = toHListTable . fmap (toIdentity' @exprs)
+  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
+  toIdentity = toColumns . fmap (toIdentity' @exprs)
 
 
 instance ToExprs a exprs => ToExprs (Maybe a) (MaybeTable exprs) where
-  fromIdentity =
-    fmap (fromIdentity' @exprs . hunlabel unlabeler) .
-    fromHMaybeTable
-  toIdentity =
-    toHMaybeTable .
-    fmap (hlabel labeler . toIdentity' @exprs)
+  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
+  toIdentity = toColumns . fmap (toIdentity' @exprs)
 
 
 instance ToExprs a exprs => ToExprs (NonEmpty a) (NonEmptyTable exprs)
  where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromHNonEmptyTable
-  toIdentity = toHNonEmptyTable . fmap (toIdentity' @exprs)
+  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
+  toIdentity = toColumns . fmap (toIdentity' @exprs)
 
 
 instance (ToExprs a exprs1, ToExprs b exprs2, x ~ TheseTable exprs1 exprs2) =>
   ToExprs (These a b) x
  where
   fromIdentity =
-    bimap
-      (fromIdentity' @exprs1 . hunlabel unlabeler)
-      (fromIdentity' @exprs2 . hunlabel unlabeler) .
-    fromHTheseTable
+    bimap (fromIdentity' @exprs1) (fromIdentity' @exprs2) .
+    fromColumns
   toIdentity =
-    toHTheseTable .
-    bimap
-      (hlabel labeler . toIdentity' @exprs1)
-      (hlabel labeler . toIdentity' @exprs2)
+    toColumns .
+    bimap (toIdentity' @exprs1) (toIdentity' @exprs2)
 
 
 instance (ToExprs a exprs1, ToExprs b exprs2, x ~ (exprs1, exprs2)) =>
@@ -251,22 +232,22 @@ instance (KnownSpec spec, x ~ Col Expr spec) =>
 
 
 type FromExprs :: Type -> Type
-type family FromExprs a where
-  FromExprs (Expr a) = a
-  FromExprs (Col Expr spec) = Col Identity spec
-  FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
-  FromExprs (ListTable a) = [FromExprs a]
-  FromExprs (MaybeTable a) = Maybe (FromExprs a)
-  FromExprs (NonEmptyTable a) = NonEmpty (FromExprs a)
-  FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
-  FromExprs (a, b) = (FromExprs a, FromExprs b)
-  FromExprs (a, b, c) = (FromExprs a, FromExprs b, FromExprs c)
-  FromExprs (a, b, c, d) =
-    (FromExprs a, FromExprs b, FromExprs c, FromExprs d)
-  FromExprs (a, b, c, d, e) =
-    (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
-  FromExprs (t Expr) = t Identity
-  FromExprs (t (Col Expr)) = t (Col Identity)
+type family FromExprs a
+type instance FromExprs (Expr a) = a
+type instance FromExprs (Col Expr spec) = Col Identity spec
+type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
+type instance FromExprs (ListTable a) = [FromExprs a]
+type instance FromExprs (MaybeTable a) = Maybe (FromExprs a)
+type instance FromExprs (NonEmptyTable a) = NonEmpty (FromExprs a)
+type instance FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
+type instance FromExprs (a, b) = (FromExprs a, FromExprs b)
+type instance FromExprs (a, b, c) = (FromExprs a, FromExprs b, FromExprs c)
+type instance FromExprs (a, b, c, d) =
+  (FromExprs a, FromExprs b, FromExprs c, FromExprs d)
+type instance FromExprs (a, b, c, d, e) =
+  (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
+type instance FromExprs (t Expr) = t Identity
+type instance FromExprs (t (Col Expr)) = t (Col Identity)
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
