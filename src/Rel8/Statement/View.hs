@@ -46,7 +46,7 @@ createView (TableSchema name mschema names) query =
     params = Hasql.noParams
     decode = Hasql.noResult
     prepare = False
-    sql = "CREATE VIEW " <> title <> " WITH " <> select
+    sql = "CREATE VIEW " <> title <> " AS " <> select
       where
         title = case mschema of
           Nothing -> quote name
