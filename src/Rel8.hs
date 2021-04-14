@@ -34,7 +34,7 @@ module Rel8
   , HNonEmpty
   , HThese
 
-  , Table
+  , Table(..)
   , AltTable((<|>:))
   , EqTable, (==:), (/=:)
   , OrdTable, ascTable, descTable
@@ -230,7 +230,8 @@ module Rel8
   , NotNull
   , HTable
   , Labelable
-  , Context
+  , ToExprs(..)
+  , FromExprs
   ) where
 
 -- base

@@ -14,6 +14,8 @@
 module Rel8.Table.Serialize
   ( Serializable, lit, parse
   , Encodes, litTable
+  , ToExprs(..)
+  , FromExprs
   )
 where
 
