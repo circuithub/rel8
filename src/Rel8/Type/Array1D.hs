@@ -1,6 +1,8 @@
 {-# language DataKinds #-}
 {-# language DeriveTraversable #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
@@ -11,6 +13,7 @@
 
 module Rel8.Type.Array1D
   ( Array1D( Array1D )
+  , NotArray
   , getArray1D
   )
 where
@@ -89,7 +92,11 @@ type family IsArray1D a where
   IsArray1D _ = 'False
 
 
-array1DTypeInformation :: IsArray1D (Unnullify a) ~ 'False
+class IsArray1D a ~ 'False => NotArray a
+instance IsArray1D a ~ 'False => NotArray a
+
+
+array1DTypeInformation :: Sql NotArray a
   => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation (Array1D a)
@@ -108,25 +115,25 @@ array1DTypeInformation nullity info =
     null = Opaleye.ConstExpr Opaleye.NullLit
 
 
-instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBType (Array1D a) where
+instance (Sql DBType a, Sql NotArray a) => DBType (Array1D a) where
   typeInformation = array1DTypeInformation nullable typeInformation
 
 
-instance (Sql DBEq a, IsArray1D (Unnullify a) ~ 'False) => DBEq (Array1D a)
+instance (Sql DBEq a, Sql NotArray a) => DBEq (Array1D a)
 
 
-instance (Sql DBOrd a, IsArray1D (Unnullify a) ~ 'False) => DBOrd (Array1D a)
+instance (Sql DBOrd a, Sql NotArray a) => DBOrd (Array1D a)
 
 
-instance (Sql DBMax a, IsArray1D (Unnullify a) ~ 'False) => DBMax (Array1D a)
+instance (Sql DBMax a, Sql NotArray a) => DBMax (Array1D a)
 
 
-instance (Sql DBMin a, IsArray1D (Unnullify a) ~ 'False) => DBMin (Array1D a)
+instance (Sql DBMin a, Sql NotArray a) => DBMin (Array1D a)
 
 
-instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBSemigroup (Array1D a) where
+instance (Sql DBType a, Sql NotArray a) => DBSemigroup (Array1D a) where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-instance (Sql DBType a, IsArray1D (Unnullify a) ~ 'False) => DBMonoid (Array1D a) where
+instance (Sql DBType a, Sql NotArray a) => DBMonoid (Array1D a) where
   memptyExpr = litExpr mempty

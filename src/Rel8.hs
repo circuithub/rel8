@@ -172,6 +172,7 @@ module Rel8
   , Aggregate
   , aggregate
   , countRows
+  , array1DAggExpr
   , listAgg, listAggExpr
   , nonEmptyAgg, nonEmptyAggExpr
   , groupBy
