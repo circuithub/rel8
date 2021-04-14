@@ -42,6 +42,7 @@ import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Spec ( KTable )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -52,10 +53,9 @@ instance
   ( Rel8able t
   , Labelable context
   , Reifiable context
-  , HTable (GRep context t)
   ) => Table context (t context)
  where
-  type Columns (t context) = GRep context t
+  type Columns (t context) = GRep t
   type Context (t context) = context
 
   fromColumns = unreify . gfromColumns . hreify
@@ -105,28 +105,30 @@ instance
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
 type Rel8able :: KTable -> Constraint
-class Rel8able t where
+class HTable (GRep t) => Rel8able t where
   gfromColumns :: (Labelable context, Reifiable context)
-    => GRep context t (Col (Reify context)) -> t (Reify context)
+    => GRep t (Col (Reify context)) -> t (Reify context)
 
   gtoColumns :: (Labelable context, Reifiable context)
-    => t (Reify context) -> GRep context t (Col (Reify context))
+    => t (Reify context) -> GRep t (Col (Reify context))
 
   default gfromColumns :: forall context.
     ( Generic (t (Reify context))
+    , GColumns (Rep (t (Reify context))) ~ GRep t
     , GRel8able context (Rep (t (Reify context)))
-    ) => GRep context t (Col (Reify context)) -> t (Reify context)
+    ) => GRep t (Col (Reify context)) -> t (Reify context)
   gfromColumns = to . fromGColumns @_ @(Rep (t (Reify context)))
 
   default gtoColumns :: forall context.
     ( Generic (t (Reify context))
+    , GColumns (Rep (t (Reify context))) ~ GRep t
     , GRel8able context (Rep (t (Reify context)))
-    ) => t (Reify context) -> GRep context t (Col (Reify context))
+    ) => t (Reify context) -> GRep t (Col (Reify context))
   gtoColumns = toGColumns @_ @(Rep (t (Reify context))) . from
 
 
-type GRep :: K.Context -> K.Table -> K.HTable
-type GRep context t = GColumns (Rep (t (Reify context)))
+type GRep :: K.Table -> K.HTable
+type GRep t = GColumns (Rep (t (Reify Name)))
 
 
 type GColumns :: (Type -> Type) -> K.HTable
