@@ -227,7 +227,9 @@ module Rel8
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
+  , Array1D
   , Nullable
+  , NotArray
   , NotNull
   , HTable
   , Labelable
@@ -298,6 +300,7 @@ import Rel8.Table.Order
 import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Type
+import Rel8.Type.Array1D
 import Rel8.Type.Eq
 import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded
