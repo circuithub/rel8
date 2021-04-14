@@ -76,3 +76,16 @@ data TableNonEmpty f = TableNonEmpty
   }
   deriving stock Generic
   deriving anyclass Rel8able
+
+
+data S3Object = S3Object
+  { bucketName :: Text
+  , objectKey :: Text 
+  } deriving stock Generic
+
+
+data HKDTest f = HKDTest
+  { s3Object :: Lift f S3Object
+  } 
+  deriving stock Generic
+  deriving anyclass Rel8able

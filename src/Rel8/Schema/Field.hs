@@ -1,19 +1,23 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Field
   ( Field
-  , HEither, HList, HMaybe, HNonEmpty, HThese
+  , HEither, HList, HMaybe, HNonEmpty, HThese, Lift
   , Reify, hreify, hunreify
   , Reifiable
   , AField(..)
-  , AHEither(..), AHList(..), AHMaybe(..), AHNonEmpty(..), AHThese(..)
+  , AHEither(..), AHList(..), AHMaybe(..), AHNonEmpty(..), AHThese(..), ALift(..)
   )
 where
 
@@ -22,6 +26,7 @@ import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import GHC.Generics
 import Prelude
 
 -- rel8
@@ -39,6 +44,7 @@ import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
+import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Insert ( Insert, Col(..) )
@@ -126,6 +132,17 @@ type family HThese context where
   HThese Insert = TheseTable
   HThese Name = TheseTable
   HThese _ = These
+
+
+type Lift :: K.Context -> Type -> Type
+type family Lift context a where
+  Lift (Reify context) a = ALift context a
+  Lift Aggregate a = GHKD (Rep a) (Col Aggregate)
+  Lift Expr a = GHKD (Rep a) (Col Expr)
+  Lift Identity a = a
+  Lift Insert a = GHKD (Rep a) (Col Insert)
+  Lift Name a = GHKD (Rep a) (Col Name)
+  Lift f a = GHKD (Rep a) (Col f)
 
 
 type AField :: K.Context -> Necessity -> Type -> Type
@@ -298,6 +315,42 @@ instance
     (Reify context')
     (AHThese context a b)
     (AHThese context' a' b')
+
+
+type ALift :: K.Context -> Type -> Type
+newtype ALift context a = ALift (Lift context a)
+
+
+instance (Reifiable context, HTable (GHKD (Rep a)), Generic a, GHKDC (Rep a))
+  => Table (Reify context) (ALift context a)
+ where
+  type Context (ALift context a) = Reify context
+  type Columns (ALift context a) = GHKD (Rep a)
+
+  fromColumns = sfromColumnsLift contextSing
+  toColumns = stoColumnsLift contextSing
+
+
+type GHKD :: (Type -> Type) -> K.HTable
+type family GHKD rep where
+  GHKD (M1 S ('MetaSel ('Just name) _ _ _) (K1 _ x)) = HIdentity ('Spec '[ name ] 'Required x)
+  GHKD (M1 _ _ f) = GHKD f
+  GHKD (f :*: g) = HPair (GHKD f) (GHKD g)
+
+
+instance
+  ( Reifiable context, Reifiable context'
+  , Recontextualize (Reify context) (Reify context') a a'
+  , HTable (GHKD (Rep a))
+  , GHKD (Rep a) ~ GHKD (Rep a')
+  , Generic a, Generic a'
+  , GHKDC (Rep a), GHKDC (Rep a')
+  ) =>
+  Recontextualize
+    (Reify context)
+    (Reify context')
+    (ALift context a)
+    (ALift context' a')
 
 
 type SContext :: K.Context -> Type
@@ -714,6 +767,52 @@ stoColumnsThese = \case
     stoColumnsThese context .
     sbimapThese context (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHThese a) -> a)
+
+
+sfromColumnsLift :: (HTable (GHKD (Rep a)), Generic a, GHKDC (Rep a))
+  => SContext context
+  -> GHKD (Rep a) (Col (Reify context))
+  -> ALift context a
+sfromColumnsLift = \case
+  SAggregate -> ALift . hunreify
+  SExpr -> ALift . hunreify
+  SInsert -> ALift . hunreify
+  SName -> ALift . hunreify
+  SReify context -> ALift . sfromColumnsLift context . hunreify 
+  SIdentity -> ALift . to . fromGHKD . hunreify
+
+
+stoColumnsLift :: (HTable (GHKD (Rep a)), GHKDC (Rep a), Generic a)
+  => SContext context
+  -> ALift context a
+  -> GHKD (Rep a) (Col (Reify context))
+stoColumnsLift = \case
+  SAggregate -> \(ALift x) -> hreify x
+  SExpr -> \(ALift x) -> hreify x
+  SName -> \(ALift x) -> hreify x
+  SInsert -> \(ALift x) -> hreify x
+  SIdentity -> \(ALift x) -> hreify $ toGHKD $ from x
+  SReify context -> \(ALift x) -> hreify $ stoColumnsLift context x
+
+
+class GHKDC rep where
+  fromGHKD :: GHKD rep (Col Identity) -> rep x
+  toGHKD :: rep x -> GHKD rep (Col Identity)
+
+
+instance (GHKD (M1 i c f) ~ GHKD f, GHKDC f) => GHKDC (M1 i c f) where
+  fromGHKD = M1 . fromGHKD @f
+  toGHKD (M1 x) = toGHKD x
+
+
+instance {-# overlaps #-} GHKDC (M1 S ('MetaSel ('Just name) x y z) (K1 i a)) where
+  fromGHKD (HIdentity (Result x)) = M1 $ K1 x
+  toGHKD (M1 (K1 x)) = HIdentity (Result x)
+
+
+instance (GHKDC f, GHKDC g) => GHKDC (f :*: g) where
+  fromGHKD (HPair x y) = fromGHKD x :*: fromGHKD y
+  toGHKD (x :*: y) = HPair (toGHKD x) (toGHKD y)
 
 
 hreify :: HTable t => t (Col context) -> t (Col (Reify context))
