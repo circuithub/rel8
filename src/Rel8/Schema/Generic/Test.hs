@@ -31,7 +31,7 @@ data Table f = Table
 
 
 data TablePair f = TablePair
-  { foo :: Column f (Default Bool)
+  { foo :: Default f Bool
   , bars :: (Column f Text, Column f Text)
   }
   deriving stock Generic
@@ -72,7 +72,7 @@ data TableList f = TableList
 
 data TableNonEmpty f = TableNonEmpty
   { foo :: Column f Bool
-  , bars :: HNonEmpty f (TableList f)
+  , bars :: HNonEmpty f (TableList f, Default f Char)
   }
   deriving stock Generic
   deriving anyclass Rel8able
