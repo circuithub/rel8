@@ -12,7 +12,7 @@
 
 module Rel8.Schema.Name
   ( Name(..)
-  , Col( NameCol )
+  , Col( NameCol, unNameCol )
   , Selects
   )
 where
@@ -69,7 +69,7 @@ instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
 
 
 instance Interpretation Name where
-  newtype Col Name _spec = NameCol String
+  newtype Col Name _spec = NameCol { unNameCol :: String }
 
 
 instance Labelable Name where

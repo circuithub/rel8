@@ -17,6 +17,7 @@ library
     , casing
     , contravariant
     , hasql ^>= 1.4.5.1
+    , higgledy
     , opaleye ^>= 0.7.1.0
     , profunctors
     , scientific

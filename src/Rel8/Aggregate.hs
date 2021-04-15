@@ -15,7 +15,7 @@ module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
-  , Col( Aggregation )
+  , Col( Aggregation, unAggregation )
   )
 where
 
@@ -60,7 +60,7 @@ newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
 instance Interpretation Aggregate where
   data Col Aggregate _spec where
     Aggregation :: ()
-      => Aggregate (Expr a)
+      => { unAggregation :: Aggregate (Expr a) }
       -> Col Aggregate ('Spec labels necessity a)
 
 

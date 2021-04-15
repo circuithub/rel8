@@ -4,7 +4,7 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Context
-  ( Interpretation(..), Col( Result )
+  ( Interpretation(..), Col( Result, unResult )
   )
 where
 
@@ -25,4 +25,4 @@ class Interpretation context where
 
 instance Interpretation Identity where
   data Col Identity _spec where
-    Result :: a -> Col Identity ('Spec labels necessity a)
+    Result :: { unResult :: a } -> Col Identity ('Spec labels necessity a)
