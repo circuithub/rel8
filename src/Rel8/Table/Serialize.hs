@@ -30,16 +30,12 @@ import Prelude
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
--- higgledy
-import Data.Generic.HKD ( HKD )
-
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Identity ( HIdentity )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
@@ -47,7 +43,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..), KnownSpec )
+import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )

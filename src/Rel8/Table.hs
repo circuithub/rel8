@@ -25,7 +25,6 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )

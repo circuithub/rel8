@@ -12,7 +12,6 @@ where
 
 -- base
 import Control.Applicative ( Const(..) )
-import Data.Functor.Compose ( Compose )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint )
 import Prelude hiding ( null )

@@ -25,13 +25,10 @@ module Rel8.Schema.Field
 where
 
 -- base
-import Control.Applicative ( Const( Const ), getConst )
 import Data.Bifunctor ( Bifunctor, bimap )
-import Data.Functor.Compose ( Compose( Compose ), getCompose )
-import Data.Functor.Identity ( Identity, runIdentity )
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
-import GHC.Generics
 import Prelude
 
 -- rel8
@@ -44,12 +41,11 @@ import Rel8.Kind.Necessity
   )
 import Rel8.Schema.Context ( Interpretation, Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable, hfield, hmap, htabulate )
+import Rel8.Schema.HTable ( HTable, hfield, htabulate )
 import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.These ( HTheseTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Insert ( Insert, Col(..) )
