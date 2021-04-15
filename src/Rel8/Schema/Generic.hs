@@ -17,7 +17,7 @@
 {-# options_ghc -fno-warn-orphans #-}
 
 module Rel8.Schema.Generic
-  ( Rel8able(..)
+  ( Rel8able
   )
 where
 
@@ -106,9 +106,6 @@ instance
 -- @
 type Rel8able :: KTable -> Constraint
 class HTable (GRep t) => Rel8able t where
-  type GRep t :: K.HTable
-  type GRep t = GColumns (Rep (t (Reify Name)))
-
   gfromColumns :: (Labelable context, Reifiable context)
     => GRep t (Col (Reify context)) -> t (Reify context)
 
@@ -128,6 +125,10 @@ class HTable (GRep t) => Rel8able t where
     , GRel8able context (Rep (t (Reify context)))
     ) => t (Reify context) -> GRep t (Col (Reify context))
   gtoColumns = toGColumns @_ @(Rep (t (Reify context))) . from
+
+
+type GRep :: K.Table -> K.HTable
+type GRep t = GColumns (Rep (t (Reify Name)))
 
 
 type GColumns :: (Type -> Type) -> K.HTable

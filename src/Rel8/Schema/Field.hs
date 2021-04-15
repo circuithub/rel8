@@ -1,15 +1,10 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.Field
@@ -20,7 +15,6 @@ module Rel8.Schema.Field
   , AField(..)
   , AHEither(..), AHList(..), AHMaybe(..), AHNonEmpty(..), AHThese(..)
   , SContext(..)
-  , Col( Reify )
   )
 where
 

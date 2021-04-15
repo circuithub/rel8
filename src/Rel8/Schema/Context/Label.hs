@@ -11,7 +11,6 @@ module Rel8.Schema.Context.Label
 where
 
 -- base
-import Control.Applicative ( Const(..) )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint )
 import Prelude hiding ( null )
@@ -38,11 +37,6 @@ class Interpretation context => Labelable context where
 instance Labelable Identity where
   labeler (Result a) = Result a
   unlabeler (Result a) = Result a
-
-
-instance Labelable (Const x) where
-  labeler (K a) = K a
-  unlabeler (K a) = K a
 
 
 type HLabelable :: HContext -> Constraint

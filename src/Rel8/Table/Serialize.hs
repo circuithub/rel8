@@ -9,7 +9,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
@@ -232,8 +231,6 @@ instance (KnownSpec spec, x ~ Col Expr spec) =>
  where
   fromIdentity = fromColumns
   toIdentity = toColumns
-
-
 
 
 type FromExprs :: Type -> Type

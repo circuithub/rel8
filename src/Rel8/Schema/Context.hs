@@ -4,12 +4,11 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Context
-  ( Interpretation(..), Col( Result, K, unK, unResult )
+  ( Interpretation(..), Col( Result )
   )
 where
 
 -- base
-import Control.Applicative ( Const )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint )
 import Prelude ()
@@ -26,9 +25,4 @@ class Interpretation context where
 
 instance Interpretation Identity where
   data Col Identity _spec where
-    Result :: { unResult :: a } -> Col Identity ('Spec labels necessity a)
-
-
-instance Interpretation (Const x) where
-  data Col (Const x) _spec where
-    K :: { unK :: x } ->  Col (Const x) _spec
+    Result :: a -> Col Identity ('Spec labels necessity a)
