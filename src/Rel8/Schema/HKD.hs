@@ -144,7 +144,18 @@ instance (f ~ g, HTable (GHTable a)) => Table f (FlipHKD g a) where
   type Context (FlipHKD g a) = g
 
 
-instance HTable (GHTable a) => ToExprs a (FlipHKD Expr a)
+instance
+  ( a ~ a'
+  , HTable (GHTable a)
+  ) =>
+  Recontextualize
+    context
+    context'
+    (FlipHKD context a)
+    (FlipHKD context' a')
 
 
-type instance FromExprs (FlipHKD Expr a) = a
+instance (HTable (GHTable a), x ~ FlipHKD Expr a) => ToExprs (Identity a) x
+
+
+type instance FromExprs (FlipHKD Expr a) = Identity a
