@@ -49,6 +49,7 @@ import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Serialize
 import Rel8.Type ( DBType )
 
 
@@ -97,6 +98,18 @@ instance (HKDSpec (Rep a), HKDT f, f ~ g) => Table f (FlipHKD g a) where
   type Context (FlipHKD g a) = g
   toColumns = fromGHKD . runHKD . unFlipHKD
   fromColumns = FlipHKD . HKD . toGHKD
+
+
+instance
+  ( a ~ a'
+  , HKDSpec (Rep a)
+  , HKDT context, HKDT context'
+  ) =>
+    Recontextualize
+    context
+    context'
+    (FlipHKD context a)
+    (FlipHKD context' a')
 
 
 class HTable (GHTable_ rep) => HKDSpec rep where
@@ -199,3 +212,11 @@ stoColumnsLift = \case
   SIdentity -> hreify . toColumns . FlipHKD . deconstruct . runIdentity . runALift
   SReify context -> hreify . stoColumnsLift context . runALift
   SInsert -> hreify . toColumns . runALift
+
+
+instance (x ~ FlipHKD Expr a, HKDSpec (Rep a), Construct Identity a) => ToExprs (Identity a) x where
+  fromIdentity = construct . HKD @a . toGHKD
+  toIdentity = fromGHKD . runHKD . deconstruct . runIdentity
+
+
+type instance FromExprs (FlipHKD Expr a) = Identity a
