@@ -228,8 +228,8 @@ module Rel8
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
   , Array1D
-  , Nullable
   , NotArray
+  , Nullable
   , NotNull
   , HTable
   , Labelable

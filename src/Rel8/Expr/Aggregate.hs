@@ -155,14 +155,12 @@ groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 -- | Collect expressions values as an array.
 array1DAggExpr :: NotArray a => Expr a -> Aggregate (Expr (Array1D a))
-array1DAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
+array1DAggExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
-  where
-    from = fromPrimExpr . fromPrimArray
 
 
 -- | Collect expressions values as a list.
