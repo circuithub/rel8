@@ -18,7 +18,7 @@
 
 {-# options -Wno-orphans #-}
 
-module Rel8.Schema.HKD ( Lift ) where
+module Rel8.Schema.HKD ( Lift, FlipHKD(..) ) where
 
 -- base
 import Data.Functor.Compose ( Compose )
@@ -50,7 +50,7 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize
 
 
-newtype FlipHKD f a = FlipHKD (HKD a f)
+newtype FlipHKD f a = FlipHKD { unFlipHKD :: HKD a f }
 
 
 type GHTable a = GHTable_ (Rep a)
@@ -121,7 +121,7 @@ sfromColumnsLift :: forall a context. (HTable (GHTable a), Generic a, Construct 
 sfromColumnsLift = \case
   SExpr -> ALift . fromColumns . hunreify
   SName -> ALift . fromColumns . hunreify
-  SIdentity -> ALift . construct . fromColumns . hunreify
+  SIdentity -> ALift . construct . unFlipHKD . fromColumns . hunreify
   SReify context -> ALift . sfromColumnsLift context . hunreify
   SInsert -> ALift . fromColumns . hunreify
 
@@ -133,16 +133,18 @@ stoColumnsLift :: (HTable (GHTable a), Generic a, Construct Identity a, HConstra
 stoColumnsLift = \case
   SExpr -> hreify . toColumns . runALift
   SName -> hreify . toColumns . runALift
-  SIdentity -> hreify . toColumns . deconstruct . runIdentity . runALift
+  SIdentity -> hreify . toColumns . FlipHKD . deconstruct . runIdentity . runALift
   SReify context -> hreify . stoColumnsLift context . runALift
   SInsert -> hreify . toColumns . runALift
   SAggregate -> hreify . toColumns . runALift
 
 
-instance HTable (GHTable a) => Rel8able (HKD a) where
-  type GRep (HKD a) = GHTable a
-  gfromColumns = fromColumns
-  gtoColumns = toColumns
+instance (f ~ g, HTable (GHTable a)) => Table f (FlipHKD g a) where
+  type Columns (FlipHKD g a) = GHTable a
+  type Context (FlipHKD g a) = g
 
 
-instance HTable (GHTable a) => ToExprs a (HKD a Expr)
+instance HTable (GHTable a) => ToExprs a (FlipHKD Expr a)
+
+
+type instance FromExprs (FlipHKD Expr a) = a
