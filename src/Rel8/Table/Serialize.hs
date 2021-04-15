@@ -55,7 +55,6 @@ import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
-import Rel8.Table.HKD ( FlipHKD, GHKD )
 import Rel8.Type ( DBType )
 
 -- semigroupoids
@@ -239,7 +238,6 @@ instance (KnownSpec spec, x ~ Col Expr spec) =>
   toIdentity = toColumns
 
 
-instance (a ~ b, f ~ Expr, HTable (GHKD a)) => ToExprs a (FlipHKD f b) where
 
 
 type FromExprs :: Type -> Type

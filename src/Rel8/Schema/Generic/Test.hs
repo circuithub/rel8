@@ -14,9 +14,7 @@ import GHC.Generics ( Generic )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Column
-import Rel8.Schema.Field
-import Rel8.Schema.Generic
+import Rel8
 
 -- text
 import Data.Text ( Text )
@@ -80,7 +78,7 @@ data TableNonEmpty f = TableNonEmpty
 
 data S3Object = S3Object
   { bucketName :: Text
-  , objectKey :: Text 
+  , objectKey :: Text
   } deriving stock Generic
 
 

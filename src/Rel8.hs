@@ -29,6 +29,7 @@ module Rel8
   , Rel8able
   , Column, Field, Necessity( Required, Optional )
   , Default
+  , HEither
   , HMaybe
   , HList
   , HNonEmpty
@@ -275,6 +276,7 @@ import Rel8.Schema.Column
 import Rel8.Schema.Context.Label
 import Rel8.Schema.Field
 import Rel8.Schema.Generic
+import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
