@@ -37,6 +37,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
 import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null (Sql)
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table ( Table, Columns, toColumns )
@@ -58,7 +59,7 @@ class EqTable a => OrdTable a where
 
 
 instance
-  ( Table Expr (t Expr)
+  ( Table Expr (t (Expr :: Context))
   , f ~ Expr
   , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
   , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBOrd)

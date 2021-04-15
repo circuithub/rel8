@@ -235,6 +235,7 @@ module Rel8
   , Labelable
   , ToExprs(..)
   , FromExprs
+  , Result
   ) where
 
 -- base
@@ -277,6 +278,7 @@ import Rel8.Schema.Generic
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
+import Rel8.Schema.Result
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert

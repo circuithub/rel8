@@ -8,8 +8,6 @@ module Rel8.Schema.Spec
   ( Spec( Spec )
   , SSpec( SSpec, labels, necessity, info, nullity )
   , KnownSpec( specSing )
-  , KContext, HKTable
-  , KTable
   )
 where
 
@@ -62,15 +60,3 @@ instance
     , info = typeInformation
     , nullity = nullable
     }
-
-
-type KContext :: Type
-type KContext = Spec -> Type
-
-
-type HKTable :: Type
-type HKTable = KContext -> Type
-
-
-type KTable :: Type
-type KTable = (Type -> Type) -> Type

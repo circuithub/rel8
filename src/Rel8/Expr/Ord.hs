@@ -23,7 +23,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (&&.), (||.), coalesce )
 import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNull )
-import Rel8.Expr.Opaleye ( zipPrimExprsWith )
+import Rel8.Expr.Opaleye ( toPrimExpr, zipPrimExprsWith )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql )
 import qualified Rel8.Schema.Null as Schema ( nullable )
 import Rel8.Type.Ord ( DBOrd )
@@ -122,7 +122,7 @@ leastExpr ma mb = case Schema.nullable @a of
   Null -> nullable ma (\a -> nullable mb (least_ a) mb) ma
   NotNull -> least_ ma mb
   where
-    least_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "LEAST" [a, b])
+    least_ a b = Expr (Opaleye.FunExpr "LEAST" [toPrimExpr a, toPrimExpr b])
 
 
 -- | Given two expressions, return the expression that sorts greater than the
@@ -134,4 +134,5 @@ greatestExpr ma mb = case Schema.nullable @a of
   Null -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
   NotNull -> greatest_ ma mb
   where
-    greatest_ (Expr a) (Expr b) = Expr (Opaleye.FunExpr "GREATEST" [a, b])
+    greatest_ a b =
+      Expr (Opaleye.FunExpr "GREATEST" [toPrimExpr a, toPrimExpr b])

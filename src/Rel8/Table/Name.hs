@@ -23,8 +23,12 @@ import Prelude
 -- casing
 import Text.Casing ( quietSnake )
 
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Kind.Labels ( renderLabels )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Name ( Name, Col(..) )
@@ -45,11 +49,11 @@ namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
     SSpec {labels} -> NameCol (f (renderLabels labels))
 
 
-showExprs :: Table Expr a => a -> [(String, String)]
+showExprs :: Table Expr a => a -> [(String, Opaleye.PrimExpr)]
 showExprs as = case (namesFromLabels, toColumns as) of
   (names, exprs) -> getConst $ htabulateA $ \field ->
     case (hfield names field, hfield exprs field) of
-      (NameCol name, DB expr) -> Const [(name, show expr)]
+      (NameCol name, DB expr) -> Const [(name, toPrimExpr expr)]
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]

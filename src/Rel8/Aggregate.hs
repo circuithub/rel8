@@ -3,9 +3,9 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
-{-# language GeneralizedNewtypeDeriving #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -37,13 +37,14 @@ import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
+import Data.Functor.Apply ( Apply, (<.>) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -51,10 +52,17 @@ import Data.Functor.Apply ( Apply, WrappedApplicative(..) )
 -- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
 -- operation. This means 'Aggregate' is an instance of 'Apply', and you can
 -- combine @Aggregate@s using the @<.>@ combinator.
-type Aggregate :: Type -> Type
-newtype Aggregate a = Aggregate (Opaleye.Aggregator () a)
-  deriving newtype Functor
-  deriving Apply via (WrappedApplicative (Opaleye.Aggregator ()))
+type Aggregate :: k -> Type
+data Aggregate a where
+  Aggregate :: !(Opaleye.Aggregator () a) -> Aggregate a
+
+
+instance Functor Aggregate where
+  fmap f (Aggregate a) = Aggregate (fmap f a)
+
+
+instance Apply Aggregate where
+  Aggregate f <.> Aggregate a = Aggregate (f <*> a)
 
 
 instance Interpretation Aggregate where
@@ -84,7 +92,7 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Identity (Aggregate (Expr a)) (Identity a)
+  Recontextualize Aggregate Result (Aggregate (Expr a)) (Identity a)
 
 
 instance Sql DBType a =>
@@ -96,7 +104,7 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Identity Aggregate (Identity a) (Aggregate (Expr a))
+  Recontextualize Result Aggregate (Identity a) (Aggregate (Expr a))
 
 
 instance Sql DBType a =>

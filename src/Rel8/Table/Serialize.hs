@@ -21,7 +21,6 @@ where
 
 -- base
 import Data.Bifunctor ( bimap )
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -42,6 +41,7 @@ import Rel8.Schema.HTable.Pair ( HPair(..) )
 import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns )
 import Rel8.Table.Either ( EitherTable )
@@ -59,90 +59,90 @@ import Data.Functor.Apply ( WrappedApplicative(..) )
 import Data.These ( These )
 
 
-fromIdentity' :: forall exprs a. ToExprs a exprs => Columns exprs (Col Identity) -> a
-fromIdentity' = fromIdentity @_ @exprs
+fromResult' :: forall exprs a. ToExprs a exprs => Columns exprs (Col Result) -> a
+fromResult' = fromResult @_ @exprs
 
 
-toIdentity' :: forall exprs a. ToExprs a exprs => a -> Columns exprs (Col Identity)
-toIdentity' = toIdentity @_ @exprs
+toResult' :: forall exprs a. ToExprs a exprs => a -> Columns exprs (Col Result)
+toResult' = toResult @_ @exprs
 
 
 type ToExprs :: Type -> Type -> Constraint
 class Table Expr exprs => ToExprs a exprs where
-  fromIdentity :: Columns exprs (Col Identity) -> a
-  toIdentity :: a -> Columns exprs (Col Identity)
+  fromResult :: Columns exprs (Col Result) -> a
+  toResult :: a -> Columns exprs (Col Result)
 
 
 instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs a x where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
+  fromResult (HType (Result a)) = a
+  toResult = HType . Result
 
 
 instance (Sql DBType a, x ~ [a]) => ToExprs [a] (Expr x) where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
+  fromResult (HType (Result a)) = a
+  toResult = HType . Result
 
 
 instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Maybe a) (Expr x)
  where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
+  fromResult (HType (Result a)) = a
+  toResult = HType . Result
 
 
 instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (NonEmpty a) (Expr x)
  where
-  fromIdentity (HType (Result a)) = a
-  toIdentity = HType . Result
+  fromResult (HType (Result a)) = a
+  toResult = HType . Result
 
 
 instance (ToExprs a exprs1, ToExprs b exprs2, x ~ EitherTable exprs1 exprs2) =>
   ToExprs (Either a b) x
  where
-  fromIdentity =
-    bimap (fromIdentity' @exprs1) (fromIdentity' @exprs2) .
+  fromResult =
+    bimap (fromResult' @exprs1) (fromResult' @exprs2) .
     fromColumns
-  toIdentity =
+  toResult =
     toColumns .
-    bimap (toIdentity' @exprs1) (toIdentity' @exprs2)
+    bimap (toResult' @exprs1) (toResult' @exprs2)
 
 
 instance ToExprs a exprs => ToExprs [a] (ListTable exprs) where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
-  toIdentity = toColumns . fmap (toIdentity' @exprs)
+  fromResult = fmap (fromResult' @exprs) . fromColumns
+  toResult = toColumns . fmap (toResult' @exprs)
 
 
 instance ToExprs a exprs => ToExprs (Maybe a) (MaybeTable exprs) where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
-  toIdentity = toColumns . fmap (toIdentity' @exprs)
+  fromResult = fmap (fromResult' @exprs) . fromColumns
+  toResult = toColumns . fmap (toResult' @exprs)
 
 
 instance ToExprs a exprs => ToExprs (NonEmpty a) (NonEmptyTable exprs)
  where
-  fromIdentity = fmap (fromIdentity' @exprs) . fromColumns
-  toIdentity = toColumns . fmap (toIdentity' @exprs)
+  fromResult = fmap (fromResult' @exprs) . fromColumns
+  toResult = toColumns . fmap (toResult' @exprs)
 
 
 instance (ToExprs a exprs1, ToExprs b exprs2, x ~ TheseTable exprs1 exprs2) =>
   ToExprs (These a b) x
  where
-  fromIdentity =
-    bimap (fromIdentity' @exprs1) (fromIdentity' @exprs2) .
+  fromResult =
+    bimap (fromResult' @exprs1) (fromResult' @exprs2) .
     fromColumns
-  toIdentity =
+  toResult =
     toColumns .
-    bimap (toIdentity' @exprs1) (toIdentity' @exprs2)
+    bimap (toResult' @exprs1) (toResult' @exprs2)
 
 
 instance (ToExprs a exprs1, ToExprs b exprs2, x ~ (exprs1, exprs2)) =>
   ToExprs (a, b) x
  where
-  fromIdentity (HPair a b) =
-    ( fromIdentity' @exprs1 $ hunlabel unlabeler a
-    , fromIdentity' @exprs2 $ hunlabel unlabeler b
+  fromResult (HPair a b) =
+    ( fromResult' @exprs1 $ hunlabel unlabeler a
+    , fromResult' @exprs2 $ hunlabel unlabeler b
     )
-  toIdentity (a, b) = HPair
-    { hfst = hlabel labeler $ toIdentity' @exprs1 a
-    , hsnd = hlabel labeler $ toIdentity' @exprs2 b
+  toResult (a, b) = HPair
+    { hfst = hlabel labeler $ toResult' @exprs1 a
+    , hsnd = hlabel labeler $ toResult' @exprs2 b
     }
 
 
@@ -153,15 +153,15 @@ instance
   , x ~ (exprs1, exprs2, exprs3)
   ) => ToExprs (a, b, c) x
  where
-  fromIdentity (HTrio a b c) =
-    ( fromIdentity' @exprs1 $ hunlabel unlabeler a
-    , fromIdentity' @exprs2 $ hunlabel unlabeler b
-    , fromIdentity' @exprs3 $ hunlabel unlabeler c
+  fromResult (HTrio a b c) =
+    ( fromResult' @exprs1 $ hunlabel unlabeler a
+    , fromResult' @exprs2 $ hunlabel unlabeler b
+    , fromResult' @exprs3 $ hunlabel unlabeler c
     )
-  toIdentity (a, b, c) = HTrio
-    { hfst = hlabel labeler $ toIdentity' @exprs1 a
-    , hsnd = hlabel labeler $ toIdentity' @exprs2 b
-    , htrd = hlabel labeler $ toIdentity' @exprs3 c
+  toResult (a, b, c) = HTrio
+    { hfst = hlabel labeler $ toResult' @exprs1 a
+    , hsnd = hlabel labeler $ toResult' @exprs2 b
+    , htrd = hlabel labeler $ toResult' @exprs3 c
     }
 
 
@@ -173,17 +173,17 @@ instance
   , x ~ (exprs1, exprs2, exprs3, exprs4)
   ) => ToExprs (a, b, c, d) x
  where
-  fromIdentity (HQuartet a b c d) =
-    ( fromIdentity' @exprs1 $ hunlabel unlabeler a
-    , fromIdentity' @exprs2 $ hunlabel unlabeler b
-    , fromIdentity' @exprs3 $ hunlabel unlabeler c
-    , fromIdentity' @exprs4 $ hunlabel unlabeler d
+  fromResult (HQuartet a b c d) =
+    ( fromResult' @exprs1 $ hunlabel unlabeler a
+    , fromResult' @exprs2 $ hunlabel unlabeler b
+    , fromResult' @exprs3 $ hunlabel unlabeler c
+    , fromResult' @exprs4 $ hunlabel unlabeler d
     )
-  toIdentity (a, b, c, d) = HQuartet
-    { hfst = hlabel labeler $ toIdentity' @exprs1 a
-    , hsnd = hlabel labeler $ toIdentity' @exprs2 b
-    , htrd = hlabel labeler $ toIdentity' @exprs3 c
-    , hfrt = hlabel labeler $ toIdentity' @exprs4 d
+  toResult (a, b, c, d) = HQuartet
+    { hfst = hlabel labeler $ toResult' @exprs1 a
+    , hsnd = hlabel labeler $ toResult' @exprs2 b
+    , htrd = hlabel labeler $ toResult' @exprs3 c
+    , hfrt = hlabel labeler $ toResult' @exprs4 d
     }
 
 
@@ -196,47 +196,47 @@ instance
   , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
   ) => ToExprs (a, b, c, d, e) x
  where
-  fromIdentity (HQuintet a b c d e) =
-    ( fromIdentity' @exprs1 $ hunlabel unlabeler a
-    , fromIdentity' @exprs2 $ hunlabel unlabeler b
-    , fromIdentity' @exprs3 $ hunlabel unlabeler c
-    , fromIdentity' @exprs4 $ hunlabel unlabeler d
-    , fromIdentity' @exprs5 $ hunlabel unlabeler e
+  fromResult (HQuintet a b c d e) =
+    ( fromResult' @exprs1 $ hunlabel unlabeler a
+    , fromResult' @exprs2 $ hunlabel unlabeler b
+    , fromResult' @exprs3 $ hunlabel unlabeler c
+    , fromResult' @exprs4 $ hunlabel unlabeler d
+    , fromResult' @exprs5 $ hunlabel unlabeler e
     )
-  toIdentity (a, b, c, d, e) = HQuintet
-    { hfst = hlabel labeler $ toIdentity' @exprs1 a
-    , hsnd = hlabel labeler $ toIdentity' @exprs2 b
-    , htrd = hlabel labeler $ toIdentity' @exprs3 c
-    , hfrt = hlabel labeler $ toIdentity' @exprs4 d
-    , hfft = hlabel labeler $ toIdentity' @exprs5 e
+  toResult (a, b, c, d, e) = HQuintet
+    { hfst = hlabel labeler $ toResult' @exprs1 a
+    , hsnd = hlabel labeler $ toResult' @exprs2 b
+    , htrd = hlabel labeler $ toResult' @exprs3 c
+    , hfrt = hlabel labeler $ toResult' @exprs4 d
+    , hfft = hlabel labeler $ toResult' @exprs5 e
     }
 
 
-instance (HTable t, result ~ Col Identity, x ~ t (Col Expr)) =>
+instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>
   ToExprs (t result) x
  where
-  fromIdentity = id
-  toIdentity = id
+  fromResult = id
+  toResult = id
 
 
-instance (Recontextualize Identity Expr (t Identity) (t Expr), result ~ Identity, x ~ t Expr) =>
+instance (Recontextualize Result Expr (t Result) (t Expr), result ~ Result, x ~ t Expr) =>
   ToExprs (t result) x
  where
-  fromIdentity = fromColumns
-  toIdentity = toColumns
+  fromResult = fromColumns
+  toResult = toColumns
 
 
 instance (KnownSpec spec, x ~ Col Expr spec) =>
-  ToExprs (Col Identity spec) x
+  ToExprs (Col Result spec) x
  where
-  fromIdentity = fromColumns
-  toIdentity = toColumns
+  fromResult = fromColumns
+  toResult = toColumns
 
 
 type FromExprs :: Type -> Type
 type family FromExprs a
 type instance FromExprs (Expr a) = a
-type instance FromExprs (Col Expr spec) = Col Identity spec
+type instance FromExprs (Col Expr spec) = Col Result spec
 type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
 type instance FromExprs (ListTable a) = [FromExprs a]
 type instance FromExprs (MaybeTable a) = Maybe (FromExprs a)
@@ -248,8 +248,8 @@ type instance FromExprs (a, b, c, d) =
   (FromExprs a, FromExprs b, FromExprs c, FromExprs d)
 type instance FromExprs (a, b, c, d, e) =
   (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
-type instance FromExprs (t Expr) = t Identity
-type instance FromExprs (t (Col Expr)) = t (Col Identity)
+type instance FromExprs (t Expr) = t Result
+type instance FromExprs (t (Col Expr)) = t (Col Result)
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
@@ -264,24 +264,24 @@ instance {-# OVERLAPPING #-} Sql DBType a => Serializable (Expr a) a
 -- | Use @lit@ to turn literal Haskell values into expressions. @lit@ is
 -- capable of lifting single @Expr@s to full tables.
 lit :: forall exprs a. Serializable exprs a => a -> exprs
-lit = fromColumns . litHTable . toIdentity' @exprs
+lit = fromColumns . litHTable . toResult' @exprs
 
 
 parse :: forall exprs a. Serializable exprs a => Hasql.Row a
-parse = fromIdentity' @exprs <$> parseHTable
+parse = fromResult' @exprs <$> parseHTable
 
 
 type Encodes :: Type -> Type -> Constraint
 class Serializable exprs a => Encodes a exprs | a -> exprs, exprs -> a
 
 
-instance KnownSpec spec => Encodes (Col Identity spec) (Col Expr spec)
+instance KnownSpec spec => Encodes (Col Result spec) (Col Expr spec)
 
 
-instance Serializable (t Identity) (t Expr) => Encodes (t Expr) (t Identity)
+instance Serializable (t Result) (t Expr) => Encodes (t Expr) (t Result)
 
 
-instance HTable t => Encodes (t (Col Identity)) (t (Col Expr))
+instance HTable t => Encodes (t (Col Result)) (t (Col Expr))
 
 
 instance (Encodes a x, Encodes b y) => Encodes (Either a b) (EitherTable x y)
@@ -318,14 +318,14 @@ litTable :: Encodes a exprs => a -> exprs
 litTable = lit
 
 
-litHTable :: HTable t => t (Col Identity) -> t (Col Expr)
+litHTable :: HTable t => t (Col Result) -> t (Col Expr)
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> case hfield as field of
       Result value -> DB (slitExpr nullity info value)
 
 
-parseHTable :: HTable t => Hasql.Row (t (Col Identity))
+parseHTable :: HTable t => Hasql.Row (t (Col Result))
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
     SSpec {nullity, info} -> Result <$> sparseValue nullity info

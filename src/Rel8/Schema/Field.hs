@@ -19,7 +19,6 @@ where
 
 -- base
 import Data.Bifunctor ( Bifunctor, bimap )
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -45,6 +44,7 @@ import Rel8.Schema.Insert ( Insert, Col(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col(..) )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -65,12 +65,12 @@ import Data.These ( These )
 type Field :: K.Context -> Necessity -> Type -> Type
 type family Field context necessity a where
   Field (Reify context) necessity  a = AField context necessity a
-  Field Identity        _necessity a = a
+  Field Aggregate       _necessity a = Aggregate (Expr a)
   Field Expr            _necessity a = Expr a
   Field Insert          'Required  a = Expr a
   Field Insert          'Optional  a = Maybe (Expr a)
-  Field Aggregate       _necessity a = Aggregate (Expr a)
-  Field context         _necessity a = context a
+  Field Name            _necessity a = Name a
+  Field Result          _necessity a = a
 
 
 type HEither :: K.Context -> Type -> Type -> Type
@@ -78,10 +78,9 @@ type family HEither context where
   HEither (Reify context) = AHEither context
   HEither Aggregate = EitherTable
   HEither Expr = EitherTable
-  HEither Identity = Either
   HEither Insert = EitherTable
   HEither Name = EitherTable
-  HEither _ = Either
+  HEither Result = Either
 
 
 type HList :: K.Context -> Type -> Type
@@ -89,10 +88,9 @@ type family HList context where
   HList (Reify context) = AHList context
   HList Aggregate = ListTable
   HList Expr = ListTable
-  HList Identity = []
   HList Insert = ListTable
   HList Name = ListTable
-  HList _ = []
+  HList Result = []
 
 
 type HMaybe :: K.Context -> Type -> Type
@@ -100,10 +98,9 @@ type family HMaybe context where
   HMaybe (Reify context) = AHMaybe context
   HMaybe Aggregate = MaybeTable
   HMaybe Expr = MaybeTable
-  HMaybe Identity = Maybe
   HMaybe Insert = MaybeTable
   HMaybe Name = MaybeTable
-  HMaybe _ = Maybe
+  HMaybe Result = Maybe
 
 
 type HNonEmpty :: K.Context -> Type -> Type
@@ -111,10 +108,9 @@ type family HNonEmpty context where
   HNonEmpty (Reify context) = AHNonEmpty context
   HNonEmpty Aggregate = NonEmptyTable
   HNonEmpty Expr = NonEmptyTable
-  HNonEmpty Identity = NonEmpty
   HNonEmpty Insert = NonEmptyTable
   HNonEmpty Name = NonEmptyTable
-  HNonEmpty _ = NonEmpty
+  HNonEmpty Result = NonEmpty
 
 
 type HThese :: K.Context -> Type -> Type -> Type
@@ -122,10 +118,9 @@ type family HThese context where
   HThese (Reify context) = AHThese context
   HThese Aggregate = TheseTable
   HThese Expr = TheseTable
-  HThese Identity = These
   HThese Insert = TheseTable
   HThese Name = TheseTable
-  HThese _ = These
+  HThese Result = These
 
 
 type AField :: K.Context -> Necessity -> Type -> Type
@@ -304,9 +299,9 @@ type SContext :: K.Context -> Type
 data SContext context where
   SAggregate :: SContext Aggregate
   SExpr :: SContext Expr
-  SIdentity :: SContext Identity
   SInsert :: SContext Insert
   SName :: SContext Name
+  SResult :: SContext Result
   SReify :: SContext context -> SContext (Reify context)
 
 
@@ -323,8 +318,8 @@ instance Reifiable Expr where
   contextSing = SExpr
 
 
-instance Reifiable Identity where
-  contextSing = SIdentity
+instance Reifiable Result where
+  contextSing = SResult
 
 
 instance Reifiable Insert where
@@ -359,7 +354,7 @@ sfromColumn :: ()
 sfromColumn = \case
   SAggregate -> \(Aggregation a) -> AField a
   SExpr -> \(DB a) -> AField a
-  SIdentity -> \(Result a) -> AField a
+  SResult -> \(Result a) -> AField a
   SInsert -> \case
     RequiredInsert a -> AField a
     OptionalInsert a -> AField a
@@ -375,7 +370,7 @@ stoColumn :: ()
 stoColumn = \case
   SAggregate -> \_ (AField a) -> Aggregation a
   SExpr -> \_ (AField a) -> DB a
-  SIdentity -> \_ (AField a) -> Result a
+  SResult -> \_ (AField a) -> Result a
   SInsert -> \case
     SRequired -> \(AField a) -> RequiredInsert a
     SOptional -> \(AField a) -> OptionalInsert a
@@ -393,7 +388,7 @@ sbimapEither :: ()
 sbimapEither = \case
   SAggregate -> \f g (AHEither a) -> AHEither (bimap f g a)
   SExpr -> \f g (AHEither a) -> AHEither (bimap f g a)
-  SIdentity -> \f g (AHEither a) -> AHEither (bimap f g a)
+  SResult -> \f g (AHEither a) -> AHEither (bimap f g a)
   SInsert -> \f g (AHEither a) -> AHEither (bimap f g a)
   SName -> \f g (AHEither a) -> AHEither (bimap f g a)
   SReify context -> \f g (AHEither a) -> AHEither (sbimapEither context f g a)
@@ -414,7 +409,7 @@ sfromColumnsEither = \case
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
     hunreify
-  SIdentity ->
+  SResult ->
     AHEither .
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
@@ -451,7 +446,7 @@ stoColumnsEither = \case
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHEither a) -> a)
-  SIdentity ->
+  SResult ->
     hreify .
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .
@@ -482,7 +477,7 @@ smapList :: Congruent a b
 smapList = \case
   SAggregate -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SExpr -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
-  SIdentity -> \f _ (AHList as) -> AHList (fmap f as)
+  SResult -> \f _ (AHList as) -> AHList (fmap f as)
   SInsert -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SName -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SReify context -> \f g (AHList as) -> AHList (smapList context f g as)
@@ -495,7 +490,7 @@ sfromColumnsList :: Table (Reify context) a
 sfromColumnsList = \case
   SAggregate -> AHList . ListTable
   SExpr -> AHList . ListTable
-  SIdentity -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
+  SResult -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
   SInsert -> AHList . ListTable
   SName -> AHList . ListTable
   SReify context ->
@@ -512,7 +507,7 @@ stoColumnsList :: Table (Reify context) a
 stoColumnsList = \case
   SAggregate -> \(AHList (ListTable a)) -> a
   SExpr -> \(AHList (ListTable a)) -> a
-  SIdentity ->
+  SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
   SInsert -> \(AHList (ListTable a)) -> a
   SName -> \(AHList (ListTable a)) -> a
@@ -531,7 +526,7 @@ smapMaybe :: ()
 smapMaybe = \case
   SAggregate -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SExpr -> \f (AHMaybe a) -> AHMaybe (fmap f a)
-  SIdentity -> \f (AHMaybe a) -> AHMaybe (fmap f a)
+  SResult -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SInsert -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SName -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SReify context -> \f (AHMaybe a) -> AHMaybe (smapMaybe context f a)
@@ -544,7 +539,7 @@ sfromColumnsMaybe :: Table (Reify context) a
 sfromColumnsMaybe = \case
   SAggregate -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SExpr -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SIdentity -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
+  SResult -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SInsert -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SName -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SReify context ->
@@ -563,7 +558,7 @@ stoColumnsMaybe = \case
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
   SExpr ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
-  SIdentity ->
+  SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
   SInsert ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
@@ -585,7 +580,7 @@ smapNonEmpty :: Congruent a b
 smapNonEmpty = \case
   SAggregate -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SExpr -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
-  SIdentity -> \f _ (AHNonEmpty as) -> AHNonEmpty (fmap f as)
+  SResult -> \f _ (AHNonEmpty as) -> AHNonEmpty (fmap f as)
   SInsert -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SName -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SReify context -> \f g (AHNonEmpty as) -> AHNonEmpty (smapNonEmpty context f g as)
@@ -598,7 +593,7 @@ sfromColumnsNonEmpty :: Table (Reify context) a
 sfromColumnsNonEmpty = \case
   SAggregate -> AHNonEmpty . NonEmptyTable
   SExpr -> AHNonEmpty . NonEmptyTable
-  SIdentity ->
+  SResult ->
     AHNonEmpty . fmap (fromColumns . hreify) . fromColumns . hunreify
   SInsert -> AHNonEmpty . NonEmptyTable
   SName -> AHNonEmpty . NonEmptyTable
@@ -616,7 +611,7 @@ stoColumnsNonEmpty :: Table (Reify context) a
 stoColumnsNonEmpty = \case
   SAggregate -> \(AHNonEmpty (NonEmptyTable a)) -> a
   SExpr -> \(AHNonEmpty (NonEmptyTable a)) -> a
-  SIdentity ->
+  SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHNonEmpty a) -> a)
   SInsert -> \(AHNonEmpty (NonEmptyTable a)) -> a
   SName -> \(AHNonEmpty (NonEmptyTable a)) -> a
@@ -636,7 +631,7 @@ sbimapThese :: ()
 sbimapThese = \case
   SAggregate -> \f g (AHThese a) -> AHThese (bimap f g a)
   SExpr -> \f g (AHThese a) -> AHThese (bimap f g a)
-  SIdentity -> \f g (AHThese a) -> AHThese (bimap f g a)
+  SResult -> \f g (AHThese a) -> AHThese (bimap f g a)
   SInsert -> \f g (AHThese a) -> AHThese (bimap f g a)
   SName -> \f g (AHThese a) -> AHThese (bimap f g a)
   SReify context -> \f g (AHThese a) -> AHThese (sbimapThese context f g a)
@@ -657,7 +652,7 @@ sfromColumnsThese = \case
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
     hunreify
-  SIdentity ->
+  SResult ->
     AHThese .
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
@@ -694,7 +689,7 @@ stoColumnsThese = \case
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHThese a) -> a)
-  SIdentity ->
+  SResult ->
     hreify .
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .

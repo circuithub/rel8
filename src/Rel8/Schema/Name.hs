@@ -2,9 +2,11 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language GeneralizedNewtypeDeriving #-}
+{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
 {-# language RankNTypes #-}
+{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -20,7 +22,7 @@ where
 -- base
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Data.String ( IsString )
+import Data.String ( IsString, fromString )
 import Prelude
 
 -- rel8
@@ -28,8 +30,8 @@ import Rel8.Expr ( Expr )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
-import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -39,10 +41,16 @@ import Rel8.Type ( DBType )
 -- schema definition. You can construct names by using the @OverloadedStrings@
 -- extension and writing string literals. This is typically done when providing
 -- a 'TableSchema' value.
-type Name :: K.Context
-newtype Name a = Name String
-  deriving stock Show
-  deriving newtype (IsString, Monoid, Semigroup)
+type Name :: k -> Type
+data Name a where
+  Name :: k ~ Type => !String -> Name (a :: k)
+
+
+deriving stock instance Show (Name a)
+
+
+instance k ~ Type => IsString (Name (a :: k)) where
+  fromString = Name
 
 
 instance Sql DBType a => Table Name (Name a) where
@@ -56,13 +64,13 @@ instance Sql DBType a => Table Name (Name a) where
 instance Sql DBType a => Recontextualize Expr Name (Expr a) (Name a)
 
 
-instance Sql DBType a => Recontextualize Identity Name (Identity a) (Name a)
+instance Sql DBType a => Recontextualize Result Name (Identity a) (Name a)
 
 
 instance Sql DBType a => Recontextualize Name Expr (Name a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Name Identity (Name a) (Identity a)
+instance Sql DBType a => Recontextualize Name Result (Name a) (Identity a)
 
 
 instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)

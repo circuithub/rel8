@@ -6,6 +6,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -36,9 +37,9 @@ import Rel8.Schema.Context.Nullify
   , runTag, unnull
   )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
-import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name, Selects )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( SSpec(SSpec, nullity), Spec(Spec) )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning )
@@ -56,7 +57,7 @@ data OnConflict
 
 
 -- | The constituent parts of a SQL @INSERT@ statement.
-type Insert :: K.Context
+type Insert :: k -> Type
 data Insert a where
   Insert :: (Selects names exprs, Inserts exprs inserts) =>
     { into :: TableSchema names
@@ -78,7 +79,7 @@ instance Interpretation Insert where
     OptionalInsert :: Maybe (Expr a) -> Col Insert ('Spec labels 'Optional a)
 
 
-type Insertion :: K.Context
+type Insertion :: Type -> Type
 newtype Insertion a = Insertion (Expr a)
 
 
@@ -98,7 +99,7 @@ instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Insertion a)
 
 
 instance Sql DBType a =>
-  Recontextualize Identity Insert (Identity a) (Insertion a)
+  Recontextualize Result Insert (Identity a) (Insertion a)
 
 
 instance Sql DBType a =>
@@ -109,7 +110,7 @@ instance Sql DBType a => Recontextualize Insert Expr (Insertion a) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Identity (Insertion a) (Identity a)
+  Recontextualize Insert Result (Insertion a) (Identity a)
 
 
 instance Sql DBType a => Recontextualize Insert Insert (Insertion a) (Insertion a)

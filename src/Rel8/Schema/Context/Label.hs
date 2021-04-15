@@ -11,7 +11,6 @@ module Rel8.Schema.Context.Label
 where
 
 -- base
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint )
 import Prelude hiding ( null )
 
@@ -20,6 +19,7 @@ import Rel8.Schema.Context ( Interpretation, Col(..) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Kind ( Context, HContext )
 import Rel8.Schema.Spec ( Spec( Spec ) )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 
 
@@ -34,7 +34,7 @@ class Interpretation context => Labelable context where
     -> Col context ('Spec labels necessity a)
 
 
-instance Labelable Identity where
+instance Labelable Result where
   labeler (Result a) = Result a
   unlabeler (Result a) = Result a
 

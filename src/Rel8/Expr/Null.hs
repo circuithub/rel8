@@ -78,6 +78,7 @@ liftOpNull :: DBType c
 liftOpNull f ma mb =
   boolExpr (unsafeLiftOpNull f ma mb) null
     (isNull ma ||. isNull mb)
+{-# INLINABLE liftOpNull #-}
 
 
 snull :: TypeInformation a -> Expr (Maybe a)

@@ -3,8 +3,10 @@
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
 {-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -39,6 +41,7 @@ import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -50,9 +53,12 @@ import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 -- | Typed SQL expressions.
 type role Expr representational
-type Expr :: Type -> Type
-newtype Expr a = Expr Opaleye.PrimExpr
-  deriving stock Show
+type Expr :: k -> Type
+data Expr a where
+  Expr :: k ~ Type => !Opaleye.PrimExpr -> Expr (a :: k)
+
+
+deriving stock instance Show (Expr a)
 
 
 instance Sql DBSemigroup a => Semigroup (Expr a) where
@@ -111,10 +117,10 @@ instance Sql DBType a => Table Expr (Expr a) where
 instance Sql DBType a => Recontextualize Expr Expr (Expr a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Expr Identity (Expr a) (Identity a)
+instance Sql DBType a => Recontextualize Expr Result (Expr a) (Identity a)
 
 
-instance Sql DBType a => Recontextualize Identity Expr (Identity a) (Expr a)
+instance Sql DBType a => Recontextualize Result Expr (Identity a) (Expr a)
 
 
 instance Labelable Expr where

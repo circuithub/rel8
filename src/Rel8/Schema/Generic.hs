@@ -43,7 +43,6 @@ import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Pair ( HPair(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Spec ( KTable )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   )
@@ -104,7 +103,7 @@ instance
 -- data MyType f = MyType { fieldA :: Column f T }
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
-type Rel8able :: KTable -> Constraint
+type Rel8able :: K.Table -> Constraint
 class HTable (GRep t) => Rel8able t where
   gfromColumns :: (Labelable context, Reifiable context)
     => GRep t (Col (Reify context)) -> t (Reify context)

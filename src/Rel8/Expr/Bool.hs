@@ -1,3 +1,5 @@
+{-# language GADTs #-}
+
 module Rel8.Expr.Bool
   ( false, true
   , (&&.), (||.), not_
@@ -17,7 +19,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Opaleye ( mapPrimExpr, zipPrimExprsWith )
+import Rel8.Expr.Opaleye ( mapPrimExpr, toPrimExpr, zipPrimExprsWith )
 import Rel8.Expr.Serialize ( litExpr )
 
 
@@ -75,7 +77,7 @@ caseExpr :: [(Expr Bool, Expr a)] -> Expr a -> Expr a
 caseExpr branches (Expr fallback) =
   Expr $ Opaleye.CaseExpr (map go branches) fallback
   where
-    go (Expr condition, Expr value) = (condition, value)
+    go (condition, value) = (toPrimExpr condition, toPrimExpr value)
 
 
 -- | Convert a @Expr (Maybe Bool)@ to a @Expr Bool@ by treating @Nothing@ as

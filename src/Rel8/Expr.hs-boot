@@ -1,3 +1,5 @@
+{-# language GADTs #-}
+{-# language PolyKinds #-}
 {-# language RoleAnnotations #-}
 {-# language StandaloneKindSignatures #-}
 
@@ -15,5 +17,6 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
 type role Expr representational
-type Expr :: Type -> Type
-newtype Expr a = Expr Opaleye.PrimExpr
+type Expr :: k -> Type
+data Expr a where
+  Expr :: k ~ Type => !Opaleye.PrimExpr -> Expr (a :: k)

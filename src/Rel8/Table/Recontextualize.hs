@@ -22,6 +22,7 @@ import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
@@ -41,7 +42,7 @@ class
     , b from -> a
 
 
-instance Sql DBType a => Recontextualize Identity Identity (Identity a) (Identity a)
+instance Sql DBType a => Recontextualize Result Result (Identity a) (Identity a)
 
 
 instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))

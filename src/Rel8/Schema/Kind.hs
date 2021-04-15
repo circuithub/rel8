@@ -22,8 +22,11 @@ type HTable :: Type
 type HTable = HContext -> Type
 
 
+data X
+
+
 type Context :: Type
-type Context = Type -> Type
+type Context = X -> Type
 
 
 type Table :: Type

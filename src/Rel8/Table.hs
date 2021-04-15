@@ -44,6 +44,7 @@ import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..), KnownSpec )
 import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
@@ -94,18 +95,17 @@ instance KnownSpec spec => Table context (Col context spec) where
   fromColumns = unHIdentity
 
 
-instance Sql DBType a => Table Identity (Identity a) where
+instance Sql DBType a => Table Result (Identity a) where
   type Columns (Identity a) = HType a
-  type Context (Identity a) = Identity
+  type Context (Identity a) = Result
 
   toColumns (Identity a) = HType (Result a)
   fromColumns (HType (Result a)) = Identity a
 
 
-instance (Table Identity a, Table Identity b) => Table Identity (Either a b)
- where
+instance (Table Result a, Table Result b) => Table Result (Either a b) where
   type Columns (Either a b) = HEitherTable (Columns a) (Columns b)
-  type Context (Either a b) = Identity
+  type Context (Either a b) = Result
 
   toColumns = \case
     Left table -> HEitherTable
@@ -127,17 +127,17 @@ instance (Table Identity a, Table Identity b) => Table Identity (Either a b)
       err = error "Either.fromColumns: mismatch between tag and data"
 
 
-instance Table Identity a => Table Identity [a] where
+instance Table Result a => Table Result [a] where
   type Columns [a] = HListTable (Columns a)
-  type Context [a] = Identity
+  type Context [a] = Result
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
 
 
-instance Table Identity a => Table Identity (Maybe a) where
+instance Table Result a => Table Result (Maybe a) where
   type Columns (Maybe a) = HMaybeTable (Columns a)
-  type Context (Maybe a) = Identity
+  type Context (Maybe a) = Result
 
   toColumns = \case
     Nothing -> HMaybeTable
@@ -156,18 +156,17 @@ instance Table Identity a => Table Identity (Maybe a) where
         Just just -> fromColumns just
 
 
-instance Table Identity a => Table Identity (NonEmpty a) where
+instance Table Result a => Table Result (NonEmpty a) where
   type Columns (NonEmpty a) = HNonEmptyTable (Columns a)
-  type Context (NonEmpty a) = Identity
+  type Context (NonEmpty a) = Result
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
 
 
-instance (Table Identity a, Table Identity b) => Table Identity (These a b)
- where
+instance (Table Result a, Table Result b) => Table Result (These a b) where
   type Columns (These a b) = HTheseTable (Columns a) (Columns b)
-  type Context (These a b) = Identity
+  type Context (These a b) = Result
 
   toColumns tables = HTheseTable
     { hhereTag = relabel hhereTag
@@ -311,14 +310,14 @@ class Columns a ~ Columns b => Congruent a b
 instance Columns a ~ Columns b => Congruent a b
 
 
-null :: Col Identity ('Spec labels necessity (Maybe a))
+null :: Col Result ('Spec labels necessity (Maybe a))
 null = Result Nothing
 
 
 nullifier :: ()
   => SSpec ('Spec labels necessity a)
-  -> Col Identity ('Spec labels necessity a)
-  -> Col Identity ('Spec labels necessity (Nullify a))
+  -> Col Result ('Spec labels necessity a)
+  -> Col Result ('Spec labels necessity (Nullify a))
 nullifier SSpec {nullity} (Result a) = Result $ case nullity of
   Null -> a
   NotNull -> Just a
@@ -326,8 +325,8 @@ nullifier SSpec {nullity} (Result a) = Result $ case nullity of
 
 unnullifier :: ()
   => SSpec ('Spec labels necessity a)
-  -> Col Identity ('Spec labels necessity (Nullify a))
-  -> Maybe (Col Identity ('Spec labels necessity a))
+  -> Col Result ('Spec labels necessity (Nullify a))
+  -> Maybe (Col Result ('Spec labels necessity a))
 unnullifier SSpec {nullity} (Result a) =
   case nullity of
     Null -> pure $ Result a
@@ -336,19 +335,19 @@ unnullifier SSpec {nullity} (Result a) =
 
 vectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
-  -> f (Col Identity ('Spec labels necessity a))
-  -> Col Identity ('Spec labels necessity (f a))
+  -> f (Col Result ('Spec labels necessity a))
+  -> Col Result ('Spec labels necessity (f a))
 vectorizer _ = Result . fmap (\(Result a) -> a)
 
 
 unvectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
-  -> Col Identity ('Spec labels necessity (f a))
-  -> f (Col Identity ('Spec labels necessity a))
+  -> Col Result ('Spec labels necessity (f a))
+  -> f (Col Result ('Spec labels necessity a))
 unvectorizer _ (Result results) = Result <$> results
 
 
 relabel :: ()
-  => HIdentity ('Spec labels necessity a) (Col Identity)
-  -> HIdentity ('Spec relabels necessity a) (Col Identity)
+  => HIdentity ('Spec labels necessity a) (Col Result)
+  -> HIdentity ('Spec relabels necessity a) (Col Result)
 relabel (HIdentity (Result a)) = HIdentity (Result a)
