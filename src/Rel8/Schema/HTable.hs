@@ -17,12 +17,14 @@ module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
   , htabulateA
+  , hmap
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
 import Data.Functor.Compose ( Compose( Compose ), getCompose )
+import Data.Functor.Identity ( runIdentity )
 import Data.Proxy ( Proxy )
 import GHC.Generics
   ( (:*:)( (:*:) )
@@ -174,3 +176,7 @@ instance (HTable x, HTable y) => HTable (HPair x y) where
   {-# INLINABLE htraverse #-}
   {-# INLINABLE hdicts #-}
   {-# INLINABLE hspecs #-}
+
+
+hmap :: HTable t => (forall spec. f spec -> g spec) -> t f -> t g
+hmap f = runIdentity . htraverse (pure . f)

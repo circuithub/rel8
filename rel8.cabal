@@ -134,6 +134,7 @@ library
     Rel8.Table.Either
     Rel8.Table.Eq
     Rel8.Table.Insert
+    Rel8.Table.HKD
     Rel8.Table.List
     Rel8.Table.Maybe
     Rel8.Table.Name

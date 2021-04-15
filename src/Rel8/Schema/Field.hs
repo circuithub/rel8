@@ -45,7 +45,7 @@ import Rel8.Kind.Necessity
   )
 import Rel8.Schema.Context ( Interpretation, Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable, hfield, htabulate )
+import Rel8.Schema.HTable ( HTable, hfield, hmap, htabulate )
 import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
@@ -63,6 +63,7 @@ import Rel8.Table
   , Congruent
   )
 import Rel8.Table.Either ( EitherTable )
+import Rel8.Table.HKD ( FlipHKD, GHKD, unFlipHKD )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
@@ -143,12 +144,12 @@ type family HThese context where
 type Lift :: K.Context -> Type -> Type
 type family Lift context a where
   Lift (Reify context) a = ALift context a
-  Lift Aggregate a = HKD a (Compose Aggregate Expr)
-  Lift Expr a = HKD a Expr
+  -- Lift Aggregate a = FlipHKD (Compose Aggregate Expr) a
+  Lift Expr a = FlipHKD Expr a
   Lift Identity a = a
-  Lift Insert a = HKD a Expr
-  Lift Name a = HKD a (Const String)
-  Lift f a = HKD a f
+  Lift Insert a = FlipHKD Expr a
+  Lift Name a = FlipHKD (Const String) a
+  Lift f a = FlipHKD f a
 
 
 type AField :: K.Context -> Necessity -> Type -> Type
@@ -327,37 +328,30 @@ type ALift :: K.Context -> Type -> Type
 newtype ALift context a = ALift { runALift :: Lift context a }
 
 
-instance (Reifiable context, HTable (GHKD (Rep a)), Generic a, GHKDC (Rep a), Construct Identity a)
+instance (Reifiable context, HTable (GHKD a), Generic a, Construct Identity a)
   => Table (Reify context) (ALift context a)
  where
   type Context (ALift context a) = Reify context
-  type Columns (ALift context a) = GHKD (Rep a)
+  type Columns (ALift context a) = GHKD a
 
   fromColumns = sfromColumnsLift contextSing
   toColumns = stoColumnsLift contextSing
 
 
-type GHKD :: (Type -> Type) -> K.HTable
-type family GHKD rep where
-  GHKD (M1 S ('MetaSel ('Just name) _ _ _) (K1 _ x)) = HIdentity ('Spec '[ name ] 'Required x)
-  GHKD (M1 _ _ f) = GHKD f
-  GHKD (f :*: g) = HPair (GHKD f) (GHKD g)
-
-
-instance
-  ( Reifiable context, Reifiable context'
-  , Recontextualize (Reify context) (Reify context') a a'
-  , HTable (GHKD (Rep a))
-  , GHKD (Rep a) ~ GHKD (Rep a')
-  , Generic a, Generic a'
-  , GHKDC (Rep a), GHKDC (Rep a')
-  , Construct Identity a, Construct Identity a'
-  ) =>
-  Recontextualize
-    (Reify context)
-    (Reify context')
-    (ALift context a)
-    (ALift context' a')
+-- instance
+--   ( Reifiable context, Reifiable context'
+--   , Recontextualize (Reify context) (Reify context') a a'
+--   , HTable (GHKD (Rep a))
+--   , GHKD (Rep a) ~ GHKD (Rep a')
+--   , Generic a, Generic a'
+--   , GHKDC (Rep a), GHKDC (Rep a')
+--   , Construct Identity a, Construct Identity a'
+--   ) =>
+--   Recontextualize
+--     (Reify context)
+--     (Reify context')
+--     (ALift context a)
+--     (ALift context' a')
 
 
 type SContext :: K.Context -> Type
@@ -776,57 +770,56 @@ stoColumnsThese = \case
     (\(AHThese a) -> a)
 
 
-sfromColumnsLift :: forall a context. (HTable (GHKD (Rep a)), Generic a, GHKDC (Rep a), Construct Identity a)
+sfromColumnsLift :: forall a context. (HTable (GHKD a), Generic a, Construct Identity a)
   => SContext context
-  -> GHKD (Rep a) (Col (Reify context))
+  -> GHKD a (Col (Reify context))
   -> ALift context a
 sfromColumnsLift = \case
-  SAggregate -> ALift . HKD . fromGHKD (Compose . unAggregation) . hunreify
-  SExpr -> ALift . HKD . fromGHKD unDB . hunreify
-  SInsert -> ALift . HKD . fromGHKD (\(RequiredInsert expr) -> expr) . hunreify
-  SName -> ALift . HKD . fromGHKD (Const . unNameCol) . hunreify
+  SExpr -> ALift . fromColumns . hunreify
+  SInsert -> ALift . fromColumns . hmap (\(RequiredInsert expr) -> DB expr) . hunreify
+  SName -> ALift . fromColumns . hmap (\(NameCol s) -> K s) . hunreify
   SReify context -> ALift . sfromColumnsLift context . hunreify 
-  SIdentity -> ALift . runIdentity . construct . HKD  . fromGHKD (pure . unResult) . hunreify
+  SIdentity -> ALift . runIdentity . construct . unFlipHKD . fromColumns . hunreify
 
 
-stoColumnsLift :: (HTable (GHKD (Rep a)), GHKDC (Rep a), Generic a, Construct Identity a)
+stoColumnsLift :: (HTable (GHKD a), Generic a, Construct Identity a)
   => SContext context
   -> ALift context a
-  -> GHKD (Rep a) (Col (Reify context))
+  -> GHKD a (Col (Reify context))
 stoColumnsLift = \case
-  SAggregate -> hreify . toGHKD (Aggregation . getCompose) . runHKD . runALift
-  SExpr -> hreify . toGHKD DB . runHKD . runALift
-  SName -> hreify . toGHKD (NameCol . getConst) . runHKD . runALift
-  SInsert -> hreify . toGHKD RequiredInsert . runHKD . runALift
-  SIdentity -> hreify . toGHKD (Result . runIdentity) . runHKD . deconstruct . runALift
-  SReify context -> \(ALift x) -> hreify $ stoColumnsLift context x
+  SExpr -> hreify . toColumns . runALift
+  SInsert -> hreify . hmap (\(DB expr) -> RequiredInsert expr) . toColumns . runALift
+--   SName -> hreify . toGHKD (NameCol . getConst) . runHKD . runALift
+--   SInsert -> hreify . toGHKD RequiredInsert . runHKD . runALift
+--   SIdentity -> hreify . toGHKD (Result . runIdentity) . runHKD . deconstruct . runALift
+--   SReify context -> \(ALift x) -> hreify $ stoColumnsLift context x
 
 
-class GHKDC rep where
-  fromGHKD :: ()
-    => (forall name a. Col context ('Spec name 'Required a) -> context' a) 
-    -> GHKD rep (Col context) 
-    -> GHKD_ context' rep x
+-- class GHKDC rep where
+--   fromGHKD :: ()
+--     => (forall name a. Col context ('Spec name 'Required a) -> context' a) 
+--     -> GHKD rep (Col context) 
+--     -> GHKD_ context' rep x
 
-  toGHKD :: ()
-    => (forall name a. context' a -> Col context ('Spec name 'Required a))
-    -> GHKD_ context' rep x 
-    -> GHKD rep (Col context)
-
-
-instance (GHKD (M1 i c f) ~ GHKD f, GHKDC f) => GHKDC (M1 i c f) where
-  fromGHKD f = M1 . fromGHKD @f f
-  toGHKD f (M1 x) = toGHKD f x
+--   toGHKD :: ()
+--     => (forall name a. context' a -> Col context ('Spec name 'Required a))
+--     -> GHKD_ context' rep x 
+--     -> GHKD rep (Col context)
 
 
-instance {-# overlaps #-} GHKDC (M1 S ('MetaSel ('Just name) x y z) (K1 i a)) where
-  fromGHKD f (HIdentity x) = M1 $ K1 $ f x
-  toGHKD f (M1 (K1 x)) = HIdentity (f x)
+-- instance (GHKD (M1 i c f) ~ GHKD f, GHKDC f) => GHKDC (M1 i c f) where
+--   fromGHKD f = M1 . fromGHKD @f f
+--   toGHKD f (M1 x) = toGHKD f x
 
 
-instance (GHKDC f, GHKDC g) => GHKDC (f :*: g) where
-  fromGHKD f (HPair x y) = fromGHKD f x :*: fromGHKD f y
-  toGHKD f (x :*: y) = HPair (toGHKD f x) (toGHKD f y)
+-- instance {-# overlaps #-} GHKDC (M1 S ('MetaSel ('Just name) x y z) (K1 i a)) where
+--   fromGHKD f (HIdentity x) = M1 $ K1 $ f x
+--   toGHKD f (M1 (K1 x)) = HIdentity (f x)
+
+
+-- instance (GHKDC f, GHKDC g) => GHKDC (f :*: g) where
+--   fromGHKD f (HPair x y) = fromGHKD f x :*: fromGHKD f y
+--   toGHKD f (x :*: y) = HPair (toGHKD f x) (toGHKD f y)
 
 
 hreify :: HTable t => t (Col context) -> t (Col (Reify context))
