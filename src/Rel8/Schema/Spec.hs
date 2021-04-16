@@ -6,7 +6,7 @@
 
 module Rel8.Schema.Spec
   ( Spec( Spec )
-  , SSpec( SSpec, labels, necessity, info, nullity )
+  , SSpec( SSpec, labels, necessity, info, nullity, exprable )
   , KnownSpec( specSing )
   )
 where
@@ -22,7 +22,9 @@ import Rel8.Kind.Necessity
   , SNecessity
   , KnownNecessity, necessitySing
   )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Null ( Nullity, Sql, Unnullify, nullable )
+import Rel8.Schema.Serialize ( Exprable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -38,6 +40,7 @@ data SSpec spec where
     , necessity :: SNecessity necessity
     , info :: TypeInformation (Unnullify a)
     , nullity :: Nullity a
+    , exprable :: Dict Exprable (Unnullify a)
     }
     -> SSpec ('Spec labels necessity a)
 
@@ -59,4 +62,5 @@ instance
     , necessity = necessitySing
     , info = typeInformation
     , nullity = nullable
+    , exprable = Dict
     }

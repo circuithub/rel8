@@ -12,6 +12,7 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Type ( DBType(..) )
 import Rel8.Type.Information ( TypeInformation(..) )
 
@@ -29,3 +30,6 @@ instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
     , decode = Hasql.refine (first pack . fmap JSONBEncoded . parseEither parseJSON) Hasql.jsonb
     , typeName = "jsonb"
     }
+
+
+instance Encodable (JSONBEncoded a)

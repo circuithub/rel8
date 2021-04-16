@@ -41,6 +41,7 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htabulateA, hspecs
   )
 import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
+import Rel8.Schema.Serialize ( Exprable )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
@@ -53,6 +54,7 @@ import GHC.Generics (Generic)
 
 
 class Vector list where
+  listExprable :: proxy a -> Dict Exprable (list a)
   listNotNull :: proxy a -> Dict NotNull (list a)
   vectorTypeInformation :: ()
     => Nullity a
@@ -61,11 +63,13 @@ class Vector list where
 
 
 instance Vector [] where
+  listExprable _ = Dict
   listNotNull _ = Dict
   vectorTypeInformation = listTypeInformation
 
 
 instance Vector NonEmpty where
+  listExprable _ = Dict
   listNotNull _ = Dict
   vectorTypeInformation = nonEmptyTypeInformation
 
@@ -88,6 +92,7 @@ instance Vector list => MapSpec (Vectorize list) where
       Dict -> SSpec
         { necessity = SRequired
         , nullity = NotNull
+        , exprable = listExprable @list nullity
         , info = vectorTypeInformation nullity info
         , ..
         }

@@ -1,8 +1,9 @@
 {-# language FlexibleInstances #-}
-{-# language MonoLocalBinds #-}
 {-# language MultiWayIf #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Type
   ( DBType (typeInformation)
@@ -37,6 +38,7 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- rel8
 import Rel8.Schema.Null ( NotNull, Sql, nullable )
+import Rel8.Schema.Serialize ( Exprable )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 
@@ -74,7 +76,7 @@ import qualified Data.UUID as UUID
 -- types, such as types defined in PostgreSQL extensions, or custom domain
 -- types.
 type DBType :: Type -> Constraint
-class NotNull a => DBType a where
+class (NotNull a, Exprable a) => DBType a where
   typeInformation :: TypeInformation a
 
 

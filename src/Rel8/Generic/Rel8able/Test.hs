@@ -3,10 +3,6 @@
 {-# language DeriveGeneric #-}
 {-# language DerivingVia #-}
 {-# language DuplicateRecordFields #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneDeriving #-}
-{-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
 {-# options_ghc -O0 #-}
@@ -96,26 +92,12 @@ data S3Object = S3Object
   , objectKey :: Text
   }
   deriving stock Generic
-
-
-deriving via HKDT S3Object
-  instance Table Result S3Object
-
-
-deriving via HKDT S3Object
-  instance x ~ HKD S3Object Expr => ToExprs x S3Object
+  deriving Encodable via HKDT S3Object
 
 
 data HKDSum = HKDSumA Text | HKDSumB Bool Char | HKDSumC
   deriving stock Generic
-
-
-deriving via HKDT HKDSum
-  instance Table Result HKDSum
-
-
-deriving via HKDT HKDSum
-  instance x ~ HKD HKDSum Expr => ToExprs x HKDSum
+  deriving Encodable via HKDT HKDSum
 
 
 data HKDTest f = HKDTest

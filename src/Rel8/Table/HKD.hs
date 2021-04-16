@@ -1,7 +1,9 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language GeneralizedNewtypeDeriving #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
@@ -70,12 +72,13 @@ import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify, notReify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Serialize ( Encodable, Encoding, Constraints )
 import Rel8.Table
   ( Table, Columns, Context, Unreify
   , fromColumns, toColumns, reify, unreify
   , TTable, TColumns, TUnreify
   )
-import Rel8.Table.Serialize ( ToExprs, fromResult, toResult )
+import Rel8.Type.Serialize ( Strategy, ExprsFor, encode, decode )
 
 
 type GColumnsHKD :: Type -> K.HTable
@@ -142,6 +145,7 @@ type HKDT :: Type -> Type
 newtype HKDT a = HKDT
   { unHKDT :: a
   }
+  deriving newtype Generic
 
 
 instance HKDable a => Table Result (HKDT a) where
@@ -155,16 +159,18 @@ instance HKDable a => Table Result (HKDT a) where
   unreify = notReify
 
 
-instance
-  ( Table Expr (HKD a Expr)
-  , Columns (HKD a Expr) ~ GColumns (HKD a)
-  , HKDable a
-  , x ~ HKD a Expr
-  )
-  => ToExprs x (HKDT a)
- where
-  toResult = (\(HKD a) -> a) . toHKD . (\(HKDT a) -> a)
-  fromResult = HKDT . fromHKD . HKD
+instance HKDable (HKDT a) => Encodable (HKDT a) where
+  type Encoding (HKDT a) = Proxy HKD
+
+
+instance Strategy (Proxy HKD) where
+  type ExprsFor (Proxy HKD) a = HKD a Expr
+
+  encode = (\(HKD a) -> a) . toHKD
+  decode = fromHKD . HKD
+
+
+type instance Constraints (Proxy HKD) a = HKDable a
 
 
 fromHKD :: HKDable a => HKD a Result -> a
@@ -193,6 +199,8 @@ class
   , GMappable Top (Rep a)
   , GMappable (TTable (Reify Result)) (GMap (TColumn (Reify Result)) (Rep a))
   , GMap TUnreify (GMap (TColumn (Reify Result)) (Rep a)) ~ GMap (TColumn Result) (Rep a)
+  , Table Expr (HKD a Expr)
+  , Columns (HKD a Expr) ~ GColumns (HKD a)
   )
   => HKDable a
 instance
@@ -205,6 +213,8 @@ instance
   , GMappable Top (Rep a)
   , GMappable (TTable (Reify Result)) (GMap (TColumn (Reify Result)) (Rep a))
   , GMap TUnreify (GMap (TColumn (Reify Result)) (Rep a)) ~ GMap (TColumn Result) (Rep a)
+  , Table Expr (HKD a Expr)
+  , Columns (HKD a Expr) ~ GColumns (HKD a)
   )
   => HKDable a
 

@@ -5,6 +5,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Type.Num
   ( DBNum, DBIntegral, DBFractional, DBFloating

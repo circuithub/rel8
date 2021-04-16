@@ -5,6 +5,7 @@
 {-# language TypeFamilies #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Type.Sum
   ( DBSum

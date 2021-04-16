@@ -8,6 +8,7 @@ import Data.Aeson.Types ( parseEither )
 import Prelude
 
 -- rel8
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Type ( DBType(..) )
 import Rel8.Type.Information ( parseTypeInformation )
 
@@ -23,3 +24,6 @@ instance (FromJSON a, ToJSON a) => DBType (JSONEncoded a) where
     where
       f = fmap JSONEncoded . parseEither parseJSON
       g = toJSON . fromJSONEncoded
+
+
+instance Encodable (JSONEncoded a)

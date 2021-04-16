@@ -3,6 +3,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Type.String
   ( DBString

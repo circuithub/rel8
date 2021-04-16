@@ -24,9 +24,10 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Null
   ( Nullify, Unnullify
   , Nullity( Null, NotNull )
-  , Sql, nullable
+  , Nullable, Sql, nullable
   )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec, nullity ) )
+import Rel8.Schema.Serialize ( Exprable )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec, exprable, nullity ) )
 
 
 type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
@@ -44,13 +45,16 @@ instance
 
 
 dbTypeNullity :: Dict (ConstrainDBType c) ('Spec l n a) -> Nullity a
-dbTypeNullity = step2 . step1
+dbTypeNullity = step3 . step2 . step1
   where
     step1 :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict (Sql c) a
     step1 Dict = Dict
 
-    step2 :: Dict (Sql c) a -> Nullity a
-    step2 Dict = nullable
+    step2 :: Dict (Sql c) a -> Dict Nullable a
+    step2 Dict = Dict
+
+    step3 :: Dict Nullable a -> Nullity a
+    step3 Dict = nullable
 
 
 dbTypeDict :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict c (Unnullify a)
@@ -63,9 +67,9 @@ dbTypeDict = step2 . step1
     step2 Dict = Dict
 
 
-fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
-fromNullityDict Null Dict = Dict
-fromNullityDict NotNull Dict = Dict
+fromNullityDict :: Nullity a -> Dict Exprable (Unnullify a) -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
+fromNullityDict Null Dict Dict = Dict
+fromNullityDict NotNull Dict Dict = Dict
 
 
 nullifier :: ()
@@ -82,8 +86,8 @@ unnullifier :: ()
   => SSpec ('Spec labels necessity a)
   -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
   -> Dict (ConstrainDBType c) ('Spec labels necessity a)
-unnullifier SSpec {nullity} dict = case dbTypeDict dict of
+unnullifier SSpec {exprable, nullity} dict = case dbTypeDict dict of
   Dict -> case nullity of
     Null -> Dict
     NotNull -> case dbTypeNullity dict of
-      Null -> fromNullityDict nullity Dict
+      Null -> fromNullityDict nullity exprable Dict

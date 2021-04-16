@@ -10,6 +10,7 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Type.Enum
   ( Enum( Enum )
@@ -38,6 +39,7 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
@@ -61,6 +63,9 @@ type Enum :: Type -> Type
 newtype Enum a = Enum
   { unEnum :: a
   }
+
+
+instance Encodable (Enum a)
 
 
 instance DBEnum a => DBType (Enum a) where

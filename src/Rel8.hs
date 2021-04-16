@@ -274,6 +274,7 @@ module Rel8
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
+  , Encodable
   , Nullable
   , NotNull
   , HTable
@@ -332,6 +333,7 @@ import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Serialize
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert

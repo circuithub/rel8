@@ -36,6 +36,7 @@ import Rel8.Schema.HTable ( hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Eq ( EqTable )
@@ -63,6 +64,9 @@ type Composite :: Type -> Type
 newtype Composite a = Composite
   { unComposite :: a
   }
+
+
+instance Encodable (Composite a)
 
 
 instance DBComposite a => DBType (Composite a) where

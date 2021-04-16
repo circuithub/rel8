@@ -130,6 +130,7 @@ library
     Rel8.Schema.Null
     Rel8.Schema.Reify
     Rel8.Schema.Result
+    Rel8.Schema.Serialize
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
@@ -179,6 +180,7 @@ library
     Rel8.Type.Ord
     Rel8.Type.ReadShow
     Rel8.Type.Semigroup
+    Rel8.Type.Serialize
     Rel8.Type.String
     Rel8.Type.Sum
     Rel8.Type.Tag

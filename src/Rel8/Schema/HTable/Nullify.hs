@@ -10,6 +10,7 @@
 {-# language NamedFieldPuns #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -56,14 +57,12 @@ type instance Eval (Nullify ('Spec labels necessity a)) =
 
 instance MapSpec Nullify where
   mapInfo = \case
-    SSpec{labels, necessity, info, nullity} -> SSpec
-      { labels
-      , necessity
-      , info
-      , nullity = case nullity of
+    SSpec{labels, necessity, info, nullity, ..} -> SSpec
+      { nullity = case nullity of
           Null    -> Null
           NotNull -> Null
-      } 
+      , ..
+      }
 
 
 hnulls :: HTable t

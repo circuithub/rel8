@@ -41,11 +41,13 @@ import Rel8.Generic.Table
 import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
-import Rel8.Schema.Null ( NotNull, Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Serialize ( Encoding, Encodable )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
 import Rel8.Type ( DBType )
+import Rel8.Type.Serialize ( Strategy, ExprsFor, encode, decode )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
@@ -95,9 +97,17 @@ data TToExprs :: Type -> Type -> Exp Constraint
 type instance Eval (TToExprs exprs a) = ToExprs exprs a
 
 
-instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a where
-  fromResult (HType (R a)) = a
-  toResult = HType . R
+instance {-# OVERLAPPABLE #-}
+  ( Table Expr x
+  , Encodable a
+  , encoding ~ Encoding a
+  , Strategy encoding
+  , x ~ ExprsFor encoding a
+  )
+  => ToExprs x a
+ where
+  fromResult = decode @encoding @a
+  toResult = encode @encoding @a
 
 
 instance (Sql DBType a, x ~ [a]) => ToExprs (Expr x) [a] where
@@ -105,14 +115,12 @@ instance (Sql DBType a, x ~ [a]) => ToExprs (Expr x) [a] where
   toResult = HType . R
 
 
-instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Expr x) (Maybe a)
- where
+instance (DBType a, x ~ Maybe a) => ToExprs (Expr x) (Maybe a) where
   fromResult (HType (R a)) = a
   toResult = HType . R
 
 
-instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty a)
- where
+instance (Sql DBType a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty a) where
   fromResult (HType (R a)) = a
   toResult = HType . R
 

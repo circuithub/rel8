@@ -11,6 +11,7 @@ import Prelude
 import Text.Read ( readMaybe )
 
 -- rel8
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Type ( DBType( typeInformation ) )
 import Rel8.Type.Information ( parseTypeInformation )
 
@@ -30,3 +31,6 @@ instance (Read a, Show a, Typeable a) => DBType (ReadShow a) where
         Just ok -> Right $ ReadShow ok
         Nothing -> Left $ "Could not read " <> t <> " as a " <> show (typeRep (Proxy @a))
       printer = Text.pack . show . fromReadShow
+
+
+instance Encodable (ReadShow a)

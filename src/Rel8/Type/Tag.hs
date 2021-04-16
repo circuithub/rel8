@@ -3,6 +3,7 @@
 {-# language DerivingVia #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Type.Tag
   ( EitherTag( IsLeft, IsRight ), isLeft, isRight
@@ -25,6 +26,7 @@ import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Schema.Serialize ( Encodable )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( mapTypeInformation, parseTypeInformation )
@@ -40,7 +42,7 @@ type EitherTag :: Type
 data EitherTag = IsLeft | IsRight
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min EitherTag)
-  deriving anyclass (DBEq, DBOrd)
+  deriving anyclass (DBEq, DBOrd, Encodable)
 
 
 instance DBType EitherTag where
@@ -71,7 +73,7 @@ type MaybeTag :: Type
 data MaybeTag = IsJust
   deriving stock (Eq, Ord, Read, Show, Enum, Bounded)
   deriving (Semigroup, Monoid) via (Min MaybeTag)
-  deriving anyclass (DBEq, DBOrd)
+  deriving anyclass (DBEq, DBOrd, Encodable)
 
 
 instance DBType MaybeTag where
@@ -93,5 +95,5 @@ instance DBMonoid MaybeTag where
 newtype Tag = Tag Text
   deriving newtype
     ( Eq, Ord, Read, Show
-    , DBType, DBEq, DBOrd
+    , DBType, DBEq, DBOrd, Encodable
     )

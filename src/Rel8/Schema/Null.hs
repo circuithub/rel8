@@ -24,6 +24,9 @@ where
 import Data.Kind ( Constraint, Type )
 import Prelude
 
+-- rel8
+import Rel8.Schema.Serialize ( Exprable )
+
 
 type IsMaybe :: Type -> Bool
 type family IsMaybe a where
@@ -106,5 +109,5 @@ nullable = nullable'
 -- supports equality, and @a@ can either be exactly an @a@, or it could also be
 -- @Maybe a@.
 type Sql :: (Type -> Constraint) -> Type -> Constraint
-class (constraint (Unnullify a), Nullable a) => Sql constraint a
-instance (constraint (Unnullify a), Nullable a) => Sql constraint a
+class (constraint (Unnullify a), Exprable a, Nullable a) => Sql constraint a
+instance (constraint (Unnullify a), Exprable a, Nullable a) => Sql constraint a
