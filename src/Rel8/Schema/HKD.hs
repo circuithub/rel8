@@ -19,7 +19,7 @@
 
 {-# options -Wno-orphans #-}
 
-module Rel8.Schema.HKD ( Lift, FlipHKD(..) ) where
+module Rel8.Schema.HKD ( Lift, FlipHKD(..), fromGHKD, toGHKD ) where
 
 -- base
 import Control.Applicative ( Const(..) )
@@ -151,7 +151,7 @@ type family GHTable_ rep where
 type Lift :: K.Context -> Type -> Type
 type family Lift context a where
   Lift (Reify context) a = ALift context a
-  Lift Identity a = Identity a
+  Lift Identity a = a
   Lift f a = FlipHKD f a
 
 
@@ -196,7 +196,7 @@ sfromColumnsLift = \case
   SExpr -> ALift . fromColumns . hunreify
   SName -> ALift . fromColumns . hunreify
   SAggregate -> ALift . fromColumns . hunreify
-  SIdentity -> ALift . construct . HKD @a . toGHKD @(Rep a) . hunreify
+  SIdentity -> ALift . runIdentity . construct . HKD @a . toGHKD @(Rep a) . hunreify
   SReify context -> ALift . sfromColumnsLift context . hunreify
   SInsert -> ALift . fromColumns . hunreify
   
@@ -209,14 +209,9 @@ stoColumnsLift = \case
   SExpr -> hreify . toColumns . runALift
   SName -> hreify . toColumns . runALift
   SAggregate -> hreify . toColumns . runALift
-  SIdentity -> hreify . toColumns . FlipHKD . deconstruct . runIdentity . runALift
+  SIdentity -> hreify . toColumns . FlipHKD . deconstruct . runALift
   SReify context -> hreify . stoColumnsLift context . runALift
   SInsert -> hreify . toColumns . runALift
 
 
-instance (x ~ FlipHKD Expr a, HKDSpec (Rep a), Construct Identity a) => ToExprs (Identity a) x where
-  fromIdentity = construct . HKD @a . toGHKD
-  toIdentity = fromGHKD . runHKD . deconstruct . runIdentity
-
-
-type instance FromExprs (FlipHKD Expr a) = Identity a
+type instance FromExprs (FlipHKD Expr a) = a

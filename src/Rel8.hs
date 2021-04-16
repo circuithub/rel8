@@ -34,7 +34,7 @@ module Rel8
   , HList
   , HNonEmpty
   , HThese
-  , Lift, FlipHKD(..)
+  , Lift, FlipHKD(..), toGHKD, fromGHKD
 
   , Table(..)
   , AltTable((<|>:))
