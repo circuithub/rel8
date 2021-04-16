@@ -29,10 +29,12 @@ module Rel8
   , Rel8able, KRel8able
   , Column, Field, Necessity( Required, Optional )
   , Default
+  , HEither
   , HMaybe
   , HList
   , HNonEmpty
   , HThese
+  , Lift
 
   , Table(..)
   , AltTable((<|>:))
@@ -236,6 +238,7 @@ module Rel8
   , ToExprs(..)
   , FromExprs
   , Result
+  , HKDT(..)
   ) where
 
 -- base
@@ -275,6 +278,7 @@ import Rel8.Schema.Column
 import Rel8.Schema.Context.Label
 import Rel8.Schema.Field
 import Rel8.Schema.Generic
+import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )

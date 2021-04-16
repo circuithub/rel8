@@ -17,6 +17,7 @@ library
     , casing
     , contravariant
     , hasql ^>= 1.4.5.1
+    , higgledy
     , opaleye ^>= 0.7.1.0
     , profunctors
     , scientific
@@ -93,6 +94,7 @@ library
     Rel8.Schema.Field
     Rel8.Schema.Generic
     Rel8.Schema.Generic.Test
+    Rel8.Schema.HKD
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity

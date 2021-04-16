@@ -11,9 +11,10 @@ module Rel8.Schema.Field
   ( Field
   , HEither, HList, HMaybe, HNonEmpty, HThese
   , Reify, hreify, hunreify
-  , Reifiable
+  , Reifiable(..)
   , AField(..)
   , AHEither(..), AHList(..), AHMaybe(..), AHNonEmpty(..), AHThese(..)
+  , SContext(..)
   )
 where
 

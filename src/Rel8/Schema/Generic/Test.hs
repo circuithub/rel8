@@ -1,8 +1,12 @@
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
+{-# language DerivingVia #-}
 {-# language DuplicateRecordFields #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
+{-# language StandaloneDeriving #-}
+{-# language TypeFamilies #-}
 
 module Rel8.Schema.Generic.Test
   ( module Rel8.Schema.Generic.Test
@@ -13,10 +17,11 @@ where
 import GHC.Generics ( Generic )
 import Prelude
 
+-- higgledy
+import Data.Generic.HKD ( HKD )
+
 -- rel8
-import Rel8.Schema.Column
-import Rel8.Schema.Field
-import Rel8.Schema.Generic
+import Rel8
 
 -- text
 import Data.Text ( Text )
@@ -74,5 +79,22 @@ data TableNonEmpty f = TableNonEmpty
   { foo :: Column f Bool
   , bars :: HNonEmpty f (TableList f, Default f Char)
   }
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+
+data S3Object = S3Object
+  { bucketName :: Text
+  , objectKey :: Text
+  } deriving stock Generic
+
+
+deriving via HKDT S3Object
+  instance x ~ HKD S3Object Expr => ToExprs x S3Object
+
+
+data HKDTest f = HKDTest
+  { s3Object :: Lift f S3Object
+  } 
   deriving stock Generic
   deriving anyclass Rel8able

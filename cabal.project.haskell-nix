@@ -2,3 +2,9 @@
 -- will interpret them as local packages, and try to build them when we cabal
 -- build. The only reason we have to specify these is for Haskell.nix to know to
 -- override these packages by fetching them rather than using Hackage.
+
+source-repository-package
+  type: git
+  location: git://github.com/jcpetruzza/barbies
+  tag: f99b05454874192e3511bd133555dfb6cc6a6ecb
+  --sha256: 0yy2i2jbllwavv5d2176rf8lmm4l1ws90lxkmdlfgvfzqxidx0gi
