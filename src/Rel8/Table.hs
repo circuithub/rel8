@@ -1,11 +1,14 @@
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
@@ -14,6 +17,7 @@ module Rel8.Table
   ( Table (Columns, Context)
   , toColumns, fromColumns
   , Congruent
+  , GTable, GColumns, GContext, fromGColumns, toGColumns
   )
 where
 
@@ -22,6 +26,13 @@ import Data.Functor ( ($>) )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import GHC.Generics
+  ( Generic, Rep, from, to
+  , (:*:)( (:*:) ), K1( K1 ), M1( M1 )
+  , C, D, S
+  , Meta( MetaSel )
+  )
+import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )
 
 -- rel8
@@ -75,6 +86,79 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
 
   toColumns :: a -> Columns a (Col (Context a))
   fromColumns :: Columns a (Col (Context a)) -> a
+
+  type Columns a = GColumns (Rep a)
+  type Context a = GContext (Rep a)
+
+  default toColumns ::
+    ( Generic a, GTable (GContext (Rep a)) (Rep a)
+    , Columns a ~ GColumns (Rep a)
+    , Context a ~ GContext (Rep a)
+    )
+    => a -> Columns a (Col (Context a))
+  toColumns = toGColumns . from
+
+  default fromColumns ::
+    ( Generic a, GTable (GContext (Rep a)) (Rep a)
+    , Columns a ~ GColumns (Rep a)
+    , Context a ~ GContext (Rep a)
+    )
+    => Columns a (Col (Context a)) -> a
+  fromColumns = to . fromGColumns
+
+
+type GColumns :: (Type -> Type) -> K.HTable
+type family GColumns rep where
+  GColumns (M1 D _ rep) = GColumns rep
+  GColumns (M1 C _ rep) = GColumns rep
+  GColumns (rep1 :*: rep2) = HPair (GColumns rep1) (GColumns rep2)
+  GColumns (M1 S ('MetaSel ('Just label) _ _ _) (K1 _ a)) =
+    HLabel label (Columns a)
+
+
+type GContext :: (Type -> Type) -> K.Context
+type family GContext rep where
+  GContext (M1 _ _ rep) = GContext rep
+  GContext (rep1 :*: _rep2) = GContext rep1
+  GContext (K1 _ a) = Context a
+
+
+type GTable :: K.Context -> (Type -> Type) -> Constraint
+class context ~ GContext rep => GTable context rep | rep -> context where
+  fromGColumns :: GColumns rep (Col context) -> rep x
+  toGColumns :: rep x -> GColumns rep (Col context)
+
+
+instance GTable context rep => GTable context (M1 D c rep) where
+  fromGColumns = M1 . fromGColumns @context @rep
+  toGColumns (M1 a) = toGColumns @context @rep a
+
+
+instance GTable context rep => GTable context (M1 C c rep) where
+  fromGColumns = M1 . fromGColumns @context @rep
+  toGColumns (M1 a) = toGColumns @context @rep a
+
+
+instance (GTable context rep1, GTable context rep2) =>
+  GTable context (rep1 :*: rep2)
+ where
+  fromGColumns (HPair a b) =
+    fromGColumns @context @rep1 a :*: fromGColumns @context @rep2 b
+  toGColumns (a :*: b) =
+    HPair (toGColumns @context @rep1 a) (toGColumns @context @rep2 b)
+
+
+instance
+  ( Table context a
+  , Labelable context
+  , KnownSymbol label
+  , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
+  , meta ~ 'MetaSel ('Just label) _su _ss _ds
+  , k1 ~ K1 i a
+  ) => GTable context (M1 S meta k1)
+ where
+  fromGColumns = M1 . K1 . fromColumns . hunlabel unlabeler
+  toGColumns (M1 (K1 a)) = hlabel labeler (toColumns a)
 
 
 -- | Any 'HTable' is also a 'Table'.

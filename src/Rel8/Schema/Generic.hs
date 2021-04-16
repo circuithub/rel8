@@ -1,17 +1,10 @@
-{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
-{-# language DisambiguateRecordFields #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
-{-# language QuantifiedConstraints #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 {-# options_ghc -fno-warn-orphans #-}
@@ -24,28 +17,20 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import GHC.Generics
-  ( Generic, Rep, from, to
-  , (:*:)( (:*:) ), K1( K1 ), M1( M1 )
-  , D, S
-  , Meta( MetaSel )
-  )
-import qualified GHC.Generics as G ( C )
-import GHC.TypeLits ( KnownSymbol )
+import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 import Unsafe.Coerce ( unsafeCoerce )
 
 -- rel8
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Field ( Reify, Reifiable, hreify, hunreify )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Pair ( HPair(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
+  , GTable, GColumns, fromGColumns, toGColumns
   )
 
 
@@ -116,70 +101,23 @@ class HTable (GRep t) => Rel8able t where
   gtoColumns :: (Labelable context, Reifiable context)
     => t (Reify context) -> GRep t (Col (Reify context))
 
-  default gfromColumns :: forall context.
+  default gfromColumns ::
     ( Generic (t (Reify context))
     , GColumns (Rep (t (Reify context))) ~ GRep t
-    , GRel8able context (Rep (t (Reify context)))
+    , GTable (Reify context) (Rep (t (Reify context)))
     ) => GRep t (Col (Reify context)) -> t (Reify context)
-  gfromColumns = to . fromGColumns @_ @(Rep (t (Reify context)))
+  gfromColumns = to . fromGColumns
 
-  default gtoColumns :: forall context.
+  default gtoColumns ::
     ( Generic (t (Reify context))
     , GColumns (Rep (t (Reify context))) ~ GRep t
-    , GRel8able context (Rep (t (Reify context)))
+    , GTable (Reify context) (Rep (t (Reify context)))
     ) => t (Reify context) -> GRep t (Col (Reify context))
-  gtoColumns = toGColumns @_ @(Rep (t (Reify context))) . from
+  gtoColumns = toGColumns . from
 
 
 type GRep :: K.Table -> K.HTable
 type GRep t = GColumns (Rep (t (Reify Name)))
-
-
-type GColumns :: (Type -> Type) -> K.HTable
-type family GColumns rep where
-  GColumns (M1 D _ rep) = GColumns rep
-  GColumns (M1 G.C _ rep) = GColumns rep
-  GColumns (rep1 :*: rep2) = HPair (GColumns rep1) (GColumns rep2)
-  GColumns (M1 S ('MetaSel ('Just label) _ _ _) (K1 _ a)) =
-    HLabel label (Columns a)
-
-
-type GRel8able :: K.Context -> (Type -> Type) -> Constraint
-class GRel8able context rep where
-  fromGColumns :: GColumns rep (Col (Reify context)) -> rep x
-  toGColumns :: rep x -> GColumns rep (Col (Reify context))
-
-
-instance GRel8able context rep => GRel8able context (M1 D c rep) where
-  fromGColumns = M1 . fromGColumns @context @rep
-  toGColumns (M1 a) = toGColumns @context @rep a
-
-
-instance GRel8able context rep => GRel8able context (M1 G.C c rep) where
-  fromGColumns = M1 . fromGColumns @context @rep
-  toGColumns (M1 a) = toGColumns @context @rep a
-
-
-instance (GRel8able context rep1, GRel8able context rep2) =>
-  GRel8able context (rep1 :*: rep2)
- where
-  fromGColumns (HPair a b) =
-    fromGColumns @context @rep1 a :*: fromGColumns @context @rep2 b
-  toGColumns (a :*: b) =
-    HPair (toGColumns @context @rep1 a) (toGColumns @context @rep2 b)
-
-
-instance
-  ( Table (Reify context) a
-  , Labelable context
-  , KnownSymbol label
-  , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
-  , meta ~ 'MetaSel ('Just label) _su _ss _ds
-  , k1 ~ K1 i a
-  ) => GRel8able context (M1 S meta k1)
- where
-  fromGColumns = M1 . K1 . fromColumns . hunlabel unlabeler
-  toGColumns (M1 (K1 a)) = hlabel labeler (toColumns a)
 
 
 reify ::
