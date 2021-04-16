@@ -18,6 +18,7 @@
 
 module Rel8.Schema.Generic
   ( Rel8able
+  , KRel8able
   )
 where
 
@@ -59,6 +60,10 @@ instance
 
   fromColumns = unreify . gfromColumns . hreify
   toColumns = hunreify . gtoColumns . reify
+
+
+type KRel8able :: Type
+type KRel8able = K.Table
 
 
 -- | This type class allows you to define custom 'Table's using higher-kinded
@@ -103,7 +108,7 @@ instance
 -- data MyType f = MyType { fieldA :: Column f T }
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
-type Rel8able :: K.Table -> Constraint
+type Rel8able :: KRel8able -> Constraint
 class HTable (GRep t) => Rel8able t where
   gfromColumns :: (Labelable context, Reifiable context)
     => GRep t (Col (Reify context)) -> t (Reify context)

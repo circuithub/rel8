@@ -26,7 +26,7 @@ module Rel8
   , DBFractional
 
     -- * Tables and higher-kinded tables
-  , Rel8able
+  , Rel8able, KRel8able
   , Column, Field, Necessity( Required, Optional )
   , Default
   , HMaybe
