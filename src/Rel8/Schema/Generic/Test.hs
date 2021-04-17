@@ -98,3 +98,18 @@ data HKDTest f = HKDTest
   } 
   deriving stock Generic
   deriving anyclass Rel8able
+
+
+data NonRecord f = NonRecord
+  (Column f Bool)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  (Column f Char)
+  deriving stock Generic
+  deriving anyclass Rel8able

@@ -22,6 +22,7 @@ import Prelude
 import Unsafe.Coerce ( unsafeCoerce )
 
 -- rel8
+import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Field ( Reify, Reifiable, hreify, hunreify )
@@ -102,22 +103,22 @@ class HTable (GRep t) => Rel8able t where
     => t (Reify context) -> GRep t (Col (Reify context))
 
   default gfromColumns ::
-    ( Generic (t (Reify context))
-    , GColumns (Rep (t (Reify context))) ~ GRep t
-    , GTable (Reify context) (Rep (t (Reify context)))
+    ( Generic (Record (t (Reify context)))
+    , GColumns (Rep (Record (t (Reify context)))) ~ GRep t
+    , GTable (Reify context) (Rep (Record (t (Reify context))))
     ) => GRep t (Col (Reify context)) -> t (Reify context)
-  gfromColumns = to . fromGColumns
+  gfromColumns = unrecord . to . fromGColumns
 
   default gtoColumns ::
-    ( Generic (t (Reify context))
-    , GColumns (Rep (t (Reify context))) ~ GRep t
-    , GTable (Reify context) (Rep (t (Reify context)))
+    ( Generic (Record (t (Reify context)))
+    , GColumns (Rep (Record (t (Reify context)))) ~ GRep t
+    , GTable (Reify context) (Rep (Record (t (Reify context))))
     ) => t (Reify context) -> GRep t (Col (Reify context))
-  gtoColumns = toGColumns . from
+  gtoColumns = toGColumns . from . Record
 
 
 type GRep :: K.Table -> K.HTable
-type GRep t = GColumns (Rep (t (Reify Name)))
+type GRep t = GColumns (Rep (Record (t (Reify Name))))
 
 
 reify ::

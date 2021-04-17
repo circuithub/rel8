@@ -36,6 +36,7 @@ import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
@@ -87,24 +88,24 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
   toColumns :: a -> Columns a (Col (Context a))
   fromColumns :: Columns a (Col (Context a)) -> a
 
-  type Columns a = GColumns (Rep a)
-  type Context a = GContext (Rep a)
+  type Columns a = GColumns (Rep (Record a))
+  type Context a = GContext (Rep (Record a))
 
   default toColumns ::
-    ( Generic a, GTable (GContext (Rep a)) (Rep a)
-    , Columns a ~ GColumns (Rep a)
-    , Context a ~ GContext (Rep a)
+    ( Generic (Record a), GTable (GContext (Rep (Record a))) (Rep (Record a))
+    , Columns a ~ GColumns (Rep (Record a))
+    , Context a ~ GContext (Rep (Record a))
     )
     => a -> Columns a (Col (Context a))
-  toColumns = toGColumns . from
+  toColumns = toGColumns . from . Record
 
   default fromColumns ::
-    ( Generic a, GTable (GContext (Rep a)) (Rep a)
-    , Columns a ~ GColumns (Rep a)
-    , Context a ~ GContext (Rep a)
+    ( Generic (Record a), GTable (GContext (Rep (Record a))) (Rep (Record a))
+    , Columns a ~ GColumns (Rep (Record a))
+    , Context a ~ GContext (Rep (Record a))
     )
     => Columns a (Col (Context a)) -> a
-  fromColumns = to . fromGColumns
+  fromColumns = unrecord . to . fromGColumns
 
 
 type GColumns :: (Type -> Type) -> K.HTable
