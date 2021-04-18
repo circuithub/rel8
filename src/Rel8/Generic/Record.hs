@@ -18,7 +18,11 @@ where
 -- base
 import Data.Kind ( Constraint, Type )
 import GHC.Generics
-import GHC.TypeLits
+  ( Generic, Rep, from, to
+  , (:+:)( L1, R1 ), (:*:)( (:*:) ), M1( M1 )
+  , Meta( MetaCons, MetaSel ), D, C, S
+  )
+import GHC.TypeLits ( type (+), AppendSymbol, Div, Mod, Nat, Symbol )
 import Prelude hiding ( Show )
 
 

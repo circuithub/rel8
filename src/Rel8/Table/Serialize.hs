@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
@@ -9,6 +10,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
@@ -23,6 +25,11 @@ where
 import Data.Bifunctor ( bimap )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import GHC.Generics
+  ( Generic, Rep, from, to
+  , (:*:)( (:*:) ), K1( K1 ), M1( M1 ), Meta( MetaSel ), D, C, S
+  )
+import GHC.TypeLits ( KnownSymbol )
 import Prelude
 
 -- hasql
@@ -31,19 +38,17 @@ import qualified Hasql.Decoders as Hasql
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
+import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
-import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
-import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
-import Rel8.Schema.HTable.Pair ( HPair(..) )
-import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
+import Rel8.Schema.HTable.Product ( HProduct(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
-import Rel8.Table ( Table, Columns, fromColumns, toColumns )
+import Rel8.Table ( Table, Columns, fromColumns, toColumns, GColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
@@ -63,6 +68,59 @@ type ToExprs :: Type -> Type -> Constraint
 class Table Expr exprs => ToExprs exprs a where
   fromResult :: Columns exprs (Col Result) -> a
   toResult :: a -> Columns exprs (Col Result)
+
+  default fromResult ::
+    ( Generic (Record a)
+    , GToExprs (Rep (Record exprs)) (Rep (Record a))
+    , Columns exprs ~ GColumns (Rep (Record exprs))
+    )
+    => Columns exprs (Col Result) -> a
+  fromResult = unrecord . to . gfromResult @(Rep (Record exprs))
+
+  default toResult ::
+    ( Generic (Record a)
+    , GToExprs (Rep (Record exprs)) (Rep (Record a))
+    , Columns exprs ~ GColumns (Rep (Record exprs))
+    )
+    => a -> Columns exprs (Col Result)
+  toResult = gtoResult @(Rep (Record exprs)) . from . Record
+
+
+type GToExprs :: (Type -> Type) -> (Type -> Type) -> Constraint
+class GToExprs exprs rep where
+  gfromResult :: GColumns exprs (Col Result) -> rep x
+  gtoResult :: rep x -> GColumns exprs (Col Result)
+
+
+instance GToExprs exprs rep => GToExprs (M1 D c exprs) (M1 D c rep) where
+  gfromResult = M1 . gfromResult @exprs
+  gtoResult (M1 a) = gtoResult @exprs a
+
+
+instance GToExprs exprs rep => GToExprs (M1 C c exprs) (M1 C c rep) where
+  gfromResult = M1 . gfromResult @exprs
+  gtoResult (M1 a) = gtoResult @exprs a
+
+
+instance (GToExprs exprs1 rep1, GToExprs exprs2 rep2) =>
+  GToExprs (exprs1 :*: exprs2) (rep1 :*: rep2)
+ where
+  gfromResult (HProduct a b) = gfromResult @exprs1 a :*: gfromResult @exprs2 b
+  gtoResult (a :*: b) = HProduct (gtoResult @exprs1 a) (gtoResult @exprs2 b)
+
+
+instance
+  ( ToExprs exprs a
+  , KnownSymbol label
+  , GColumns (M1 S meta k1) ~ HLabel label (Columns exprs)
+  , meta ~ 'MetaSel ('Just label) _su _ss _ds
+  , k1 ~ K1 i exprs
+  , k1' ~ K1 i a
+  )
+  => GToExprs (M1 S meta k1) (M1 S meta k1')
+ where
+  gfromResult = M1 . K1 . fromResult @exprs . hunlabel unlabeler
+  gtoResult (M1 (K1 a)) = hlabel labeler (toResult @exprs a)
 
 
 instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a where
@@ -127,15 +185,6 @@ instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable exprs1 exprs2) =>
 
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ (exprs1, exprs2)) =>
   ToExprs x (a, b)
- where
-  fromResult (HPair a b) =
-    ( fromResult @exprs1 $ hunlabel unlabeler a
-    , fromResult @exprs2 $ hunlabel unlabeler b
-    )
-  toResult (a, b) = HPair
-    { hfst = hlabel labeler $ toResult @exprs1 a
-    , hsnd = hlabel labeler $ toResult @exprs2 b
-    }
 
 
 instance
@@ -143,18 +192,8 @@ instance
   , ToExprs exprs2 b
   , ToExprs exprs3 c
   , x ~ (exprs1, exprs2, exprs3)
-  ) => ToExprs x (a, b, c)
- where
-  fromResult (HTrio a b c) =
-    ( fromResult @exprs1 $ hunlabel unlabeler a
-    , fromResult @exprs2 $ hunlabel unlabeler b
-    , fromResult @exprs3 $ hunlabel unlabeler c
-    )
-  toResult (a, b, c) = HTrio
-    { hfst = hlabel labeler $ toResult @exprs1 a
-    , hsnd = hlabel labeler $ toResult @exprs2 b
-    , htrd = hlabel labeler $ toResult @exprs3 c
-    }
+  )
+  => ToExprs x (a, b, c)
 
 
 instance
@@ -163,20 +202,8 @@ instance
   , ToExprs exprs3 c
   , ToExprs exprs4 d
   , x ~ (exprs1, exprs2, exprs3, exprs4)
-  ) => ToExprs x (a, b, c, d)
- where
-  fromResult (HQuartet a b c d) =
-    ( fromResult @exprs1 $ hunlabel unlabeler a
-    , fromResult @exprs2 $ hunlabel unlabeler b
-    , fromResult @exprs3 $ hunlabel unlabeler c
-    , fromResult @exprs4 $ hunlabel unlabeler d
-    )
-  toResult (a, b, c, d) = HQuartet
-    { hfst = hlabel labeler $ toResult @exprs1 a
-    , hsnd = hlabel labeler $ toResult @exprs2 b
-    , htrd = hlabel labeler $ toResult @exprs3 c
-    , hfrt = hlabel labeler $ toResult @exprs4 d
-    }
+  )
+  => ToExprs x (a, b, c, d)
 
 
 instance
@@ -186,22 +213,8 @@ instance
   , ToExprs exprs4 d
   , ToExprs exprs5 e
   , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5)
-  ) => ToExprs x (a, b, c, d, e)
- where
-  fromResult (HQuintet a b c d e) =
-    ( fromResult @exprs1 $ hunlabel unlabeler a
-    , fromResult @exprs2 $ hunlabel unlabeler b
-    , fromResult @exprs3 $ hunlabel unlabeler c
-    , fromResult @exprs4 $ hunlabel unlabeler d
-    , fromResult @exprs5 $ hunlabel unlabeler e
-    )
-  toResult (a, b, c, d, e) = HQuintet
-    { hfst = hlabel labeler $ toResult @exprs1 a
-    , hsnd = hlabel labeler $ toResult @exprs2 b
-    , htrd = hlabel labeler $ toResult @exprs3 c
-    , hfrt = hlabel labeler $ toResult @exprs4 d
-    , hfft = hlabel labeler $ toResult @exprs5 e
-    }
+  )
+  => ToExprs x (a, b, c, d, e)
 
 
 instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>

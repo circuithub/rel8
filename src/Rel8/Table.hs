@@ -47,11 +47,8 @@ import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Nullify ( hnulls, hnullify, hunnullify )
-import Rel8.Schema.HTable.Pair ( HPair(..) )
-import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
-import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
+import Rel8.Schema.HTable.Product ( HProduct(..) )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Schema.HTable.Trio ( HTrio(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
@@ -112,7 +109,7 @@ type GColumns :: (Type -> Type) -> K.HTable
 type family GColumns rep where
   GColumns (M1 D _ rep) = GColumns rep
   GColumns (M1 C _ rep) = GColumns rep
-  GColumns (rep1 :*: rep2) = HPair (GColumns rep1) (GColumns rep2)
+  GColumns (rep1 :*: rep2) = HProduct (GColumns rep1) (GColumns rep2)
   GColumns (M1 S ('MetaSel ('Just label) _ _ _) (K1 _ a)) =
     HLabel label (Columns a)
 
@@ -143,10 +140,10 @@ instance GTable context rep => GTable context (M1 C c rep) where
 instance (GTable context rep1, GTable context rep2) =>
   GTable context (rep1 :*: rep2)
  where
-  fromGColumns (HPair a b) =
+  fromGColumns (HProduct a b) =
     fromGColumns @context @rep1 a :*: fromGColumns @context @rep2 b
   toGColumns (a :*: b) =
-    HPair (toGColumns @context @rep1 a) (toGColumns @context @rep2 b)
+    HProduct (toGColumns @context @rep1 a) (toGColumns @context @rep2 b)
 
 
 instance
@@ -156,7 +153,8 @@ instance
   , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
   , meta ~ 'MetaSel ('Just label) _su _ss _ds
   , k1 ~ K1 i a
-  ) => GTable context (M1 S meta k1)
+  )
+  => GTable context (M1 S meta k1)
  where
   fromGColumns = M1 . K1 . fromColumns . hunlabel unlabeler
   toGColumns (M1 (K1 a)) = hlabel labeler (toColumns a)
@@ -286,108 +284,30 @@ instance (Table Result a, Table Result b) => Table Result (These a b) where
         }
 
 
-instance
-  ( Table context a, Table context b
-  , Labelable context
-  ) =>
-  Table context (a, b)
- where
-  type Columns (a, b) =
-    HPair
-      (HLabel "fst" (Columns a))
-      (HLabel "snd" (Columns b))
-  type Context (a, b) = Context a
-
-  toColumns (a, b) = HPair
-    { hfst = hlabel labeler $ toColumns a
-    , hsnd = hlabel labeler $ toColumns b
-    }
-  fromColumns (HPair a b) =
-    ( fromColumns $ hunlabel unlabeler a
-    , fromColumns $ hunlabel unlabeler b
-    )
+instance (Table context a, Table context b, Labelable context)
+  => Table context (a, b)
 
 
 instance
   ( Table context a, Table context b, Table context c
   , Labelable context
-  ) => Table context (a, b, c)
- where
-  type Columns (a, b, c) =
-    HTrio
-      (HLabel "fst" (Columns a))
-      (HLabel "snd" (Columns b))
-      (HLabel "trd" (Columns c))
-  type Context (a, b, c) = Context a
-
-  toColumns (a, b, c) = HTrio
-    { hfst = hlabel labeler $ toColumns a
-    , hsnd = hlabel labeler $ toColumns b
-    , htrd = hlabel labeler $ toColumns c
-    }
-  fromColumns (HTrio a b c) =
-    ( fromColumns $ hunlabel unlabeler a
-    , fromColumns $ hunlabel unlabeler b
-    , fromColumns $ hunlabel unlabeler c
-    )
+  )
+  => Table context (a, b, c)
 
 
 instance
   ( Table context a, Table context b, Table context c, Table context d
   , Labelable context
-  ) => Table context (a, b, c, d)
- where
-  type Columns (a, b, c, d) =
-    HQuartet
-      (HLabel "fst" (Columns a))
-      (HLabel "snd" (Columns b))
-      (HLabel "trd" (Columns c))
-      (HLabel "frt" (Columns d))
-  type Context (a, b, c, d) = Context a
-
-  toColumns (a, b, c, d) = HQuartet
-    { hfst = hlabel labeler $ toColumns a
-    , hsnd = hlabel labeler $ toColumns b
-    , htrd = hlabel labeler $ toColumns c
-    , hfrt = hlabel labeler $ toColumns d
-    }
-  fromColumns (HQuartet a b c d) =
-    ( fromColumns $ hunlabel unlabeler a
-    , fromColumns $ hunlabel unlabeler b
-    , fromColumns $ hunlabel unlabeler c
-    , fromColumns $ hunlabel unlabeler d
-    )
+  )
+  => Table context (a, b, c, d)
 
 
 instance
   ( Table context a, Table context b, Table context c, Table context d
   , Table context e
   , Labelable context
-  ) => Table context (a, b, c, d, e)
- where
-  type Columns (a, b, c, d, e) =
-    HQuintet
-      (HLabel "fst" (Columns a))
-      (HLabel "snd" (Columns b))
-      (HLabel "trd" (Columns c))
-      (HLabel "frt" (Columns d))
-      (HLabel "fft" (Columns e))
-  type Context (a, b, c, d, e) = Context a
-
-  toColumns (a, b, c, d, e) = HQuintet
-    { hfst = hlabel labeler $ toColumns a
-    , hsnd = hlabel labeler $ toColumns b
-    , htrd = hlabel labeler $ toColumns c
-    , hfrt = hlabel labeler $ toColumns d
-    , hfft = hlabel labeler $ toColumns e
-    }
-  fromColumns (HQuintet a b c d e) =
-    ( fromColumns $ hunlabel unlabeler a
-    , fromColumns $ hunlabel unlabeler b
-    , fromColumns $ hunlabel unlabeler c
-    , fromColumns $ hunlabel unlabeler d
-    , fromColumns $ hunlabel unlabeler e
-    )
+  )
+  => Table context (a, b, c, d, e)
 
 
 type Congruent :: Type -> Type -> Constraint

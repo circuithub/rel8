@@ -35,7 +35,7 @@ import Prelude
 -- rel8
 import Rel8.Schema.Dict ( Dict )
 import Rel8.Schema.Spec ( Spec, SSpec )
-import Rel8.Schema.HTable.Pair ( HPair( HPair ) )
+import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
 
 -- semigroupoids
@@ -144,30 +144,30 @@ instance HTable table => GHTable context (K1 i (table context)) where
 
 
 instance (GHTable context a, GHTable context b) => GHTable context (a :*: b) where
-  type GHColumns (a :*: b) = HPair (GHColumns a) (GHColumns b)
-  toGHColumns (a :*: b) = HPair (toGHColumns a) (toGHColumns b)
-  fromGHColumns (HPair a b) = fromGHColumns a :*: fromGHColumns b
+  type GHColumns (a :*: b) = HProduct (GHColumns a) (GHColumns b)
+  toGHColumns (a :*: b) = HProduct (toGHColumns a) (toGHColumns b)
+  fromGHColumns (HProduct a b) = fromGHColumns a :*: fromGHColumns b
 
 
--- | A HField type for indexing into HPair.
-type HPairField :: K.HTable -> K.HTable -> Spec -> Type
-data HPairField x y spec
+-- | A HField type for indexing into HProduct.
+type HProductField :: K.HTable -> K.HTable -> Spec -> Type
+data HProductField x y spec
   = HFst (HField x spec)
   | HSnd (HField y spec)
 
 
-instance (HTable x, HTable y) => HTable (HPair x y) where
-  type HConstrainTable (HPair x y) c = (HConstrainTable x c, HConstrainTable y c)
-  type HField (HPair x y) = HPairField x y
+instance (HTable x, HTable y) => HTable (HProduct x y) where
+  type HConstrainTable (HProduct x y) c = (HConstrainTable x c, HConstrainTable y c)
+  type HField (HProduct x y) = HProductField x y
 
-  hfield (HPair l r) = \case
+  hfield (HProduct l r) = \case
     HFst i -> hfield l i
     HSnd i -> hfield r i
 
-  htabulate f = HPair (htabulate (f . HFst)) (htabulate (f . HSnd))
-  htraverse f (HPair x y) = HPair <$> htraverse f x <.> htraverse f y
-  hdicts = HPair hdicts hdicts
-  hspecs = HPair hspecs hspecs
+  htabulate f = HProduct (htabulate (f . HFst)) (htabulate (f . HSnd))
+  htraverse f (HProduct x y) = HProduct <$> htraverse f x <.> htraverse f y
+  hdicts = HProduct hdicts hdicts
+  hspecs = HProduct hspecs hspecs
 
   {-# INLINABLE hfield #-}
   {-# INLINABLE htabulate #-}

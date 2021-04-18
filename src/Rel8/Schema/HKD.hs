@@ -50,7 +50,7 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Field ( Reify, Reifiable(..), SContext(..), hunreify, hreify )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Pair ( HPair( HPair ) )
+import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Insert ( Insert, Col(..) )
 import qualified Rel8.Schema.Kind as K
@@ -159,10 +159,10 @@ instance (KnownSymbol name, Sql DBType a) =>
 
 
 instance (GTable f, GTable g) => GTable (f :*: g) where
-  toGColumns f (x :*: y) = HPair (toGColumns f x) (toGColumns f y)
+  toGColumns f (x :*: y) = HProduct (toGColumns f x) (toGColumns f y)
   {-# INLINABLE toGColumns #-}
 
-  fromGColumns f (HPair x y) = fromGColumns f x :*: fromGColumns f y
+  fromGColumns f (HProduct x y) = fromGColumns f x :*: fromGColumns f y
   {-# INLINABLE fromGColumns #-}
 
 
@@ -175,7 +175,7 @@ type family GColumns rep where
   GColumns (M1 C _ f) = GColumns f
   GColumns (M1 S ('MetaSel ('Just name) _ _ _) (K1 _ a)) =
     HLabel name (HType a)
-  GColumns (f :*: g) = HPair (GColumns f) (GColumns g)
+  GColumns (f :*: g) = HProduct (GColumns f) (GColumns g)
 
 
 instance (GTable (Rep a), Column1 context f, Labelable context) =>

@@ -9,6 +9,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
@@ -23,27 +24,28 @@ import Data.Foldable ( foldl' )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+import GHC.Generics ( Rep, (:*:), K1, M1, Meta( MetaSel ), D, C, S )
+import GHC.TypeLits ( KnownSymbol )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
+import Rel8.Generic.Record ( Record )
 import Rel8.Schema.Context.Label ( hlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable
   , htabulateA, hfield, hdicts
   )
-import Rel8.Schema.HTable.Label ( hlabel )
-import Rel8.Schema.HTable.Pair ( HPair(..) )
-import Rel8.Schema.HTable.Quartet ( HQuartet(..) )
-import Rel8.Schema.HTable.Quintet ( HQuintet(..) )
-import Rel8.Schema.HTable.Trio ( HTrio(..) )
+import Rel8.Schema.HTable.Label ( HLabel, hlabel )
+import Rel8.Schema.HTable.Product ( HProduct(..) )
+import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Table, Columns, toColumns )
+import Rel8.Table ( Table, Columns, toColumns, GColumns )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -54,10 +56,40 @@ type EqTable :: Type -> Constraint
 class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (ConstrainDBType DBEq))
 
-  default eqTable :: ()
-    => HConstrainTable (Columns a) (ConstrainDBType DBEq)
+  default eqTable ::
+    ( GColumns (Rep (Record a)) ~ Columns a
+    , GEqTable (Rep (Record a))
+    )
     => Columns a (Dict (ConstrainDBType DBEq))
-  eqTable = hdicts @(Columns a) @(ConstrainDBType DBEq)
+  eqTable = geqTable @(Rep (Record a))
+
+
+type GEqTable :: (Type -> Type) -> Constraint
+class GEqTable rep where
+  geqTable :: GColumns rep (Dict (ConstrainDBType DBEq))
+
+
+instance GEqTable rep => GEqTable (M1 D c rep) where
+  geqTable = geqTable @rep
+
+
+instance GEqTable rep => GEqTable (M1 C c rep) where
+  geqTable = geqTable @rep
+
+
+instance (GEqTable rep1, GEqTable rep2) => GEqTable (rep1 :*: rep2) where
+  geqTable = HProduct (geqTable @rep1) (geqTable @rep2)
+
+
+instance
+  ( EqTable a
+  , KnownSymbol label
+  , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
+  , meta ~ 'MetaSel ('Just label) _su _ss _ds
+  , k1 ~ K1 i a
+  ) => GEqTable (M1 S meta k1)
+ where
+  geqTable = hlabel hlabeler (eqTable @a)
 
 
 instance
@@ -66,6 +98,8 @@ instance
   , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
   )
   => EqTable (t f)
+ where
+  eqTable = hdicts @(Columns (t f)) @(ConstrainDBType DBEq)
 
 
 instance
@@ -74,50 +108,25 @@ instance
   , HConstrainTable t (ConstrainDBType DBEq)
   )
   => EqTable (t f)
+ where
+  eqTable = hdicts @(Columns (t f)) @(ConstrainDBType DBEq)
 
 
-instance Sql DBEq a => EqTable (Expr a)
+instance Sql DBEq a => EqTable (Expr a) where
+  eqTable = HType Dict
 
 
-instance (EqTable a, EqTable b) => EqTable (a, b) where
-  eqTable =
-    HPair
-      { hfst = hlabel hlabeler (eqTable @a)
-      , hsnd = hlabel hlabeler (eqTable @b)
-      }
+instance (EqTable a, EqTable b) => EqTable (a, b)
 
 
-instance (EqTable a, EqTable b, EqTable c) => EqTable (a, b, c) where
-  eqTable =
-    HTrio
-      { hfst = hlabel hlabeler (eqTable @a)
-      , hsnd = hlabel hlabeler (eqTable @b)
-      , htrd = hlabel hlabeler (eqTable @c)
-      }
+instance (EqTable a, EqTable b, EqTable c) => EqTable (a, b, c)
 
 
 instance (EqTable a, EqTable b, EqTable c, EqTable d) => EqTable (a, b, c, d)
- where
-  eqTable =
-    HQuartet
-      { hfst = hlabel hlabeler (eqTable @a)
-      , hsnd = hlabel hlabeler (eqTable @b)
-      , htrd = hlabel hlabeler (eqTable @c)
-      , hfrt = hlabel hlabeler (eqTable @d)
-      }
 
 
 instance (EqTable a, EqTable b, EqTable c, EqTable d, EqTable e) =>
   EqTable (a, b, c, d, e)
- where
-  eqTable =
-    HQuintet
-      { hfst = hlabel hlabeler (eqTable @a)
-      , hsnd = hlabel hlabeler (eqTable @b)
-      , htrd = hlabel hlabeler (eqTable @c)
-      , hfrt = hlabel hlabeler (eqTable @d)
-      , hfft = hlabel hlabeler (eqTable @e)
-      }
 
 
 -- | Compare two 'Table's for equality. This corresponds to comparing all
