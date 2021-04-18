@@ -217,6 +217,31 @@ instance
   => ToExprs x (a, b, c, d, e)
 
 
+instance
+  ( ToExprs exprs1 a
+  , ToExprs exprs2 b
+  , ToExprs exprs3 c
+  , ToExprs exprs4 d
+  , ToExprs exprs5 e
+  , ToExprs exprs6 f
+  , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5, exprs6)
+  )
+  => ToExprs x (a, b, c, d, e, f)
+
+
+instance
+  ( ToExprs exprs1 a
+  , ToExprs exprs2 b
+  , ToExprs exprs3 c
+  , ToExprs exprs4 d
+  , ToExprs exprs5 e
+  , ToExprs exprs6 f
+  , ToExprs exprs7 g
+  , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5, exprs6, exprs7)
+  )
+  => ToExprs x (a, b, c, d, e, f, g)
+
+
 instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>
   ToExprs x (t result)
  where
@@ -253,6 +278,14 @@ type instance FromExprs (a, b, c, d) =
   (FromExprs a, FromExprs b, FromExprs c, FromExprs d)
 type instance FromExprs (a, b, c, d, e) =
   (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
+type instance FromExprs (a, b, c, d, e, f) =
+  ( FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e
+  , FromExprs f
+  )
+type instance FromExprs (a, b, c, d, e, f, g) =
+  ( FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e
+  , FromExprs f, FromExprs g
+  )
 type instance FromExprs (t Expr) = t Result
 type instance FromExprs (t (Col Expr)) = t (Col Result)
 

@@ -133,6 +133,19 @@ instance (OrdTable a, OrdTable b, OrdTable c, OrdTable d, OrdTable e) =>
   OrdTable (a, b, c, d, e)
 
 
+instance
+  ( OrdTable a, OrdTable b, OrdTable c, OrdTable d, OrdTable e, OrdTable f
+  )
+  => OrdTable (a, b, c, d, e, f)
+
+
+instance
+  ( OrdTable a, OrdTable b, OrdTable c, OrdTable d, OrdTable e, OrdTable f
+  , OrdTable g
+  )
+  => OrdTable (a, b, c, d, e, f, g)
+
+
 -- | Test if one 'Table' sorts before another. Corresponds to comparing all
 -- columns with '<'.
 (<:) :: forall a. OrdTable a => a -> a -> Expr Bool

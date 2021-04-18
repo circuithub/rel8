@@ -310,6 +310,22 @@ instance
   => Table context (a, b, c, d, e)
 
 
+instance
+  ( Table context a, Table context b, Table context c, Table context d
+  , Table context e, Table context f
+  , Labelable context
+  )
+  => Table context (a, b, c, d, e, f)
+
+
+instance
+  ( Table context a, Table context b, Table context c, Table context d
+  , Table context e, Table context f, Table context g
+  , Labelable context
+  )
+  => Table context (a, b, c, d, e, f, g)
+
+
 type Congruent :: Type -> Type -> Constraint
 class Columns a ~ Columns b => Congruent a b
 instance Columns a ~ Columns b => Congruent a b

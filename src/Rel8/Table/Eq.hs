@@ -129,6 +129,17 @@ instance (EqTable a, EqTable b, EqTable c, EqTable d, EqTable e) =>
   EqTable (a, b, c, d, e)
 
 
+instance (EqTable a, EqTable b, EqTable c, EqTable d, EqTable e, EqTable f) =>
+  EqTable (a, b, c, d, e, f)
+
+
+instance
+  ( EqTable a, EqTable b, EqTable c, EqTable d, EqTable e, EqTable f
+  , EqTable g
+  )
+  => EqTable (a, b, c, d, e, f, g)
+
+
 -- | Compare two 'Table's for equality. This corresponds to comparing all
 -- columns inside each table for equality, and combining all comparisons with
 -- @AND@.
