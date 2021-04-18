@@ -13,6 +13,10 @@ module Rel8
     -- **** @ReadShow@
   , ReadShow(..)
 
+    -- **** Generic
+  , Composite(..)
+  , Enum(..)
+
     -- *** @TypeInformation@
   , TypeInformation(..)
   , mapTypeInformation
@@ -307,7 +311,9 @@ import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Type
 import Rel8.Type.Array1D
+import Rel8.Type.Composite
 import Rel8.Type.Eq
+import Rel8.Type.Enum
 import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded
 import Rel8.Type.JSONEncoded
