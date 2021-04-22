@@ -1,5 +1,6 @@
 {-# language FlexibleInstances #-}
 {-# language MonoLocalBinds #-}
+{-# language MultiWayIf #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
 
@@ -125,7 +126,11 @@ instance DBType Int64 where
 -- | Corresponds to @float4@
 instance DBType Float where
   typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    { encode = \x -> Opaleye.ConstExpr
+        if | x == (1 /0) -> Opaleye.OtherLit "'Infinity'"
+           | isNaN x     -> Opaleye.OtherLit "'NaN'"
+           | x == (-1/0) -> Opaleye.OtherLit "'-Infinity'"
+           | otherwise   -> Opaleye.NumericLit $ realToFrac x
     , decode = Hasql.float4
     , typeName = "float4"
     }
@@ -134,7 +139,11 @@ instance DBType Float where
 -- | Corresponds to @float8@
 instance DBType Double where
   typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    { encode = \x -> Opaleye.ConstExpr
+        if | x == (1 /0) -> Opaleye.OtherLit "'Infinity'"
+           | isNaN x     -> Opaleye.OtherLit "'NaN'"
+           | x == (-1/0) -> Opaleye.OtherLit "'-Infinity'"
+           | otherwise   -> Opaleye.NumericLit $ realToFrac x
     , decode = Hasql.float8
     , typeName = "float8"
     }
