@@ -179,8 +179,8 @@ module Rel8
   , aggregate
   , countRows
   , array1DAggExpr
-  , listAgg, listAggExpr
-  , nonEmptyAgg, nonEmptyAggExpr
+  , listAgg, listAggWithOrder, listAggExpr
+  , nonEmptyAgg, nonEmptyAggWithOrder, nonEmptyAggExpr
   , groupBy
   , DBMax, max
   , DBMin, min

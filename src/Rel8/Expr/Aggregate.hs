@@ -13,6 +13,7 @@ module Rel8.Expr.Aggregate
   , stringAgg
   , groupByExpr
   , array1DAggExpr, listAggExpr, nonEmptyAggExpr
+  , listAggExprWithOrder, nonEmptyAggExprWithOrder
   )
 where
 
@@ -36,6 +37,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Order ( Order, toOrderExprs )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Type.Array ( fromPrimArray )
 import Rel8.Type.Array1D ( Array1D, NotArray )
@@ -181,6 +183,29 @@ nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
+  where
+    from = fromPrimExpr . fromPrimArray
+
+
+listAggExprWithOrder :: o -> Order o -> Expr a -> Aggregate (Expr [a])
+listAggExprWithOrder o order = unsafeMakeAggregate toPrimExpr from $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = toOrderExprs order o
+    , distinction = Opaleye.AggrAll
+    }
+  where
+    from = fromPrimExpr . fromPrimArray
+
+
+nonEmptyAggExprWithOrder :: ()
+  => o -> Order o -> Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExprWithOrder o order = unsafeMakeAggregate toPrimExpr from $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = toOrderExprs order o
     , distinction = Opaleye.AggrAll
     }
   where

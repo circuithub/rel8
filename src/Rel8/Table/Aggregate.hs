@@ -6,8 +6,8 @@
 
 module Rel8.Table.Aggregate
   ( groupBy
-  , listAgg
-  , nonEmptyAgg
+  , listAgg, nonEmptyAgg
+  , listAggWithOrder, nonEmptyAggWithOrder
   )
 where
 
@@ -18,7 +18,14 @@ import Prelude
 -- rel8
 import Rel8.Aggregate ( Aggregate, Col(..) )
 import Rel8.Expr ( Expr, Col(..) )
-import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
+import Rel8.Expr.Aggregate
+  ( groupByExpr
+  , listAggExpr
+  , listAggExprWithOrder
+  , nonEmptyAggExpr
+  , nonEmptyAggExprWithOrder
+  )
+import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
@@ -53,7 +60,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Table Expr exprs => exprs -> Aggregate (ListTable exprs)
+listAgg :: Table Expr a => a -> Aggregate (ListTable a)
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
@@ -61,8 +68,24 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Table Expr exprs => exprs -> Aggregate (NonEmptyTable exprs)
+nonEmptyAgg :: Table Expr a => a -> Aggregate (NonEmptyTable a)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
     (pure exprs)
+
+
+listAggWithOrder :: Table Expr b
+  => (a -> o) -> (a -> b) -> Order o -> a -> Aggregate (ListTable b)
+listAggWithOrder o b order a = fromColumns $
+  hvectorize
+    (\_ (Identity (DB x)) -> Aggregation $ listAggExprWithOrder (o a) order x)
+    (pure (toColumns (b a)))
+
+
+nonEmptyAggWithOrder :: Table Expr b
+  => (a -> o) -> (a -> b) -> Order o -> a -> Aggregate (NonEmptyTable b)
+nonEmptyAggWithOrder o b order a = fromColumns $
+  hvectorize
+    (\_ (Identity (DB x)) -> Aggregation $ nonEmptyAggExprWithOrder (o a) order x)
+    (pure (toColumns (b a)))
