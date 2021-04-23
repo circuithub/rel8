@@ -75,17 +75,17 @@ nonEmptyAgg (toColumns -> exprs) = fromColumns $
     (pure exprs)
 
 
-listAggWithOrder :: Table Expr b
-  => (a -> o) -> (a -> b) -> Order o -> a -> Aggregate (ListTable b)
-listAggWithOrder o b order a = fromColumns $
+listAggWithOrder :: Table Expr a
+  => Order o -> o -> a -> Aggregate (ListTable a)
+listAggWithOrder order o (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB x)) -> Aggregation $ listAggExprWithOrder (o a) order x)
-    (pure (toColumns (b a)))
+    (\_ (Identity (DB x)) -> Aggregation $ listAggExprWithOrder order o x)
+    (pure exprs)
 
 
-nonEmptyAggWithOrder :: Table Expr b
-  => (a -> o) -> (a -> b) -> Order o -> a -> Aggregate (NonEmptyTable b)
-nonEmptyAggWithOrder o b order a = fromColumns $
+nonEmptyAggWithOrder :: Table Expr a
+  => Order o -> o -> a -> Aggregate (NonEmptyTable a)
+nonEmptyAggWithOrder order o (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB x)) -> Aggregation $ nonEmptyAggExprWithOrder (o a) order x)
-    (pure (toColumns (b a)))
+    (\_ (Identity (DB x)) -> Aggregation $ nonEmptyAggExprWithOrder order o x)
+    (pure exprs)

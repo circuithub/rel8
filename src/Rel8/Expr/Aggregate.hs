@@ -189,8 +189,8 @@ nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
     from = fromPrimExpr . fromPrimArray
 
 
-listAggExprWithOrder :: o -> Order o -> Expr a -> Aggregate (Expr [a])
-listAggExprWithOrder o order = unsafeMakeAggregate toPrimExpr from $ Just
+listAggExprWithOrder :: Order o -> o -> Expr a -> Aggregate (Expr [a])
+listAggExprWithOrder order o = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = toOrderExprs order o
@@ -201,8 +201,8 @@ listAggExprWithOrder o order = unsafeMakeAggregate toPrimExpr from $ Just
 
 
 nonEmptyAggExprWithOrder :: ()
-  => o -> Order o -> Expr a -> Aggregate (Expr (NonEmpty a))
-nonEmptyAggExprWithOrder o order = unsafeMakeAggregate toPrimExpr from $ Just
+  => Order o -> o -> Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExprWithOrder order o = unsafeMakeAggregate toPrimExpr from $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = toOrderExprs order o
