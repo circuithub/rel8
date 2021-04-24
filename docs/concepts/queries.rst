@@ -193,8 +193,8 @@ and this query can be written in Rel8 as::
   where::
 
     authorForBlogPost :: BlogPost Expr -> Query (Author Expr)
-    authorForBlogPost blogPost = 
-      filter ((blogPostAuthorId blogPost ==.) authorId author) =<< 
+    authorForBlogPost blogPost =
+      filter ((blogPostAuthorId blogPost ==.) authorId author) =<<
       each authorSchema
 
   While this is a little more code over all, in our experience this style
@@ -210,7 +210,7 @@ row.
 In Rel8, a ``LEFT JOIN`` is introduced by converting an inner join with
 ``optional``. While this approach might seem a little foreign at first, it has a
 strong similarity with the ``Control.Applicative.optional`` function, and allows
-you to reuse previous code. 
+you to reuse previous code.
 
 To see an example of this, let's assume that we want to get the latest comment
 for each blog post. Not all blog posts are popular though, so some blog posts
@@ -218,11 +218,11 @@ might have no comment at all. To write this in Rel8, we could write::
 
   blogPost <- each blogPostSchema
 
-  latestComment <- 
-    optional $ limit 1 $ 
-      orderBy (commentCreatedAt >$< desc) $ 
+  latestComment <-
+    optional $ limit 1 $
+      orderBy (commentCreatedAt >$< desc) $
         commentsForBlogPost blogPost
-          
+
 ``optional`` will transform a ``Query a`` into a ``Query (MaybeTable a)``.
 ``MaybeTable`` is similar to the normal ``Maybe`` data type in Haskell, and
 represents the choice between a ``justTable x`` and a ``nothingTable`` (like
@@ -241,9 +241,23 @@ operate on ``Maybe``. For more details, see the API documentation.
 Ordering results
 ----------------
 
-.. todo::
+Rel8 supports ordering the results returned by a ``Query``, using SQL's ``ORDER
+BY`` syntax. To specify an ordering, you use ``orderBy`` and supply an
+appropriate ``Order`` value.
 
-  Write this
+An ``Order`` is built by combining the order of individual columns, each of
+which can be either ascending or descending. To order a single column, you
+combine ``asc`` or ``desc`` with ``Order``\s *contravariant* interface. For
+example, if we have a table with a ``orderId`` column, we can order a ``Query
+(Order Expr)`` by ``orderId`` with::
+
+  orderBy (orderId >$< asc)
+
+To order by multiple columns, combine the individual orders with ``Order``\s
+``Monoid`` instance. We could extend the above example to order by the order
+date first (with the most recent orders first) with::
+
+  orderBy (mconcat [orderDate >$< desc, orderId >$< asc])
 
 Aggregating queries
 -------------------
