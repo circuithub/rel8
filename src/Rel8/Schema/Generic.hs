@@ -3,7 +3,9 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -23,6 +25,9 @@ import Unsafe.Coerce ( unsafeCoerce )
 
 -- rel8
 import Rel8.Generic.Record ( Record(..) )
+import Rel8.Generic.Table
+  ( GTable, GColumns, fromGColumns, toGColumns
+  )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Field ( Reify, Reifiable, hreify, hunreify )
@@ -31,7 +36,7 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , GTable, GColumns, fromGColumns, toGColumns
+  , TTable, TColumns
   )
 
 
@@ -96,29 +101,37 @@ type KRel8able = K.Table
 -- @
 type Rel8able :: KRel8able -> Constraint
 class HTable (GRep t) => Rel8able t where
+  type GRep t :: K.HTable
+
   gfromColumns :: (Labelable context, Reifiable context)
     => GRep t (Col (Reify context)) -> t (Reify context)
 
   gtoColumns :: (Labelable context, Reifiable context)
     => t (Reify context) -> GRep t (Col (Reify context))
 
-  default gfromColumns ::
+  type GRep t = GColumns TColumns (Rep (Record (t (Reify Name))))
+
+  default gfromColumns :: forall context.
     ( Generic (Record (t (Reify context)))
-    , GColumns (Rep (Record (t (Reify context)))) ~ GRep t
-    , GTable (Reify context) (Rep (Record (t (Reify context))))
-    ) => GRep t (Col (Reify context)) -> t (Reify context)
-  gfromColumns = unrecord . to . fromGColumns
+    , GColumns TColumns (Rep (Record (t (Reify context)))) ~ GRep t
+    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    )
+    => GRep t (Col (Reify context)) -> t (Reify context)
+  gfromColumns =
+    unrecord .
+    to .
+    fromGColumns @(TTable (Reify context)) @TColumns fromColumns
 
-  default gtoColumns ::
+  default gtoColumns :: forall context.
     ( Generic (Record (t (Reify context)))
-    , GColumns (Rep (Record (t (Reify context)))) ~ GRep t
-    , GTable (Reify context) (Rep (Record (t (Reify context))))
-    ) => t (Reify context) -> GRep t (Col (Reify context))
-  gtoColumns = toGColumns . from . Record
-
-
-type GRep :: K.Table -> K.HTable
-type GRep t = GColumns (Rep (Record (t (Reify Name))))
+    , GColumns TColumns (Rep (Record (t (Reify context)))) ~ GRep t
+    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    )
+    => t (Reify context) -> GRep t (Col (Reify context))
+  gtoColumns =
+    toGColumns @(TTable (Reify context)) @TColumns toColumns .
+    from .
+    Record
 
 
 reify ::

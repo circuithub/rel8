@@ -39,6 +39,7 @@ import qualified Hasql.Decoders as Hasql
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Generic.Record ( Record(..) )
+import Rel8.Generic.Table ( GColumns )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
@@ -48,7 +49,7 @@ import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
-import Rel8.Table ( Table, Columns, fromColumns, toColumns, GColumns )
+import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
@@ -72,7 +73,7 @@ class Table Expr exprs => ToExprs exprs a where
   default fromResult ::
     ( Generic (Record a)
     , GToExprs (Rep (Record exprs)) (Rep (Record a))
-    , Columns exprs ~ GColumns (Rep (Record exprs))
+    , Columns exprs ~ GColumns TColumns (Rep (Record exprs))
     )
     => Columns exprs (Col Result) -> a
   fromResult = unrecord . to . gfromResult @(Rep (Record exprs))
@@ -80,7 +81,7 @@ class Table Expr exprs => ToExprs exprs a where
   default toResult ::
     ( Generic (Record a)
     , GToExprs (Rep (Record exprs)) (Rep (Record a))
-    , Columns exprs ~ GColumns (Rep (Record exprs))
+    , Columns exprs ~ GColumns TColumns (Rep (Record exprs))
     )
     => a -> Columns exprs (Col Result)
   toResult = gtoResult @(Rep (Record exprs)) . from . Record
@@ -88,8 +89,8 @@ class Table Expr exprs => ToExprs exprs a where
 
 type GToExprs :: (Type -> Type) -> (Type -> Type) -> Constraint
 class GToExprs exprs rep where
-  gfromResult :: GColumns exprs (Col Result) -> rep x
-  gtoResult :: rep x -> GColumns exprs (Col Result)
+  gfromResult :: GColumns TColumns exprs (Col Result) -> rep x
+  gtoResult :: rep x -> GColumns TColumns exprs (Col Result)
 
 
 instance GToExprs exprs rep => GToExprs (M1 D c exprs) (M1 D c rep) where
@@ -112,7 +113,7 @@ instance (GToExprs exprs1 rep1, GToExprs exprs2 rep2) =>
 instance
   ( ToExprs exprs a
   , KnownSymbol label
-  , GColumns (M1 S meta k1) ~ HLabel label (Columns exprs)
+  , GColumns TColumns (M1 S meta k1) ~ HLabel label (Columns exprs)
   , meta ~ 'MetaSel ('Just label) _su _ss _ds
   , k1 ~ K1 i exprs
   , k1' ~ K1 i a

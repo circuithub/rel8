@@ -21,8 +21,8 @@ where
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
-import GHC.Generics ( Rep, (:*:), K1, M1, Meta( MetaSel ), D, C, S )
-import GHC.TypeLits ( KnownSymbol )
+import Data.Proxy ( Proxy )
+import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
 -- rel8
@@ -30,20 +30,19 @@ import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
-import Rel8.Schema.Context.Label ( hlabeler )
+import Rel8.Generic.Table ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable
   , htabulateA, hfield, hdicts
   )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel )
-import Rel8.Schema.HTable.Product ( HProduct(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null (Sql)
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Table, Columns, toColumns, GColumns )
+import Rel8.Table ( Table, Columns, toColumns, TColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Type.Eq ( DBEq )
@@ -58,40 +57,17 @@ class EqTable a => OrdTable a where
   ordTable :: Columns a (Dict (ConstrainDBType DBOrd))
 
   default ordTable ::
-    ( GColumns (Rep (Record a)) ~ Columns a
-    , GOrdTable (Rep (Record a))
+    ( GTable TOrdTable TColumns (Dict (ConstrainDBType DBOrd)) (Rep (Record a))
+    , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a (Dict (ConstrainDBType DBOrd))
-  ordTable = gordTable @(Rep (Record a))
+  ordTable = gtable @TOrdTable @TColumns @_ @(Rep (Record a)) table
+    where
+      table (_ :: Proxy x) = ordTable @x
 
 
-type GOrdTable :: (Type -> Type) -> Constraint
-class GOrdTable rep where
-  gordTable :: GColumns rep (Dict (ConstrainDBType DBOrd))
-
-
-instance GOrdTable rep => GOrdTable (M1 D c rep) where
-  gordTable = gordTable @rep
-
-
-instance GOrdTable rep => GOrdTable (M1 C c rep) where
-  gordTable = gordTable @rep
-
-
-instance (GOrdTable rep1, GOrdTable rep2) => GOrdTable (rep1 :*: rep2) where
-  gordTable = HProduct (gordTable @rep1) (gordTable @rep2)
-
-
-instance
-  ( OrdTable a
-  , KnownSymbol label
-  , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
-  , meta ~ 'MetaSel ('Just label) _su _ss _ds
-  , k1 ~ K1 i a
-  )
-  => GOrdTable (M1 S meta k1)
- where
-  gordTable = hlabel hlabeler (ordTable @a)
+data TOrdTable :: Type -> Exp Constraint
+type instance Eval (TOrdTable a) = OrdTable a
 
 
 instance

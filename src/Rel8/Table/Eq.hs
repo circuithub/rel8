@@ -24,28 +24,27 @@ import Data.Foldable ( foldl' )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
-import GHC.Generics ( Rep, (:*:), K1, M1, Meta( MetaSel ), D, C, S )
-import GHC.TypeLits ( KnownSymbol )
+import Data.Proxy ( Proxy )
+import GHC.Generics ( Rep )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
-import Rel8.Schema.Context.Label ( hlabeler )
+import Rel8.Generic.Table ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable
   , htabulateA, hfield, hdicts
   )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel )
-import Rel8.Schema.HTable.Product ( HProduct(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table ( Table, Columns, toColumns, GColumns )
+import Rel8.Table ( Table, Columns, toColumns, TColumns )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -57,39 +56,17 @@ class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (ConstrainDBType DBEq))
 
   default eqTable ::
-    ( GColumns (Rep (Record a)) ~ Columns a
-    , GEqTable (Rep (Record a))
+    ( GTable TEqTable TColumns (Dict (ConstrainDBType DBEq)) (Rep (Record a))
+    , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a (Dict (ConstrainDBType DBEq))
-  eqTable = geqTable @(Rep (Record a))
+  eqTable = gtable @TEqTable @TColumns @_ @(Rep (Record a)) table
+    where
+      table (_ :: Proxy x) = eqTable @x
 
 
-type GEqTable :: (Type -> Type) -> Constraint
-class GEqTable rep where
-  geqTable :: GColumns rep (Dict (ConstrainDBType DBEq))
-
-
-instance GEqTable rep => GEqTable (M1 D c rep) where
-  geqTable = geqTable @rep
-
-
-instance GEqTable rep => GEqTable (M1 C c rep) where
-  geqTable = geqTable @rep
-
-
-instance (GEqTable rep1, GEqTable rep2) => GEqTable (rep1 :*: rep2) where
-  geqTable = HProduct (geqTable @rep1) (geqTable @rep2)
-
-
-instance
-  ( EqTable a
-  , KnownSymbol label
-  , GColumns (M1 S meta k1) ~ HLabel label (Columns a)
-  , meta ~ 'MetaSel ('Just label) _su _ss _ds
-  , k1 ~ K1 i a
-  ) => GEqTable (M1 S meta k1)
- where
-  geqTable = hlabel hlabeler (eqTable @a)
+data TEqTable :: Type -> Exp Constraint
+type instance Eval (TEqTable a) = EqTable a
 
 
 instance
