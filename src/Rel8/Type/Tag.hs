@@ -1,11 +1,13 @@
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DerivingVia #-}
+{-# language GeneralizedNewtypeDeriving #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Type.Tag
   ( EitherTag( IsLeft, IsRight ), isLeft, isRight
   , MaybeTag( IsJust )
+  , Tag( Tag )
   )
 where
 
@@ -29,6 +31,9 @@ import Rel8.Type.Information ( mapTypeInformation, parseTypeInformation )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Ord ( DBOrd )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+
+-- text
+import Data.Text ( Text )
 
 
 type EitherTag :: Type
@@ -83,3 +88,10 @@ instance DBSemigroup MaybeTag where
 
 instance DBMonoid MaybeTag where
   memptyExpr = litExpr mempty
+
+
+newtype Tag = Tag Text
+  deriving newtype
+    ( Eq, Ord, Read, Show
+    , DBType, DBEq, DBOrd
+    )

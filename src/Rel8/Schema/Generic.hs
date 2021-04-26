@@ -69,7 +69,7 @@ instance (Rel8able t, Labelable context, Reifiable context) =>
 
 
 type KRel8able :: Type
-type KRel8able = K.Table
+type KRel8able = K.Rel8able
 
 
 -- | This type class allows you to define custom 'Table's using higher-kinded
@@ -114,7 +114,7 @@ type KRel8able = K.Table
 -- data MyType f = MyType { fieldA :: Column f T }
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
-type Rel8able :: KRel8able -> Constraint
+type Rel8able :: K.Rel8able -> Constraint
 class HTable (GRep t) => Rel8able t where
   type GRep t :: K.HTable
 

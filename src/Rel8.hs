@@ -294,7 +294,7 @@ import Rel8.Statement.Returning
 import Rel8.Statement.Select
 import Rel8.Statement.Update
 import Rel8.Statement.View
-import Rel8.Table
+import Rel8.Table hiding ( null )
 import Rel8.Table.Aggregate
 import Rel8.Table.Alternative
 import Rel8.Table.Bool

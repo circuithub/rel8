@@ -1,7 +1,7 @@
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Kind
-  ( Context, Table
+  ( Context, Rel8able
   , HContext, HTable
   )
 where
@@ -29,5 +29,5 @@ type Context :: Type
 type Context = X -> Type
 
 
-type Table :: Type
-type Table = Context -> Type
+type Rel8able :: Type
+type Rel8able = Context -> Type

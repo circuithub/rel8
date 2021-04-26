@@ -18,6 +18,7 @@ module Rel8.Table
   ( Table (Columns, Context, Unreify, toColumns, fromColumns, reify, unreify)
   , Congruent
   , TTable, TColumns, TContext, TUnreify
+  , null, nullifier, unnullifier
   )
 where
 

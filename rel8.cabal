@@ -70,6 +70,7 @@ library
     Rel8.Generic.Map
     Rel8.Generic.Record
     Rel8.Generic.Table
+    Rel8.Generic.Table.ADT
 
     Rel8.Order
 
