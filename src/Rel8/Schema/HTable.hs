@@ -16,7 +16,7 @@
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
-  , htabulateA
+  , hmap, htabulateA
   )
 where
 
@@ -112,6 +112,11 @@ class HTable t where
   {-# INLINABLE htraverse #-}
   {-# INLINABLE hdicts #-}
   {-# INLINABLE hspecs #-}
+
+
+hmap :: HTable t
+  => (forall spec. context spec -> context' spec) -> t context -> t context'
+hmap f a = htabulate $ \field -> f (hfield a field)
 
 
 htabulateA :: (HTable t, Apply m)

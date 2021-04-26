@@ -12,8 +12,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Table
-  ( GTable, GColumns, GContext, GUnreify
-  , fromGColumns, toGColumns, gtable, greify, gunreify
+  ( GTable, GColumns, GContext, fromGColumns, toGColumns, gtable
   )
 where
 
@@ -54,14 +53,6 @@ type family GContext _Context rep where
   GContext _Context (K1 _ a) = Eval (_Context a)
 
 
-type GUnreify :: (Type -> Exp a) -> (Type -> Type) -> Type -> Type
-type family GUnreify _Unreify rep where
-  GUnreify _Unreify (M1 i c rep) = M1 i c (GUnreify _Unreify rep)
-  GUnreify _Unreify (rep1 :*: rep2) =
-    GUnreify _Unreify rep1 :*: GUnreify _Unreify rep2
-  GUnreify _Unreify (K1 i a) = K1 i (Eval (_Unreify a))
-
-
 type GTable
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
@@ -82,18 +73,6 @@ class GTable _Table _Columns context rep
     => (forall a. Eval (_Table a) => Proxy a -> Eval (_Columns a) context)
     -> GColumns _Columns rep context
 
-  greify :: ()
-    => Proxy _Unreify
-    -> (forall a. Eval (_Table a) => Eval (_Unreify a) -> a)
-    -> GUnreify _Unreify rep x
-    -> rep x
-
-  gunreify :: ()
-    => Proxy _Unreify
-    -> (forall a. Eval (_Table a) => a -> Eval (_Unreify a))
-    -> rep x
-    -> GUnreify _Unreify rep x
-
 
 instance GTable _Table _Columns context rep =>
   GTable _Table _Columns context (M1 D c rep)
@@ -103,10 +82,6 @@ instance GTable _Table _Columns context rep =>
   toGColumns toColumns (M1 a) =
     toGColumns @_Table @_Columns @context @rep toColumns a
   gtable = gtable @_Table @_Columns @context @rep
-  greify proxy reify (M1 a) =
-    M1 (greify @_Table @_Columns @context @rep proxy reify a)
-  gunreify proxy unreify (M1 a) =
-    M1 (gunreify @_Table @_Columns @context @rep proxy unreify a)
 
 
 instance GTable _Table _Columns context rep =>
@@ -117,10 +92,6 @@ instance GTable _Table _Columns context rep =>
   toGColumns toColumns (M1 a) =
     toGColumns @_Table @_Columns @context @rep toColumns a
   gtable = gtable @_Table @_Columns @context @rep
-  greify proxy reify (M1 a) =
-    M1 (greify @_Table @_Columns @context @rep proxy reify a)
-  gunreify proxy unreify (M1 a) =
-    M1 (gunreify @_Table @_Columns @context @rep proxy unreify a)
 
 
 instance
@@ -138,12 +109,6 @@ instance
   gtable table = HProduct
     (gtable @_Table @_Columns @context @rep1 table)
     (gtable @_Table @_Columns @context @rep2 table)
-  greify proxy reify (a :*: b) =
-    greify @_Table @_Columns @context @rep1 proxy reify a :*:
-    greify @_Table @_Columns @context @rep2 proxy reify b
-  gunreify proxy unreify (a :*: b) =
-    gunreify @_Table @_Columns @context @rep1 proxy unreify a :*:
-    gunreify @_Table @_Columns @context @rep2 proxy unreify b
 
 
 instance
@@ -159,5 +124,3 @@ instance
   fromGColumns fromColumns = M1 . K1 . fromColumns . hunlabel hunlabeler
   toGColumns toColumns (M1 (K1 a)) = hlabel hlabeler (toColumns a)
   gtable table = hlabel hlabeler (table (Proxy @a))
-  greify _ reify (M1 (K1 a)) = M1 (K1 (reify a))
-  gunreify _ unreify (M1 (K1 a)) = M1 (K1 (unreify a))

@@ -30,12 +30,9 @@ import Rel8.Kind.Context
   , Reifiable, contextSing
   , sLabelable, sReifiable
   )
+import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Record ( Record(..) )
-import Rel8.Generic.Table
-  ( GTable, GColumns, fromGColumns, toGColumns
-  , GUnreify
-  )
-import qualified Rel8.Generic.Table as G
+import Rel8.Generic.Table ( GTable, GColumns, fromGColumns, toGColumns )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -160,29 +157,27 @@ class HTable (GRep t) => Rel8able t where
   default greify :: forall context.
     ( Generic (Record (t context))
     , Generic (Record (t (Reify context)))
-    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
-    , Rep (Record (t context)) ~ GUnreify TUnreify (Rep (Record (t (Reify context))))
+    , GMappable (TTable (Reify context)) (Rep (Record (t (Reify context))))
+    , Rep (Record (t context)) ~ GMap TUnreify (Rep (Record (t (Reify context))))
     )
     => t context -> t (Reify context)
   greify =
     unrecord .
     to .
-    G.greify @(TTable (Reify context)) @TColumns @(Col (Reify context)) (Proxy @TUnreify)
-      (reify Refl) .
+    gunmap @(TTable (Reify context)) (Proxy @TUnreify) (reify Refl) .
     from .
     Record
 
   default gunreify :: forall context.
     ( Generic (Record (t context))
     , Generic (Record (t (Reify context)))
-    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
-    , Rep (Record (t context)) ~ GUnreify TUnreify (Rep (Record (t (Reify context))))
+    , GMappable (TTable (Reify context)) (Rep (Record (t (Reify context))))
+    , Rep (Record (t context)) ~ GMap TUnreify (Rep (Record (t (Reify context))))
     )
     => t (Reify context) -> t context
   gunreify =
     unrecord .
     to .
-    G.gunreify @(TTable (Reify context)) @TColumns @(Col (Reify context)) (Proxy @TUnreify)
-      (unreify Refl) .
+    gmap @(TTable (Reify context)) (Proxy @TUnreify) (unreify Refl) .
     from .
     Record

@@ -33,9 +33,9 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
+import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Table
-  ( GTable, GColumns, GContext, GUnreify
-  , fromGColumns, toGColumns, greify, gunreify
+  ( GTable, GColumns, GContext, fromGColumns, toGColumns
   )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.Context ( Col(..) )
@@ -124,30 +124,28 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
   default reify ::
     ( Generic (Record a)
     , Generic (Record (Unreify a))
-    , GTable (TTable context) TColumns (Col context) (Rep (Record a))
-    , Rep (Record (Unreify a)) ~ GUnreify TUnreify (Rep (Record a))
+    , GMappable (TTable context) (Rep (Record a))
+    , Rep (Record (Unreify a)) ~ GMap TUnreify (Rep (Record a))
     )
     => context :~: Reify ctx -> Unreify a -> a
   reify Refl =
     unrecord .
     to .
-    greify @(TTable context) @TColumns @(Col context) (Proxy @TUnreify)
-      (reify Refl) .
+    gunmap @(TTable context) (Proxy @TUnreify) (reify Refl) .
     from .
     Record
 
   default unreify ::
     ( Generic (Record a)
     , Generic (Record (Unreify a))
-    , GTable (TTable context) TColumns (Col context) (Rep (Record a))
-    , Rep (Record (Unreify a)) ~ GUnreify TUnreify (Rep (Record a))
+    , GMappable (TTable context) (Rep (Record a))
+    , Rep (Record (Unreify a)) ~ GMap TUnreify (Rep (Record a))
     )
     => context :~: Reify ctx -> a -> Unreify a
   unreify Refl =
     unrecord .
     to .
-    gunreify @(TTable context) @TColumns @(Col context) (Proxy @TUnreify)
-      (unreify Refl) .
+    gmap @(TTable context) (Proxy @TUnreify) (unreify Refl) .
     from .
     Record
 

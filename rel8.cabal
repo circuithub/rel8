@@ -67,6 +67,7 @@ library
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
+    Rel8.Generic.Map
     Rel8.Generic.Record
     Rel8.Generic.Table
 

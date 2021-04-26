@@ -24,7 +24,7 @@ import Prelude
 -- rel8
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable, hfield, htabulate )
+import Rel8.Schema.HTable ( HTable, hmap )
 import Rel8.Schema.Kind ( Context )
 
 
@@ -42,12 +42,11 @@ instance Labelable context => Labelable (Reify context) where
 
 
 hreify :: HTable t => t (Col context) -> t (Col (Reify context))
-hreify a = htabulate $ \field -> Reify (hfield a field)
+hreify = hmap Reify
 
 
 hunreify :: HTable t => t (Col (Reify context)) -> t (Col context)
-hunreify a = htabulate $ \field -> case hfield a field of
-  Reify x -> x
+hunreify = hmap (\(Reify a) -> a)
 
 
 type UnwrapReify :: Context -> Context
