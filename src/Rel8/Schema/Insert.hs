@@ -39,11 +39,15 @@ import Rel8.Schema.Context.Nullify
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Name ( Name, Selects )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( SSpec(SSpec, nullity), Spec(Spec) )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning )
-import Rel8.Table ( Table(..) )
+import Rel8.Table
+  ( Table, Context, Columns, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Tag ( Tag(..), fromExpr )
 import Rel8.Type ( DBType )
@@ -89,6 +93,8 @@ instance Sql DBType a => Table Insert (Insertion a) where
 
   toColumns (Insertion a) = HType (RequiredInsert a)
   fromColumns (HType (RequiredInsert a)) = Insertion a
+  reify = notReify
+  unreify = notReify
 
 
 instance Sql DBType a =>

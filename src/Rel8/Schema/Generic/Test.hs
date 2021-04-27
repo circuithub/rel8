@@ -8,6 +8,8 @@
 {-# language StandaloneDeriving #-}
 {-# language TypeFamilies #-}
 
+{-# options_ghc -O0 #-}
+
 module Rel8.Schema.Generic.Test
   ( module Rel8.Schema.Generic.Test
   )
@@ -77,7 +79,7 @@ data TableList f = TableList
 
 data TableNonEmpty f = TableNonEmpty
   { foo :: Column f Bool
-  , bars :: HNonEmpty f (TableList f, Default f Char)
+  , bars :: HNonEmpty f (TableList f, TableMaybe f)
   }
   deriving stock Generic
   deriving anyclass Rel8able
@@ -86,14 +88,15 @@ data TableNonEmpty f = TableNonEmpty
 data S3Object = S3Object
   { bucketName :: Text
   , objectKey :: Text
-  } deriving stock Generic
+  }
+  deriving stock Generic
 
 
 deriving via HKDT S3Object
   instance x ~ HKD S3Object Expr => ToExprs x S3Object
 
 
-data HKDTest f = HKDTest
+newtype HKDTest f = HKDTest
   { s3Object :: Lift f S3Object
   } 
   deriving stock Generic

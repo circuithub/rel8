@@ -48,7 +48,10 @@ import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table
+  ( Table, Columns, Context, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
@@ -139,13 +142,16 @@ instance
 
   toColumns = toColumns1 toColumns
   fromColumns = fromColumns1 fromColumns
+  reify = fmap fmap reify
+  unreify = fmap fmap unreify
 
 
 instance
   ( Labelable from, Nullifiable from, ConstrainTag from MaybeTag
   , Labelable to, Nullifiable to, ConstrainTag to MaybeTag
   , Recontextualize from to a b
-  ) => Recontextualize from to (MaybeTable a) (MaybeTable b)
+  )
+  => Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
 instance EqTable a => EqTable (MaybeTable a) where

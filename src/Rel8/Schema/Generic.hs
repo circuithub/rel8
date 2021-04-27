@@ -19,38 +19,56 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
+import Data.Proxy ( Proxy( Proxy ) )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
-import Unsafe.Coerce ( unsafeCoerce )
 
 -- rel8
+import Rel8.Kind.Context
+  ( SContext( SReify )
+  , Reifiable, contextSing
+  , sLabelable, sReifiable
+  )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Generic.Table
   ( GTable, GColumns, fromGColumns, toGColumns
+  , GUnreify
   )
+import qualified Rel8.Generic.Table as G
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
-import Rel8.Schema.Field ( Reify, Reifiable, hreify, hunreify )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
+import Rel8.Schema.Reify ( Reify, UnwrapReify, hreify, hunreify )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , TTable, TColumns
+  , Unreify, reify, unreify
+  , TTable, TColumns, TUnreify
   )
 
 
-instance
-  ( Rel8able t
-  , Labelable context
-  , Reifiable context
-  ) => Table context (t context)
+instance (Rel8able t, Labelable context, Reifiable context) =>
+  Table context (t context)
  where
   type Columns (t context) = GRep t
   type Context (t context) = context
+  type Unreify (t context) = t (UnwrapReify context)
 
-  fromColumns = unreify . gfromColumns . hreify
-  toColumns = hunreify . gtoColumns . reify
+  fromColumns = gunreify . gfromColumns . hreify
+  toColumns = hunreify . gtoColumns . greify
+
+  reify Refl = case contextSing @context of
+    SReify context -> case sLabelable context of
+      Dict -> case sReifiable context of
+        Dict -> greify
+
+  unreify Refl = case contextSing @context of
+    SReify context -> case sLabelable context of
+      Dict -> case sReifiable context of
+        Dict -> gunreify
 
 
 type KRel8able :: Type
@@ -109,6 +127,12 @@ class HTable (GRep t) => Rel8able t where
   gtoColumns :: (Labelable context, Reifiable context)
     => t (Reify context) -> GRep t (Col (Reify context))
 
+  greify :: (Labelable context, Reifiable context)
+    => t context -> t (Reify context)
+
+  gunreify :: (Labelable context, Reifiable context)
+    => t (Reify context) -> t context
+
   type GRep t = GColumns TColumns (Rep (Record (t (Reify Name))))
 
   default gfromColumns :: forall context.
@@ -133,18 +157,32 @@ class HTable (GRep t) => Rel8able t where
     from .
     Record
 
+  default greify :: forall context.
+    ( Generic (Record (t context))
+    , Generic (Record (t (Reify context)))
+    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    , Rep (Record (t context)) ~ GUnreify TUnreify (Rep (Record (t (Reify context))))
+    )
+    => t context -> t (Reify context)
+  greify =
+    unrecord .
+    to .
+    G.greify @(TTable (Reify context)) @TColumns @(Col (Reify context)) (Proxy @TUnreify)
+      (reify Refl) .
+    from .
+    Record
 
-reify ::
-  (-- Rel8able t
-  --, forall necessity a. Coercible (Field context necessity a) (AField context necessity a) => Coercible (t context) (t (Reify context))
-  )
-  => t context -> t (Reify context)
-reify = unsafeCoerce
-
-
-unreify ::
-  (-- Rel8able t
-  --, forall necessity a. Coercible (AField context necessity a) (Field context necessity a) => Coercible (t (Reify context)) (t context)
-  )
-  => t (Reify context) -> t context
-unreify = unsafeCoerce
+  default gunreify :: forall context.
+    ( Generic (Record (t context))
+    , Generic (Record (t (Reify context)))
+    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    , Rep (Record (t context)) ~ GUnreify TUnreify (Rep (Record (t (Reify context))))
+    )
+    => t (Reify context) -> t context
+  gunreify =
+    unrecord .
+    to .
+    G.gunreify @(TTable (Reify context)) @TColumns @(Col (Reify context)) (Proxy @TUnreify)
+      (unreify Refl) .
+    from .
+    Record

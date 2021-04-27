@@ -24,6 +24,7 @@ module Rel8.Table.These
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
@@ -49,8 +50,11 @@ import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Schema.Name ( Name  )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Schema.Name ( Name )
+import Rel8.Table
+  ( Table, Columns, Context, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
@@ -128,6 +132,8 @@ instance
 
   toColumns = toColumns2 toColumns toColumns
   fromColumns = fromColumns2 fromColumns fromColumns
+  reify = liftA2 bimap reify reify
+  unreify = liftA2 bimap unreify unreify
 
 
 instance

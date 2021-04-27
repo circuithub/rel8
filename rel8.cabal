@@ -63,6 +63,7 @@ library
 
     Rel8.FCF
 
+    Rel8.Kind.Context
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
@@ -115,6 +116,7 @@ library
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
+    Rel8.Schema.Reify
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
@@ -148,6 +150,7 @@ library
     Rel8.Table.Tag
     Rel8.Table.These
     Rel8.Table.Undefined
+    Rel8.Table.Unreify
 
     Rel8.Type
     Rel8.Type.Array

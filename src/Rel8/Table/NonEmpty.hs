@@ -1,7 +1,9 @@
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -19,6 +21,7 @@ where
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -28,13 +31,18 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
+import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
-import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
+import Rel8.Table
+  ( Table, Context, Columns, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Unreify ( Unreifiable )
 
 
 -- | A @NonEmptyTable@ value contains one or more instances of @a@. You
@@ -44,16 +52,24 @@ newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Col (Context a)))
 
 
-instance Table context a => Table context (NonEmptyTable a) where
+instance (Table context a, Unreifiable context a) =>
+  Table context (NonEmptyTable a)
+ where
   type Columns (NonEmptyTable a) = HNonEmptyTable (Columns a)
   type Context (NonEmptyTable a) = Context a
 
   fromColumns = NonEmptyTable
   toColumns (NonEmptyTable a) = a
 
+  reify Refl (NonEmptyTable a) = NonEmptyTable (hreify a)
+  unreify Refl (NonEmptyTable a) = NonEmptyTable (hunreify a)
 
-instance Recontextualize from to a b =>
-  Recontextualize from to (NonEmptyTable a) (NonEmptyTable b)
+
+instance
+  ( Unreifiable from a, Unreifiable to b
+  , Recontextualize from to a b
+  )
+  => Recontextualize from to (NonEmptyTable a) (NonEmptyTable b)
 
 
 instance EqTable a => EqTable (NonEmptyTable a) where

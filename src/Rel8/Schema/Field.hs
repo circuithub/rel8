@@ -10,31 +10,28 @@
 module Rel8.Schema.Field
   ( Field
   , HEither, HList, HMaybe, HNonEmpty, HThese
-  , Reify, hreify, hunreify
-  , Reifiable(..)
   , AField(..)
   , AHEither(..), AHList(..), AHMaybe(..), AHNonEmpty(..), AHThese(..)
-  , SContext(..)
   )
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Data.Bifunctor ( Bifunctor, bimap )
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate, Col(..) )
 import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Kind.Necessity
   ( Necessity( Required, Optional )
   , SNecessity( SRequired, SOptional )
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Context ( Interpretation, Col(..) )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable ( HTable, hfield, htabulate )
+import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
@@ -45,11 +42,12 @@ import Rel8.Schema.Insert ( Insert, Col(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col(..) )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Reify ( Reify, Col(..), hreify, hunreify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns
-  , Congruent
+  ( Table, Columns, Congruent, Context, fromColumns, toColumns
+  , Unreify, reify, unreify
   )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable( ListTable ) )
@@ -57,6 +55,7 @@ import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
+import Rel8.Table.Unreify ( Unreifiable )
 import Rel8.Type ( DBType )
 
 -- these
@@ -133,9 +132,12 @@ instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
  where
   type Context (AField context necessity a) = Reify context
   type Columns (AField context necessity a) = HIdentity ('Spec '[""] necessity a)
+  type Unreify (AField context necessity a) = Field context necessity a
 
   fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a
   toColumns = HIdentity . Reify . stoColumn contextSing necessitySing
+  reify _ = AField
+  unreify _ (AField a) = a
 
 
 instance
@@ -166,9 +168,12 @@ instance (Reifiable context, Table (Reify context) a, Table (Reify context) b)
  where
   type Context (AHEither context a b) = Reify context
   type Columns (AHEither context a b) = HEitherTable (Columns a) (Columns b)
+  type Unreify (AHEither context a b) = HEither context (Unreify a) (Unreify b)
 
   fromColumns = sfromColumnsEither contextSing
   toColumns = stoColumnsEither contextSing
+  reify proof = liftA2 bimap reify reify proof . AHEither
+  unreify proof = (\(AHEither a) -> a) . liftA2 bimap unreify unreify proof
 
 
 instance
@@ -187,18 +192,30 @@ type AHList :: K.Context -> Type -> Type
 newtype AHList context a = AHList (HList context a)
 
 
-instance (Reifiable context, Table (Reify context) a) =>
-  Table (Reify context) (AHList context a)
+instance
+  ( Reifiable context
+  , Table (Reify context) a
+  , Unreifiable (Reify context) a
+  )
+  => Table (Reify context) (AHList context a)
  where
   type Context (AHList context a) = Reify context
   type Columns (AHList context a) = HListTable (Columns a)
+  type Unreify (AHList context a) = HList context (Unreify a)
 
   fromColumns = sfromColumnsList contextSing
   toColumns = stoColumnsList contextSing
+  reify proof =
+    smapList contextSing (reify proof) hreify .
+    AHList
+  unreify proof =
+    (\(AHList a) -> a) .
+    smapList contextSing (unreify proof) hunreify
 
 
 instance
   ( Reifiable context, Reifiable context'
+  , Unreifiable (Reify context) a, Unreifiable (Reify context') a'
   , Recontextualize (Reify context) (Reify context') a a'
   ) =>
   Recontextualize
@@ -221,9 +238,12 @@ instance (Reifiable context, Table (Reify context) a) =>
  where
   type Context (AHMaybe context a) = Reify context
   type Columns (AHMaybe context a) = HMaybeTable (Columns a)
+  type Unreify (AHMaybe context a) = HMaybe context (Unreify a)
 
   fromColumns = sfromColumnsMaybe contextSing
   toColumns = stoColumnsMaybe contextSing
+  reify proof = fmap fmap reify proof . AHMaybe
+  unreify proof = (\(AHMaybe a) -> a) . fmap fmap unreify proof
 
 
 instance
@@ -241,18 +261,30 @@ type AHNonEmpty :: K.Context -> Type -> Type
 newtype AHNonEmpty context a = AHNonEmpty (HNonEmpty context a)
 
 
-instance (Reifiable context, Table (Reify context) a) =>
-  Table (Reify context) (AHNonEmpty context a)
+instance
+  ( Reifiable context
+  , Table (Reify context) a
+  , Unreifiable (Reify context) a
+  )
+  => Table (Reify context) (AHNonEmpty context a)
  where
   type Context (AHNonEmpty context a) = Reify context
   type Columns (AHNonEmpty context a) = HNonEmptyTable (Columns a)
+  type Unreify (AHNonEmpty context a) = HNonEmpty context (Unreify a)
 
   fromColumns = sfromColumnsNonEmpty contextSing
   toColumns = stoColumnsNonEmpty contextSing
+  reify proof =
+    smapNonEmpty contextSing (reify proof) hreify .
+    AHNonEmpty
+  unreify proof =
+    (\(AHNonEmpty a) -> a) .
+    smapNonEmpty contextSing (unreify proof) hunreify
 
 
 instance
   ( Reifiable context, Reifiable context'
+  , Unreifiable (Reify context) a, Unreifiable (Reify context') a'
   , Recontextualize (Reify context) (Reify context') a a'
   ) =>
   Recontextualize
@@ -279,9 +311,12 @@ instance (Reifiable context, Table (Reify context) a, Table (Reify context) b)
  where
   type Context (AHThese context a b) = Reify context
   type Columns (AHThese context a b) = HTheseTable (Columns a) (Columns b)
+  type Unreify (AHThese context a b) = HThese context (Unreify a) (Unreify b)
 
   fromColumns = sfromColumnsThese contextSing
   toColumns = stoColumnsThese contextSing
+  reify proof = liftA2 bimap reify reify proof . AHThese
+  unreify proof = (\(AHThese a) -> a) . liftA2 bimap unreify unreify proof
 
 
 instance
@@ -294,58 +329,6 @@ instance
     (Reify context')
     (AHThese context a b)
     (AHThese context' a' b')
-
-
-type SContext :: K.Context -> Type
-data SContext context where
-  SAggregate :: SContext Aggregate
-  SExpr :: SContext Expr
-  SInsert :: SContext Insert
-  SName :: SContext Name
-  SResult :: SContext Result
-  SReify :: SContext context -> SContext (Reify context)
-
-
-type Reifiable :: K.Context -> Constraint
-class Interpretation context => Reifiable context where
-  contextSing :: SContext context
-
-
-instance Reifiable Aggregate where
-  contextSing = SAggregate
-
-
-instance Reifiable Expr where
-  contextSing = SExpr
-
-
-instance Reifiable Result where
-  contextSing = SResult
-
-
-instance Reifiable Insert where
-  contextSing = SInsert
-
-
-instance Reifiable Name where
-  contextSing = SName
-
-
-type Reify :: K.Context -> K.Context
-data Reify context a
-
-
-instance Interpretation (Reify context) where
-  newtype Col (Reify context) spec = Reify (Col context spec)
-
-
-instance Labelable context => Labelable (Reify context) where
-  labeler (Reify a) = Reify (labeler a)
-  unlabeler (Reify a) = Reify (unlabeler a)
-
-
-instance Reifiable context => Reifiable (Reify context) where
-  contextSing = SReify contextSing
 
 
 sfromColumn :: ()
@@ -710,12 +693,3 @@ stoColumnsThese = \case
     stoColumnsThese context .
     sbimapThese context (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHThese a) -> a)
-
-
-hreify :: HTable t => t (Col context) -> t (Col (Reify context))
-hreify a = htabulate $ \field -> Reify (hfield a field)
-
-
-hunreify :: HTable t => t (Col (Reify context)) -> t (Col context)
-hunreify a = htabulate $ \field -> case hfield a field of
-  Reify x -> x

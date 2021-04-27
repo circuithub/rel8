@@ -41,9 +41,12 @@ import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
+import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table
+  ( Table, Columns, Context, fromColumns, toColumns, reify, unreify
+  )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
@@ -112,6 +115,8 @@ instance Sql DBType a => Table Expr (Expr a) where
 
   toColumns a = HType (DB a)
   fromColumns (HType (DB a)) = a
+  reify = notReify
+  unreify = notReify
 
 
 instance Sql DBType a => Recontextualize Expr Expr (Expr a) (Expr a)

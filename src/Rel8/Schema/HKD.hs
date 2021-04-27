@@ -37,17 +37,17 @@ import GHC.TypeLits ( KnownSymbol )
 import Prelude
 
 -- higgledy
-import Data.Generic.HKD ( Construct, HKD( HKD, runHKD ), GHKD_, construct, deconstruct )
+import Data.Generic.HKD ( Construct, HKD(..), GHKD_, construct, deconstruct )
 
 -- rel8
 import Rel8.Aggregate ( Col(..), Aggregate )
 import Rel8.Expr ( Expr )
+import Rel8.Kind.Context ( Reifiable(..), SContext(..) )
 import Rel8.Schema.Context.Label
   ( Labelable
   , HLabelable, hlabeler, hunlabeler
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Field ( Reify, Reifiable(..), SContext(..), hunreify, hreify )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
@@ -56,8 +56,12 @@ import Rel8.Schema.Insert ( Insert, Col(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..) )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Reify ( Reify, hreify, hunreify, NotReify, notReify )
 import Rel8.Schema.Result ( Result )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table
+  ( Table, Columns, Context, fromColumns, toColumns
+  , Unreify, reify, unreify
+  )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Type ( DBType )
@@ -178,19 +182,27 @@ type family GColumns rep where
   GColumns (f :*: g) = HProduct (GColumns f) (GColumns g)
 
 
-instance (GTable (Rep a), Column1 context f, Labelable context) =>
-  Table context (HKD a f)
+instance
+  ( GTable (Rep a)
+  , Column1 context f
+  , Labelable context
+  , NotReify context
+  )
+  => Table context (HKD a f)
  where
   type Columns (HKD a f) = GRep a
   type Context (HKD a f) = Context1 f
 
   toColumns = toGColumns toColumn1 . runHKD
   fromColumns = HKD . fromGColumns fromColumn1
+  reify = notReify
+  unreify = notReify
 
 
 instance
   ( a ~ a'
   , GTable (Rep a)
+  , NotReify context, NotReify context'
   , Recontextualize1 context context' f f'
   , Column1 context f, Labelable context
   , Column1 context' f', Labelable context'
@@ -227,9 +239,12 @@ instance
  where
   type Context (ALift context a) = Reify context
   type Columns (ALift context a) = GRep a
+  type Unreify (ALift context a) = Lift context a
 
   fromColumns = sfromColumnsLift contextSing
   toColumns = stoColumnsLift contextSing
+  reify _ = ALift
+  unreify _ (ALift a) = a
 
 
 instance

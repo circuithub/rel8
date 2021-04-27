@@ -37,9 +37,13 @@ import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table
+  ( Table, Columns, Context, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 
@@ -81,6 +85,9 @@ instance Table Expr a => Table Aggregate (Aggregate a) where
   fromColumns as = fmap fromColumns $ htabulateA $ \field ->
     case hfield as field of
       Aggregation a -> DB <$> a
+
+  reify = notReify
+  unreify = notReify
 
 
 instance Sql DBType a =>

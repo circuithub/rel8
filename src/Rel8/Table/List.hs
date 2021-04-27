@@ -17,6 +17,7 @@ where
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -28,7 +29,11 @@ import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
-import Rel8.Table ( Table, Context, Columns, fromColumns, toColumns )
+import Rel8.Schema.Reify ( hreify, hunreify )
+import Rel8.Table
+  ( Table, Context, Columns, fromColumns, toColumns
+  , reify, unreify
+  )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
@@ -36,6 +41,7 @@ import Rel8.Table.Alternative
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Unreify ( Unreifiable )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
@@ -44,16 +50,24 @@ type ListTable :: Type -> Type
 newtype ListTable a = ListTable (HListTable (Columns a) (Col (Context a)))
 
 
-instance Table context a => Table context (ListTable a) where
+instance (Table context a, Unreifiable context a) =>
+  Table context (ListTable a)
+ where
   type Columns (ListTable a) = HListTable (Columns a)
   type Context (ListTable a) = Context a
 
   fromColumns = ListTable
   toColumns (ListTable a) = a
 
+  reify Refl (ListTable a) = ListTable (hreify a)
+  unreify Refl (ListTable a) = ListTable (hunreify a)
 
-instance Recontextualize from to a b =>
-  Recontextualize from to (ListTable a) (ListTable b)
+
+instance
+  ( Unreifiable from a, Unreifiable to b
+  , Recontextualize from to a b
+  )
+  => Recontextualize from to (ListTable a) (ListTable b)
 
 
 instance EqTable a => EqTable (ListTable a) where
