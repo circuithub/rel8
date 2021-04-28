@@ -233,7 +233,7 @@ module Rel8
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
-  , Array1D
+  , Array1D( Array1D )
   , NotArray
   , Nullable
   , NotNull
