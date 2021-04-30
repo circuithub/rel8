@@ -36,7 +36,6 @@ import Rel8.Generic.Table.Record
   ( GTable, GColumns, gtable
   , GToExprs, gfromResult, gtoResult
   )
-import Rel8.Schema.Context ( Col( Result ) )
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, labeler, unlabeler )
 import Rel8.Schema.Context.Result ( null, nullifier, unnullifier )
 import Rel8.Schema.HTable ( HTable, hmap )
@@ -47,7 +46,7 @@ import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullify )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Type.Tag ( Tag( Tag ) )
 
 -- text

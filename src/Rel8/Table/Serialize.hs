@@ -41,11 +41,10 @@ import Rel8.Generic.Table
   , GAlgebra
   )
 import Rel8.Kind.Algebra ( KnownAlgebra )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
 import Rel8.Table.Either ( EitherTable )

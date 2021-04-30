@@ -1,7 +1,6 @@
 {-# language DataKinds #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Schema.Context.Result
   ( relabel
@@ -14,10 +13,9 @@ where
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 

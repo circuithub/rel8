@@ -15,11 +15,11 @@ import Data.Kind ( Constraint )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context ( Interpretation, Col(..) )
+import Rel8.Schema.Context ( Interpretation )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Kind ( Context, HContext )
 import Rel8.Schema.Spec ( Spec( Spec ) )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 
 

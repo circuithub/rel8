@@ -32,7 +32,6 @@ import Rel8.Kind.Necessity
   , SNecessity( SRequired, SOptional )
   , KnownNecessity, necessitySing
   )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.HTable.Either ( HEitherTable )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
@@ -44,7 +43,7 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col(..) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( Reify, Col(..), hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Congruent, Context, fromColumns, toColumns

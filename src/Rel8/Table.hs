@@ -41,7 +41,6 @@ import Rel8.Generic.Table
   )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Generic.Reify ( ARep )
-import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.Context.Result
   ( relabel
@@ -66,7 +65,7 @@ import Rel8.Schema.Reify
   , UnwrapReify
   , notReify
   )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
