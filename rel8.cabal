@@ -126,7 +126,6 @@ library
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
-    Rel8.Schema.Structure
     Rel8.Schema.Table
 
     Rel8.Statement.Delete
