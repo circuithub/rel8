@@ -1,3 +1,5 @@
+{-# language AllowAmbiguousTypes #-}
+{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
@@ -11,9 +13,10 @@
 
 {-# options_ghc -fno-warn-orphans #-}
 
-module Rel8.Schema.Generic
-  ( Rel8able
-  , KRel8able
+module Rel8.Generic.Rel8able
+  ( KRel8able, Rel8able
+  , GColumns, GContext, gfromColumns, gtoColumns, greify, gunreify
+  , Algebra
   )
 where
 
@@ -30,27 +33,45 @@ import Rel8.Kind.Context
   , Reifiable, contextSing
   , sLabelable, sReifiable
   )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Record ( Record(..) )
-import Rel8.Generic.Table ( GTable, GColumns, fromGColumns, toGColumns )
+import Rel8.Generic.Table
+  ( GGTable, GGColumns, GGContext, ggfromColumns, ggtoColumns
+  , GAlgebra
+  )
+import Rel8.Kind.Algebra
+  ( SAlgebra( SProduct, SSum )
+  , KnownAlgebra, algebraSing
+  )
+import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Reify ( Reify, UnwrapReify, hreify, hunreify )
+import Rel8.Schema.Reify
+  ( Col( Reify ), Reify, hreify, hunreify
+  , UnwrapReify
+  )
+import Rel8.Schema.Result ( Result )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Unreify, reify, unreify
-  , TTable, TColumns, TUnreify
+  , TTable, TColumns, TContext, TUnreify
   )
 
 
-instance (Rel8able t, Labelable context, Reifiable context) =>
-  Table context (t context)
+instance
+  ( Rel8able t
+  , GContext t context ~ context
+  , Labelable context
+  , Reifiable context
+  )
+  => Table context (t context)
  where
-  type Columns (t context) = GRep t
+  type Columns (t context) = GColumns t
   type Context (t context) = context
   type Unreify (t context) = t (UnwrapReify context)
 
@@ -115,14 +136,16 @@ type KRel8able = K.Rel8able
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
 type Rel8able :: K.Rel8able -> Constraint
-class HTable (GRep t) => Rel8able t where
-  type GRep t :: K.HTable
+class HTable (GColumns t) => Rel8able t where
+  type Algebra t :: K.Algebra
+  type GColumns t :: K.HTable
+  type GContext t (context :: K.Context) :: K.Context
 
-  gfromColumns :: (Labelable context, Reifiable context)
-    => GRep t (Col (Reify context)) -> t (Reify context)
+  gfromColumns :: (Labelable context, Reifiable context, GContext t context ~ context)
+    => GColumns t (Col (Reify context)) -> t (Reify context)
 
-  gtoColumns :: (Labelable context, Reifiable context)
-    => t (Reify context) -> GRep t (Col (Reify context))
+  gtoColumns :: (Labelable context, Reifiable context, GContext t context ~ context)
+    => t (Reify context) -> GColumns t (Col (Reify context))
 
   greify :: (Labelable context, Reifiable context)
     => t context -> t (Reify context)
@@ -130,27 +153,47 @@ class HTable (GRep t) => Rel8able t where
   gunreify :: (Labelable context, Reifiable context)
     => t (Reify context) -> t context
 
-  type GRep t = GColumns TColumns (Rep (Record (t (Reify Name))))
+  type Algebra t = GAlgebra (Rep (Record (t (Reify Name))))
+  type GColumns t = Eval (GGColumns (Algebra t) TColumns (Rep (Record (t (Reify Name)))))
+  type GContext t context = Eval (GGContext (Algebra t) TUnreifyContext (Rep (Record (t (Reify context)))))
 
   default gfromColumns :: forall context.
     ( Generic (Record (t (Reify context)))
-    , GColumns TColumns (Rep (Record (t (Reify context)))) ~ GRep t
-    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    , KnownAlgebra (Algebra t)
+    , Eval (GGTable (Algebra t) (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context)))))
+    , Eval (GGColumns (Algebra t) TColumns (Rep (Record (t (Reify context))))) ~ GColumns t
+    , Constraints t context
     )
-    => GRep t (Col (Reify context)) -> t (Reify context)
+    => GColumns t (Col (Reify context)) -> t (Reify context)
   gfromColumns =
     unrecord .
     to .
-    fromGColumns @(TTable (Reify context)) @TColumns fromColumns
+    ggfromColumns
+      @(Algebra t)
+      @(TTable (Reify context))
+      @TColumns
+      @TContext
+      (fromContext @t @context)
+      (toContext @t @context)
+      fromColumns
 
   default gtoColumns :: forall context.
     ( Generic (Record (t (Reify context)))
-    , GColumns TColumns (Rep (Record (t (Reify context)))) ~ GRep t
-    , GTable (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context))))
+    , KnownAlgebra (Algebra t)
+    , Eval (GGTable (Algebra t) (TTable (Reify context)) TColumns (Col (Reify context)) (Rep (Record (t (Reify context)))))
+    , Eval (GGColumns (Algebra t) TColumns (Rep (Record (t (Reify context))))) ~ GColumns t
+    , Constraints t context
     )
-    => t (Reify context) -> GRep t (Col (Reify context))
+    => t (Reify context) -> GColumns t (Col (Reify context))
   gtoColumns =
-    toGColumns @(TTable (Reify context)) @TColumns toColumns .
+    ggtoColumns
+      @(Algebra t)
+      @(TTable (Reify context))
+      @TColumns
+      @TContext
+      (fromContext @t @context)
+      (toContext @t @context)
+      toColumns .
     from .
     Record
 
@@ -181,3 +224,42 @@ class HTable (GRep t) => Rel8able t where
     gmap @(TTable (Reify context)) (Proxy @TUnreify) (unreify Refl) .
     from .
     Record
+
+
+data TUnreifyContext :: Type -> Exp K.Context
+type instance Eval (TUnreifyContext a) = UnwrapReify (Eval (TContext a))
+
+
+type Constraints :: K.Rel8able -> K.Context -> Constraint
+type Constraints t context = Constraints' (Algebra t) t context
+
+
+type Constraints' :: K.Algebra -> K.Rel8able -> K.Context -> Constraint
+type family Constraints' algebra t context where
+  Constraints' 'K.Product t context =
+    ( Eval (GGContext 'K.Product TContext (Rep (Record (t (Reify context))))) ~
+        Reify context
+    )
+  Constraints' 'K.Sum _ context = context ~ Result
+
+
+fromContext :: forall t context spec.
+  ( KnownAlgebra (Algebra t)
+  , Constraints t context
+  )
+  => Col (Reify context) spec
+  -> Col (Eval (GGContext (Algebra t) TContext (Rep (Record (t (Reify context)))))) spec
+fromContext = case algebraSing @(Algebra t) of
+  SProduct -> id
+  SSum -> \(Reify a) -> a
+
+
+toContext :: forall t context spec.
+  ( KnownAlgebra (Algebra t)
+  , Constraints t context
+  )
+  => Col (Eval (GGContext (Algebra t) TContext (Rep (Record (t (Reify context)))))) spec
+  -> Col (Reify context) spec
+toContext = case algebraSing @(Algebra t) of
+  SProduct -> id
+  SSum -> Reify

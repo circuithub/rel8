@@ -10,8 +10,8 @@
 
 {-# options_ghc -O0 #-}
 
-module Rel8.Schema.Generic.Test
-  ( module Rel8.Schema.Generic.Test
+module Rel8.Generic.Rel8able.Test
+  ( module Rel8.Generic.Rel8able.Test
   )
 where
 
@@ -114,5 +114,13 @@ data NonRecord f = NonRecord
   (Column f Char)
   (Column f Char)
   (Column f Char)
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+
+data TableSum f
+  = TableSumA (Column f Bool) (Column f Text)
+  | TableSumB
+  | TableSumC (Column f Text)
   deriving stock Generic
   deriving anyclass Rel8able

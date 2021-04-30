@@ -18,7 +18,6 @@ module Rel8.Table
   ( Table (Columns, Context, Unreify, toColumns, fromColumns, reify, unreify)
   , Congruent
   , TTable, TColumns, TContext, TUnreify
-  , null, nullifier, unnullifier
   )
 where
 
@@ -34,13 +33,21 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
+import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Table
-  ( GTable, GColumns, GContext, fromGColumns, toGColumns
+  ( GGTable, GGColumns, GGContext, ggfromColumns, ggtoColumns
+  , GAlgebra
   )
 import Rel8.Generic.Record ( Record(..) )
+import Rel8.Generic.Reify ( ARep )
 import Rel8.Schema.Context ( Col(..) )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
+import Rel8.Schema.Context.Result
+  ( relabel
+  , null, nullifier, unnullifier
+  , vectorizer, unvectorizer
+  )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
@@ -53,14 +60,14 @@ import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
 import Rel8.Schema.HTable.Vectorize ( hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify
   ( Reify, Col( Reify ), hreify, hunreify
   , UnwrapReify
   , notReify
   )
 import Rel8.Schema.Result ( Result )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..), KnownSpec )
+import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Type ( DBType )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ),  MaybeTag( IsJust ) )
 
@@ -96,31 +103,49 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
   reify :: context :~: Reify ctx -> Unreify a -> a
   unreify :: context :~: Reify ctx -> a -> Unreify a
 
-  type Columns a = GColumns TColumns (Rep (Record a))
-  type Context a = GContext TContext (Rep (Record a))
+  type Columns a = Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
+  type Context a = Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
   type Unreify a = DefaultUnreify a
 
   default toColumns ::
     ( Generic (Record a)
-    , GTable (TTable context) TColumns (Col context) (Rep (Record a))
-    , Columns a ~ GColumns TColumns (Rep (Record a))
+    , KnownAlgebra (GAlgebra (Rep (Record a)))
+    , Eval (GGTable (GAlgebra (Rep (Record a))) (TTable context) TColumns (Col context) (Rep (Record a)))
+    , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
+    , Context a ~ Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
     )
     => a -> Columns a (Col context)
   toColumns =
-    toGColumns @(TTable context) @TColumns toColumns .
+    ggtoColumns
+      @(GAlgebra (Rep (Record a)))
+      @(TTable context)
+      @TColumns
+      @TContext
+      id
+      id
+      toColumns .
     from .
     Record
 
   default fromColumns ::
     ( Generic (Record a)
-    , GTable (TTable context) TColumns (Col context) (Rep (Record a))
-    , Columns a ~ GColumns TColumns (Rep (Record a))
+    , KnownAlgebra (GAlgebra (Rep (Record a)))
+    , Eval (GGTable (GAlgebra (Rep (Record a))) (TTable context) TColumns (Col context) (Rep (Record a)))
+    , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
+    , Context a ~ Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
     )
     => Columns a (Col context) -> a
   fromColumns =
     unrecord .
     to .
-    fromGColumns @(TTable context) @TColumns fromColumns
+    ggfromColumns
+      @(GAlgebra (Rep (Record a)))
+      @(TTable context)
+      @TColumns
+      @TContext
+      id
+      id
+      fromColumns
 
   default reify ::
     ( Generic (Record a)
@@ -180,6 +205,7 @@ type family DefaultUnreify a where
   DefaultUnreify (t a b c) = t (Unreify a) (Unreify b) (Unreify c)
   DefaultUnreify (t a b) = t (Unreify a) (Unreify b)
   DefaultUnreify (t a) = t (Unreify a)
+  DefaultUnreify a = ARep (GMap TUnreify (Rep a))
 
 
 -- | Any 'HTable' is also a 'Table'.
@@ -242,9 +268,6 @@ instance (Table Result a, Table Result b) => Table Result (Either a b) where
     where
       err = error "Either.fromColumns: mismatch between tag and data"
 
-  reify = notReify
-  unreify = notReify
-
 
 instance Table Result a => Table Result [a] where
   type Columns [a] = HListTable (Columns a)
@@ -252,9 +275,6 @@ instance Table Result a => Table Result [a] where
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
-
-  reify = notReify
-  unreify = notReify
 
 
 instance Table Result a => Table Result (Maybe a) where
@@ -277,9 +297,6 @@ instance Table Result a => Table Result (Maybe a) where
         Nothing -> error "Maybe.fromColumns: mismatch between tag and data"
         Just just -> fromColumns just
 
-  reify = notReify
-  unreify = notReify
-
 
 instance Table Result a => Table Result (NonEmpty a) where
   type Columns (NonEmpty a) = HNonEmptyTable (Columns a)
@@ -287,9 +304,6 @@ instance Table Result a => Table Result (NonEmpty a) where
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
-
-  reify = notReify
-  unreify = notReify
 
 
 instance (Table Result a, Table Result b) => Table Result (These a b) where
@@ -327,9 +341,6 @@ instance (Table Result a, Table Result b) => Table Result (These a b) where
         { htag = relabel hthereTag
         , hjust = hlabel labeler (hunlabel unlabeler hthere)
         }
-
-  reify = notReify
-  unreify = notReify
 
 
 instance (Table context a, Table context b, Labelable context)
@@ -377,46 +388,3 @@ instance
 type Congruent :: Type -> Type -> Constraint
 class Columns a ~ Columns b => Congruent a b
 instance Columns a ~ Columns b => Congruent a b
-
-
-null :: Col Result ('Spec labels necessity (Maybe a))
-null = Result Nothing
-
-
-nullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (Nullify a))
-nullifier SSpec {nullity} (Result a) = Result $ case nullity of
-  Null -> a
-  NotNull -> Just a
-
-
-unnullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (Nullify a))
-  -> Maybe (Col Result ('Spec labels necessity a))
-unnullifier SSpec {nullity} (Result a) =
-  case nullity of
-    Null -> pure $ Result a
-    NotNull -> Result <$> a
-
-
-vectorizer :: Functor f
-  => SSpec ('Spec labels necessity a)
-  -> f (Col Result ('Spec labels necessity a))
-  -> Col Result ('Spec labels necessity (f a))
-vectorizer _ = Result . fmap (\(Result a) -> a)
-
-
-unvectorizer :: Functor f
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (f a))
-  -> f (Col Result ('Spec labels necessity a))
-unvectorizer _ (Result results) = Result <$> results
-
-
-relabel :: ()
-  => HIdentity ('Spec labels necessity a) (Col Result)
-  -> HIdentity ('Spec relabels necessity a) (Col Result)
-relabel (HIdentity (Result a)) = HIdentity (Result a)

@@ -63,14 +63,19 @@ library
 
     Rel8.FCF
 
+    Rel8.Kind.Algebra
     Rel8.Kind.Context
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
     Rel8.Generic.Map
     Rel8.Generic.Record
+    Rel8.Generic.Reify
+    Rel8.Generic.Rel8able
+    Rel8.Generic.Rel8able.Test
     Rel8.Generic.Table
     Rel8.Generic.Table.ADT
+    Rel8.Generic.Table.Record
 
     Rel8.Order
 
@@ -96,10 +101,9 @@ library
     Rel8.Schema.Context
     Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
+    Rel8.Schema.Context.Result
     Rel8.Schema.Dict
     Rel8.Schema.Field
-    Rel8.Schema.Generic
-    Rel8.Schema.Generic.Test
     Rel8.Schema.HKD
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either

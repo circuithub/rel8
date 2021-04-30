@@ -260,6 +260,7 @@ import Rel8.Expr.Opaleye (unsafeCastExpr)
 import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
+import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Kind.Necessity
 import Rel8.Order
 import Rel8.Query
@@ -281,7 +282,6 @@ import Rel8.Query.Values
 import Rel8.Schema.Column
 import Rel8.Schema.Context.Label
 import Rel8.Schema.Field
-import Rel8.Schema.Generic
 import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
@@ -294,7 +294,7 @@ import Rel8.Statement.Returning
 import Rel8.Statement.Select
 import Rel8.Statement.Update
 import Rel8.Statement.View
-import Rel8.Table hiding ( null )
+import Rel8.Table
 import Rel8.Table.Aggregate
 import Rel8.Table.Alternative
 import Rel8.Table.Bool

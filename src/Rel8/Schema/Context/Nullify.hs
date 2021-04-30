@@ -40,10 +40,8 @@ import Rel8.Schema.Name ( Name( Name ), Col(..) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType
-  ( ConstrainDBType
-  , dbTypeDict, dbTypeNullity, fromNullityDict
-  )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
+import qualified Rel8.Schema.Spec.ConstrainDBType as ConstrainDBType
 import Rel8.Table.Tag ( Tag(..), Taggable, fromAggregate, fromExpr, fromName )
 
 
@@ -181,17 +179,8 @@ instance HNullifiable (Dict (ConstrainDBType constraint)) where
 
   hencodeTag _ = Dict
   hdecodeTag = mempty
-
-  hnullifier _ _ SSpec {} dict = case dbTypeDict dict of
-    Dict -> case dbTypeNullity dict of
-      Null -> Dict
-      NotNull -> Dict
-
-  hunnullifier SSpec {nullity} dict = case dbTypeDict dict of
-    Dict -> case nullity of
-      Null -> Dict
-      NotNull -> case dbTypeNullity dict of
-        Null -> fromNullityDict nullity Dict
+  hnullifier _ _ = ConstrainDBType.nullifier
+  hunnullifier = ConstrainDBType.unnullifier
 
 
 type DefaultConstrainTag :: Type -> Constraint

@@ -25,11 +25,7 @@ where
 import Data.Bifunctor ( bimap )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
-import GHC.Generics
-  ( Generic, Rep, from, to
-  , (:*:)( (:*:) ), K1( K1 ), M1( M1 ), Meta( MetaSel ), D, C, S
-  )
-import GHC.TypeLits ( KnownSymbol )
+import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- hasql
@@ -38,13 +34,15 @@ import qualified Hasql.Decoders as Hasql
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record(..) )
-import Rel8.Generic.Table ( GColumns )
+import Rel8.Generic.Table
+  ( GGToExprs, GGColumns, ggfromResult, ggtoResult
+  , GAlgebra
+  )
+import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.Context ( Col(..) )
-import Rel8.Schema.Context.Label ( labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Product ( HProduct(..) )
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Result ( Result )
@@ -72,56 +70,41 @@ class Table Expr exprs => ToExprs exprs a where
 
   default fromResult ::
     ( Generic (Record a)
-    , GToExprs (Rep (Record exprs)) (Rep (Record a))
-    , Columns exprs ~ GColumns TColumns (Rep (Record exprs))
+    , KnownAlgebra (GAlgebra (Rep (Record exprs)))
+    , Eval (GGToExprs (GAlgebra (Rep (Record exprs))) TToExprs TColumns (Rep (Record exprs)) (Rep (Record a)))
+    , Columns exprs ~ Eval (GGColumns (GAlgebra (Rep (Record exprs))) TColumns (Rep (Record exprs)))
     )
     => Columns exprs (Col Result) -> a
-  fromResult = unrecord . to . gfromResult @(Rep (Record exprs))
+  fromResult =
+    unrecord .
+    to .
+    ggfromResult
+      @(GAlgebra (Rep (Record exprs)))
+      @TToExprs
+      @TColumns
+      @(Rep (Record exprs))
+      (\(_ :: proxy expr) -> fromResult @expr)
 
   default toResult ::
     ( Generic (Record a)
-    , GToExprs (Rep (Record exprs)) (Rep (Record a))
-    , Columns exprs ~ GColumns TColumns (Rep (Record exprs))
+    , KnownAlgebra (GAlgebra (Rep (Record exprs)))
+    , Eval (GGToExprs (GAlgebra (Rep (Record exprs))) TToExprs TColumns (Rep (Record exprs)) (Rep (Record a)))
+    , Columns exprs ~ Eval (GGColumns (GAlgebra (Rep (Record exprs))) TColumns (Rep (Record exprs)))
     )
     => a -> Columns exprs (Col Result)
-  toResult = gtoResult @(Rep (Record exprs)) . from . Record
+  toResult =
+    ggtoResult
+      @(GAlgebra (Rep (Record exprs)))
+      @TToExprs
+      @TColumns
+      @(Rep (Record exprs))
+      (\(_ :: proxy expr) -> toResult @expr) .
+    from .
+    Record
 
 
-type GToExprs :: (Type -> Type) -> (Type -> Type) -> Constraint
-class GToExprs exprs rep where
-  gfromResult :: GColumns TColumns exprs (Col Result) -> rep x
-  gtoResult :: rep x -> GColumns TColumns exprs (Col Result)
-
-
-instance GToExprs exprs rep => GToExprs (M1 D c exprs) (M1 D c rep) where
-  gfromResult = M1 . gfromResult @exprs
-  gtoResult (M1 a) = gtoResult @exprs a
-
-
-instance GToExprs exprs rep => GToExprs (M1 C c exprs) (M1 C c rep) where
-  gfromResult = M1 . gfromResult @exprs
-  gtoResult (M1 a) = gtoResult @exprs a
-
-
-instance (GToExprs exprs1 rep1, GToExprs exprs2 rep2) =>
-  GToExprs (exprs1 :*: exprs2) (rep1 :*: rep2)
- where
-  gfromResult (HProduct a b) = gfromResult @exprs1 a :*: gfromResult @exprs2 b
-  gtoResult (a :*: b) = HProduct (gtoResult @exprs1 a) (gtoResult @exprs2 b)
-
-
-instance
-  ( ToExprs exprs a
-  , KnownSymbol label
-  , GColumns TColumns (M1 S meta k1) ~ HLabel label (Columns exprs)
-  , meta ~ 'MetaSel ('Just label) _su _ss _ds
-  , k1 ~ K1 i exprs
-  , k1' ~ K1 i a
-  )
-  => GToExprs (M1 S meta k1) (M1 S meta k1')
- where
-  gfromResult = M1 . K1 . fromResult @exprs . hunlabel unlabeler
-  gtoResult (M1 (K1 a)) = hlabel labeler (toResult @exprs a)
+data TToExprs :: Type -> Type -> Exp Constraint
+type instance Eval (TToExprs exprs a) = ToExprs exprs a
 
 
 instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a where

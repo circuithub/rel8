@@ -1,8 +1,8 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -12,115 +12,177 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Table
-  ( GTable, GColumns, GContext, fromGColumns, toGColumns, gtable
+  ( GGTable, GGColumns, GGContext, ggfromColumns, ggtoColumns, ggtable
+  , GGToExprs, ggfromResult, ggtoResult
+  , GAlgebra
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.Proxy ( Proxy( Proxy ) )
-import GHC.Generics
-  ( (:*:)( (:*:) ), K1( K1 ), M1( M1 )
-  , C, D, S
-  , Meta( MetaSel )
-  )
-import GHC.TypeLits ( KnownSymbol )
-import Prelude hiding ( null )
+import GHC.Generics ( (:+:), (:*:), K1, M1, U1, V1 )
+import Prelude ()
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
-import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Product ( HProduct(..) )
+import Rel8.Generic.Table.ADT
+  ( GTableADT, GColumnsADT, gfromColumnsADT, gtoColumnsADT, gtableADT
+  , GToExprsADT, gtoResultADT, gfromResultADT
+  )
+import Rel8.Generic.Table.Record
+  ( GTable, GColumns, GContext, gfromColumns, gtoColumns, gtable
+  , GToExprs, gtoResult, gfromResult
+  )
+import Rel8.Kind.Algebra
+  ( Algebra( Product, Sum )
+  , SAlgebra( SProduct, SSum )
+  , KnownAlgebra, algebraSing
+  )
+import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Null ( Nullify )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec )
+import Rel8.Schema.Result ( Result )
 
 
-type GColumns :: (Type -> Exp K.HTable) -> (Type -> Type) -> K.HTable
-type family GColumns _Columns rep where
-  GColumns _Columns (M1 D _ rep) = GColumns _Columns rep
-  GColumns _Columns (M1 C _ rep) = GColumns _Columns rep
-  GColumns _Columns (rep1 :*: rep2) =
-    HProduct (GColumns _Columns rep1) (GColumns _Columns rep2)
-  GColumns _Columns (M1 S ('MetaSel ('Just label) _ _ _) (K1 _ a)) =
-    HLabel label (Eval (_Columns a))
-
-
-type GContext :: (Type -> Exp a) -> (Type -> Type) -> a
-type family GContext _Context rep where
-  GContext _Context (M1 _ _ rep) = GContext _Context rep
-  GContext _Context (rep1 :*: _rep2) = GContext _Context rep1
-  GContext _Context (K1 _ a) = Eval (_Context a)
-
-
-type GTable
-  :: (Type -> Exp Constraint)
+data GGTable
+  :: Algebra
+  -> (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
-  -> K.HContext -> (Type -> Type) -> Constraint
-class GTable _Table _Columns context rep
- where
-  fromGColumns :: ()
-    => (forall a. Eval (_Table a) => Eval (_Columns a) context -> a)
-    -> GColumns _Columns rep context
-    -> rep x
-
-  toGColumns :: ()
-    => (forall a. Eval (_Table a) => a -> Eval (_Columns a) context)
-    -> rep x
-    -> GColumns _Columns rep context
-
-  gtable :: ()
-    => (forall a. Eval (_Table a) => Proxy a -> Eval (_Columns a) context)
-    -> GColumns _Columns rep context
+  -> K.HContext
+  -> (Type -> Type)
+  -> Exp Constraint
 
 
-instance GTable _Table _Columns context rep =>
-  GTable _Table _Columns context (M1 D c rep)
- where
-  fromGColumns fromColumns =
-    M1 . fromGColumns @_Table @_Columns @context @rep fromColumns
-  toGColumns toColumns (M1 a) =
-    toGColumns @_Table @_Columns @context @rep toColumns a
-  gtable = gtable @_Table @_Columns @context @rep
+type instance Eval (GGTable 'Product _Table _Columns context rep) =
+  GTable _Table _Columns context rep
 
 
-instance GTable _Table _Columns context rep =>
-  GTable _Table _Columns context (M1 C c rep)
- where
-  fromGColumns fromColumns =
-    M1 . fromGColumns @_Table @_Columns @context @rep fromColumns
-  toGColumns toColumns (M1 a) =
-    toGColumns @_Table @_Columns @context @rep toColumns a
-  gtable = gtable @_Table @_Columns @context @rep
+type instance Eval (GGTable 'Sum _Table _Columns context rep) =
+  GTableADT _Table _Columns context rep
 
 
-instance
-  ( GTable _Table _Columns context rep1
-  , GTable _Table _Columns context rep2
+data GGToExprs
+  :: Algebra
+  -> (Type -> Type -> Exp Constraint)
+  -> (Type -> Exp K.HTable)
+  -> (Type -> Type)
+  -> (Type -> Type)
+  -> Exp Constraint
+
+
+type instance Eval (GGToExprs 'Product _ToExprs _Columns exprs rep) =
+  GToExprs _ToExprs _Columns exprs rep
+
+
+type instance Eval (GGToExprs 'Sum _ToExprs _Columns exprs rep) =
+  GToExprsADT _ToExprs _Columns exprs rep
+
+
+data GGColumns
+  :: Algebra
+  -> (Type -> Exp K.HTable)
+  -> (Type -> Type)
+  -> Exp K.HTable
+
+
+type instance Eval (GGColumns 'Product _Columns rep) = GColumns _Columns rep
+
+
+type instance Eval (GGColumns 'Sum _Columns rep) = GColumnsADT _Columns rep
+
+
+data GGContext
+  :: Algebra
+  -> (Type -> Exp K.Context)
+  -> (Type -> Type)
+  -> Exp K.Context
+
+
+type instance Eval (GGContext 'Product _Context rep) = GContext _Context rep
+
+
+type instance Eval (GGContext 'Sum _Context _rep) = Result
+
+
+type GAlgebra :: (Type -> Type) -> Algebra
+type family GAlgebra rep where
+  GAlgebra (M1 _ _ rep) = GAlgebra rep
+  GAlgebra V1 = 'Sum
+  GAlgebra (_ :+: _) = 'Sum
+  GAlgebra U1 = 'Sum
+  GAlgebra (_ :*: _) = 'Product
+  GAlgebra (K1 _ _) = 'Product
+
+
+ggfromColumns :: forall algebra _Table _Columns _Context rep context x.
+  ( KnownAlgebra algebra
+  , Eval (GGTable algebra _Table _Columns context rep)
   )
-  => GTable _Table _Columns context (rep1 :*: rep2)
- where
-  fromGColumns fromColumns (HProduct a b) =
-    fromGColumns @_Table @_Columns @context @rep1 fromColumns a :*:
-    fromGColumns @_Table @_Columns @context @rep2 fromColumns b
-  toGColumns toColumns (a :*: b) = HProduct
-    (toGColumns @_Table @_Columns @context @rep1 toColumns a)
-    (toGColumns @_Table @_Columns @context @rep2 toColumns b)
-  gtable table = HProduct
-    (gtable @_Table @_Columns @context @rep1 table)
-    (gtable @_Table @_Columns @context @rep2 table)
+  => (forall spec. context spec -> Col (Eval (GGContext algebra _Context rep)) spec)
+  -> (forall spec. Col (Eval (GGContext algebra _Context rep)) spec -> context spec)
+  -> (forall a. Eval (_Table a) => Eval (_Columns a) context -> a)
+  -> Eval (GGColumns algebra _Columns rep) context
+  -> rep x
+ggfromColumns = case algebraSing @algebra of
+  SProduct -> \_ _ -> gfromColumns @_Table @_Columns
+  SSum -> gfromColumnsADT @_Table @_Columns
 
 
-instance
-  ( HTable (Eval (_Columns a))
-  , Eval (_Table a)
-  , HLabelable context
-  , KnownSymbol label
-  , meta ~ 'MetaSel ('Just label) _su _ss _ds
-  , k1 ~ K1 i a
+ggtoColumns :: forall algebra _Table _Columns _Context rep context x.
+  ( KnownAlgebra algebra
+  , Eval (GGTable algebra _Table _Columns context rep)
   )
-  => GTable _Table _Columns context (M1 S meta k1)
- where
-  fromGColumns fromColumns = M1 . K1 . fromColumns . hunlabel hunlabeler
-  toGColumns toColumns (M1 (K1 a)) = hlabel hlabeler (toColumns a)
-  gtable table = hlabel hlabeler (table (Proxy @a))
+  => (forall spec. context spec -> Col (Eval (GGContext algebra _Context rep)) spec)
+  -> (forall spec. Col (Eval (GGContext algebra _Context rep)) spec -> context spec)
+  -> (forall a. Eval (_Table a) => a -> Eval (_Columns a) context)
+  -> rep x
+  -> Eval (GGColumns algebra _Columns rep) context
+ggtoColumns = case algebraSing @algebra of
+  SProduct -> \_ _ -> gtoColumns @_Table @_Columns
+  SSum -> gtoColumnsADT @_Table @_Columns
+
+
+ggtable :: forall algebra _Table _Columns rep context.
+  ( KnownAlgebra algebra
+  , Eval (GGTable algebra _Table _Columns context rep)
+  )
+  => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
+  -> (forall a labels necessity. ()
+      => SSpec ('Spec labels necessity a)
+      -> context ('Spec labels necessity a)
+      -> context ('Spec labels necessity (Nullify a)))
+  -> Eval (GGColumns algebra _Columns rep) context
+ggtable = case algebraSing @algebra of
+  SProduct -> \table _ -> gtable @_Table @_Columns @_ @rep table
+  SSum -> gtableADT @_Table @_Columns @_ @rep
+
+
+ggfromResult :: forall algebra _ToExprs _Columns exprs rep x.
+  ( KnownAlgebra algebra
+  , Eval (GGToExprs algebra _ToExprs _Columns exprs rep)
+  )
+  => (forall expr a proxy. Eval (_ToExprs expr a)
+      => proxy expr
+      -> Eval (_Columns expr) (Col Result)
+      -> a)
+  -> Eval (GGColumns algebra _Columns exprs) (Col Result)
+  -> rep x
+ggfromResult = case algebraSing @algebra of
+  SProduct -> gfromResult @_ToExprs @_Columns @exprs
+  SSum -> gfromResultADT @_ToExprs @_Columns @exprs
+
+
+ggtoResult :: forall algebra _ToExprs _Columns exprs rep x.
+  ( KnownAlgebra algebra
+  , Eval (GGToExprs algebra _ToExprs _Columns exprs rep)
+  )
+  => (forall expr a proxy. Eval (_ToExprs expr a)
+      => proxy expr
+      -> a
+      -> Eval (_Columns expr) (Col Result))
+  -> rep x
+  -> Eval (GGColumns algebra _Columns exprs) (Col Result)
+ggtoResult = case algebraSing @algebra of
+  SProduct -> gtoResult @_ToExprs @_Columns @exprs
+  SSum -> gtoResultADT @_ToExprs @_Columns @exprs

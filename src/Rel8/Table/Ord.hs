@@ -21,7 +21,6 @@ where
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
-import Data.Proxy ( Proxy )
 import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
@@ -32,7 +31,11 @@ import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
-import Rel8.Generic.Table ( GTable, GColumns, gtable )
+import Rel8.Generic.Table
+  ( GGTable, GGColumns, ggtable
+  , GAlgebra
+  )
+import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable
@@ -41,7 +44,7 @@ import Rel8.Schema.HTable
 import Rel8.Schema.HTable.Type ( HType(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null (Sql)
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType, nullifier )
 import Rel8.Table ( Table, Columns, toColumns, TColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
@@ -57,13 +60,21 @@ class EqTable a => OrdTable a where
   ordTable :: Columns a (Dict (ConstrainDBType DBOrd))
 
   default ordTable ::
-    ( GTable TOrdTable TColumns (Dict (ConstrainDBType DBOrd)) (Rep (Record a))
-    , Columns a ~ GColumns TColumns (Rep (Record a))
+    ( KnownAlgebra (GAlgebra (Rep (Record a)))
+    , Eval (GGTable (GAlgebra (Rep (Record a))) TOrdTable TColumns (Dict (ConstrainDBType DBOrd)) (Rep (Record a)))
+    , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
     )
     => Columns a (Dict (ConstrainDBType DBOrd))
-  ordTable = gtable @TOrdTable @TColumns @_ @(Rep (Record a)) table
+  ordTable =
+    ggtable
+      @(GAlgebra (Rep (Record a)))
+      @TOrdTable
+      @TColumns
+      @(Rep (Record a))
+      table
+      nullifier
     where
-      table (_ :: Proxy x) = ordTable @x
+      table (_ :: proxy x) = ordTable @x
 
 
 data TOrdTable :: Type -> Exp Constraint

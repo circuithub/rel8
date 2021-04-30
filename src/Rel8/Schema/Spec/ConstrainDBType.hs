@@ -2,6 +2,7 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language QuantifiedConstraints #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -9,9 +10,8 @@
 
 module Rel8.Schema.Spec.ConstrainDBType
   ( ConstrainDBType
-  , dbTypeNullity
-  , dbTypeDict
-  , fromNullityDict
+  , dbTypeNullity, dbTypeDict
+  , nullifier, unnullifier
   )
 where
 
@@ -21,8 +21,12 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Schema.Spec ( Spec( Spec ) )
+import Rel8.Schema.Null
+  ( Nullify, Unnullify
+  , Nullity( Null, NotNull )
+  , Sql, nullable
+  )
+import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec, nullity ) )
 
 
 type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
@@ -62,3 +66,24 @@ dbTypeDict = step2 . step1
 fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
 fromNullityDict Null Dict = Dict
 fromNullityDict NotNull Dict = Dict
+
+
+nullifier :: ()
+  => SSpec ('Spec labels necessity a)
+  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
+  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
+nullifier SSpec {} dict = case dbTypeDict dict of
+  Dict -> case dbTypeNullity dict of
+    Null -> Dict
+    NotNull -> Dict
+
+
+unnullifier :: ()
+  => SSpec ('Spec labels necessity a)
+  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
+  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
+unnullifier SSpec {nullity} dict = case dbTypeDict dict of
+  Dict -> case nullity of
+    Null -> Dict
+    NotNull -> case dbTypeNullity dict of
+      Null -> fromNullityDict nullity Dict
