@@ -52,6 +52,7 @@ library
     Rel8.Column
     Rel8.Column.Either
     Rel8.Column.Field
+    Rel8.Column.Lift
     Rel8.Column.List
     Rel8.Column.Maybe
     Rel8.Column.NonEmpty
@@ -76,6 +77,7 @@ library
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
+    Rel8.Generic.HKD
     Rel8.Generic.Map
     Rel8.Generic.Record
     Rel8.Generic.Reify
@@ -109,7 +111,6 @@ library
     Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
-    Rel8.Schema.HKD
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity
@@ -147,6 +148,7 @@ library
     Rel8.Table.Bool
     Rel8.Table.Either
     Rel8.Table.Eq
+    Rel8.Table.HKD
     Rel8.Table.Insert
     Rel8.Table.List
     Rel8.Table.Maybe

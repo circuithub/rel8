@@ -253,6 +253,7 @@ import Rel8.Aggregate
 import Rel8.Column
 import Rel8.Column.Either
 import Rel8.Column.Field
+import Rel8.Column.Lift
 import Rel8.Column.List
 import Rel8.Column.Maybe
 import Rel8.Column.NonEmpty
@@ -287,7 +288,6 @@ import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
 import Rel8.Schema.Context.Label
-import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
@@ -305,6 +305,7 @@ import Rel8.Table.Alternative
 import Rel8.Table.Bool
 import Rel8.Table.Either
 import Rel8.Table.Eq
+import Rel8.Table.HKD
 import Rel8.Table.Insert
 import Rel8.Table.List
 import Rel8.Table.Maybe
