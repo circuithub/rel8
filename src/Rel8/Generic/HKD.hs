@@ -33,24 +33,30 @@ import Data.Generic.HKD ( HKD(..), GHKD_ )
 
 -- rel8
 import Rel8.Aggregate ( Col(..) )
+import Rel8.Expr ( Expr )
 import Rel8.Schema.Context.Label
   ( Labelable
   , HLabelable, hlabeler, hunlabeler
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable ( HTable, HConstrainTable, hdicts )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import Rel8.Schema.HTable.Type ( HType )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( NotReify, notReify )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , reify, unreify
   )
+import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
+import Rel8.Type.Eq ( DBEq )
+import Rel8.Type.Ord ( DBOrd )
 
 
 type Column1Helper :: K.Context -> (Type -> Type) -> Type -> Constraint
@@ -180,6 +186,27 @@ instance
   fromColumns = HKD . gfromColumns fromColumn1
   reify = notReify
   unreify = notReify
+
+
+instance
+  ( GTable (Rep a)
+  , f ~ Expr
+  , HConstrainTable (GColumns (Rep a)) (ConstrainDBType DBEq)
+  )
+  => EqTable (HKD a f)
+ where
+  eqTable = hdicts @(GColumns (Rep a)) @(ConstrainDBType DBEq)
+
+
+instance
+  ( GTable (Rep a)
+  , f ~ Expr
+  , HConstrainTable (GColumns (Rep a)) (ConstrainDBType DBEq)
+  , HConstrainTable (GColumns (Rep a)) (ConstrainDBType DBOrd)
+  )
+  => OrdTable (HKD a f)
+ where
+  ordTable = hdicts @(GColumns (Rep a)) @(ConstrainDBType DBOrd)
 
 
 instance
