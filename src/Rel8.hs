@@ -286,7 +286,7 @@ import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
-import Rel8.Schema.Result
+import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
