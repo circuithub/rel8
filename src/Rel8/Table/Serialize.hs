@@ -15,7 +15,6 @@
 
 module Rel8.Table.Serialize
   ( Serializable, lit, parse
-  , Encodes, litTable
   , ToExprs(..)
   , FromExprs
   )
@@ -290,53 +289,6 @@ lit = fromColumns . litHTable . toResult @exprs
 
 parse :: forall exprs a. Serializable exprs a => Hasql.Row a
 parse = fromResult @exprs <$> parseHTable
-
-
-type Encodes :: Type -> Type -> Constraint
-class Serializable exprs a => Encodes a exprs | a -> exprs, exprs -> a
-
-
-instance KnownSpec spec => Encodes (Col Result spec) (Col Expr spec)
-
-
-instance Serializable (t Result) (t Expr) => Encodes (t Expr) (t Result)
-
-
-instance HTable t => Encodes (t (Col Result)) (t (Col Expr))
-
-
-instance (Encodes a x, Encodes b y) => Encodes (Either a b) (EitherTable x y)
-
-
-instance Encodes a x => Encodes [a] (ListTable x)
-
-
-instance Encodes a x => Encodes (Maybe a) (MaybeTable x)
-
-
-instance Encodes a x => Encodes (NonEmpty a) (NonEmptyTable x)
-
-
-instance (Encodes a x, Encodes b y) => Encodes (These a b) (TheseTable x y)
-
-
-instance (Encodes a x, Encodes b y) => Encodes (a, b) (x, y)
-
-
-instance (Encodes a x, Encodes b y, Encodes c z) =>
-  Encodes (a, b, c) (x, y, z)
-
-
-instance (Encodes a w, Encodes b x, Encodes c y, Encodes d z) =>
-  Encodes (a, b, c, d) (w, x, y, z)
-
-
-instance (Encodes a v, Encodes b w, Encodes c x, Encodes d y, Encodes e z) =>
-  Encodes (a, b, c, d, e) (v, w, x, y, z)
-
-
-litTable :: Encodes a exprs => a -> exprs
-litTable = lit
 
 
 litHTable :: HTable t => t (Col Result) -> t (Col Expr)
