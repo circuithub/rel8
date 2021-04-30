@@ -250,6 +250,13 @@ import Prelude ()
 
 -- rel8
 import Rel8.Aggregate
+import Rel8.Column
+import Rel8.Column.Either
+import Rel8.Column.Field
+import Rel8.Column.List
+import Rel8.Column.Maybe
+import Rel8.Column.NonEmpty
+import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
 import Rel8.Expr.Bool
@@ -279,9 +286,7 @@ import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
-import Rel8.Schema.Column
 import Rel8.Schema.Context.Label
-import Rel8.Schema.Field
 import Rel8.Schema.HKD
 import Rel8.Schema.HTable
 import Rel8.Schema.Name

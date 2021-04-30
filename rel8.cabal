@@ -49,6 +49,14 @@ library
   other-modules:
     Rel8.Aggregate
 
+    Rel8.Column
+    Rel8.Column.Either
+    Rel8.Column.Field
+    Rel8.Column.List
+    Rel8.Column.Maybe
+    Rel8.Column.NonEmpty
+    Rel8.Column.These
+
     Rel8.Expr
     Rel8.Expr.Aggregate
     Rel8.Expr.Array
@@ -97,12 +105,10 @@ library
     Rel8.Query.These
     Rel8.Query.Values
 
-    Rel8.Schema.Column
     Rel8.Schema.Context
     Rel8.Schema.Context.Label
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
-    Rel8.Schema.Field
     Rel8.Schema.HKD
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either

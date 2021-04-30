@@ -2,7 +2,7 @@
 {-# language TypeFamilies #-}
 {-# language StandaloneKindSignatures #-}
 
-module Rel8.Schema.Column
+module Rel8.Column
   ( Column, Default
   )
 where
@@ -12,8 +12,8 @@ import Data.Kind ( Type )
 import Prelude ()
 
 -- rel8
+import Rel8.Column.Field ( Field )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
-import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 
 
