@@ -124,3 +124,11 @@ data TableSum f
   | TableSumC (Column f Text)
   deriving stock Generic
   deriving anyclass Rel8able
+
+
+data TableProduct f = TableProduct
+  { sum :: HADT f TableSum
+  , list :: TableList f
+  }
+  deriving stock Generic
+  deriving anyclass Rel8able

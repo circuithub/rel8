@@ -33,6 +33,7 @@ module Rel8
   , Rel8able, KRel8able
   , Column, Field, Necessity( Required, Optional )
   , Default
+  , HADT
   , HEither
   , HMaybe
   , HList
@@ -80,6 +81,9 @@ module Rel8
   , keepThoseTable, loseThoseTable
   , bindTheseTable
   , bitraverseTheseTable
+
+    -- ** @ADT@
+  , ADT
 
     -- ** @ListTable@
   , ListTable
@@ -251,6 +255,7 @@ import Prelude ()
 -- rel8
 import Rel8.Aggregate
 import Rel8.Column
+import Rel8.Column.ADT
 import Rel8.Column.Either
 import Rel8.Column.Field
 import Rel8.Column.Lift
@@ -300,6 +305,7 @@ import Rel8.Statement.Select
 import Rel8.Statement.Update
 import Rel8.Statement.View
 import Rel8.Table
+import Rel8.Table.ADT
 import Rel8.Table.Aggregate
 import Rel8.Table.Alternative
 import Rel8.Table.Bool
@@ -313,6 +319,7 @@ import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
+import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Type

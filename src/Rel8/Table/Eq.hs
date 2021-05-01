@@ -44,7 +44,6 @@ import Rel8.Schema.HTable
   , htabulateA, hfield, hdicts
   )
 import Rel8.Schema.HTable.Type ( HType(..) )
-import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType, nullifier )
 import Rel8.Table ( Table, Columns, toColumns, TColumns )
@@ -78,16 +77,6 @@ class Table Expr a => EqTable a where
 
 data TEqTable :: Type -> Exp Constraint
 type instance Eval (TEqTable a) = EqTable a
-
-
-instance
-  ( Table Expr (t (Expr :: Context))
-  , f ~ Expr
-  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
-  )
-  => EqTable (t f)
- where
-  eqTable = hdicts @(Columns (t f)) @(ConstrainDBType DBEq)
 
 
 instance

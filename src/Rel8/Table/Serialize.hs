@@ -15,8 +15,8 @@
 
 module Rel8.Table.Serialize
   ( Serializable, lit, parse
-  , ToExprs(..)
-  , FromExprs
+  , ToExprs(..), FromExprs
+  , TToExprs
   )
 where
 
@@ -50,7 +50,6 @@ import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 
@@ -231,13 +230,6 @@ instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>
   toResult = id
 
 
-instance (Recontextualize Result Expr (t Result) (t Expr), result ~ Result, x ~ t Expr) =>
-  ToExprs x (t result)
- where
-  fromResult = fromColumns
-  toResult = toColumns
-
-
 instance (KnownSpec spec, x ~ Col Expr spec) =>
   ToExprs x (Col Result spec)
  where
@@ -268,7 +260,6 @@ type instance FromExprs (a, b, c, d, e, f, g) =
   ( FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e
   , FromExprs f, FromExprs g
   )
-type instance FromExprs (t Expr) = t Result
 type instance FromExprs (t (Col Expr)) = t (Col Result)
 
 

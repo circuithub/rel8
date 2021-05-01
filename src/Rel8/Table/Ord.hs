@@ -42,10 +42,9 @@ import Rel8.Schema.HTable
   , htabulateA, hfield, hdicts
   )
 import Rel8.Schema.HTable.Type ( HType(..) )
-import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null (Sql)
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType, nullifier )
-import Rel8.Table ( Table, Columns, toColumns, TColumns )
+import Rel8.Table ( Columns, toColumns, TColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Type.Eq ( DBEq )
@@ -79,17 +78,6 @@ class EqTable a => OrdTable a where
 
 data TOrdTable :: Type -> Exp Constraint
 type instance Eval (TOrdTable a) = OrdTable a
-
-
-instance
-  ( Table Expr (t (Expr :: Context))
-  , f ~ Expr
-  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBEq)
-  , HConstrainTable (Columns (t Expr)) (ConstrainDBType DBOrd)
-  )
-  => OrdTable (t f)
- where
-  ordTable = hdicts @(Columns (t f)) @(ConstrainDBType DBOrd)
 
 
 instance
