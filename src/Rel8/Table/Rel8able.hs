@@ -15,7 +15,7 @@ module Rel8.Table.Rel8able
 where
 
 -- base
-import Data.Kind ( Constraint )
+import Data.Kind ( Constraint, Type )
 import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
@@ -47,6 +47,7 @@ import Rel8.Table
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 import Rel8.Table.ADT ( ADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.HKD ( HKD )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -112,7 +113,7 @@ instance
   ordTable = hdicts @(Columns (t context)) @(ConstrainDBType DBOrd)
 
 
-type instance FromExprs (t Expr) = FromExprs' t Result
+type instance FromExprs (t Expr) = FromExprs' t
 
 
 instance
@@ -126,10 +127,11 @@ instance
   toResult = toResult' @(Algebra t) @t'
 
 
-type FromExprs' :: K.Rel8able -> K.Rel8able
+type FromExprs' :: K.Rel8able -> Type
 type family FromExprs' t where
-  FromExprs' (ADT t) = t
-  FromExprs' t = t
+  FromExprs' (ADT t) = t Result
+  FromExprs' (HKD a) = a
+  FromExprs' t = t Result
 
 
 type ToExprs' :: K.Algebra -> K.Rel8able -> K.Rel8able -> Constraint

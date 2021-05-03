@@ -115,12 +115,12 @@ type family GAlgebra rep where
   GAlgebra (K1 _ _) = 'Product
 
 
-ggfromColumns :: forall algebra _Table _Columns _Context rep context x.
+ggfromColumns :: forall algebra _Table _Columns rep context x.
   ( KnownAlgebra algebra
   , Eval (GGTable algebra _Table _Columns context rep)
   )
-  => (forall spec. context spec -> Col (Eval (GGContext algebra _Context rep)) spec)
-  -> (forall spec. Col (Eval (GGContext algebra _Context rep)) spec -> context spec)
+  => (forall spec. algebra ~ 'Sum => context spec -> Col Result spec)
+  -> (forall spec. algebra ~ 'Sum => Col Result spec -> context spec)
   -> (forall a. Eval (_Table a) => Eval (_Columns a) context -> a)
   -> Eval (GGColumns algebra _Columns rep) context
   -> rep x
@@ -129,12 +129,12 @@ ggfromColumns = case algebraSing @algebra of
   SSum -> gfromColumnsADT @_Table @_Columns
 
 
-ggtoColumns :: forall algebra _Table _Columns _Context rep context x.
+ggtoColumns :: forall algebra _Table _Columns rep context x.
   ( KnownAlgebra algebra
   , Eval (GGTable algebra _Table _Columns context rep)
   )
-  => (forall spec. context spec -> Col (Eval (GGContext algebra _Context rep)) spec)
-  -> (forall spec. Col (Eval (GGContext algebra _Context rep)) spec -> context spec)
+  => (forall spec. algebra ~ 'Sum => context spec -> Col Result spec)
+  -> (forall spec. algebra ~ 'Sum => Col Result spec -> context spec)
   -> (forall a. Eval (_Table a) => a -> Eval (_Columns a) context)
   -> rep x
   -> Eval (GGColumns algebra _Columns rep) context

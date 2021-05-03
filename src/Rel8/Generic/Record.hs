@@ -12,6 +12,7 @@
 
 module Rel8.Generic.Record
   ( Record(..)
+  , GRecordable, GRecord, grecord, gunrecord
   )
 where
 
@@ -26,13 +27,13 @@ import GHC.TypeLits ( type (+), AppendSymbol, Div, Mod, Nat, Symbol )
 import Prelude hiding ( Show )
 
 
-type Recordize :: (Type -> Type) -> Type -> Type
-type family Recordize rep where
-  Recordize (M1 D meta rep) = M1 D meta (Recordize rep)
-  Recordize (l :+: r) = Recordize l :+: Recordize r
-  Recordize (M1 C ('MetaCons name fixity 'False) rep) =
+type GRecord :: (Type -> Type) -> Type -> Type
+type family GRecord rep where
+  GRecord (M1 D meta rep) = M1 D meta (GRecord rep)
+  GRecord (l :+: r) = GRecord l :+: GRecord r
+  GRecord (M1 C ('MetaCons name fixity 'False) rep) =
     M1 C ('MetaCons name fixity 'True) (Snd (Count 0 rep))
-  Recordize rep = rep
+  GRecord rep = rep
 
 
 type Count :: Nat -> (Type -> Type) -> (Nat, Type -> Type)
@@ -83,34 +84,34 @@ type family Snd tuple where
   Snd '(_a, b) = b
 
 
-type Recordizable :: (Type -> Type) -> Constraint
-class Recordizable rep where
-  recordize :: rep x -> Recordize rep x
-  unrecordize :: Recordize rep x -> rep x
+type GRecordable :: (Type -> Type) -> Constraint
+class GRecordable rep where
+  grecord :: rep x -> GRecord rep x
+  gunrecord :: GRecord rep x -> rep x
 
 
-instance Recordizable rep => Recordizable (M1 D meta rep) where
-  recordize (M1 a) = M1 (recordize a)
-  unrecordize (M1 a) = M1 (unrecordize a)
+instance GRecordable rep => GRecordable (M1 D meta rep) where
+  grecord (M1 a) = M1 (grecord a)
+  gunrecord (M1 a) = M1 (gunrecord a)
 
 
-instance (Recordizable l, Recordizable r) => Recordizable (l :+: r) where
-  recordize (L1 a) = L1 (recordize a)
-  recordize (R1 a) = R1 (recordize a)
-  unrecordize (L1 a) = L1 (unrecordize a)
-  unrecordize (R1 a) = R1 (unrecordize a)
+instance (GRecordable l, GRecordable r) => GRecordable (l :+: r) where
+  grecord (L1 a) = L1 (grecord a)
+  grecord (R1 a) = R1 (grecord a)
+  gunrecord (L1 a) = L1 (gunrecord a)
+  gunrecord (R1 a) = R1 (gunrecord a)
 
 
 instance Countable 0 rep =>
-  Recordizable (M1 C ('MetaCons name fixity 'False) rep)
+  GRecordable (M1 C ('MetaCons name fixity 'False) rep)
  where
-  recordize (M1 a) = M1 (count @0 a)
-  unrecordize (M1 a) = M1 (uncount @0 a)
+  grecord (M1 a) = M1 (count @0 a)
+  gunrecord (M1 a) = M1 (uncount @0 a)
 
 
-instance {-# OVERLAPPABLE #-} Recordize rep ~ rep => Recordizable rep where
-  recordize = id
-  unrecordize = id
+instance {-# OVERLAPPABLE #-} GRecord rep ~ rep => GRecordable rep where
+  grecord = id
+  gunrecord = id
 
 
 type Countable :: Nat -> (Type -> Type) -> Constraint
@@ -145,8 +146,8 @@ newtype Record a = Record
   }
 
 
-instance (Generic a, Recordizable (Rep a)) => Generic (Record a) where
-  type Rep (Record a) = Recordize (Rep a)
+instance (Generic a, GRecordable (Rep a)) => Generic (Record a) where
+  type Rep (Record a) = GRecord (Rep a)
 
-  from (Record a) = recordize (from a)
-  to = Record . to . unrecordize
+  from (Record a) = grecord (from a)
+  to = Record . to . gunrecord

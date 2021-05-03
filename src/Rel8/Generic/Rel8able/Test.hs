@@ -19,9 +19,6 @@ where
 import GHC.Generics ( Generic )
 import Prelude
 
--- higgledy
-import Data.Generic.HKD ( HKD )
-
 -- rel8
 import Rel8
 
@@ -96,8 +93,17 @@ deriving via HKDT S3Object
   instance x ~ HKD S3Object Expr => ToExprs x S3Object
 
 
-newtype HKDTest f = HKDTest
+data HKDSum = HKDSumA Text | HKDSumB Bool Char
+  deriving stock Generic
+
+
+deriving via HKDT HKDSum
+  instance x ~ HKD HKDSum Expr => ToExprs x HKDSum
+
+
+data HKDTest f = HKDTest
   { s3Object :: Lift f S3Object
+  , hkdSum :: Lift f HKDSum
   } 
   deriving stock Generic
   deriving anyclass Rel8able

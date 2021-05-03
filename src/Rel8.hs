@@ -246,6 +246,7 @@ module Rel8
   , ToExprs(..)
   , FromExprs
   , Result
+  , HKD
   , HKDT(..)
   ) where
 

@@ -119,7 +119,6 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
       @(GAlgebra (Rep (Record a)))
       @(TTable context)
       @TColumns
-      @TContext
       id
       id
       toColumns .
@@ -141,7 +140,6 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
       @(GAlgebra (Rep (Record a)))
       @(TTable context)
       @TColumns
-      @TContext
       id
       id
       fromColumns
