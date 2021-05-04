@@ -13,7 +13,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Construction.ADT
-  ( GConstructable
+  ( GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
   , GFields, CorepFields, gftabulate, gfindex
@@ -171,7 +171,7 @@ class GConstructableADT _Table _Columns f context rep where
 
   gunbuildADT :: ()
     => FromColumns _Table _Columns f context
-    -> (Tag -> Unnullifier context)
+    -> Unnullifier context
     -> GColumnsADT _Columns rep context
     -> (HType Tag context, GFieldsADT f rep)
 
@@ -184,7 +184,7 @@ class GConstructableADT _Table _Columns f context rep where
 
   gdeconstructADT :: ()
     => FromColumns _Table _Columns f context
-    -> (Tag -> Unnullifier context)
+    -> Unnullifier context
     -> GConstructors f rep r
     -> GColumnsADT _Columns rep context
     -> (HType Tag context, NonEmpty (Tag, r))
@@ -229,7 +229,7 @@ class GConstructableADT' _Table _Columns f context htable rep where
 
   gunbuildADT' :: ()
     => FromColumns _Table _Columns f context
-    -> (Tag -> Unnullifier context)
+    -> Unnullifier context
     -> GColumnsADT' _Columns htable rep context
     -> (htable context, GFieldsADT f rep)
 
@@ -242,7 +242,7 @@ class GConstructableADT' _Table _Columns f context htable rep where
 
   gdeconstructADT' :: ()
     => FromColumns _Table _Columns f context
-    -> (Tag -> Unnullifier context)
+    -> Unnullifier context
     -> GConstructors f rep r
     -> GColumnsADT' _Columns htable rep context
     -> (htable context, NonEmpty (Tag, r))
@@ -324,12 +324,10 @@ instance {-# OVERLAPPABLE #-}
     ( htable
     , gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
         runIdentity $
-        hunnullify (\spec -> pure . unnullifier tag spec) $
+        hunnullify (\spec -> pure . unnullifier spec) $
         hunlabel hunlabeler
         a
     )
-    where
-      tag = Tag $ pack $ symbolVal (Proxy @label)
 
   gconstructADT' toColumns _ nullifier mk =
     HProduct htable .
@@ -347,7 +345,7 @@ instance {-# OVERLAPPABLE #-}
     where
       a = gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
         runIdentity $
-        hunnullify (\spec -> pure . unnullifier tag spec) $
+        hunnullify (\spec -> pure . unnullifier spec) $
         hunlabel hunlabeler
         columns
       tag = Tag $ pack $ symbolVal (Proxy @label)
