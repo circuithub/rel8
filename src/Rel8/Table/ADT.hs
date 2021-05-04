@@ -21,6 +21,7 @@ module Rel8.Table.ADT
   , InsertADT, insertADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
+  , AggregateADT', aggregateADT'
   )
 where
 
@@ -32,19 +33,19 @@ import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Col( Aggregation ), Aggregate, mapInputs )
+import Rel8.Aggregate ( Col( Aggregation ), Aggregate )
 import Rel8.Expr ( Col( DB ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Expr.Serialize ( litExpr )
+import Rel8.FCF ( Compose )
 import Rel8.Generic.Construction.ADT
   ( GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
   , CorepConstructors, GConstructors, gcindex, gctabulate
-  , CorepFields, GFields, gfindex, gftabulate
+  , CorepFields, gfindex, gftabulate, gftraverse
   )
 import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
@@ -55,7 +56,6 @@ import Rel8.Generic.Rel8able
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
-import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Type ( HType( HType ) )
@@ -72,6 +72,9 @@ import Rel8.Table
   )
 import Rel8.Table.Bool ( case_ )
 import Rel8.Type.Tag ( Tag )
+
+-- semigroupoids
+import Data.Functor.Apply ( Apply, MaybeApply( MaybeApply ), liftF2 )
 
 
 type ADT :: K.Rel8able -> K.Rel8able
@@ -100,6 +103,7 @@ type ConstructableADT :: K.Rel8able -> Constraint
 class
   ( CorepConstructors TUnreify (GRep t (Reify Expr))
   , CorepConstructors TUnreify (GRep t (Reify Insert))
+  , CorepFields (Compose Aggregate TUnreify) (GRep t (Reify Expr))
   , CorepFields TUnreify (GRep t (Reify Aggregate))
   , CorepFields TUnreify (GRep t (Reify Expr))
   , CorepFields TUnreify (GRep t (Reify Name))
@@ -119,6 +123,7 @@ class
 instance
   ( CorepConstructors TUnreify (GRep t (Reify Expr))
   , CorepConstructors TUnreify (GRep t (Reify Insert))
+  , CorepFields (Compose Aggregate TUnreify) (GRep t (Reify Expr))
   , CorepFields TUnreify (GRep t (Reify Aggregate))
   , CorepFields TUnreify (GRep t (Reify Expr))
   , CorepFields TUnreify (GRep t (Reify Name))
@@ -235,12 +240,63 @@ nameADT tag = gftabulate @TUnreify @(GRep t (Reify Name)) @(ADT t Name) $
 type AggregateADT :: K.Rel8able -> Type
 type AggregateADT t = forall r.
   GBuildADT TUnreify (GRep t (Reify Expr))
-    (GBuildADT TUnreify (GRep t (Reify Aggregate)) r -> r)
+    (GBuildADT (Compose Aggregate TUnreify) (GRep t (Reify Expr)) r -> r)
 
 
 aggregateADT :: forall t. ConstructableADT t
-  => AggregateADT t -> ADT t Expr -> ADT t Aggregate
+  => AggregateADT t -> ADT t Expr -> Aggregate (ADT t Expr)
 aggregateADT builder (ADT columns) = f exprs $
+  liftF1½
+    (\tag' ->
+      ADT .
+      hunreify .
+      gbuildADT
+        @(TTable (Reify Expr))
+        @TColumns
+        @TUnreify
+        @(Col (Reify Expr))
+        @(GRep t (Reify Expr))
+        (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
+        (\tag'' SSpec {nullity} (Reify (DB a)) ->
+          Reify $ DB $ runTag nullity (tag ==. litExpr tag'') a)
+        (HType (Reify (DB tag'))))
+    (groupByExpr tag) .
+  gftraverse @TUnreify @(GRep t (Reify Expr)) @_ @Aggregate (MaybeApply . Left)
+  where
+    f e =
+      gfindex
+        @TUnreify
+        @(GRep t (Reify Expr))
+        @(GBuildADT (Compose Aggregate TUnreify) (GRep t (Reify Expr)) (Aggregate (ADT t Expr)) -> Aggregate (ADT t Expr))
+        (builder @(Aggregate (ADT t Expr)))
+        e .
+      gftabulate
+        @(Compose Aggregate TUnreify)
+        @(GRep t (Reify Expr))
+        @(Aggregate (ADT t Expr))
+    (HType (Reify (DB tag)), exprs) =
+      gunbuildADT
+        @(TTable (Reify Expr))
+        @TColumns
+        @TUnreify
+        @(Col (Reify Expr))
+        @(GRep t (Reify Expr))
+        (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns)
+        (\SSpec {nullity} -> case nullity of
+          Null -> id
+          NotNull -> \(Reify (DB a)) -> Reify (DB (unsafeUnnullify a)))
+        (hreify columns)
+
+
+type AggregateADT' :: K.Rel8able -> Type
+type AggregateADT' t = forall r.
+  GBuildADT TUnreify (GRep t (Reify Expr))
+    (GBuildADT TUnreify (GRep t (Reify Aggregate)) r -> r)
+
+
+aggregateADT' :: forall t. ConstructableADT t
+  => AggregateADT' t -> ADT t Expr -> ADT t Aggregate
+aggregateADT' builder (ADT columns) = f exprs $
   ADT .
   hunreify .
   gbuildADT
@@ -250,14 +306,8 @@ aggregateADT builder (ADT columns) = f exprs $
     @(Col (Reify Aggregate))
     @(GRep t (Reify Aggregate))
     (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-    (\tag' SSpec {nullity} (Reify (Aggregation aggregate)) ->
-      let
-        condition = tag ==. litExpr tag'
-      in
-        Reify $
-        Aggregation $
-        mapInputs (toPrimExpr . runTag nullity condition . fromPrimExpr) $
-        runTag nullity condition <$> aggregate)
+    (\tag' SSpec {nullity} (Reify (Aggregation a)) ->
+      Reify $ Aggregation $ runTag nullity (tag ==. litExpr tag') <$> a)
     (HType (Reify (Aggregation (groupByExpr tag))))
   where
     f e =
@@ -283,3 +333,9 @@ aggregateADT builder (ADT columns) = f exprs $
           Null -> id
           NotNull -> \(Reify (DB a)) -> Reify (DB (unsafeUnnullify a)))
         (hreify columns)
+
+
+liftF1½ :: Apply v => (a -> b -> c) -> v a -> MaybeApply v b -> v c
+liftF1½ f a (MaybeApply eb) = case eb of
+  Left b -> liftF2 f a b
+  Right b -> fmap (`f` b) a

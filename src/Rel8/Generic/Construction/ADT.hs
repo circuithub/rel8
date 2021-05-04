@@ -16,12 +16,13 @@ module Rel8.Generic.Construction.ADT
   ( GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
-  , GFields, CorepFields, gftabulate, gfindex
+  , GFields, CorepFields, gftabulate, gfindex, gftraverse
   , GConstructors, CorepConstructors, gctabulate, gcindex
   )
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Data.Bifunctor ( first )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Constraint, Type )
@@ -36,10 +37,10 @@ import GHC.TypeLits ( KnownSymbol, symbolVal )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.FCF ( Exp )
+import Rel8.FCF ( Compose, Exp )
 import Rel8.Generic.Construction.Record
   ( GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Corep, gtabulate, gindex
+  , GFields, Corep, gtabulate, gindex, gtraverse
   , FromColumns, ToColumns
   )
 import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
@@ -137,23 +138,28 @@ type CorepFields :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
 class CorepFields f rep where
   gftabulate :: (GFieldsADT f rep -> a) -> GBuildADT f rep a
   gfindex :: GBuildADT f rep a -> GFieldsADT f rep -> a
+  gftraverse :: Applicative m
+    => (forall a. g a -> m a)
+    -> GFieldsADT (Compose g f) rep -> m (GFieldsADT f rep)
 
 
 instance CorepFields f rep => CorepFields f (M1 D meta rep) where
   gftabulate = gftabulate @f @rep
   gfindex = gfindex @f @rep
+  gftraverse = gftraverse @f @rep
 
 
-instance (CorepFields f a, CorepFields f b) => CorepFields f (a :+: b)
- where
+instance (CorepFields f a, CorepFields f b) => CorepFields f (a :+: b) where
   gftabulate f =
     gftabulate @f @a \a -> gftabulate @f @b \b -> f (a, b)
   gfindex f (a, b) = gfindex @f @b (gfindex @f @a f a) b
+  gftraverse f (a, b) = liftA2 (,) (gftraverse @f @a f a) (gftraverse @f @b f b)
 
 
 instance Corep f rep => CorepFields f (M1 C meta rep) where
   gftabulate = gtabulate @f @rep
   gfindex = gindex @f @rep
+  gftraverse = gtraverse @f @rep
 
 
 type GConstructableADT
