@@ -15,6 +15,7 @@
 
 module Rel8.Generic.Table.ADT
   ( GTableADT, GColumnsADT, gfromColumnsADT, gtoColumnsADT, gtableADT
+  , GTableADT', GColumnsADT'
   , GToExprsADT, gfromResultADT, gtoResultADT
   )
 where
@@ -347,7 +348,7 @@ instance {-# OVERLAPPABLE #-}
       tag' = Tag $ pack $ symbolVal (Proxy @label)
 
   gtoResultADT' toResult tag = \case
-    Nothing -> HProduct (tag tag') (hlabel labeler (hnulls null))
+    Nothing -> HProduct (tag tag') (hlabel labeler (hnulls (const null)))
     Just (M1 rep) -> HProduct (tag tag') $
       hlabel labeler $
       hnullify nullifier $

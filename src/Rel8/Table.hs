@@ -250,11 +250,11 @@ instance (Table Result a, Table Result b) => Table Result (Either a b) where
     Left table -> HEitherTable
       { htag = HIdentity (Result IsLeft)
       , hleft = hlabel labeler (hnullify nullifier (toColumns table))
-      , hright = hlabel labeler (hnulls null)
+      , hright = hlabel labeler (hnulls (const null))
       }
     Right table -> HEitherTable
       { htag = HIdentity (Result IsRight)
-      , hleft = hlabel labeler (hnulls null)
+      , hleft = hlabel labeler (hnulls (const null))
       , hright = hlabel labeler (hnullify nullifier (toColumns table))
       }
 
@@ -281,7 +281,7 @@ instance Table Result a => Table Result (Maybe a) where
   toColumns = \case
     Nothing -> HMaybeTable
       { htag = HIdentity (Result Nothing)
-      , hjust = hlabel labeler (hnulls null)
+      , hjust = hlabel labeler (hnulls (const null))
       }
     Just table -> HMaybeTable
       { htag = HIdentity (Result (Just IsJust))

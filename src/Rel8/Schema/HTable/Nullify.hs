@@ -68,10 +68,11 @@ instance MapSpec Nullify where
 
 hnulls :: HTable t
   => (forall labels necessity a. ()
-    => context ('Spec labels necessity (Maybe a)))
+    => SSpec ('Spec labels necessity a)
+    -> context ('Spec labels necessity (Type.Nullify a)))
   -> HNullify t context
 hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
-  SSpec {} -> null
+  spec@SSpec {} -> null spec
 {-# INLINABLE hnulls #-}
 
 
