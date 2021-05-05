@@ -11,11 +11,10 @@ where
 
 -- base
 import Data.Kind ( Type )
-import Data.Proxy ( Proxy( Proxy ) )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Labels ( SLabels( SLabel ) )
+import Rel8.Kind.Labels ( SLabels( SNil ) )
 import Rel8.Kind.Necessity ( Necessity( Required ), SNecessity( SRequired ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
@@ -30,17 +29,17 @@ import Rel8.Type ( DBType, typeInformation )
 
 type HType :: Type -> K.HTable
 newtype HType a context = HType
-  { unHType :: context ('Spec '[""] 'Required a)
+  { unHType :: context ('Spec '[] 'Required a)
   }
 
 
 type HTypeField :: Type -> Spec -> Type
 data HTypeField a spec where
-  HTypeField :: HTypeField a ('Spec '[""] 'Required a)
+  HTypeField :: HTypeField a ('Spec '[] 'Required a)
 
 
 instance Sql DBType a => HTable (HType a) where
-  type HConstrainTable (HType a) c = c ('Spec '[""] 'Required a)
+  type HConstrainTable (HType a) c = c ('Spec '[] 'Required a)
   type HField (HType a) = HTypeField a
 
   hfield (HType a) HTypeField = a
@@ -48,7 +47,7 @@ instance Sql DBType a => HTable (HType a) where
   htraverse f (HType a) = HType <$> f a
   hdicts = HType Dict
   hspecs = HType SSpec
-    { labels = SLabel Proxy
+    { labels = SNil
     , necessity = SRequired
     , info = typeInformation
     , nullity = nullable

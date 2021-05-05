@@ -28,7 +28,7 @@ import GHC.TypeLits ( KnownSymbol, Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Labels ( SLabels( SLabels ) )
+import Rel8.Kind.Labels ( SLabels( SCons ) )
 import Rel8.Schema.HTable
   ( HTable
   , hfield, htabulate, hspecs
@@ -54,7 +54,7 @@ type instance Eval (Label label ('Spec labels necessity a)) = 'Spec (label : lab
 
 instance KnownSymbol l => MapSpec (Label l) where
   mapInfo = \case
-    SSpec {..} -> SSpec {labels = SLabels Proxy labels, ..}
+    SSpec {..} -> SSpec {labels = SCons Proxy labels, ..}
 
 
 hlabel :: (HTable t, KnownSymbol label)

@@ -8,7 +8,7 @@
 
 module Rel8.Kind.Labels
   ( Labels
-  , SLabels( SLabel, SLabels )
+  , SLabels( SNil, SCons )
   , KnownLabels( labelsSing )
   , renderLabels
   )
@@ -16,7 +16,8 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.List.NonEmpty ( NonEmpty( (:|) ), (<|) )
+import Data.List.NonEmpty ( NonEmpty, nonEmpty )
+import Data.Maybe ( fromMaybe )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.TypeLits ( KnownSymbol, Symbol, symbolVal )
 import Prelude
@@ -28,8 +29,8 @@ type Labels = [Symbol]
 
 type SLabels :: Labels -> Type
 data SLabels labels where
-  SLabel :: KnownSymbol label => Proxy label -> SLabels '[label]
-  SLabels :: KnownSymbol label => Proxy label -> SLabels labels -> SLabels (label ': labels)
+  SNil :: SLabels '[]
+  SCons :: KnownSymbol label => Proxy label -> SLabels labels -> SLabels (label ': labels)
 
 
 type KnownLabels :: Labels -> Constraint
@@ -37,25 +38,20 @@ class KnownLabels labels where
   labelsSing :: SLabels labels
 
 
-instance KnownSymbol label => KnownLabels (label ': '[]) where
-  labelsSing = SLabel Proxy
+instance KnownLabels '[] where
+  labelsSing = SNil
 
 
-instance (KnownSymbol label, KnownLabels (label_ ': labels)) =>
-  KnownLabels (label ': (label_ ': labels))
+instance (KnownSymbol label, KnownLabels labels) =>
+  KnownLabels (label ': labels)
  where
-  labelsSing = SLabels Proxy labelsSing
+  labelsSing = SCons Proxy labelsSing
 
 
 renderLabels :: SLabels labels -> NonEmpty String
-renderLabels = cleanup . go
+renderLabels = fromMaybe (pure "anon") . nonEmpty . go
   where
-    go :: SLabels labels -> NonEmpty String
+    go :: SLabels labels -> [String]
     go = \case
-      SLabel label -> pure (symbolVal label)
-      SLabels label labels -> symbolVal label <| go labels
-
-    cleanup ("" :| []) = "anon" :| []
-    cleanup (a :| []) = a :| []
-    cleanup (a :| [""]) = a :| []
-    cleanup (a :| (b : c)) = a <| cleanup (b :| c)
+      SNil -> []
+      SCons label labels -> symbolVal label : go labels
