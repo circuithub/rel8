@@ -82,9 +82,6 @@ module Rel8
   , bindTheseTable
   , bitraverseTheseTable
 
-    -- ** @ADT@
-  , ADT
-
     -- ** @ListTable@
   , ListTable
   , many
@@ -92,6 +89,22 @@ module Rel8
     -- ** @NonEmptyTable@
   , NonEmptyTable
   , some
+
+    -- ** @ADT@
+  , ADT
+  , ConstructADT, constructADT
+  , DeconstructADT, deconstructADT
+  , InsertADT, insertADT
+  , NameADT, nameADT
+  , AggregateADT, aggregateADT
+
+    -- ** @HKD@
+  , HKD
+  , ConstructHKD, constructHKD
+  , DeconstructHKD, deconstructHKD
+  , InsertHKD, insertHKD
+  , NameHKD, nameHKD
+  , AggregateHKD, aggregateHKD
 
     -- ** Table schemas
   , TableSchema(..)
@@ -246,7 +259,6 @@ module Rel8
   , ToExprs(..)
   , FromExprs
   , Result
-  , HKD
   , HKDT(..)
   ) where
 

@@ -1,7 +1,9 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -10,9 +12,15 @@
 {-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.HKD
-  ( HKD( HKD ), HKDT(..)
-  , fromHKD, toHKD
-  , GHKD
+  ( HKD( HKD )
+  , HKDT(..), fromHKD, toHKD, GHKD
+  , ConstructableHKD
+  , ConstructHKD, constructHKD
+  , DeconstructHKD, deconstructHKD
+  , InsertHKD, insertHKD
+  , NameHKD, nameHKD
+  , AggregateHKD, aggregateHKD
+  , HKDRep
   )
 where
 
@@ -24,11 +32,20 @@ import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Column ( Column )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Kind.Algebra ( KnownAlgebra )
 import qualified Rel8.Kind.Algebra as K
+import Rel8.Generic.Construction
+  ( GGConstructable
+  , GGConstruct, ggconstruct
+  , GGDeconstruct, ggdeconstruct
+  , GGInsert, gginsert
+  , GGName, ggname
+  , GGAggregate, ggaggregate
+  )
 import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Record ( GRecord, GRecordable, grecord, gunrecord )
 import Rel8.Generic.Rel8able
@@ -46,6 +63,8 @@ import qualified Rel8.Generic.Table.ADT as G
 import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.Insert ( Insert )
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
@@ -221,3 +240,57 @@ instance
   , GMap TUnreify (GMap (TColumn (Reify Result)) (Rep a)) ~ GMap (TColumn Result) (Rep a)
   )
   => GHKD a
+
+
+type ConstructableHKD :: Type -> Constraint
+class GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
+instance GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
+
+
+type ConstructHKD :: Type -> Type
+type ConstructHKD a = GGConstruct (GAlgebra (Rep a)) (HKDRep a) (HKD a Expr)
+
+
+constructHKD :: forall a. ConstructableHKD a => ConstructHKD a
+constructHKD = ggconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD
+
+
+type DeconstructHKD :: Type -> Type -> Type
+type DeconstructHKD a r = GGDeconstruct (GAlgebra (Rep a)) (HKDRep a) (HKD a Expr) r
+
+
+deconstructHKD :: forall a r. (ConstructableHKD a, Table Expr r)
+  => DeconstructHKD a r
+deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @r (\(HKD a) -> a)
+
+
+type InsertHKD :: Type -> Type
+type InsertHKD a = GGInsert (GAlgebra (Rep a)) (HKDRep a) (HKD a Insert)
+
+
+insertHKD :: forall a. ConstructableHKD a => InsertHKD a
+insertHKD = gginsert @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Insert) HKD
+
+
+type NameHKD :: Type -> Type
+type NameHKD a = GGName (GAlgebra (Rep a)) (HKDRep a) (HKD a Name)
+
+
+nameHKD :: forall a. ConstructableHKD a => NameHKD a
+nameHKD = ggname @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Name) HKD
+
+
+type AggregateHKD :: Type -> Type
+type AggregateHKD a = forall r. GGAggregate (GAlgebra (Rep a)) (HKDRep a) r
+
+
+aggregateHKD :: forall a. ConstructableHKD a
+  => AggregateHKD a -> HKD a Expr -> Aggregate (HKD a Expr)
+aggregateHKD f =
+  ggaggregate @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD (\(HKD a) -> a)
+    (f @(Aggregate (HKD a Expr)))
+
+
+data HKDRep :: Type -> K.Context -> Exp (Type -> Type)
+type instance Eval (HKDRep a context) =
+  GRecord (GMap (TColumn context) (Rep a))

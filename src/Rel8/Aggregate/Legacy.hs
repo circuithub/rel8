@@ -16,14 +16,15 @@ module Rel8.Aggregate.Legacy
   , listAgg
   , nonEmptyAgg
 
-  , AggregateADT
-  , aggregateADT
+  , AggregateADT, aggregateADT
+  , AggregateHKD, aggregateHKD
   )
 where
 
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
+import GHC.Generics ( Rep )
 import Prelude
 
 -- opaleye
@@ -34,6 +35,7 @@ import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
 import Rel8.Expr ( Col(..), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
 import Rel8.Generic.Construction ( GGAggregate', ggaggregate' )
+import Rel8.Generic.Table ( GAlgebra )
 import Rel8.Kind.Algebra ( Algebra( Sum ) )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( mapOpaleye )
@@ -44,6 +46,7 @@ import Rel8.Schema.Kind ( Rel8able )
 import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.ADT ( ConstructableADT, ADT( ADT ), ADTRep )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.HKD ( ConstructableHKD, HKD( HKD ), HKDRep )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.Opaleye ( aggregator )
@@ -113,3 +116,14 @@ aggregateADT :: forall t. ConstructableADT t
 aggregateADT f =
   ggaggregate' @'Sum @(ADTRep t) @(ADT t Expr) @(ADT t Aggregate) ADT (\(ADT a) -> a)
     (f @(ADT t Aggregate))
+
+
+type AggregateHKD :: Type -> Type
+type AggregateHKD a = forall r. GGAggregate' (GAlgebra (Rep a)) (HKDRep a) r
+
+
+aggregateHKD :: forall a. ConstructableHKD a
+  => AggregateHKD a -> HKD a Expr -> HKD a Aggregate
+aggregateHKD f =
+  ggaggregate' @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @(HKD a Aggregate) HKD (\(HKD a) -> a)
+    (f @(HKD a Aggregate))
