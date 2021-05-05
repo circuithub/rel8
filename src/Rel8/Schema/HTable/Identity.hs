@@ -1,10 +1,12 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
+{-# language PatternSynonyms #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.HTable.Identity
-  ( HIdentity(..)
+  ( HIdentity( HIdentity, HType, unHIdentity )
+  , HType
   )
 where
 
@@ -13,13 +15,23 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
+import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Spec ( Spec, KnownSpec, specSing )
+import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec, specSing )
+
+
+type HType :: Type -> K.HTable
+type HType a = HIdentity ('Spec '[] 'Required a)
+
+
+pattern HType :: context ('Spec '[] 'Required a) -> HType a context
+pattern HType a = HIdentity a
+{-# COMPLETE HType #-}
 
 
 type HIdentity :: Spec -> K.HTable

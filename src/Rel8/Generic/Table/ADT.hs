@@ -39,10 +39,10 @@ import Rel8.Generic.Table.Record
   )
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hmap )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
-import Rel8.Schema.HTable.Type ( HType( HType ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullify )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec )

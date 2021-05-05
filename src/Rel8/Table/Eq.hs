@@ -43,7 +43,7 @@ import Rel8.Schema.HTable
   ( HTable, HConstrainTable
   , htabulateA, hfield, hdicts
   )
-import Rel8.Schema.HTable.Type ( HType(..) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType, nullifier )
 import Rel8.Table ( Table, Columns, toColumns, TColumns )

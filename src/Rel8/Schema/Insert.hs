@@ -36,7 +36,7 @@ import Rel8.Schema.Context.Nullify
   ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
   , runTag, unnull
   )
-import Rel8.Schema.HTable.Type ( HType( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Name ( Name, Selects )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( notReify )

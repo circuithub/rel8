@@ -59,7 +59,7 @@ import qualified Rel8.Kind.Algebra as K
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Type ( HType( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Insert ( Col( OptionalInsert, RequiredInsert ), Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( NameCol ), Name( Name ) )

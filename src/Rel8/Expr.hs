@@ -39,7 +39,7 @@ import Rel8.Expr.Opaleye
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
-import Rel8.Schema.HTable.Type ( HType( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )

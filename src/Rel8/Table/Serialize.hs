@@ -40,7 +40,7 @@ import Rel8.Generic.Table
   )
 import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Type ( HType(..) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
