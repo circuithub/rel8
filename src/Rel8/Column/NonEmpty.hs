@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
@@ -15,6 +14,7 @@ where
 -- base
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -34,7 +34,10 @@ import Rel8.Table
   )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify ( Unreifiable )
+import Rel8.Table.Unreify
+  ( Unreifiability( Unreifiability )
+  , Unreifiable, unreifiability
+  )
 
 
 type HNonEmpty :: K.Context -> Type -> Type
@@ -51,12 +54,8 @@ type AHNonEmpty :: K.Context -> Type -> Type
 newtype AHNonEmpty context a = AHNonEmpty (HNonEmpty context a)
 
 
-instance
-  ( Reifiable context
-  , Table (Reify context) a
-  , Unreifiable (Reify context) a
-  )
-  => Table (Reify context) (AHNonEmpty context a)
+instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
+  Table (Reify context) (AHNonEmpty context a)
  where
   type Context (AHNonEmpty context a) = Reify context
   type Columns (AHNonEmpty context a) = HNonEmptyTable (Columns a)
@@ -64,20 +63,17 @@ instance
 
   fromColumns = sfromColumnsNonEmpty contextSing
   toColumns = stoColumnsNonEmpty contextSing
-  reify proof =
-    smapNonEmpty contextSing (reify proof) hreify .
-    AHNonEmpty
-  unreify proof =
-    (\(AHNonEmpty a) -> a) .
-    smapNonEmpty contextSing (unreify proof) hunreify
+
+  reify _ = sreifyNonEmpty (unreifiability contextSing)
+  unreify _ = sunreifyNonEmpty (unreifiability contextSing)
 
 
 instance
   ( Reifiable context, Reifiable context'
-  , Unreifiable (Reify context) a, Unreifiable (Reify context') a'
+  , Unreifiable a, Unreifiable a'
   , Recontextualize (Reify context) (Reify context') a a'
-  ) =>
-  Recontextualize
+  )
+  => Recontextualize
     (Reify context)
     (Reify context')
     (AHNonEmpty context a)
@@ -133,3 +129,21 @@ stoColumnsNonEmpty = \case
     stoColumnsNonEmpty context .
     smapNonEmpty context (hunreify . toColumns) hunreify .
     (\(AHNonEmpty a) -> a)
+
+
+sreifyNonEmpty :: ()
+  => Unreifiability context a
+  -> HNonEmpty context (Unreify a)
+  -> AHNonEmpty context a
+sreifyNonEmpty (Unreifiability context) =
+  smapNonEmpty context (reify Refl) hreify .
+  AHNonEmpty
+
+
+sunreifyNonEmpty :: ()
+  => Unreifiability context a
+  -> AHNonEmpty context a
+  -> HNonEmpty context (Unreify a)
+sunreifyNonEmpty (Unreifiability context) =
+  (\(AHNonEmpty a) -> a) .
+  smapNonEmpty context (unreify Refl) hunreify

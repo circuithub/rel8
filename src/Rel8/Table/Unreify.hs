@@ -1,4 +1,11 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language GADTs #-}
+{-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language QuantifiedConstraints #-}
+{-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -20,7 +27,8 @@
 -- @Table@)
 
 module Rel8.Table.Unreify
-  ( Unreifiable
+  ( Unreifiable, Unreifiability( Unreifiability ), unreifiability
+  , Unreifies
   )
 where
 
@@ -29,15 +37,73 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
+import Rel8.Expr ( Expr )
+import Rel8.Kind.Context ( SContext(..), Reifiable, sReifiable )
+import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify )
-import Rel8.Table ( Table, Columns, Unreify )
+import Rel8.Schema.Result ( Result )
+import Rel8.Table ( Table, Context, Congruent, Unreify )
 
 
-type Unreifiable :: K.Context -> Type -> Constraint
-type family Unreifiable context a where
-  Unreifiable (Reify context) a =
-    ( Table context (Unreify a)
-    , Columns a ~ Columns (Unreify a)
-    )
-  Unreifiable _ _ = ()
+type Unreifies :: K.Context -> Type -> Constraint
+type family Unreifies context a where
+  Unreifies (Reify context) a = Unreifier context a
+  Unreifies _ _ = ()
+
+
+type Unreifiable :: Type -> Constraint
+class
+  ( Context a ~ Reify Aggregate => Unreifier Aggregate a
+  , Context a ~ Reify Expr => Unreifier Expr a
+  , Context a ~ Reify Insert => Unreifier Insert a
+  , Context a ~ Reify Name => Unreifier Name a
+  , Context a ~ Reify Result => Unreifier Result a
+  , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
+  )
+  => Unreifiable a
+instance
+  ( Context a ~ Reify Aggregate => Unreifier Aggregate a
+  , Context a ~ Reify Expr => Unreifier Expr a
+  , Context a ~ Reify Insert => Unreifier Insert a
+  , Context a ~ Reify Name => Unreifier Name a
+  , Context a ~ Reify Result => Unreifier Result a
+  , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
+  )
+  => Unreifiable a
+
+
+type Unreifier :: K.Context -> Type -> Constraint
+class
+  ( Table (Reify context) a
+  , Table context (Unreify a)
+  , Congruent a (Unreify a)
+  )
+  => Unreifier context a
+instance
+  ( Table (Reify context) a
+  , Table context (Unreify a)
+  , Congruent a (Unreify a)
+  )
+  => Unreifier context a
+
+
+type Unreifiability :: K.Context -> Type -> Type
+data Unreifiability context a where
+  Unreifiability :: Unreifier context a
+    => SContext context -> Unreifiability context a
+
+
+unreifiability :: (Context a ~ Reify context, Unreifiable a)
+  => SContext context -> Unreifiability context a
+unreifiability = \case
+  SAggregate -> Unreifiability SAggregate
+  SExpr -> Unreifiability SExpr
+  SInsert -> Unreifiability SInsert
+  SName -> Unreifiability SName
+  SResult -> Unreifiability SResult
+  SReify context -> case sReifiable context of
+    Dict -> Unreifiability (SReify context)

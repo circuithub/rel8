@@ -1,6 +1,5 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
@@ -14,6 +13,7 @@ where
 
 -- base
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -33,7 +33,10 @@ import Rel8.Table
   )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify ( Unreifiable )
+import Rel8.Table.Unreify
+  ( Unreifiability( Unreifiability )
+  , Unreifiable, unreifiability
+  )
 
 
 type HList :: K.Context -> Type -> Type
@@ -50,12 +53,8 @@ type AHList :: K.Context -> Type -> Type
 newtype AHList context a = AHList (HList context a)
 
 
-instance
-  ( Reifiable context
-  , Table (Reify context) a
-  , Unreifiable (Reify context) a
-  )
-  => Table (Reify context) (AHList context a)
+instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
+  Table (Reify context) (AHList context a)
  where
   type Context (AHList context a) = Reify context
   type Columns (AHList context a) = HListTable (Columns a)
@@ -63,20 +62,17 @@ instance
 
   fromColumns = sfromColumnsList contextSing
   toColumns = stoColumnsList contextSing
-  reify proof =
-    smapList contextSing (reify proof) hreify .
-    AHList
-  unreify proof =
-    (\(AHList a) -> a) .
-    smapList contextSing (unreify proof) hunreify
+
+  reify _ = sreifyList (unreifiability contextSing)
+  unreify _ = sunreifyList (unreifiability contextSing)
 
 
 instance
   ( Reifiable context, Reifiable context'
-  , Unreifiable (Reify context) a, Unreifiable (Reify context') a'
+  , Unreifiable a, Unreifiable a'
   , Recontextualize (Reify context) (Reify context') a a'
-  ) =>
-  Recontextualize
+  )
+  => Recontextualize
     (Reify context)
     (Reify context')
     (AHList context a)
@@ -131,3 +127,21 @@ stoColumnsList = \case
     stoColumnsList context .
     smapList context (hunreify . toColumns) hunreify .
     (\(AHList a) -> a)
+
+
+sreifyList :: ()
+  => Unreifiability context a
+  -> HList context (Unreify a)
+  -> AHList context a
+sreifyList (Unreifiability context) =
+  smapList context (reify Refl) hreify .
+  AHList
+
+
+sunreifyList :: ()
+  => Unreifiability context a
+  -> AHList context a
+  -> HList context (Unreify a)
+sunreifyList (Unreifiability context) =
+  (\(AHList a) -> a) .
+  smapList context (unreify Refl) hunreify

@@ -43,7 +43,7 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
-import Rel8.Table.Unreify ( Unreifiable )
+import Rel8.Table.Unreify ( Unreifies )
 
 
 -- | A @NonEmptyTable@ value contains one or more instances of @a@. You
@@ -53,7 +53,7 @@ newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Col (Context a)))
 
 
-instance (Table context a, Unreifiable context a) =>
+instance (Table context a, Unreifies context a) =>
   Table context (NonEmptyTable a)
  where
   type Columns (NonEmptyTable a) = HNonEmptyTable (Columns a)
@@ -67,7 +67,7 @@ instance (Table context a, Unreifiable context a) =>
 
 
 instance
-  ( Unreifiable from a, Unreifiable to b
+  ( Unreifies from a, Unreifies to b
   , Recontextualize from to a b
   )
   => Recontextualize from to (NonEmptyTable a) (NonEmptyTable b)

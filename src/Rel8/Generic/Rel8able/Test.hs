@@ -82,6 +82,14 @@ data TableNonEmpty f = TableNonEmpty
   deriving anyclass Rel8able
 
 
+data TableNest f = TableNest
+  { foo :: Column f Bool
+  , bars :: HList f (HMaybe f (TablePair f))
+  }
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+
 data S3Object = S3Object
   { bucketName :: Text
   , objectKey :: Text
