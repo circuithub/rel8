@@ -1,5 +1,9 @@
+{-# language AllowAmbiguousTypes #-}
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
@@ -11,26 +15,34 @@ module Rel8.Aggregate.Legacy
   , groupBy
   , listAgg
   , nonEmptyAgg
+
+  , AggregateADT
+  , aggregateADT
   )
 where
 
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Kind ( Type )
 import Prelude
 
 -- opaleye
 import qualified Opaleye.Aggregate as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregates, Col(..) )
-import Rel8.Expr ( Col(..) )
+import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
+import Rel8.Expr ( Col(..), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
+import Rel8.Generic.Construction ( GGAggregate', ggaggregate' )
+import Rel8.Kind.Algebra ( Algebra( Sum ) )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
+import Rel8.Schema.Kind ( Rel8able )
 import Rel8.Table ( toColumns, fromColumns )
+import Rel8.Table.ADT ( ConstructableADT, ADT( ADT ), ADTRep )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
@@ -90,3 +102,14 @@ nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
     (pure exprs)
+
+
+type AggregateADT :: Rel8able -> Type
+type AggregateADT t = forall r. GGAggregate' 'Sum (ADTRep t) r
+
+
+aggregateADT :: forall t. ConstructableADT t
+  => AggregateADT t -> ADT t Expr -> ADT t Aggregate
+aggregateADT f =
+  ggaggregate' @'Sum @(ADTRep t) @(ADT t Expr) @(ADT t Aggregate) ADT (\(ADT a) -> a)
+    (f @(ADT t Aggregate))

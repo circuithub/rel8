@@ -77,6 +77,7 @@ library
     Rel8.Kind.Labels
     Rel8.Kind.Necessity
 
+    Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
     Rel8.Generic.Construction.Record
     Rel8.Generic.Map
