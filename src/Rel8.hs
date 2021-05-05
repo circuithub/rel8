@@ -106,7 +106,7 @@ module Rel8
   , some
 
     -- ** @ADT@
-  , ADT, ADTable
+  , ADT, ADTable, fromADT, toADT
   , ConstructADT, constructADT
   , DeconstructADT, deconstructADT
   , InsertADT, insertADT
@@ -114,7 +114,7 @@ module Rel8
   , AggregateADT, aggregateADT
 
     -- ** @HKD@
-  , HKD, HKDable
+  , HKD, HKDable, fromHKD, toHKD
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
   , InsertHKD, insertHKD
