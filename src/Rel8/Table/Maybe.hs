@@ -60,6 +60,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
@@ -160,6 +161,14 @@ instance EqTable a => EqTable (MaybeTable a) where
 
 instance OrdTable a => OrdTable (MaybeTable a) where
   ordTable = toColumns1 id (justTable (ordTable @a))
+
+
+type instance FromExprs (MaybeTable a) = Maybe (FromExprs a)
+
+
+instance ToExprs exprs a => ToExprs (MaybeTable exprs) (Maybe a) where
+  fromResult = fmap (fromResult @exprs) . fromColumns
+  toResult = toColumns . fmap (toResult @exprs)
 
 
 -- | Check if a @MaybeTable@ is absent of any row. Like 'Data.Maybe.isNothing'.

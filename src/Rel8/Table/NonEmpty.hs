@@ -41,6 +41,7 @@ import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Table.Unreify ( Unreifiable )
 
 
@@ -89,6 +90,15 @@ instance OrdTable a => OrdTable (NonEmptyTable a) where
             Null -> Dict
             NotNull -> Dict)
       (Identity (ordTable @a))
+
+
+type instance FromExprs (NonEmptyTable a) = NonEmpty (FromExprs a)
+
+
+instance ToExprs exprs a => ToExprs (NonEmptyTable exprs) (NonEmpty a)
+ where
+  fromResult = fmap (fromResult @exprs) . fromColumns
+  toResult = toColumns . fmap (toResult @exprs)
 
 
 instance AltTable NonEmptyTable where

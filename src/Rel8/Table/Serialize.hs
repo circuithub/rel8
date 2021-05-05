@@ -21,7 +21,6 @@ module Rel8.Table.Serialize
 where
 
 -- base
-import Data.Bifunctor ( bimap )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics ( Generic, Rep, from, to )
@@ -46,18 +45,10 @@ import Rel8.Schema.Null ( NotNull, Sql )
 import Rel8.Schema.Result ( Col( Result ), Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
-import Rel8.Table.Either ( EitherTable )
-import Rel8.Table.List ( ListTable )
-import Rel8.Table.Maybe ( MaybeTable )
-import Rel8.Table.NonEmpty ( NonEmptyTable )
-import Rel8.Table.These ( TheseTable )
 import Rel8.Type ( DBType )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
-
--- these
-import Data.These ( These )
 
 
 type ToExprs :: Type -> Type -> Constraint
@@ -124,44 +115,6 @@ instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty
  where
   fromResult (HType (Result a)) = a
   toResult = HType . Result
-
-
-instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable exprs1 exprs2) =>
-  ToExprs x (Either a b)
- where
-  fromResult =
-    bimap (fromResult @exprs1) (fromResult @exprs2) .
-    fromColumns
-  toResult =
-    toColumns .
-    bimap (toResult @exprs1) (toResult @exprs2)
-
-
-instance ToExprs exprs a => ToExprs (ListTable exprs) [a] where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
-
-
-instance ToExprs exprs a => ToExprs (MaybeTable exprs) (Maybe a) where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
-
-
-instance ToExprs exprs a => ToExprs (NonEmptyTable exprs) (NonEmpty a)
- where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
-
-
-instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable exprs1 exprs2) =>
-  ToExprs x (These a b)
- where
-  fromResult =
-    bimap (fromResult @exprs1) (fromResult @exprs2) .
-    fromColumns
-  toResult =
-    toColumns .
-    bimap (toResult @exprs1) (toResult @exprs2)
 
 
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ (exprs1, exprs2)) =>
@@ -241,11 +194,6 @@ type FromExprs :: Type -> Type
 type family FromExprs a
 type instance FromExprs (Expr a) = a
 type instance FromExprs (Col Expr spec) = Col Result spec
-type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
-type instance FromExprs (ListTable a) = [FromExprs a]
-type instance FromExprs (MaybeTable a) = Maybe (FromExprs a)
-type instance FromExprs (NonEmptyTable a) = NonEmpty (FromExprs a)
-type instance FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
 type instance FromExprs (a, b) = (FromExprs a, FromExprs b)
 type instance FromExprs (a, b, c) = (FromExprs a, FromExprs b, FromExprs c)
 type instance FromExprs (a, b, c, d) =

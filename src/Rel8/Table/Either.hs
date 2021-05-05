@@ -11,6 +11,8 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
+{-# options_ghc -fno-warn-orphans #-}
+
 module Rel8.Table.Either
   ( EitherTable(..)
   , eitherTable, leftTable, rightTable
@@ -55,6 +57,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
@@ -121,8 +124,8 @@ instance
   , Nullifiable to, Labelable to, ConstrainTag to EitherTag
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
-  ) =>
-  Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
+  )
+  => Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
 
 
 instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
@@ -131,6 +134,20 @@ instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
 
 instance (OrdTable a, OrdTable b) => OrdTable (EitherTable a b) where
   ordTable = toColumns2 id id (rightTableWith (ordTable @a) (ordTable @b))
+
+
+type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
+
+
+instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable exprs1 exprs2) =>
+  ToExprs x (Either a b)
+ where
+  fromResult =
+    bimap (fromResult @exprs1) (fromResult @exprs2) .
+    fromColumns
+  toResult =
+    toColumns .
+    bimap (toResult @exprs1) (toResult @exprs2)
 
 
 isLeftTable :: EitherTable a b -> Expr Bool

@@ -13,6 +13,8 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
+{-# options_ghc -fno-warn-orphans #-}
+
 module Rel8.Table.These
   ( TheseTable(..)
   , theseTable, thisTable, thatTable, thoseTable
@@ -64,6 +66,7 @@ import Rel8.Table.Maybe
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Table.Tag ( Tag(..) )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
@@ -71,6 +74,9 @@ import Rel8.Type.Tag ( MaybeTag )
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>), liftF2 )
 import Data.Functor.Bind ( Bind, (>>-) )
+
+-- these
+import Data.These ( These )
 
 
 type TheseTable :: Type -> Type -> Type
@@ -151,6 +157,20 @@ instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
 
 instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
   ordTable = toColumns2 id id (thoseTable (ordTable @a) (ordTable @b))
+
+
+type instance FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
+
+
+instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable exprs1 exprs2) =>
+  ToExprs x (These a b)
+ where
+  fromResult =
+    bimap (fromResult @exprs1) (fromResult @exprs2) .
+    fromColumns
+  toResult =
+    toColumns .
+    bimap (toResult @exprs1) (toResult @exprs2)
 
 
 toHereTag :: Tag "isJust" a -> Tag "hasHere" a
