@@ -4,6 +4,7 @@
 
 module Rel8.Column
   ( Column, Default
+  , TColumn
   )
 where
 
@@ -13,6 +14,7 @@ import Prelude ()
 
 -- rel8
 import Rel8.Column.Field ( Field )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Kind.Necessity ( Necessity( Required, Optional ) )
 import qualified Rel8.Schema.Kind as K
 
@@ -27,3 +29,7 @@ type Column context a = Field context 'Required a
 
 type Default :: K.Context -> Type -> Type
 type Default context a = Field context 'Optional a
+
+
+data TColumn :: K.Context -> Type -> Exp Type
+type instance Eval (TColumn f a) = Column f a

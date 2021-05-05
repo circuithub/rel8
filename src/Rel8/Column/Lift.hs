@@ -25,7 +25,7 @@ import Rel8.Table
   , Unreify, reify, unreify
   )
 import Rel8.Table.Rel8able ()
-import Rel8.Table.HKD ( HKD( HKD ), GHKD, fromHKD, toHKD )
+import Rel8.Table.HKD ( HKD( HKD ), HKDable, fromHKD, toHKD )
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
@@ -42,7 +42,7 @@ newtype ALift context a = ALift
   }
 
 
-instance (Reifiable context, GHKD a) =>
+instance (Reifiable context, HKDable a) =>
   Table (Reify context) (ALift context a)
  where
   type Context (ALift context a) = Reify context
@@ -55,7 +55,7 @@ instance (Reifiable context, GHKD a) =>
   unreify _ (ALift a) = a
 
 
-instance (Reifiable context, Reifiable context', GHKD a) =>
+instance (Reifiable context, Reifiable context', HKDable a) =>
   Recontextualize
     (Reify context)
     (Reify context')
@@ -63,7 +63,7 @@ instance (Reifiable context, Reifiable context', GHKD a) =>
     (ALift context' a)
 
 
-sfromColumnsLift :: GHKD a
+sfromColumnsLift :: HKDable a
   => SContext context
   -> GColumns (HKD a) (Col (Reify context))
   -> ALift context a
@@ -76,7 +76,7 @@ sfromColumnsLift = \case
   SReify context -> ALift . sfromColumnsLift context . hunreify
 
 
-stoColumnsLift :: GHKD a
+stoColumnsLift :: HKDable a
   => SContext context
   -> ALift context a
   -> GColumns (HKD a) (Col (Reify context))

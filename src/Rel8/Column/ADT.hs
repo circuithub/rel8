@@ -15,11 +15,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Generic.Rel8able
-  ( Rel8able
-  , GColumnsADT, gfromColumnsADT, gtoColumnsADT
-  , greify, gunreify
-  )
+import Rel8.Generic.Rel8able ( GColumns )
 import Rel8.Kind.Context ( SContext(..), Reifiable, contextSing )
 import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
@@ -29,7 +25,7 @@ import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Unreify, reify, unreify
   )
-import Rel8.Table.ADT ( ADT( ADT ) )
+import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
@@ -44,11 +40,11 @@ type AHADT :: K.Context -> K.Rel8able -> Type
 newtype AHADT context t = AHADT (HADT context t)
 
 
-instance (Rel8able t, Reifiable context) =>
+instance (ADTable t, Reifiable context) =>
   Table (Reify context) (AHADT context t)
  where
   type Context (AHADT context t) = Reify context
-  type Columns (AHADT context t) = GColumnsADT t
+  type Columns (AHADT context t) = GColumns (ADT t)
   type Unreify (AHADT context t) = HADT context t
 
   fromColumns = sfromColumnsADT contextSing
@@ -59,7 +55,7 @@ instance (Rel8able t, Reifiable context) =>
 
 instance
   ( Reifiable context, Reifiable context'
-  , Rel8able t, t ~ t'
+  , ADTable t, t ~ t'
   )
   => Recontextualize
     (Reify context)
@@ -68,27 +64,27 @@ instance
     (AHADT context' t')
 
 
-sfromColumnsADT :: Rel8able t
+sfromColumnsADT :: ADTable t
   => SContext context
-  -> GColumnsADT t (Col (Reify context))
+  -> GColumns (ADT t) (Col (Reify context))
   -> AHADT context t
 sfromColumnsADT = \case
   SAggregate -> AHADT . ADT . hunreify
   SExpr -> AHADT . ADT . hunreify
   SInsert -> AHADT . ADT . hunreify
   SName -> AHADT . ADT . hunreify
-  SResult -> AHADT . gunreify . gfromColumnsADT
+  SResult -> AHADT . fromADT . ADT . hunreify
   SReify context -> AHADT . sfromColumnsADT context . hunreify
 
 
-stoColumnsADT :: Rel8able t
+stoColumnsADT :: ADTable t
   => SContext context
   -> AHADT context t
-  -> GColumnsADT t (Col (Reify context))
+  -> GColumns (ADT t) (Col (Reify context))
 stoColumnsADT = \case
   SAggregate -> hreify . (\(AHADT (ADT a)) -> a)
   SExpr -> hreify . (\(AHADT (ADT a)) -> a)
   SInsert -> hreify . (\(AHADT (ADT a)) -> a)
   SName -> hreify . (\(AHADT (ADT a)) -> a)
-  SResult -> gtoColumnsADT . greify . (\(AHADT a) -> a)
+  SResult -> hreify . (\(ADT a) -> a) . toADT . (\(AHADT a) -> a)
   SReify context -> hreify . stoColumnsADT context . (\(AHADT a) -> a)

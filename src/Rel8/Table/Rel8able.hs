@@ -29,8 +29,7 @@ import Rel8.Kind.Context
   )
 import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
-  , GColumns, GContext, gfromColumns, gtoColumns
-  , gfromColumnsADT, gtoColumnsADT
+  , GColumns, gfromColumns, gtoColumns
   , greify, gunreify
   )
 import Rel8.Schema.Context ( Col )
@@ -45,7 +44,7 @@ import Rel8.Table
   , Unreify, reify, unreify
   )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import Rel8.Table.ADT ( ADT )
+import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.HKD ( HKD )
 import Rel8.Table.Ord ( OrdTable, ordTable )
@@ -55,13 +54,8 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance
-  ( Rel8able t
-  , GContext t context ~ context
-  , Labelable context
-  , Reifiable context
-  )
-  => Table context (t context)
+instance (Rel8able t, Labelable context, Reifiable context) =>
+  Table context (t context)
  where
   type Columns (t context) = GColumns t
   type Context (t context) = context
@@ -83,8 +77,8 @@ instance
 
 instance
   ( Rel8able t
-  , Labelable from, Reifiable from, GContext t from ~ from
-  , Labelable to, Reifiable to, GContext t to ~ to
+  , Labelable from, Reifiable from
+  , Labelable to, Reifiable to
   , Congruent (t from) (t to)
   )
   => Recontextualize from to (t from) (t to)
@@ -93,7 +87,6 @@ instance
 instance
   ( context ~ Expr
   , Rel8able t
-  , GContext t context ~ context
   , HConstrainTable (Columns (t context)) (ConstrainDBType DBEq)
   )
   => EqTable (t context)
@@ -104,7 +97,6 @@ instance
 instance
   ( context ~ Expr
   , Rel8able t
-  , GContext t context ~ context
   , HConstrainTable (Columns (t context)) (ConstrainDBType DBEq)
   , HConstrainTable (Columns (t context)) (ConstrainDBType DBOrd)
   )
@@ -135,35 +127,22 @@ type family FromExprs' t where
 
 
 type ToExprs' :: K.Algebra -> K.Rel8able -> K.Rel8able -> Constraint
-class
-  ( algebra ~ Algebra t
-  , Rel8able t'
-  , GContext t' Expr ~ Expr
-  )
-  => ToExprs' algebra t' t | algebra t -> t'
+class (algebra ~ Algebra t, Rel8able t') =>
+  ToExprs' algebra t' t | algebra t -> t'
  where
   fromResult' :: GColumns t' (Col Result) -> t Result
   toResult' :: t Result -> GColumns t' (Col Result)
 
 
-instance
-  ( Algebra t ~ 'K.Product
-  , Rel8able t
-  , GContext t Expr ~ Expr
-  , t ~ t'
-  )
-  => ToExprs' 'K.Product t' t
+instance (Algebra t ~ 'K.Product, Rel8able t, t ~ t') =>
+  ToExprs' 'K.Product t' t
  where
   fromResult' = fromColumns
   toResult' = toColumns
 
 
-instance
-  ( Algebra t ~ 'K.Sum
-  , Rel8able t
-  , t' ~ ADT t
-  )
-  => ToExprs' 'K.Sum t' t
+instance (Algebra t ~ 'K.Sum, ADTable t, t' ~ ADT t) =>
+  ToExprs' 'K.Sum t' t
  where
-  fromResult' = gunreify . gfromColumnsADT . hreify
-  toResult' = hunreify . gtoColumnsADT . greify
+  fromResult' = fromADT . ADT
+  toResult' = (\(ADT a) -> a) . toADT

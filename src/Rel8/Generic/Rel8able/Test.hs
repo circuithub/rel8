@@ -129,7 +129,6 @@ data TableSum f
   | TableSumB
   | TableSumC (Column f Text)
   deriving stock Generic
-  deriving anyclass Rel8able
 
 
 data TableProduct f = TableProduct
