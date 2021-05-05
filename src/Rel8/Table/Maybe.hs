@@ -3,6 +3,7 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -16,8 +17,7 @@ module Rel8.Table.Maybe
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
   , ($?)
-  , aggregateMaybeTable
-  , nameMaybeTable
+  , aggregateMaybeTable, insertMaybeTable, nameMaybeTable
   )
 where
 
@@ -46,6 +46,7 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Table
@@ -58,6 +59,7 @@ import Rel8.Table.Alternative
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -215,6 +217,12 @@ aggregateMaybeTable f MaybeTable {tag = tag@Tag {aggregator, expr}, just} =
   liftF2 MaybeTable (tag <$ aggregate) (f just)
   where
     aggregate = unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
+
+
+insertMaybeTable :: Table Insert a => Maybe a -> MaybeTable a
+insertMaybeTable = \case
+  Nothing -> MaybeTable (fromExpr null) (fromColumns (toInsert undefined))
+  Just a -> justTable a
 
 
 nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a

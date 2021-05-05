@@ -1,4 +1,3 @@
-{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -11,8 +10,7 @@
 
 module Rel8.Table.NonEmpty
   ( NonEmptyTable(..)
-  , HNonEmptyTable
-  , nonEmptyTable
+  , nonEmptyTable, insertNonEmptyTable, nameNonEmptyTable
   )
 where
 
@@ -26,9 +24,12 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
+import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
+import Rel8.Schema.Insert ( Col( OptionalInsert, RequiredInsert ), Insert )
+import Rel8.Schema.Name ( Col( NameCol ), Name )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -115,3 +116,20 @@ nonEmptyTable =
   NonEmptyTable .
   hvectorize (\SSpec {info} -> DB . snonEmptyOf info . fmap unDB) .
   fmap toColumns
+
+
+insertNonEmptyTable :: Table Insert a => NonEmpty a -> NonEmptyTable a
+insertNonEmptyTable =
+  NonEmptyTable .
+  hvectorize (\SSpec {necessity, info} -> case necessity of
+    SRequired -> RequiredInsert . snonEmptyOf info . fmap (\(RequiredInsert a) -> a)
+    SOptional -> OptionalInsert . fmap (snonEmptyOf info) . traverse (\(OptionalInsert a) -> a)) .
+  fmap toColumns
+
+
+nameNonEmptyTable :: Table Name a => a -> NonEmptyTable a
+nameNonEmptyTable =
+  NonEmptyTable .
+  hvectorize (\_ (Identity (NameCol a)) -> NameCol a) .
+  pure .
+  toColumns

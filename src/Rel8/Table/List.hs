@@ -10,7 +10,7 @@
 
 module Rel8.Table.List
   ( ListTable(..)
-  , listTable
+  , listTable, insertListTable, nameListTable
   )
 where
 
@@ -23,9 +23,12 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
+import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
+import Rel8.Schema.Insert ( Col( OptionalInsert, RequiredInsert ), Insert )
+import Rel8.Schema.Name ( Col( NameCol ), Name )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
@@ -122,3 +125,20 @@ listTable =
   ListTable .
   hvectorize (\SSpec {info} -> DB . slistOf info . fmap unDB) .
   fmap toColumns
+
+
+insertListTable :: Table Insert a => [a] -> ListTable a
+insertListTable =
+  ListTable .
+  hvectorize (\SSpec {necessity, info} -> case necessity of
+    SRequired -> RequiredInsert . slistOf info . fmap (\(RequiredInsert a) -> a)
+    SOptional -> OptionalInsert . fmap (slistOf info) . traverse (\(OptionalInsert a) -> a)) .
+  fmap toColumns
+
+
+nameListTable :: Table Name a => a -> ListTable a
+nameListTable =
+  ListTable .
+  hvectorize (\_ (Identity (NameCol a)) -> NameCol a) .
+  pure .
+  toColumns

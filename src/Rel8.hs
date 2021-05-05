@@ -57,6 +57,9 @@ module Rel8
   , catMaybeTable
   , bindMaybeTable
   , traverseMaybeTable
+  , aggregateMaybeTable
+  , insertMaybeTable
+  , nameMaybeTable
 
     -- ** @EitherTable@
   , EitherTable
@@ -66,6 +69,9 @@ module Rel8
   , keepRightTable
   , bindEitherTable
   , bitraverseEitherTable
+  , aggregateEitherTable
+  , insertEitherTable
+  , nameEitherTable
 
     -- ** @TheseTable@
   , TheseTable
@@ -81,13 +87,22 @@ module Rel8
   , keepThoseTable, loseThoseTable
   , bindTheseTable
   , bitraverseTheseTable
+  , aggregateTheseTable
+  , insertTheseTable
+  , nameTheseTable
 
     -- ** @ListTable@
   , ListTable
+  , listTable
+  , insertListTable
+  , nameListTable
   , many
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
+  , nonEmptyTable
+  , insertNonEmptyTable
+  , nameNonEmptyTable
   , some
 
     -- ** @ADT@
