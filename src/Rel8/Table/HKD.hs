@@ -206,8 +206,12 @@ toHKD :: GHKD a => a -> HKD a Result
 toHKD = to . gmap @Top (Proxy @(TColumn Result)) id . from
 
 
+class Top_
+instance Top_
+
+
 data Top :: Type -> Exp Constraint
-type instance Eval (Top _) = ()
+type instance Eval (Top _) = Top_
 
 
 class
