@@ -25,6 +25,8 @@ module Rel8.Tabulate
   , difference
   , aggregateTabulation
   , optionalTabulation
+  , manyTabulation
+  , someTabulation
   )
 where
 
@@ -47,9 +49,11 @@ import Rel8.Query.Filter ( filter, where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table )
-import Rel8.Table.Aggregate ( groupBy )
+import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
 import Rel8.Table.Eq ( EqTable, (==:) )
-import Rel8.Table.Maybe ( MaybeTable )
+import Rel8.Table.List ( ListTable )
+import Rel8.Table.Maybe ( MaybeTable, maybeTable )
+import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.These ( TheseTable, theseTable )
 import Rel8.Table.Undefined ( undefined )
 
@@ -331,6 +335,20 @@ optionalTabulation :: EqTable k
 optionalTabulation as = Tabulation $ \k -> do
   ma <- optional $ lookup k as
   pure (Just k, ma)
+
+
+manyTabulation :: (EqTable k, Table Expr a)
+  => Tabulation k a -> Tabulation k (ListTable a)
+manyTabulation =
+  fmap (maybeTable mempty id) .
+  optionalTabulation .
+  aggregateTabulation .
+  fmap listAgg
+
+
+someTabulation :: (EqTable k, Table Expr a)
+  => Tabulation k a -> Tabulation k (NonEmptyTable a)
+someTabulation = aggregateTabulation . fmap nonEmptyAgg
 
 
 toQuery :: Tabulation k a -> Tabulation k (Query (k, a))
