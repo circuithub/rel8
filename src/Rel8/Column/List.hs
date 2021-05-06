@@ -33,10 +33,7 @@ import Rel8.Table
   )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify
-  ( Unreifiability( Unreifiability )
-  , Unreifiable, unreifiability
-  )
+import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
 type HList :: K.Context -> Type -> Type
@@ -129,19 +126,23 @@ stoColumnsList = \case
     (\(AHList a) -> a)
 
 
-sreifyList :: ()
+sreifyList :: Table (Reify context) a
   => Unreifiability context a
   -> HList context (Unreify a)
   -> AHList context a
-sreifyList (Unreifiability context) =
-  smapList context (reify Refl) hreify .
-  AHList
+sreifyList = \case
+  UResult -> AHList . fmap (reify Refl)
+  Unreifiability context ->
+    smapList context (reify Refl) hreify .
+    AHList
 
 
-sunreifyList :: ()
+sunreifyList :: Table (Reify context) a
   => Unreifiability context a
   -> AHList context a
   -> HList context (Unreify a)
-sunreifyList (Unreifiability context) =
-  (\(AHList a) -> a) .
-  smapList context (unreify Refl) hunreify
+sunreifyList = \case
+  UResult -> fmap (unreify Refl) . (\(AHList a) -> a)
+  Unreifiability context ->
+    (\(AHList a) -> a) .
+    smapList context (unreify Refl) hunreify

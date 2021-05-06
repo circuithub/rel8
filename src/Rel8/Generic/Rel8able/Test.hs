@@ -7,6 +7,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 {-# options_ghc -O0 #-}
 
@@ -26,7 +27,7 @@ import Rel8
 import Data.Text ( Text )
 
 
-data Table f = Table
+data TableTest f = TableTest
   { foo :: Column f Bool
   , bar :: Column f (Maybe Bool)
   }
@@ -98,11 +99,19 @@ data S3Object = S3Object
 
 
 deriving via HKDT S3Object
+  instance Table Result S3Object
+
+
+deriving via HKDT S3Object
   instance x ~ HKD S3Object Expr => ToExprs x S3Object
 
 
 data HKDSum = HKDSumA Text | HKDSumB Bool Char
   deriving stock Generic
+
+
+deriving via HKDT HKDSum
+  instance Table Result HKDSum
 
 
 deriving via HKDT HKDSum
@@ -142,8 +151,7 @@ data TableSum f
 data TableProduct f = TableProduct
   { sum :: HADT f TableSum
   , list :: TableList f
-  , foos :: HList f (ADT TableSum f)
-  , bars :: HList f (HKD HKDSum f)
+  , foos :: HList f (HADT f TableSum, Lift f HKDSum, HKDTest f)
   }
   deriving stock Generic
   deriving anyclass Rel8able

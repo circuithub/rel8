@@ -58,7 +58,7 @@ instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
   Table (Reify context) (AField context necessity a)
  where
   type Context (AField context necessity a) = Reify context
-  type Columns (AField context necessity a) = HIdentity ('Spec '[""] necessity a)
+  type Columns (AField context necessity a) = HIdentity ('Spec '[] necessity a)
   type Unreify (AField context necessity a) = Field context necessity a
 
   fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a

@@ -34,10 +34,7 @@ import Rel8.Table
   )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify
-  ( Unreifiability( Unreifiability )
-  , Unreifiable, unreifiability
-  )
+import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
 type HNonEmpty :: K.Context -> Type -> Type
@@ -131,19 +128,23 @@ stoColumnsNonEmpty = \case
     (\(AHNonEmpty a) -> a)
 
 
-sreifyNonEmpty :: ()
+sreifyNonEmpty :: Table (Reify context) a
   => Unreifiability context a
   -> HNonEmpty context (Unreify a)
   -> AHNonEmpty context a
-sreifyNonEmpty (Unreifiability context) =
-  smapNonEmpty context (reify Refl) hreify .
-  AHNonEmpty
+sreifyNonEmpty = \case
+  UResult -> AHNonEmpty . fmap (reify Refl)
+  Unreifiability context ->
+    smapNonEmpty context (reify Refl) hreify .
+    AHNonEmpty
 
 
-sunreifyNonEmpty :: ()
+sunreifyNonEmpty :: Table (Reify context) a
   => Unreifiability context a
   -> AHNonEmpty context a
   -> HNonEmpty context (Unreify a)
-sunreifyNonEmpty (Unreifiability context) =
-  (\(AHNonEmpty a) -> a) .
-  smapNonEmpty context (unreify Refl) hunreify
+sunreifyNonEmpty = \case
+  UResult -> fmap (unreify Refl) . (\(AHNonEmpty a) -> a)
+  Unreifiability context ->
+    (\(AHNonEmpty a) -> a) .
+    smapNonEmpty context (unreify Refl) hunreify

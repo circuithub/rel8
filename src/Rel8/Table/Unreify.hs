@@ -27,7 +27,7 @@
 -- @Table@)
 
 module Rel8.Table.Unreify
-  ( Unreifiable, Unreifiability( Unreifiability ), unreifiability
+  ( Unreifiable, Unreifiability(..), unreifiability
   , Unreifies
   )
 where
@@ -61,7 +61,6 @@ class
   , Context a ~ Reify Expr => Unreifier Expr a
   , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
-  , Context a ~ Reify Result => Unreifier Result a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
   => Unreifiable a
@@ -70,7 +69,6 @@ instance
   , Context a ~ Reify Expr => Unreifier Expr a
   , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
-  , Context a ~ Reify Result => Unreifier Result a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
   => Unreifiable a
@@ -78,14 +76,12 @@ instance
 
 type Unreifier :: K.Context -> Type -> Constraint
 class
-  ( Table (Reify context) a
-  , Table context (Unreify a)
+  ( Table context (Unreify a)
   , Congruent a (Unreify a)
   )
   => Unreifier context a
 instance
-  ( Table (Reify context) a
-  , Table context (Unreify a)
+  ( Table context (Unreify a)
   , Congruent a (Unreify a)
   )
   => Unreifier context a
@@ -93,6 +89,7 @@ instance
 
 type Unreifiability :: K.Context -> Type -> Type
 data Unreifiability context a where
+  UResult :: Unreifiability Result a
   Unreifiability :: Unreifier context a
     => SContext context -> Unreifiability context a
 
@@ -104,6 +101,6 @@ unreifiability = \case
   SExpr -> Unreifiability SExpr
   SInsert -> Unreifiability SInsert
   SName -> Unreifiability SName
-  SResult -> Unreifiability SResult
+  SResult -> UResult
   SReify context -> case sReifiable context of
     Dict -> Unreifiability (SReify context)

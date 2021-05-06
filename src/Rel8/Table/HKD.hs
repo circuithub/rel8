@@ -28,6 +28,7 @@ where
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.Type.Equality ( (:~:)( Refl ) )
+import Data.Void ( Void )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
@@ -62,10 +63,10 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
+import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify, notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( Table, Columns
+  ( Table, Columns, Context, Unreify
   , fromColumns, toColumns, reify, unreify
   , TTable, TColumns, TUnreify
   )
@@ -136,6 +137,17 @@ type HKDT :: Type -> Type
 newtype HKDT a = HKDT
   { unHKDT :: a
   }
+
+
+instance HKDable a => Table Result (HKDT a) where
+  type Columns (HKDT a) = GColumnsHKD a
+  type Context (HKDT a) = Result
+  type Unreify (HKDT a) = Void
+
+  fromColumns = HKDT . fromHKD . HKD
+  toColumns = (\(HKD a) -> a) . toHKD . (\(HKDT a) -> a)
+  reify = notReify
+  unreify = notReify
 
 
 instance
