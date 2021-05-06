@@ -22,10 +22,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Bool ( (&&.), (||.), coalesce )
-import Rel8.Expr.Null ( isNull, isNonNull, nullable, unsafeLiftOpNull )
+import Rel8.Expr.Null ( isNull, isNonNull, nullableExpr, unsafeLiftOpNull )
 import Rel8.Expr.Opaleye ( toPrimExpr, zipPrimExprsWith )
-import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql )
-import qualified Rel8.Schema.Null as Schema ( nullable )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Type.Ord ( DBOrd )
 
 
@@ -49,7 +48,7 @@ ge = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
 -- as @null@ will sort below any other value. For a version of @<@ that exactly
 -- matches SQL, see '(<?)'.
 (<.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<.) = case Schema.nullable @a of
+(<.) = case nullable @a of
   Null -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
   NotNull -> lt
 infix 4 <.
@@ -59,7 +58,7 @@ infix 4 <.
 -- as @null@ will sort below any other value. For a version of @<=@ that exactly
 -- matches SQL, see '(<=?)'.
 (<=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(<=.) = case Schema.nullable @a of
+(<=.) = case nullable @a of
   Null -> \ma mb -> isNull ma ||. ma <=? mb
   NotNull -> le
 infix 4 <=.
@@ -69,7 +68,7 @@ infix 4 <=.
 -- as @null@ will sort below any other value. For a version of @>@ that exactly
 -- matches SQL, see '(>?)'.
 (>.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>.) = case Schema.nullable @a of
+(>.) = case nullable @a of
   Null -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
   NotNull -> gt
 infix 4 >.
@@ -79,7 +78,7 @@ infix 4 >.
 -- as @null@ will sort below any other value. For a version of @>=@ that
 -- exactly matches SQL, see '(>=?)'.
 (>=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
-(>=.) = case Schema.nullable @a of
+(>=.) = case nullable @a of
   Null -> \ma mb -> isNull mb ||. ma >=? mb
   NotNull -> ge
 infix 4 >=.
@@ -118,8 +117,8 @@ infix 4 >=?
 -- 
 -- Corresponds to the SQL @least()@ function.
 leastExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
-leastExpr ma mb = case Schema.nullable @a of
-  Null -> nullable ma (\a -> nullable mb (least_ a) mb) ma
+leastExpr ma mb = case nullable @a of
+  Null -> nullableExpr ma (\a -> nullableExpr mb (least_ a) mb) ma
   NotNull -> least_ ma mb
   where
     least_ a b = Expr (Opaleye.FunExpr "LEAST" [toPrimExpr a, toPrimExpr b])
@@ -130,8 +129,8 @@ leastExpr ma mb = case Schema.nullable @a of
 -- 
 -- Corresponds to the SQL @greatest()@ function.
 greatestExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
-greatestExpr ma mb = case Schema.nullable @a of
-  Null -> nullable mb (\a -> nullable ma (greatest_ a) mb) ma
+greatestExpr ma mb = case nullable @a of
+  Null -> nullableExpr mb (\a -> nullableExpr ma (greatest_ a) mb) ma
   NotNull -> greatest_ ma mb
   where
     greatest_ a b =

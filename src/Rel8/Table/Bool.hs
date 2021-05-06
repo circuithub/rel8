@@ -5,6 +5,7 @@
 module Rel8.Table.Bool
   ( bool
   , case_
+  , nullable
   )
 where
 
@@ -14,6 +15,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Bool ( boolExpr, caseExpr )
+import Rel8.Expr.Null ( isNull, unsafeUnnullify )
 import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Table ( Table, fromColumns, toColumns )
 
@@ -40,3 +42,8 @@ case_ (map (fmap toColumns) -> branches) (toColumns -> fallback) =
     DB fallbackExpr ->
       case map (fmap (unDB . (`hfield` field))) branches of
         branchExprs -> DB (caseExpr branchExprs fallbackExpr)
+
+
+-- | Like 'maybe', but to eliminate @null@.
+nullable :: Table Expr b => b -> (Expr a -> b) -> Expr (Maybe a) -> b
+nullable b f ma = bool (f (unsafeUnnullify ma)) b (isNull ma)

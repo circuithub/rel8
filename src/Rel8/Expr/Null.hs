@@ -5,7 +5,7 @@
 {-# options -fno-warn-redundant-constraints #-}
 
 module Rel8.Expr.Null
-  ( null, snull, nullable, nullableOf
+  ( null, snull, nullableExpr, nullableOf
   , isNull, isNonNull
   , nullify, unsafeUnnullify
   , mapNull, liftOpNull
@@ -40,8 +40,8 @@ unsafeUnnullify (Expr a) = Expr a
 
 
 -- | Like 'maybe', but to eliminate @null@.
-nullable :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
-nullable b f ma = boolExpr (f (unsafeUnnullify ma)) b (isNull ma)
+nullableExpr :: Expr b -> (Expr a -> Expr b) -> Expr (Maybe a) -> Expr b
+nullableExpr b f ma = boolExpr (f (unsafeUnnullify ma)) b (isNull ma)
 
 
 nullableOf :: DBType a => Maybe (Expr a) -> Expr (Maybe a)
