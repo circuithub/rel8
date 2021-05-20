@@ -28,6 +28,7 @@ module Rel8
   , DBNum
   , DBIntegral
   , DBFractional
+  , DBFloating
 
     -- * Tables and higher-kinded tables
   , Rel8able, KRel8able

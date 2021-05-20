@@ -39,17 +39,17 @@ realToFrac (Expr a) = castExpr (Expr a)
 -- Corresponds to the @ceiling()@ function.
 ceiling :: (Sql DBFractional a, Sql DBIntegral b, Homonullable a b)
   => Expr a -> Expr b
-ceiling = function "CEILING"
+ceiling = function "ceiling"
 
 
 -- | Perform integral division. Corresponds to the @div()@ function.
 div :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-div = function "DIV"
+div = function "div"
 
 
 -- | Corresponds to the @mod()@ function.
 mod :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-mod = function "MOD"
+mod = function "mod"
 
 
 -- | Round a 'DFractional' to a 'DBIntegral' by rounding to the nearest smaller
@@ -58,7 +58,7 @@ mod = function "MOD"
 -- Corresponds to the @floor()@ function.
 floor :: (Sql DBFractional a, Sql DBIntegral b, Homonullable a b)
   => Expr a -> Expr b
-floor = function "FLOOR"
+floor = function "floor"
 
 
 -- | Round a 'DBFractional' to a 'DBIntegral' by rounding to the nearest
@@ -67,11 +67,11 @@ floor = function "FLOOR"
 -- Corresponds to the @round()@ function.
 round :: (Sql DBFractional a, Sql DBIntegral b, Homonullable a b)
   => Expr a -> Expr b
-round = function "ROUND"
+round = function "round"
 
 
 -- | Round a 'DBFractional' to a 'DBIntegral' by rounding to the nearest
 -- integer towards zero.
 truncate :: (Sql DBFractional a, Sql DBIntegral b, Homonullable a b)
   => Expr a -> Expr b
-truncate = function "TRUNC"
+truncate = function "trunc"

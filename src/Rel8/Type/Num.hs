@@ -7,7 +7,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Type.Num
-  ( DBNum, DBIntegral, DBFractional
+  ( DBNum, DBIntegral, DBFractional, DBFloating
   )
 where
 
@@ -50,3 +50,9 @@ class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
 instance DBFractional Scientific
+
+
+-- | The class of database types that support the @/@ operator.
+class DBFractional a => DBFloating a
+instance DBFloating Float
+instance DBFloating Double

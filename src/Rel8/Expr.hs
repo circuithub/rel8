@@ -29,6 +29,7 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Expr.Function ( function, nullaryFunction )
 import Rel8.Expr.Null ( liftOpNull, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
@@ -50,7 +51,7 @@ import Rel8.Table
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
-import Rel8.Type.Num ( DBFractional, DBNum )
+import Rel8.Type.Num ( DBFloating, DBFractional, DBNum )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
@@ -102,6 +103,27 @@ instance Sql DBFractional a => Fractional (Expr a) where
 
   fromRational =
     castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+
+
+instance Sql DBFloating a => Floating (Expr a) where
+  pi = nullaryFunction "PI"
+  exp = function "exp"
+  log = function "ln"
+  sqrt = function "sqrt"
+  (**) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:^))
+  logBase = function "log"
+  sin = function "sin"
+  cos = function "cos"
+  tan = function "tan"
+  asin = function "asin"
+  acos = function "acos"
+  atan = function "atan"
+  sinh = function "sinh"
+  cosh = function "cosh"
+  tanh = function "tanh"
+  asinh = function "asinh"
+  acosh = function "acosh"
+  atanh = function "atanh"
 
 
 instance Interpretation Expr where
