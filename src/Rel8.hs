@@ -98,6 +98,7 @@ module Rel8
   , insertListTable
   , nameListTable
   , many
+  , manyExpr
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
@@ -105,6 +106,7 @@ module Rel8
   , insertNonEmptyTable
   , nameNonEmptyTable
   , some
+  , someExpr
 
     -- ** @ADT@
   , ADT, ADTable, fromADT, toADT
