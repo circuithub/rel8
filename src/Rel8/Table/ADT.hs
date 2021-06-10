@@ -142,11 +142,13 @@ instance GGConstructable 'K.Sum (ADTRep t) => ConstructableADT t
 
 
 type ConstructADT :: K.Rel8able -> Type
-type ConstructADT t = GGConstruct 'K.Sum (ADTRep t) (ADT t Expr)
+type ConstructADT t = forall r. GGConstruct 'K.Sum (ADTRep t) r
 
 
-constructADT :: forall t. ConstructableADT t => ConstructADT t
-constructADT = ggconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) ADT
+constructADT :: forall t. ConstructableADT t => ConstructADT t -> ADT t Expr
+constructADT f =
+  ggconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) ADT
+    (f @(ADT t Expr))
 
 
 type DeconstructADT :: K.Rel8able -> Type -> Type
@@ -155,15 +157,18 @@ type DeconstructADT t r = GGDeconstruct 'K.Sum (ADTRep t) (ADT t Expr) r
 
 deconstructADT :: forall t r. (ConstructableADT t, Table Expr r)
   => DeconstructADT t r
-deconstructADT = ggdeconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) @r (\(ADT a) -> a)
+deconstructADT =
+  ggdeconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) @r (\(ADT a) -> a)
 
 
 type InsertADT :: K.Rel8able -> Type
-type InsertADT t = GGInsert 'K.Sum (ADTRep t) (ADT t Insert)
+type InsertADT t = forall r. GGInsert 'K.Sum (ADTRep t) r
 
 
-insertADT :: forall t. ConstructableADT t => InsertADT t
-insertADT = gginsert @'K.Sum @(ADTRep t) @(ADT t Insert) ADT
+insertADT :: forall t. ConstructableADT t => InsertADT t -> ADT t Insert
+insertADT f =
+  gginsert @'K.Sum @(ADTRep t) @(ADT t Insert) ADT
+    (f @(ADT t Insert))
 
 
 type NameADT :: K.Rel8able -> Type

@@ -120,19 +120,17 @@ type family GGConstructable' algebra rep where
 
 
 type GGConstruct :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
-type family GGConstruct algebra rep a where
-  GGConstruct 'K.Product rep a = GConstruct TUnreify (Eval (rep (Reify Expr))) a
-  GGConstruct 'K.Sum rep a =
-    -- Ideally this would be as follows, but GHC complains about "illegal polymorphic type"
-    -- (forall r. GConstructADT TUnreify (Eval (rep (Reify Expr))) r r) -> a
-    GConstructADT TUnreify (Eval (rep (Reify Expr))) a a -> a
+type family GGConstruct algebra rep r where
+  GGConstruct 'K.Product rep r = GConstruct TUnreify (Eval (rep (Reify Expr))) r -> r
+  GGConstruct 'K.Sum rep r = GConstructADT TUnreify (Eval (rep (Reify Expr))) r r
 
 
 ggconstruct :: forall algebra rep a. GGConstructable algebra rep
   => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Expr) -> a)
-  -> GGConstruct algebra rep a
-ggconstruct gfromColumns = case algebraSing @algebra of
+  -> GGConstruct algebra rep a -> a
+ggconstruct gfromColumns f = case algebraSing @algebra of
   SProduct ->
+    f $
     gtabulate @TUnreify @(Eval (rep (Reify Expr))) @a $
     gfromColumns .
     hunreify .
@@ -143,7 +141,7 @@ ggconstruct gfromColumns = case algebraSing @algebra of
       @(Col (Reify Expr))
       @(Eval (rep (Reify Expr)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-  SSum -> \f ->
+  SSum ->
     gcindex @TUnreify @(Eval (rep (Reify Expr))) @a f $
     fmap (gfromColumns . hunreify) $
     gconstructADT
@@ -207,19 +205,20 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
 
 
 type GGInsert :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
-type family GGInsert algebra rep a where
-  GGInsert 'K.Product rep a = GConstruct TUnreify (Eval (rep (Reify Insert))) a
-  GGInsert 'K.Sum rep a =
-    -- Ideally this would be as follows, but GHC complains about "illegal polymorphic type"
-    -- (forall r. GConstructADT TUnreify (Eval (rep (Reify Insert))) r r) -> a
-    GConstructADT TUnreify (Eval (rep (Reify Insert))) a a -> a
+type family GGInsert algebra rep r where
+  GGInsert 'K.Product rep r =
+    GConstruct TUnreify (Eval (rep (Reify Insert))) r -> r
+  GGInsert 'K.Sum rep r =
+    GConstructADT TUnreify (Eval (rep (Reify Insert))) r r
 
 
 gginsert :: forall algebra rep a. GGConstructable algebra rep
   => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Insert) -> a)
   -> GGInsert algebra rep a
-gginsert gfromColumns = case algebraSing @algebra of
+  -> a
+gginsert gfromColumns f = case algebraSing @algebra of
   SProduct ->
+    f $
     gtabulate @TUnreify @(Eval (rep (Reify Insert))) @a $
     gfromColumns .
     hunreify .
@@ -230,7 +229,7 @@ gginsert gfromColumns = case algebraSing @algebra of
       @(Col (Reify Insert))
       @(Eval (rep (Reify Insert)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-  SSum -> \f ->
+  SSum ->
     gcindex @TUnreify @(Eval (rep (Reify Insert))) @a f $
     fmap (gfromColumns . hunreify) $
     gconstructADT

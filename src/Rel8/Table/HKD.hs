@@ -210,11 +210,13 @@ instance GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
 
 
 type ConstructHKD :: Type -> Type
-type ConstructHKD a = GGConstruct (GAlgebra (Rep a)) (HKDRep a) (HKD a Expr)
+type ConstructHKD a = forall r. GGConstruct (GAlgebra (Rep a)) (HKDRep a) r
 
 
-constructHKD :: forall a. ConstructableHKD a => ConstructHKD a
-constructHKD = ggconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD
+constructHKD :: forall a. ConstructableHKD a => ConstructHKD a -> HKD a Expr
+constructHKD f =
+  ggconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD
+    (f @(HKD a Expr))
 
 
 type DeconstructHKD :: Type -> Type -> Type
@@ -227,11 +229,13 @@ deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @r 
 
 
 type InsertHKD :: Type -> Type
-type InsertHKD a = GGInsert (GAlgebra (Rep a)) (HKDRep a) (HKD a Insert)
+type InsertHKD a = forall r. GGInsert (GAlgebra (Rep a)) (HKDRep a) r
 
 
-insertHKD :: forall a. ConstructableHKD a => InsertHKD a
-insertHKD = gginsert @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Insert) HKD
+insertHKD :: forall a. ConstructableHKD a => InsertHKD a -> HKD a Insert
+insertHKD f =
+  gginsert @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Insert) HKD
+    (f @(HKD a Insert))
 
 
 type NameHKD :: Type -> Type
