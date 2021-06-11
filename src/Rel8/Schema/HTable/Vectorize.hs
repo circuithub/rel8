@@ -32,6 +32,7 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- rel8
+import Rel8.Kind.Necessity ( Necessity( Required ), SNecessity( SRequired ) )
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
@@ -78,14 +79,15 @@ newtype HVectorize list table context = HVectorize (HMapTable (Vectorize list) t
 data Vectorize :: (Type -> Type) -> Spec -> Exp Spec
 
 
-type instance Eval (Vectorize list ('Spec labels necessity a)) = 'Spec labels necessity (list a)
+type instance Eval (Vectorize list ('Spec labels _necessity a)) = 'Spec labels 'Required (list a)
 
 
 instance Vector list => MapSpec (Vectorize list) where
   mapInfo = \case
     SSpec {..} -> case listNotNull @list nullity of
       Dict -> SSpec
-        { nullity = NotNull
+        { necessity = SRequired
+        , nullity = NotNull
         , info = vectorTypeInformation nullity info
         , ..
         }
@@ -95,7 +97,7 @@ hvectorize :: (HTable t, Unzip f, Vector list)
   => (forall labels necessity a. ()
     => SSpec ('Spec labels necessity a)
     -> f (context ('Spec labels necessity a))
-    -> context' ('Spec labels necessity (list a)))
+    -> context' ('Spec labels 'Required (list a)))
   -> f (t context)
   -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
@@ -107,7 +109,7 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 hunvectorize :: (HTable t, Repeat f, Vector list)
   => (forall labels necessity a. ()
     => SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity (list a))
+    -> context ('Spec labels 'Required (list a))
     -> f (context' ('Spec labels necessity a)))
   -> HVectorize list t context
   -> f (t context')

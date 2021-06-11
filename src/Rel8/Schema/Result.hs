@@ -16,6 +16,7 @@ where
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation( Col ) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.Kind ( Context )
@@ -64,12 +65,12 @@ unnullifier SSpec {nullity} (Result a) =
 vectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
   -> f (Col Result ('Spec labels necessity a))
-  -> Col Result ('Spec labels necessity (f a))
+  -> Col Result ('Spec labels 'Required (f a))
 vectorizer _ = Result . fmap (\(Result a) -> a)
 
 
 unvectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (f a))
+  -> Col Result ('Spec labels 'Required (f a))
   -> f (Col Result ('Spec labels necessity a))
 unvectorizer _ (Result results) = Result <$> results

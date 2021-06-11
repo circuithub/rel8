@@ -23,11 +23,10 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
-import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
-import Rel8.Schema.Insert ( Col( OptionalInsert, RequiredInsert ), Insert )
+import Rel8.Schema.Insert ( Inserts )
 import Rel8.Schema.Name ( Col( NameCol ), Name )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -42,6 +41,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -127,13 +127,8 @@ listTable =
   fmap toColumns
 
 
-insertListTable :: Table Insert a => [a] -> ListTable a
-insertListTable =
-  ListTable .
-  hvectorize (\SSpec {necessity, info} -> case necessity of
-    SRequired -> RequiredInsert . slistOf info . fmap (\(RequiredInsert a) -> a)
-    SOptional -> OptionalInsert . fmap (slistOf info) . traverse (\(OptionalInsert a) -> a)) .
-  fmap toColumns
+insertListTable :: Inserts exprs inserts => [exprs] -> ListTable inserts
+insertListTable = toInsert . listTable
 
 
 nameListTable :: Table Name a => a -> ListTable a
