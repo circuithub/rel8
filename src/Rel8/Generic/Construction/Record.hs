@@ -12,7 +12,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Construction.Record
-  ( GConstruct, GConstructable, gconstruct, gdeconstruct
+  ( GConstructor, GConstruct, GConstructable, gconstruct, gdeconstruct
   , GFields, Corep, gtabulate, gindex, gtraverse
   , FromColumns, ToColumns
   )
@@ -24,9 +24,12 @@ import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.Generics
   ( (:*:), K1, M1, U1
-  , D, C, S, Meta( MetaSel )
+  , D, C, S, Meta( MetaData, MetaCons, MetaSel )
   )
-import GHC.TypeLits ( KnownSymbol )
+import GHC.TypeLits
+  ( ErrorMessage( (:<>:), Text ), TypeError
+  , Symbol, KnownSymbol
+  )
 import Prelude
 
 -- rel8
@@ -57,6 +60,16 @@ type ToColumns
   -> Type
 type ToColumns _Table _Columns f context = forall proxy x.
   Eval (_Table x) => proxy x -> Eval (f x) -> Eval (_Columns x) context
+
+
+type GConstructor :: (Type -> Type) -> Symbol
+type family GConstructor rep where
+  GConstructor (M1 D _ (M1 C ('MetaCons name _ _) _)) = name
+  GConstructor (M1 D ('MetaData name _ _ _) _) = TypeError (
+    'Text "`" ':<>:
+    'Text name ':<>:
+    'Text "` does not appear to have exactly 1 constructor"
+   )
 
 
 type GConstruct :: (Type -> Exp Type) -> (Type -> Type) -> Type -> Type

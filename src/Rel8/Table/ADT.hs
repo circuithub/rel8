@@ -2,6 +2,7 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -13,10 +14,12 @@
 module Rel8.Table.ADT
   ( ADT( ADT )
   , ADTable, fromADT, toADT
+  , BuildableADT
+  , BuildADT, buildADT
+  , InsertADT, insertADT
   , ConstructableADT
   , ConstructADT, constructADT
   , DeconstructADT, deconstructADT
-  , InsertADT, insertADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
   , ADTRep
@@ -28,6 +31,7 @@ import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import Data.Type.Equality ( (:~:)( Refl ) )
 import GHC.Generics ( Generic, Rep, from, to )
+import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
@@ -35,10 +39,12 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Construction
-  ( GGConstructable
+  ( GGBuildable
+  , GGBuild, ggbuild
+  , GGInsert, gginsert
+  , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
-  , GGInsert, gginsert
   , GGName, ggname
   , GGAggregate, ggaggregate
   )
@@ -136,6 +142,29 @@ instance
   => ADTable t
 
 
+type BuildableADT :: K.Rel8able -> Symbol -> Constraint
+class GGBuildable 'K.Sum name (ADTRep t) => BuildableADT t name
+instance GGBuildable 'K.Sum name (ADTRep t) => BuildableADT t name
+
+
+type BuildADT :: K.Rel8able -> Symbol -> Type
+type BuildADT t name = GGBuild 'K.Sum name (ADTRep t) (ADT t Expr)
+
+
+buildADT :: forall t name. BuildableADT t name => BuildADT t name
+buildADT =
+  ggbuild @'K.Sum @name @(ADTRep t) @(ADT t Expr) ADT
+
+
+type InsertADT :: K.Rel8able -> Symbol -> Type
+type InsertADT t name = GGInsert 'K.Sum name (ADTRep t) (ADT t Insert)
+
+
+insertADT :: forall t name. BuildableADT t name => InsertADT t name
+insertADT =
+  gginsert @'K.Sum @name @(ADTRep t) @(ADT t Insert) ADT
+
+
 type ConstructableADT :: K.Rel8able -> Constraint
 class GGConstructable 'K.Sum (ADTRep t) => ConstructableADT t
 instance GGConstructable 'K.Sum (ADTRep t) => ConstructableADT t
@@ -159,16 +188,6 @@ deconstructADT :: forall t r. (ConstructableADT t, Table Expr r)
   => DeconstructADT t r
 deconstructADT =
   ggdeconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) @r (\(ADT a) -> a)
-
-
-type InsertADT :: K.Rel8able -> Type
-type InsertADT t = forall r. GGInsert 'K.Sum (ADTRep t) r
-
-
-insertADT :: forall t. ConstructableADT t => InsertADT t -> ADT t Insert
-insertADT f =
-  gginsert @'K.Sum @(ADTRep t) @(ADT t Insert) ADT
-    (f @(ADT t Insert))
 
 
 type NameADT :: K.Rel8able -> Type

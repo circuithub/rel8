@@ -14,10 +14,12 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Generic.Construction
-  ( GGConstructable
+  ( GGBuildable
+  , GGBuild, ggbuild
+  , GGInsert, gginsert
+  , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
-  , GGInsert, gginsert
   , GGName, ggname
   , GGAggregate, ggaggregate
   , GGAggregate', ggaggregate'
@@ -29,6 +31,7 @@ import Data.Bifunctor ( first )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Data.Type.Equality ( (:~:)( Refl ) )
+import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
@@ -40,14 +43,16 @@ import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.FCF ( Compose, Eval, Exp )
 import Rel8.Generic.Construction.ADT
-  ( GConstructableADT
+  ( GConstructorADT, GMakeableADT, gmakeADT
+  , GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
   , CorepConstructors, GConstructors, gcindex, gctabulate
   , CorepFields, gfindex, gftabulate, gftraverse
   )
 import Rel8.Generic.Construction.Record
-  ( GConstructable, GConstruct, gconstruct, gdeconstruct
+  ( GConstructor
+  , GConstructable, GConstruct, gconstruct, gdeconstruct
   , Corep, gindex, gtabulate, gtraverse
   )
 import Rel8.Generic.Table ( GGColumns )
@@ -76,6 +81,124 @@ import Rel8.Type.Tag ( Tag )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, MaybeApply( MaybeApply ), liftF2 )
+
+
+type GGBuildable :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Constraint
+type GGBuildable algebra name rep =
+  ( KnownAlgebra algebra
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Aggregate)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Expr)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Insert)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Name)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , HTable (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))))
+  , GGBuildable' algebra name rep
+  )
+
+
+type GGBuildable' :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Constraint
+type family GGBuildable' algebra name rep where
+  GGBuildable' 'K.Product name rep =
+    ( name ~ GConstructor (Eval (rep (Reify Expr)))
+    , name ~ GConstructor (Eval (rep (Reify Insert)))
+    , Corep TUnreify (Eval (rep (Reify Expr)))
+    , Corep TUnreify (Eval (rep (Reify Insert)))
+    , GConstructable (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
+    , GConstructable (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
+    )
+  GGBuildable' 'K.Sum name rep =
+    ( Corep TUnreify (GConstructorADT name (Eval (rep (Reify Expr))))
+    , Corep TUnreify (GConstructorADT name (Eval (rep (Reify Insert))))
+    , GMakeableADT (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) name (Eval (rep (Reify Expr)))
+    , GMakeableADT (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) name (Eval (rep (Reify Insert)))
+    )
+
+
+type GGBuild :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
+type family GGBuild algebra name rep r where
+  GGBuild 'K.Product _name rep r =
+    GConstruct TUnreify (Eval (rep (Reify Expr))) r
+  GGBuild 'K.Sum name rep r =
+    GConstruct TUnreify (GConstructorADT name (Eval (rep (Reify Expr)))) r
+
+
+ggbuild :: forall algebra name rep a. GGBuildable algebra name rep
+  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Expr) -> a)
+  -> GGBuild algebra name rep a
+ggbuild gfromColumns = case algebraSing @algebra of
+  SProduct ->
+    gtabulate @TUnreify @(Eval (rep (Reify Expr))) @a $
+    gfromColumns .
+    hunreify .
+    gconstruct
+      @(TTable (Reify Expr))
+      @TColumns
+      @TUnreify
+      @(Col (Reify Expr))
+      @(Eval (rep (Reify Expr)))
+      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
+  SSum ->
+    gtabulate @TUnreify @(GConstructorADT name (Eval (rep (Reify Expr)))) @a $
+    gfromColumns .
+    hunreify .
+    gmakeADT
+      @(TTable (Reify Expr))
+      @TColumns
+      @TUnreify
+      @(Col (Reify Expr))
+      @name
+      @(Eval (rep (Reify Expr)))
+      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
+      (\SSpec {info} -> Reify (DB (snull info)))
+      (\SSpec {nullity} -> case nullity of
+        Null -> id
+        NotNull -> \(Reify (DB a)) -> Reify (DB (nullify a)))
+      (HType . Reify . DB . litExpr)
+
+
+type GGInsert :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
+type family GGInsert algebra name rep r where
+  GGInsert 'K.Product _name rep r =
+    GConstruct TUnreify (Eval (rep (Reify Insert))) r
+  GGInsert 'K.Sum name rep r =
+    GConstruct TUnreify (GConstructorADT name (Eval (rep (Reify Insert)))) r
+
+
+gginsert :: forall algebra name rep a. GGBuildable algebra name rep
+  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Insert) -> a)
+  -> GGInsert algebra name rep a
+gginsert gfromColumns = case algebraSing @algebra of
+  SProduct ->
+    gtabulate @TUnreify @(Eval (rep (Reify Insert))) @a $
+    gfromColumns .
+    hunreify .
+    gconstruct
+      @(TTable (Reify Insert))
+      @TColumns
+      @TUnreify
+      @(Col (Reify Insert))
+      @(Eval (rep (Reify Insert)))
+      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
+  SSum ->
+    gtabulate @TUnreify @(GConstructorADT name (Eval (rep (Reify Insert)))) @a $
+    gfromColumns .
+    hunreify .
+    gmakeADT
+      @(TTable (Reify Insert))
+      @TColumns
+      @TUnreify
+      @(Col (Reify Insert))
+      @name
+      @(Eval (rep (Reify Insert)))
+      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
+      (\SSpec {necessity, info} -> Reify $ case necessity of
+        SRequired -> RequiredInsert (snull info)
+        SOptional -> OptionalInsert (Just (snull info)))
+      (\SSpec {nullity} -> case nullity of
+        Null -> id
+        NotNull -> \case
+          Reify (RequiredInsert a) -> Reify (RequiredInsert (nullify a))
+          Reify (OptionalInsert a) -> Reify (OptionalInsert (nullify <$> a)))
+      (HType . Reify . RequiredInsert . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
@@ -121,8 +244,10 @@ type family GGConstructable' algebra rep where
 
 type GGConstruct :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
 type family GGConstruct algebra rep r where
-  GGConstruct 'K.Product rep r = GConstruct TUnreify (Eval (rep (Reify Expr))) r -> r
-  GGConstruct 'K.Sum rep r = GConstructADT TUnreify (Eval (rep (Reify Expr))) r r
+  GGConstruct 'K.Product rep r =
+    GConstruct TUnreify (Eval (rep (Reify Expr))) r -> r
+  GGConstruct 'K.Sum rep r =
+    GConstructADT TUnreify (Eval (rep (Reify Expr))) r r
 
 
 ggconstruct :: forall algebra rep a. GGConstructable algebra rep
@@ -202,52 +327,6 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
         case cases of
           ((_, r) :| (map (first ((tag ==.) . litExpr)) -> cases')) ->
             case_ cases' r
-
-
-type GGInsert :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
-type family GGInsert algebra rep r where
-  GGInsert 'K.Product rep r =
-    GConstruct TUnreify (Eval (rep (Reify Insert))) r -> r
-  GGInsert 'K.Sum rep r =
-    GConstructADT TUnreify (Eval (rep (Reify Insert))) r r
-
-
-gginsert :: forall algebra rep a. GGConstructable algebra rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Insert) -> a)
-  -> GGInsert algebra rep a
-  -> a
-gginsert gfromColumns f = case algebraSing @algebra of
-  SProduct ->
-    f $
-    gtabulate @TUnreify @(Eval (rep (Reify Insert))) @a $
-    gfromColumns .
-    hunreify .
-    gconstruct
-      @(TTable (Reify Insert))
-      @TColumns
-      @TUnreify
-      @(Col (Reify Insert))
-      @(Eval (rep (Reify Insert)))
-      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-  SSum ->
-    gcindex @TUnreify @(Eval (rep (Reify Insert))) @a f $
-    fmap (gfromColumns . hunreify) $
-    gconstructADT
-      @(TTable (Reify Insert))
-      @TColumns
-      @TUnreify
-      @(Col (Reify Insert))
-      @(Eval (rep (Reify Insert)))
-      (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {necessity, info} -> Reify $ case necessity of
-        SRequired -> RequiredInsert (snull info)
-        SOptional -> OptionalInsert (Just (snull info)))
-      (\SSpec {nullity} -> case nullity of
-        Null -> id
-        NotNull -> \case
-          Reify (RequiredInsert a) -> Reify (RequiredInsert (nullify a))
-          Reify (OptionalInsert a) -> Reify (OptionalInsert (nullify <$> a)))
-      (HType . Reify . RequiredInsert . litExpr)
 
 
 type GGName :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type

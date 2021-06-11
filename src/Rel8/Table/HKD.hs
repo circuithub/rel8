@@ -14,10 +14,12 @@
 module Rel8.Table.HKD
   ( HKD( HKD )
   , HKDable, fromHKD, toHKD, HKDT(..)
+  , BuildableHKD
+  , BuildHKD, buildHKD
+  , InsertHKD, insertHKD
   , ConstructableHKD
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
-  , InsertHKD, insertHKD
   , NameHKD, nameHKD
   , AggregateHKD, aggregateHKD
   , HKDRep
@@ -30,6 +32,7 @@ import Data.Proxy ( Proxy( Proxy ) )
 import Data.Type.Equality ( (:~:)( Refl ) )
 import Data.Void ( Void )
 import GHC.Generics ( Generic, Rep, from, to )
+import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
@@ -39,10 +42,12 @@ import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Generic.Construction
-  ( GGConstructable
+  ( GGBuildable
+  , GGBuild, ggbuild
+  , GGInsert, gginsert
+  , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
-  , GGInsert, gginsert
   , GGName, ggname
   , GGAggregate, ggaggregate
   )
@@ -204,6 +209,29 @@ instance
   => HKDable a
 
 
+type BuildableHKD :: Type -> Symbol -> Constraint
+class GGBuildable (GAlgebra (Rep a)) name (HKDRep a) => BuildableHKD a name
+instance GGBuildable (GAlgebra (Rep a)) name (HKDRep a) => BuildableHKD a name
+
+
+type BuildHKD :: Type -> Symbol -> Type
+type BuildHKD a name = GGBuild (GAlgebra (Rep a)) name (HKDRep a) (HKD a Expr)
+
+
+buildHKD :: forall a name. BuildableHKD a name => BuildHKD a name
+buildHKD =
+  ggbuild @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Expr) HKD
+
+
+type InsertHKD :: Type -> Symbol -> Type
+type InsertHKD a name = GGInsert (GAlgebra (Rep a)) name (HKDRep a) (HKD a Insert)
+
+
+insertHKD :: forall a name. BuildableHKD a name => InsertHKD a name
+insertHKD =
+  gginsert @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Insert) HKD
+
+
 type ConstructableHKD :: Type -> Constraint
 class GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
 instance GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
@@ -226,16 +254,6 @@ type DeconstructHKD a r = GGDeconstruct (GAlgebra (Rep a)) (HKDRep a) (HKD a Exp
 deconstructHKD :: forall a r. (ConstructableHKD a, Table Expr r)
   => DeconstructHKD a r
 deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @r (\(HKD a) -> a)
-
-
-type InsertHKD :: Type -> Type
-type InsertHKD a = forall r. GGInsert (GAlgebra (Rep a)) (HKDRep a) r
-
-
-insertHKD :: forall a. ConstructableHKD a => InsertHKD a -> HKD a Insert
-insertHKD f =
-  gginsert @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Insert) HKD
-    (f @(HKD a Insert))
 
 
 type NameHKD :: Type -> Type

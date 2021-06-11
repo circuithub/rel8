@@ -106,7 +106,7 @@ deriving via HKDT S3Object
   instance x ~ HKD S3Object Expr => ToExprs x S3Object
 
 
-data HKDSum = HKDSumA Text | HKDSumB Bool Char
+data HKDSum = HKDSumA Text | HKDSumB Bool Char | HKDSumC
   deriving stock Generic
 
 

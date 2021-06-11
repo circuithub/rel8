@@ -18,6 +18,7 @@ module Rel8.Generic.Construction.ADT
   , GConstructADT, gconstructADT, gdeconstructADT
   , GFields, CorepFields, gftabulate, gfindex, gftraverse
   , GConstructors, CorepConstructors, gctabulate, gcindex
+  , GConstructorADT, GMakeableADT, gmakeADT
   )
 where
 
@@ -31,9 +32,12 @@ import Data.Proxy ( Proxy( Proxy ) )
 import GHC.Generics
   ( (:+:), (:*:)( (:*:) ), M1, U1
   , C, D
-  , Meta( MetaCons )
+  , Meta( MetaData, MetaCons )
   )
-import GHC.TypeLits ( KnownSymbol, symbolVal )
+import GHC.TypeLits
+  ( ErrorMessage( (:<>:), Text ), TypeError
+  , Symbol, KnownSymbol, symbolVal
+  )
 import Prelude hiding ( null )
 
 -- rel8
@@ -78,6 +82,32 @@ type Unnullifier context = forall labels necessity a. ()
   => SSpec ('Spec labels necessity a)
   -> context ('Spec labels necessity (Nullify a))
   -> context ('Spec labels necessity a)
+
+
+type NoConstructor :: Symbol -> Symbol -> ErrorMessage
+type NoConstructor datatype constructor =
+  ( 'Text "The type `" ':<>:
+    'Text datatype ':<>:
+    'Text "` has no constructor `" ':<>:
+    'Text constructor ':<>:
+    'Text "`."
+  )
+
+
+type GConstructorADT :: Symbol -> (Type -> Type) -> Type -> Type
+type family GConstructorADT name rep where
+  GConstructorADT name (M1 D ('MetaData datatype _ _ _) rep) =
+    GConstructorADT' name rep (TypeError (NoConstructor datatype name))
+
+
+type GConstructorADT' :: Symbol -> (Type -> Type) -> (Type -> Type) -> Type -> Type
+type family GConstructorADT' name rep fallback where
+  GConstructorADT' name (M1 D _ rep) fallback =
+    GConstructorADT' name rep fallback
+  GConstructorADT' name (a :+: b) fallback =
+    GConstructorADT' name a (GConstructorADT' name b fallback)
+  GConstructorADT' name (M1 C ('MetaCons name _ _) rep) _ = rep
+  GConstructorADT' _ _ fallback = fallback
 
 
 type GConstructADT
@@ -357,3 +387,114 @@ instance {-# OVERLAPPABLE #-}
       tag = Tag $ pack $ symbolVal (Proxy @label)
 
   gfill null htable = HProduct htable (hlabel hlabeler (hnulls null))
+
+
+type GMakeableADT
+  :: (Type -> Exp Constraint)
+  -> (Type -> Exp K.HTable)
+  -> (Type -> Exp Type)
+  -> K.HContext -> Symbol -> (Type -> Type) -> Constraint
+class GMakeableADT _Table _Columns f context name rep where
+  gmakeADT :: ()
+    => ToColumns _Table _Columns f context
+    -> Null context
+    -> Nullifier context
+    -> (Tag -> HType Tag context)
+    -> GFields f (GConstructorADT name rep)
+    -> GColumnsADT _Columns rep context
+
+
+instance
+  ( htable ~ HLabel "tag" (HType Tag)
+  , meta ~ 'MetaData datatype _module _package _newtype
+  , fallback ~ TypeError (NoConstructor datatype name)
+  , fields ~ GFields f (GConstructorADT' name rep fallback)
+  , GMakeableADT' _Table _Columns f context htable name rep fields
+  , HLabelable context
+  , KnownSymbol name
+  )
+  => GMakeableADT _Table _Columns f context name (M1 D meta rep)
+ where
+  gmakeADT toColumns null nullifier wrap =
+    gmakeADT'
+      @_Table @_Columns @f @context @htable @name @rep @fields
+      toColumns null nullifier htable
+    where
+      tag = Tag $ pack $ symbolVal (Proxy @name)
+      htable = hlabel hlabeler (wrap tag)
+
+
+type GMakeableADT'
+  :: (Type -> Exp Constraint)
+  -> (Type -> Exp K.HTable)
+  -> (Type -> Exp Type)
+  -> K.HContext -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
+class GMakeableADT' _Table _Columns f context htable name rep fields where
+  gmakeADT' :: ()
+    => ToColumns _Table _Columns f context
+    -> Null context
+    -> Nullifier context
+    -> htable context
+    -> fields
+    -> GColumnsADT' _Columns htable rep context
+
+
+instance
+  ( htable' ~ GColumnsADT' _Columns htable a
+  , GMakeableADT' _Table _Columns f context htable name a fields
+  , GMakeableADT' _Table _Columns f context htable' name b fields
+  )
+  => GMakeableADT' _Table _Columns f context htable name (a :+: b) fields
+ where
+  gmakeADT' toColumns null nullifier htable x =
+    gmakeADT' @_Table @_Columns @f @context @htable' @name @b @fields
+      toColumns null nullifier
+      (gmakeADT'
+         @_Table @_Columns @f @context @htable @name @a @fields toColumns
+         null nullifier htable x)
+      x
+
+
+instance {-# OVERLAPPING #-}
+  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) U1) fields
+ where
+  gmakeADT' _ _ _ = const
+
+
+instance {-# OVERLAPS #-}
+  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) U1) fields
+ where
+  gmakeADT' _ _ _ = const
+
+
+instance {-# OVERLAPS #-}
+  ( HTable (GColumns _Columns rep)
+  , KnownSymbol name
+  , HLabelable context
+  , GConstructable _Table _Columns f context rep
+  , fields ~ GFields f rep
+  , GColumnsADT' _Columns htable (M1 C ('MetaCons name _fixity _isRecord) rep) ~
+      HProduct htable (HLabel name (HNullify (GColumns _Columns rep)))
+  )
+  => GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) rep) fields
+ where
+  gmakeADT' toColumns _ nullifier htable =
+    HProduct htable .
+    hlabel hlabeler .
+    hnullify nullifier .
+    gconstruct @_Table @_Columns @f @context @rep toColumns
+
+
+instance {-# OVERLAPPABLE #-}
+  ( HTable (GColumns _Columns rep)
+  , KnownSymbol label
+  , HLabelable context
+  , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep) ~
+      HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
+  )
+  => GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) rep) fields
+ where
+  gmakeADT' _ null _ htable _ =
+    HProduct htable $
+    hlabel hlabeler $
+    hnulls null
