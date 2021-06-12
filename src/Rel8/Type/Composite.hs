@@ -46,7 +46,7 @@ import Rel8.Table.Serialize ( lit )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Type.Ord ( DBOrd )
+import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
@@ -77,6 +77,12 @@ instance (DBComposite a, EqTable (HKD a Expr)) => DBEq (Composite a)
 
 
 instance (DBComposite a, OrdTable (HKD a Expr)) => DBOrd (Composite a)
+
+
+instance (DBComposite a, OrdTable (HKD a Expr)) => DBMax (Composite a)
+
+
+instance (DBComposite a, OrdTable (HKD a Expr)) => DBMin (Composite a)
 
 
 type DBComposite :: Type -> Constraint
