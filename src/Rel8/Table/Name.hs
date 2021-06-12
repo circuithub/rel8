@@ -20,9 +20,6 @@ import Data.Functor.Const ( Const( Const ), getConst )
 import Data.List.NonEmpty ( NonEmpty, intersperse )
 import Prelude
 
--- casing
-import Text.Casing ( quietSnake )
-
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
@@ -39,7 +36,7 @@ import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 namesFromLabels :: Table Name a => a
 namesFromLabels = namesFromLabelsWith go
   where
-    go = fold . intersperse "/" . fmap quietSnake
+    go = fold . intersperse "/"
 
 
 namesFromLabelsWith :: Table Name a
