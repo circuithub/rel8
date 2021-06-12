@@ -15,7 +15,7 @@ module Rel8
 
     -- **** Generic
   , Composite(..), DBComposite(..), compose, decompose
-  , Enum(..)
+  , Enum(..), DBEnum(..), Enumable
 
     -- *** @TypeInformation@
   , TypeInformation(..)
