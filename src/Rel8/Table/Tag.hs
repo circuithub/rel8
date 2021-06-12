@@ -79,7 +79,7 @@ instance (KnownSymbol label, Taggable a) => Monoid (Tag label a) where
 
 
 fromAggregate :: forall a label. (KnownSymbol label, Taggable a)
-  => Aggregate (Expr a) -> Tag label a
+  => Aggregate a -> Tag label a
 fromAggregate = fold . getFirst . foldInputs go
   where
     go aggregator primExpr = pure $ (tempty @a @label)

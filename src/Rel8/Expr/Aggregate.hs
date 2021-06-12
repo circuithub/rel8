@@ -49,7 +49,7 @@ import Rel8.Type.Sum ( DBSum )
 
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
-count :: Expr a -> Aggregate (Expr Int64)
+count :: Expr a -> Aggregate Int64
 count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
@@ -60,7 +60,7 @@ count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 -- | Count the number of distinct occurances of a single column. Corresponds to
 -- @COUNT(DISTINCT a)@
-countDistinct :: Sql DBEq a => Expr a -> Aggregate (Expr Int64)
+countDistinct :: Sql DBEq a => Expr a -> Aggregate Int64
 countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrCount
@@ -70,17 +70,17 @@ countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Corresponds to @COUNT(*)@.
-countStar :: Aggregate (Expr Int64)
+countStar :: Aggregate Int64
 countStar = count (litExpr True)
 
 
 -- | A count of the number of times a given expression is @true@.
-countWhere :: Expr Bool -> Aggregate (Expr Int64)
+countWhere :: Expr Bool -> Aggregate Int64
 countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
 
 -- | Corresponds to @bool_and@.
-and :: Expr Bool -> Aggregate (Expr Bool)
+and :: Expr Bool -> Aggregate Bool
 and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolAnd
@@ -90,7 +90,7 @@ and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Corresponds to @bool_or@.
-or :: Expr Bool -> Aggregate (Expr Bool)
+or :: Expr Bool -> Aggregate Bool
 or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrBoolOr
@@ -100,7 +100,7 @@ or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-max :: Sql DBMax a => Expr a -> Aggregate (Expr a)
+max :: Sql DBMax a => Expr a -> Aggregate a
 max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrMax
@@ -110,7 +110,7 @@ max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
-min :: Sql DBMin a => Expr a -> Aggregate (Expr a)
+min :: Sql DBMin a => Expr a -> Aggregate a
 min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
   Just Aggregator
     { operation = Opaleye.AggrMin
@@ -123,7 +123,7 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 -- this, and will add explicit cast back to the original input type. This can
 -- lead to overflows, and if you anticipate very large sums, you should upcast
 -- your input.
-sum :: Sql DBSum a => Expr a -> Aggregate (Expr a)
+sum :: Sql DBSum a => Expr a -> Aggregate a
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
@@ -134,13 +134,13 @@ sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
 
 -- | Take the sum of all expressions that satisfy a predicate.
 sumWhere :: (Sql DBNum a, Sql DBSum a)
-  => Expr Bool -> Expr a -> Aggregate (Expr a)
+  => Expr Bool -> Expr a -> Aggregate a
 sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 
 
 -- | Corresponds to @string_agg()@.
 stringAgg :: Sql DBString a
-  => Expr db -> Expr a -> Aggregate (Expr a)
+  => Expr db -> Expr a -> Aggregate a
 stringAgg delimiter =
   unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
     Just Aggregator
@@ -151,22 +151,22 @@ stringAgg delimiter =
 
 
 -- | Aggregate a value by grouping by it.
-groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
+groupByExpr :: Sql DBEq a => Expr a -> Aggregate a
 groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
 
 
 -- | Collect expressions values as a list.
-listAggExpr :: Sql DBType a => Expr a -> Aggregate (Expr [a])
+listAggExpr :: Sql DBType a => Expr a -> Aggregate [a]
 listAggExpr = slistAggExpr typeInformation
 
 
 -- | Collect expressions values as a non-empty list.
-nonEmptyAggExpr :: Sql DBType a => Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExpr :: Sql DBType a => Expr a -> Aggregate (NonEmpty a)
 nonEmptyAggExpr = snonEmptyAggExpr typeInformation
 
 
 slistAggExpr :: ()
-  => TypeInformation (Unnullify a) -> Expr a -> Aggregate (Expr [a])
+  => TypeInformation (Unnullify a) -> Expr a -> Aggregate [a]
 slistAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr
@@ -178,7 +178,7 @@ slistAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
 
 
 snonEmptyAggExpr :: ()
-  => TypeInformation (Unnullify a) -> Expr a -> Aggregate (Expr (NonEmpty a))
+  => TypeInformation (Unnullify a) -> Expr a -> Aggregate (NonEmpty a)
 snonEmptyAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr

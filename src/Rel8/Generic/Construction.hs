@@ -22,7 +22,6 @@ module Rel8.Generic.Construction
   , GGDeconstruct, ggdeconstruct
   , GGName, ggname
   , GGAggregate, ggaggregate
-  , GGAggregate', ggaggregate'
   )
 where
 
@@ -35,25 +34,25 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Col( A ), Aggregate )
+import Rel8.Aggregate ( Col( A ), Aggregate( Aggregate ) )
 import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.FCF ( Compose, Eval, Exp )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Construction.ADT
   ( GConstructorADT, GMakeableADT, gmakeADT
   , GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
   , RepresentableConstructors, GConstructors, gcindex, gctabulate
-  , RepresentableFields, gfindex, gftabulate, gftraverse
+  , RepresentableFields, gfindex, gftabulate
   )
 import Rel8.Generic.Construction.Record
   ( GConstructor
   , GConstructable, GConstruct, gconstruct, gdeconstruct
-  , Representable, gindex, gtabulate, gtraverse
+  , Representable, gindex, gtabulate
   )
 import Rel8.Generic.Table ( GGColumns )
 import Rel8.Kind.Algebra
@@ -77,9 +76,6 @@ import Rel8.Table
   )
 import Rel8.Table.Bool ( case_ )
 import Rel8.Type.Tag ( Tag )
-
--- semigroupoids
-import Data.Functor.Apply ( Apply, MaybeApply( MaybeApply ), liftF2 )
 
 
 type GGBuildable :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Constraint
@@ -213,8 +209,7 @@ type GGConstructable algebra rep =
 type GGConstructable' :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
 type family GGConstructable' algebra rep where
   GGConstructable' 'K.Product rep =
-    ( Representable (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
-    , Representable TUnreify (Eval (rep (Reify Aggregate)))
+    ( Representable TUnreify (Eval (rep (Reify Aggregate)))
     , Representable TUnreify (Eval (rep (Reify Expr)))
     , Representable TUnreify (Eval (rep (Reify Insert)))
     , Representable TUnreify (Eval (rep (Reify Name)))
@@ -226,7 +221,6 @@ type family GGConstructable' algebra rep where
   GGConstructable' 'K.Sum rep =
     ( RepresentableConstructors TUnreify (Eval (rep (Reify Expr)))
     , RepresentableConstructors TUnreify (Eval (rep (Reify Insert)))
-    , RepresentableFields (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
     , RepresentableFields TUnreify (Eval (rep (Reify Aggregate)))
     , RepresentableFields TUnreify (Eval (rep (Reify Expr)))
     , RepresentableFields TUnreify (Eval (rep (Reify Name)))
@@ -365,99 +359,18 @@ ggname gfromColumns = case algebraSing @algebra of
 type GGAggregate :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
 type family GGAggregate algebra rep r where
   GGAggregate 'K.Product rep r =
-    GConstruct (Compose Aggregate TUnreify) (Eval (rep (Reify Expr))) r ->
-      GConstruct TUnreify (Eval (rep (Reify Expr))) r
-  GGAggregate 'K.Sum rep r =
-    GBuildADT (Compose Aggregate TUnreify) (Eval (rep (Reify Expr))) r ->
-      GBuildADT TUnreify (Eval (rep (Reify Expr))) r
-
-
-ggaggregate :: forall algebra rep a. GGConstructable algebra rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Expr) -> a)
-  -> (a -> Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Expr))
-  -> GGAggregate algebra rep (Aggregate a) -> a -> Aggregate a
-ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
-  SProduct -> flip f exprs $
-    fmap
-      ( gfromColumns
-      . hunreify
-      . gconstruct
-          @(TTable (Reify Expr))
-          @TColumns
-          @TUnreify
-          @(Col (Reify Expr))
-          @(Eval (rep (Reify Expr)))
-          (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      ) .
-    liftF½ .
-    gtraverse @TUnreify @(Eval (rep (Reify Expr))) @_ @Aggregate (MaybeApply . Left)
-    where
-      f = 
-        gindex @TUnreify @(Eval (rep (Reify Expr))) @(Aggregate a) .
-        agg .
-        gtabulate @(Compose Aggregate TUnreify) @(Eval (rep (Reify Expr))) @(Aggregate a)
-      exprs =
-        gdeconstruct
-          @(TTable (Reify Expr))
-          @TColumns
-          @TUnreify
-          @(Col (Reify Expr))
-          @(Eval (rep (Reify Expr)))
-          (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns) $
-        hreify $
-        gtoColumns es
-  SSum -> flip f exprs $
-    liftF1½
-      (\tag' ->
-        gfromColumns .
-        hunreify .
-        gbuildADT
-          @(TTable (Reify Expr))
-          @TColumns
-          @TUnreify
-          @(Col (Reify Expr))
-          @(Eval (rep (Reify Expr)))
-          (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-          (\tag'' SSpec {nullity} (Reify (E a)) ->
-            Reify $ E $ runTag nullity (tag ==. litExpr tag'') a)
-          (HType (Reify (E tag'))))
-      (groupByExpr tag) .
-    gftraverse @TUnreify @(Eval (rep (Reify Expr))) @_ @Aggregate (MaybeApply . Left)
-    where
-      f =
-        gfindex @TUnreify @(Eval (rep (Reify Expr))) @(Aggregate a) .
-        agg .
-        gftabulate @(Compose Aggregate TUnreify) @(Eval (rep (Reify Expr))) @(Aggregate a)
-      (HType (Reify (E tag)), exprs) =
-        gunbuildADT
-          @(TTable (Reify Expr))
-          @TColumns
-          @TUnreify
-          @(Col (Reify Expr))
-          @(Eval (rep (Reify Expr)))
-          (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns)
-          (\SSpec {nullity} -> case nullity of
-            Null -> id
-            NotNull -> \(Reify (E a)) -> Reify (E (unsafeUnnullify a))) $
-        hreify $
-        gtoColumns es
-
-
-type GGAggregate' :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
-type family GGAggregate' algebra rep r where
-  GGAggregate' 'K.Product rep r =
     GConstruct TUnreify (Eval (rep (Reify Aggregate))) r ->
       GConstruct TUnreify (Eval (rep (Reify Expr))) r
-  GGAggregate' 'K.Sum rep r =
+  GGAggregate 'K.Sum rep r =
     GBuildADT TUnreify (Eval (rep (Reify Aggregate))) r ->
       GBuildADT TUnreify (Eval (rep (Reify Expr))) r
 
 
-ggaggregate' :: forall algebra rep exprs agg. GGConstructable algebra rep
+ggaggregate :: forall algebra rep exprs agg. GGConstructable algebra rep
   => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Aggregate) -> agg)
   -> (exprs -> Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Expr))
-  -> GGAggregate' algebra rep agg -> exprs -> agg
-ggaggregate' gfromColumns gtoColumns agg es = case algebraSing @algebra of
+  -> GGAggregate algebra rep agg -> exprs -> agg
+ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
   SProduct -> flip f exprs $
     gfromColumns .
     hunreify .
@@ -493,8 +406,8 @@ ggaggregate' gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @(Col (Reify Aggregate))
       @(Eval (rep (Reify Aggregate)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\tag' SSpec {nullity} (Reify (A a)) ->
-        Reify $ A $ runTag nullity (tag ==. litExpr tag') <$> a)
+      (\tag' SSpec {nullity} (Reify (A (Aggregate a))) ->
+        Reify $ A $ Aggregate $ runTag nullity (tag ==. litExpr tag') <$> a)
       (HType (Reify (A (groupByExpr tag))))
     where
       f =
@@ -514,15 +427,3 @@ ggaggregate' gfromColumns gtoColumns agg es = case algebraSing @algebra of
             NotNull -> \(Reify (E a)) -> Reify (E (unsafeUnnullify a))) $
         hreify $
         gtoColumns es
-
-
-liftF½ :: MaybeApply Aggregate a -> Aggregate a
-liftF½ (MaybeApply ma) = case ma of
-  Left a -> a
-  Right a -> a <$ groupByExpr (litExpr False)
-
-
-liftF1½ :: Apply v => (a -> b -> c) -> v a -> MaybeApply v b -> v c
-liftF1½ f a (MaybeApply eb) = case eb of
-  Left b -> liftF2 f a b
-  Right b -> fmap (`f` b) a

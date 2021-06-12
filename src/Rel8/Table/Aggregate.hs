@@ -6,7 +6,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Aggregate
-  ( groupBy
+  ( groupBy, hgroupBy
   , listAgg, nonEmptyAgg
   )
 where
@@ -16,7 +16,7 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Col( A ) )
+import Rel8.Aggregate ( Aggregate, Aggregates, Col( A ) )
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
@@ -24,20 +24,28 @@ import Rel8.Expr.Aggregate
   , snonEmptyAggExpr
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( hfield, htabulate )
+import Rel8.Schema.HTable ( HTable, hfield, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Table ( Table, toColumns, fromColumns )
+import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
+import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Type.Eq ( DBEq )
 
 
 -- | Group equal tables together. This works by aggregating each column in the
 -- given table with 'groupByExpr'.
-groupBy :: forall exprs. EqTable exprs => exprs -> Aggregate exprs
-groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
-  case hfield (eqTable @exprs) field of
+groupBy :: forall exprs aggregates. (EqTable exprs, Aggregates aggregates exprs)
+  => exprs -> aggregates
+groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
+
+
+hgroupBy :: HTable t
+  => t (Dict (ConstrainDBType DBEq)) -> t (Col Expr) -> t (Col Aggregate)
+hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
+  case hfield eqs field of
     Dict -> case hfield exprs field of
       E expr -> A $ groupByExpr expr
 
@@ -58,7 +66,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Table Expr a => a -> Aggregate (ListTable a)
+listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)
@@ -66,7 +74,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Table Expr a => a -> Aggregate (NonEmptyTable a)
+nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)

@@ -25,7 +25,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Aggregate
-  ( Aggregate, Col( A )
+  ( Aggregate( Aggregate ), Col( A )
   , mapInputs
   , unsafeMakeAggregate
   )
@@ -85,15 +85,16 @@ instance Nullifiable Aggregate where
 
   decodeTag (A aggregate) = fromAggregate aggregate
 
-  nullifier Tag {expr} test SSpec {nullity} (A aggregate) =
+  nullifier Tag {expr} test SSpec {nullity} (A (Aggregate a)) =
     A $
     mapInputs (toPrimExpr . runTag nullity condition . fromPrimExpr) $
-    runTag nullity condition <$> aggregate
+    Aggregate $
+    runTag nullity condition <$> a
     where
       condition = test expr
 
-  unnullifier SSpec {nullity} (A aggregate) =
-    A $ unnull nullity <$> aggregate
+  unnullifier SSpec {nullity} (A (Aggregate a)) =
+    A (Aggregate (unnull nullity <$> a))
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

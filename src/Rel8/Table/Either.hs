@@ -18,7 +18,7 @@ module Rel8.Table.Either
   ( EitherTable(..)
   , eitherTable, leftTable, rightTable
   , isLeftTable, isRightTable
-  , aggregateEitherTable, insertEitherTable, nameEitherTable
+  , insertEitherTable, nameEitherTable
   )
 where
 
@@ -30,9 +30,7 @@ import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context.Label
   ( Labelable
@@ -66,7 +64,7 @@ import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>), liftF3 )
+import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
@@ -177,18 +175,6 @@ rightTable = rightTableWith undefined
 
 rightTableWith :: a -> b -> EitherTable a b
 rightTableWith = EitherTable (fromExpr (litExpr IsRight))
-
-
-aggregateEitherTable :: ()
-  => (a -> Aggregate c)
-  -> (b -> Aggregate d)
-  -> EitherTable a b
-  -> Aggregate (EitherTable c d)
-aggregateEitherTable f g EitherTable {tag, left, right} =
-  liftF3 EitherTable (tag <$ aggregate) (f left) (g right)
-  where
-    Tag {aggregator, expr} = tag
-    aggregate = unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
 
 
 insertEitherTable :: (Table Insert a, Table Insert b)

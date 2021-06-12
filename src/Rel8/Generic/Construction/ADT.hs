@@ -16,14 +16,13 @@ module Rel8.Generic.Construction.ADT
   ( GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
-  , GFields, RepresentableFields, gftabulate, gfindex, gftraverse
+  , GFields, RepresentableFields, gftabulate, gfindex
   , GConstructors, RepresentableConstructors, gctabulate, gcindex
   , GConstructorADT, GMakeableADT, gmakeADT
   )
 where
 
 -- base
-import Control.Applicative ( liftA2 )
 import Data.Bifunctor ( first )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Constraint, Type )
@@ -41,10 +40,10 @@ import GHC.TypeLits
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.FCF ( Compose, Exp )
+import Rel8.FCF ( Exp )
 import Rel8.Generic.Construction.Record
   ( GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Representable, gtabulate, gindex, gtraverse
+  , GFields, Representable, gtabulate, gindex
   , FromColumns, ToColumns
   )
 import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
@@ -168,28 +167,22 @@ type RepresentableFields :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
 class RepresentableFields f rep where
   gftabulate :: (GFieldsADT f rep -> a) -> GBuildADT f rep a
   gfindex :: GBuildADT f rep a -> GFieldsADT f rep -> a
-  gftraverse :: Applicative m
-    => (forall a. g a -> m a)
-    -> GFieldsADT (Compose g f) rep -> m (GFieldsADT f rep)
 
 
 instance RepresentableFields f rep => RepresentableFields f (M1 D meta rep) where
   gftabulate = gftabulate @f @rep
   gfindex = gfindex @f @rep
-  gftraverse = gftraverse @f @rep
 
 
 instance (RepresentableFields f a, RepresentableFields f b) => RepresentableFields f (a :+: b) where
   gftabulate f =
     gftabulate @f @a \a -> gftabulate @f @b \b -> f (a, b)
   gfindex f (a, b) = gfindex @f @b (gfindex @f @a f a) b
-  gftraverse f (a, b) = liftA2 (,) (gftraverse @f @a f a) (gftraverse @f @b f b)
 
 
 instance Representable f rep => RepresentableFields f (M1 C meta rep) where
   gftabulate = gtabulate @f @rep
   gfindex = gindex @f @rep
-  gftraverse = gtraverse @f @rep
 
 
 type GConstructableADT

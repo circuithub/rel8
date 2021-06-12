@@ -101,7 +101,7 @@ instance (KnownNecessity necessity, Sql DBType a) =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Create 'Required a)
+  Recontextualize Aggregate Insert (Aggregate a) (Create 'Required a)
 
 
 instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Create 'Required a)
@@ -112,7 +112,7 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Aggregate (Create 'Required a) (Aggregate (Expr a))
+  Recontextualize Insert Aggregate (Create 'Required a) (Aggregate a)
 
 
 instance Sql DBType a => Recontextualize Insert Expr (Create 'Required a) (Expr a)

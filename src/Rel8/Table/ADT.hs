@@ -203,10 +203,10 @@ type AggregateADT t = forall r. GGAggregate 'K.Sum (ADTRep t) r
 
 
 aggregateADT :: forall t. ConstructableADT t
-  => AggregateADT t -> ADT t Expr -> Aggregate (ADT t Expr)
+  => AggregateADT t -> ADT t Expr -> ADT t Aggregate
 aggregateADT f =
-  ggaggregate @'K.Sum @(ADTRep t) @(ADT t Expr) ADT (\(ADT a) -> a)
-    (f @(Aggregate (ADT t Expr)))
+  ggaggregate @'K.Sum @(ADTRep t) @(ADT t Expr) @(ADT t Aggregate) ADT (\(ADT a) -> a)
+    (f @(ADT t Aggregate))
 
 
 data ADTRep :: K.Rel8able -> K.Context -> Exp (Type -> Type)

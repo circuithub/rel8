@@ -28,7 +28,7 @@ import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Table ( Table, fromColumns )
+import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( maybeTable )
@@ -46,7 +46,11 @@ import Rel8.Type.Information ( TypeInformation )
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
 many :: Table Expr a => Query a -> Query (ListTable a)
-many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
+many =
+  fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
+  optional .
+  aggregate .
+  fmap (listAgg . toColumns)
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -58,7 +62,10 @@ many = fmap (maybeTable mempty id) . optional . aggregate . fmap listAgg
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
 some :: Table Expr a => Query a -> Query (NonEmptyTable a)
-some = aggregate . fmap nonEmptyAgg
+some =
+  fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
+  aggregate .
+  fmap (nonEmptyAgg . toColumns)
 
 
 -- | A version of 'many' specialised to single expressions.

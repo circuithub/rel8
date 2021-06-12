@@ -1,6 +1,9 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language MonoLocalBinds #-}
+{-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language TupleSections #-}
 {-# language UndecidableInstances #-}
 
@@ -43,7 +46,7 @@ import Data.Maybe ( fromMaybe )
 import Prelude hiding ( filter, lookup, zip, zipWith )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate ( Aggregates )
 import Rel8.Expr ( Expr )
 import Rel8.Order ( Order )
 import Rel8.Query ( Query )
@@ -54,16 +57,16 @@ import Rel8.Query.Filter ( filter, where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Order ( orderBy )
 import Rel8.Query.These ( alignBy )
-import Rel8.Table ( Table )
-import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
+import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table.Aggregate ( hgroupBy, listAgg, nonEmptyAgg )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
-import Rel8.Table.Eq ( EqTable, (==:) )
-import Rel8.Table.List ( ListTable )
+import Rel8.Table.Eq ( EqTable, (==:), eqTable )
+import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( MaybeTable, maybeTable )
-import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Order ( ascTable )
 import Rel8.Table.These ( TheseTable, theseTable )
@@ -72,7 +75,6 @@ import Rel8.Table.These ( TheseTable, theseTable )
 import Data.Functor.Apply ( Apply, liftF2 )
 import Data.Functor.Bind ( Bind )
 import qualified Data.Functor.Bind
-import Data.Semigroup.Traversable.Class ( bitraverse1 )
 
 
 -- | @'Tabulation' k a@ is denotionally a @MultiMap k a@ — a @Map@ where each
@@ -338,9 +340,15 @@ difference kas kbs = do
   fromQuery $ as >>= withoutBy (\(k, _) (l, _) -> k ==: l) bs
 
 
-aggregateTabulation :: EqTable k
-  => Tabulation k (Aggregate a) -> Tabulation k a
-aggregateTabulation = mapQuery (aggregate . fmap (bitraverse1 groupBy id))
+aggregateTabulation :: forall k aggregates exprs.
+  ( EqTable k
+  , Aggregates aggregates exprs
+  )
+  => Tabulation k aggregates -> Tabulation k exprs
+aggregateTabulation = mapQuery $
+  fmap (first fromColumns) .
+  aggregate .
+  fmap (first (hgroupBy (eqTable @k) . toColumns))
 
 
 -- | 'orderTabulation' orders the /values/ of a 'Tabulation' within each key.
@@ -372,15 +380,18 @@ optionalTabulation as = Tabulation $ \k -> do
 manyTabulation :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (ListTable a)
 manyTabulation =
-  fmap (maybeTable mempty id) .
+  fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
   optionalTabulation .
   aggregateTabulation .
-  fmap listAgg
+  fmap (listAgg . toColumns)
 
 
 someTabulation :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (NonEmptyTable a)
-someTabulation = aggregateTabulation . fmap nonEmptyAgg
+someTabulation =
+  fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
+  aggregateTabulation .
+  fmap (nonEmptyAgg . toColumns)
 
 
 mapQuery :: (Query (k, a) -> Query (k, b)) -> Tabulation k a -> Tabulation k b

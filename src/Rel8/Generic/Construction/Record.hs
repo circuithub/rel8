@@ -13,13 +13,12 @@
 
 module Rel8.Generic.Construction.Record
   ( GConstructor, GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Representable, gtabulate, gindex, gtraverse
+  , GFields, Representable, gtabulate, gindex
   , FromColumns, ToColumns
   )
 where
 
 -- base
-import Control.Applicative ( liftA2 )
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.Generics
@@ -33,7 +32,7 @@ import GHC.TypeLits
 import Prelude
 
 -- rel8
-import Rel8.FCF ( Compose, Eval, Exp )
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Table.Record ( GColumns )
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.HTable ( HTable )
@@ -92,15 +91,11 @@ type Representable :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
 class Representable f rep where
   gtabulate :: (GFields f rep -> a) -> GConstruct f rep a
   gindex :: GConstruct f rep a -> GFields f rep -> a
-  gtraverse :: Applicative m
-    => (forall a. g a -> m a)
-    -> GFields (Compose g f) rep -> m (GFields f rep)
 
 
 instance Representable f rep => Representable f (M1 i meta rep) where
   gtabulate = gtabulate @f @rep
   gindex = gindex @f @rep
-  gtraverse = gtraverse @f @rep
 
 
 instance (Representable f a, Representable f b) =>
@@ -108,19 +103,16 @@ instance (Representable f a, Representable f b) =>
  where
   gtabulate f = gtabulate @f @a \a -> gtabulate @f @b \b -> f (a, b)
   gindex f (a, b) = gindex @f @b (gindex @f @a f a) b
-  gtraverse f (a, b) = liftA2 (,) (gtraverse @f @a f a) (gtraverse @f @b f b)
 
 
 instance Representable f U1 where
   gtabulate = ($ ())
   gindex = const
-  gtraverse = const pure
 
 
 instance Representable f (K1 i a) where
   gtabulate = id
   gindex = id
-  gtraverse = id
 
 
 type GConstructable

@@ -35,7 +35,7 @@ import qualified Opaleye.Internal.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ) )
+import Rel8.Aggregate ( Col( A ), Aggregate( Aggregate ), Aggregates )
 import Rel8.Expr ( Expr, Col(..) )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
@@ -56,9 +56,12 @@ import Rel8.Table.Undefined ( undefined )
 import Data.Functor.Apply ( WrappedApplicative(..) )
 
 
-aggregator :: Opaleye.Aggregator (Aggregate exprs) exprs
-aggregator = Opaleye.Aggregator $ Opaleye.PackMap $
-  \f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner))) -> inner f ()
+aggregator :: Aggregates aggregates exprs => Opaleye.Aggregator aggregates exprs
+aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f aggregates ->
+  fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
+    WrapApplicative $ case hfield (toColumns aggregates) field of
+      A (Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner))) ->
+        E <$> inner f ()
 
 
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a

@@ -59,7 +59,6 @@ module Rel8
   , catMaybeTable
   , bindMaybeTable
   , traverseMaybeTable
-  , aggregateMaybeTable
   , insertMaybeTable
   , nameMaybeTable
 
@@ -71,7 +70,6 @@ module Rel8
   , keepRightTable
   , bindEitherTable
   , bitraverseEitherTable
-  , aggregateEitherTable
   , insertEitherTable
   , nameEitherTable
 
@@ -89,7 +87,6 @@ module Rel8
   , keepThoseTable, loseThoseTable
   , bindTheseTable
   , bitraverseTheseTable
-  , aggregateTheseTable
   , insertTheseTable
   , nameTheseTable
 
@@ -218,6 +215,7 @@ module Rel8
 
     -- ** Aggregation
   , Aggregate
+  , Aggregates
   , aggregate
   , countRows
   , groupBy

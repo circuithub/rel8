@@ -269,10 +269,10 @@ type AggregateHKD a = forall r. GGAggregate (GAlgebra (Rep a)) (HKDRep a) r
 
 
 aggregateHKD :: forall a. ConstructableHKD a
-  => AggregateHKD a -> HKD a Expr -> Aggregate (HKD a Expr)
+  => AggregateHKD a -> HKD a Expr -> HKD a Aggregate
 aggregateHKD f =
-  ggaggregate @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD (\(HKD a) -> a)
-    (f @(Aggregate (HKD a Expr)))
+  ggaggregate @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @(HKD a Aggregate) HKD (\(HKD a) -> a)
+    (f @(HKD a Aggregate))
 
 
 data HKDRep :: Type -> K.Context -> Exp (Type -> Type)

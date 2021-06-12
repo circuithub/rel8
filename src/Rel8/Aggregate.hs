@@ -31,24 +31,21 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E, unE ) )
+import Rel8.Expr ( Expr )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
-import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , reify, unreify
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
-
--- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>) )
 
 
 -- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
@@ -58,64 +55,53 @@ import Data.Functor.Apply ( Apply, (<.>) )
 -- combine @Aggregate@s using the @<.>@ combinator.
 type Aggregate :: k -> Type
 data Aggregate a where
-  Aggregate :: !(Opaleye.Aggregator () a) -> Aggregate a
-
-
-instance Functor Aggregate where
-  fmap f (Aggregate a) = Aggregate (fmap f a)
-
-
-instance Apply Aggregate where
-  Aggregate f <.> Aggregate a = Aggregate (f <*> a)
+  Aggregate :: !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
 
 
 instance Interpretation Aggregate where
   data Col Aggregate _spec where
     A :: ()
-      => { unA :: !(Aggregate (Expr a)) }
+      => { unA :: !(Aggregate a) }
       -> Col Aggregate ('Spec labels necessity a)
 
 
-instance Table Expr a => Table Aggregate (Aggregate a) where
-  type Columns (Aggregate a) = Columns a
+instance Sql DBType a => Table Aggregate (Aggregate a) where
+  type Columns (Aggregate a) = HType a
   type Context (Aggregate a) = Aggregate
 
-  toColumns a = htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> A $ unE . (`hfield` field) . toColumns <$> a
-  fromColumns as = fmap fromColumns $ htabulateA $ \field ->
-    case hfield as field of
-      A a -> E <$> a
+  toColumns = HIdentity . A
+  fromColumns (HIdentity (A a)) = a
 
   reify = notReify
   unreify = notReify
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Aggregate (Aggregate (Expr a)) (Aggregate (Expr a))
+  Recontextualize Aggregate Aggregate (Aggregate a) (Aggregate a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Expr (Aggregate (Expr a)) (Expr a)
+  Recontextualize Aggregate Expr (Aggregate a) (Expr a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Result (Aggregate (Expr a)) (Identity a)
+  Recontextualize Aggregate Result (Aggregate a) (Identity a)
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Name (Aggregate (Expr a)) (Name a)
+  Recontextualize Aggregate Name (Aggregate a) (Name a)
 
 
 instance Sql DBType a =>
-  Recontextualize Expr Aggregate (Expr a) (Aggregate (Expr a))
+  Recontextualize Expr Aggregate (Expr a) (Aggregate a)
 
 
 instance Sql DBType a =>
-  Recontextualize Result Aggregate (Identity a) (Aggregate (Expr a))
+  Recontextualize Result Aggregate (Identity a) (Aggregate a)
 
 
 instance Sql DBType a =>
-  Recontextualize Name Aggregate (Name a) (Aggregate (Expr a))
+  Recontextualize Name Aggregate (Name a) (Aggregate a)
 
 
 instance Labelable Aggregate where
@@ -156,10 +142,10 @@ data Aggregator = Aggregator
 
 
 unsafeMakeAggregate :: ()
-  => (input -> Opaleye.PrimExpr)
-  -> (Opaleye.PrimExpr -> output)
+  => (Expr input -> Opaleye.PrimExpr)
+  -> (Opaleye.PrimExpr -> Expr output)
   -> Maybe Aggregator
-  -> input
+  -> Expr input
   -> Aggregate output
 unsafeMakeAggregate input output aggregator expr =
   Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ \f _ ->

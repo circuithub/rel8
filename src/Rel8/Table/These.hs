@@ -21,7 +21,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
-  , aggregateTheseTable, insertTheseTable, nameTheseTable
+  , insertTheseTable, nameTheseTable
   )
 where
 
@@ -33,7 +33,6 @@ import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
@@ -63,7 +62,7 @@ import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
-  , aggregateMaybeTable, insertMaybeTable, nameMaybeTable
+  , insertMaybeTable, nameMaybeTable
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -73,7 +72,7 @@ import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>), liftF2 )
+import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 -- these
@@ -230,15 +229,6 @@ theseTable f g h TheseTable {here, there} =
     (maybeTable undefined f here)
     (\b -> maybeTable (g b) (`h` b) here)
     there
-
-
-aggregateTheseTable :: ()
-  => (a -> Aggregate c)
-  -> (b -> Aggregate d)
-  -> TheseTable a b
-  -> Aggregate (TheseTable c d)
-aggregateTheseTable f g TheseTable {here, there} =
-  liftF2 TheseTable (aggregateMaybeTable f here) (aggregateMaybeTable g there)
 
 
 insertTheseTable :: (Table Insert a, Table Insert b)

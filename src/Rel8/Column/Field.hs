@@ -42,7 +42,7 @@ import Rel8.Type ( DBType )
 type Field :: K.Context -> Necessity -> Type -> Type
 type family Field context necessity a where
   Field (Reify context) necessity  a = AField context necessity a
-  Field Aggregate       _necessity a = Aggregate (Expr a)
+  Field Aggregate       _necessity a = Aggregate a
   Field Expr            _necessity a = Expr a
   Field Insert          'Required  a = Expr a
   Field Insert          'Optional  a = Maybe (Expr a)

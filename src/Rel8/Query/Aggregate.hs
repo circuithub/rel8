@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language MonoLocalBinds #-}
 
 module Rel8.Query.Aggregate
   ( aggregate
@@ -14,7 +15,7 @@ import Prelude
 import qualified Opaleye.Aggregate as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate ( Aggregates )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( countStar )
 import Rel8.Query ( Query )
@@ -25,7 +26,7 @@ import Rel8.Table.Maybe ( maybeTable )
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
-aggregate :: Query (Aggregate exprs) -> Query exprs
+aggregate :: Aggregates aggregates exprs => Query aggregates -> Query exprs
 aggregate = mapOpaleye (Opaleye.aggregate aggregator)
 
 
