@@ -14,7 +14,7 @@ module Rel8
   , ReadShow(..)
 
     -- **** Generic
-  , Composite(..)
+  , Composite(..), DBComposite(..), compose, decompose
   , Enum(..)
 
     -- *** @TypeInformation@

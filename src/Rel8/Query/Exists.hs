@@ -54,7 +54,7 @@ with f a = a <$ whereExists (f a)
 
 
 -- | Like @with@, but with a custom membership test.
-withBy :: (a -> b -> Expr Bool)  -> Query b -> a -> Query a
+withBy :: (a -> b -> Expr Bool) -> Query b -> a -> Query a
 withBy predicate bs = with $ \a -> bs >>= filter (predicate a)
 
 
