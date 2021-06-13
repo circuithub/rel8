@@ -15,7 +15,7 @@
 module Rel8.Schema.Insert
   ( Insert(..)
   , OnConflict(..)
-  , Col( InsertCol )
+  , Col( I, unI )
   , Inserts
   , Insertion(..)
   )
@@ -79,7 +79,7 @@ data Insert a where
 
 instance Interpretation Insert where
   data Col Insert _spec where
-    InsertCol :: Insertion necessity a -> Col Insert ('Spec labels necessity a)
+    I :: {unI :: !(Insertion necessity a)} -> Col Insert ('Spec labels necessity a)
 
 
 type Insertion :: Necessity -> Type -> Type
@@ -94,8 +94,8 @@ instance (KnownNecessity necessity, Sql DBType a) =>
   type Columns (Insertion necessity a) = HIdentity ('Spec '[] necessity a)
   type Context (Insertion necessity a) = Insert
 
-  toColumns = HIdentity . InsertCol
-  fromColumns (HIdentity (InsertCol a)) = a
+  toColumns = HIdentity . I
+  fromColumns (HIdentity (I a)) = a
   reify = notReify
   unreify = notReify
 
@@ -132,25 +132,25 @@ instance Sql DBType a => Recontextualize Name Insert (Name a) (Insertion 'Requir
 
 
 instance Labelable Insert where
-  labeler (InsertCol a) = InsertCol a
-  unlabeler (InsertCol a) = InsertCol a
+  labeler (I a) = I a
+  unlabeler (I a) = I a
 
 
 instance Nullifiable Insert where
-  encodeTag = InsertCol . Insertion . expr
+  encodeTag = I . Insertion . expr
 
-  decodeTag (InsertCol (Insertion a)) = fromExpr a
+  decodeTag (I (Insertion a)) = fromExpr a
 
   nullifier Tag {expr} test SSpec {nullity} = \case
-    InsertCol Default -> InsertCol Default
-    InsertCol (Insertion a) ->
-      InsertCol $ Insertion $ runTag nullity condition a
+    I Default -> I Default
+    I (Insertion a) ->
+      I $ Insertion $ runTag nullity condition a
     where
       condition = test expr
 
   unnullifier SSpec {nullity} = \case
-    InsertCol Default -> InsertCol Default
-    InsertCol (Insertion a) -> InsertCol $ Insertion $ unnull nullity a
+    I Default -> I Default
+    I (Insertion a) -> I $ Insertion $ unnull nullity a
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

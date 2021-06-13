@@ -31,8 +31,8 @@ import Prelude
 import qualified Opaleye.Aggregate as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregates, Col(..) )
-import Rel8.Expr ( Col(..), Expr )
+import Rel8.Aggregate ( Aggregate, Aggregates, Col( A ) )
+import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr, listAggExpr, nonEmptyAggExpr )
 import Rel8.Generic.Construction ( GGAggregate', ggaggregate' )
 import Rel8.Generic.Table ( GAlgebra )
@@ -73,7 +73,7 @@ groupBy :: forall exprs aggregates. (EqTable exprs, Aggregates aggregates exprs)
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield (eqTable @exprs) field of
     Dict -> case hfield exprs field of
-      DB expr -> Aggregation $ groupByExpr expr
+      E expr -> A $ groupByExpr expr
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
@@ -95,7 +95,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
+    (\_ (Identity (E a)) -> A $ listAggExpr a)
     (pure exprs)
 
 
@@ -103,7 +103,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
+    (\_ (Identity (E a)) -> A $ nonEmptyAggExpr a)
     (pure exprs)
 
 

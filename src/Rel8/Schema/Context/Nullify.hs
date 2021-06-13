@@ -25,18 +25,18 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Aggregate
-  ( Aggregate, Col(..)
+  ( Aggregate, Col( A )
   , mapInputs
   , unsafeMakeAggregate
   )
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( Name ), Col(..) )
+import Rel8.Schema.Name ( Name( Name ), Col( N ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
@@ -81,19 +81,19 @@ class Interpretation context => Nullifiable context where
 
 instance Nullifiable Aggregate where
   encodeTag Tag {aggregator, expr} =
-    Aggregation $ unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
+    A $ unsafeMakeAggregate toPrimExpr fromPrimExpr aggregator expr
 
-  decodeTag (Aggregation aggregate) = fromAggregate aggregate
+  decodeTag (A aggregate) = fromAggregate aggregate
 
-  nullifier Tag {expr} test SSpec {nullity} (Aggregation aggregate) =
-    Aggregation $
+  nullifier Tag {expr} test SSpec {nullity} (A aggregate) =
+    A $
     mapInputs (toPrimExpr . runTag nullity condition . fromPrimExpr) $
     runTag nullity condition <$> aggregate
     where
       condition = test expr
 
-  unnullifier SSpec {nullity} (Aggregation aggregate) =
-    Aggregation $ unnull nullity <$> aggregate
+  unnullifier SSpec {nullity} (A aggregate) =
+    A $ unnull nullity <$> aggregate
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -102,11 +102,11 @@ instance Nullifiable Aggregate where
 
 
 instance Nullifiable Expr where
-  encodeTag Tag {expr} = DB expr
-  decodeTag (DB a) = fromExpr a
-  nullifier Tag {expr} test SSpec {nullity} (DB a) =
-    DB $ runTag nullity (test expr) a
-  unnullifier SSpec {nullity} (DB a) = DB $ unnull nullity a
+  encodeTag Tag {expr} = E expr
+  decodeTag (E a) = fromExpr a
+  nullifier Tag {expr} test SSpec {nullity} (E a) =
+    E $ runTag nullity (test expr) a
+  unnullifier SSpec {nullity} (E a) = E $ unnull nullity a
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}
@@ -115,10 +115,10 @@ instance Nullifiable Expr where
 
 
 instance Nullifiable Name where
-  encodeTag Tag {name = Name name} = NameCol name
-  decodeTag (NameCol name) = fromName (Name name)
-  nullifier _ _ _ (NameCol name) = NameCol name
-  unnullifier _ (NameCol name) = NameCol name
+  encodeTag Tag {name} = N name
+  decodeTag (N name) = fromName name
+  nullifier _ _ _ (N (Name name)) = N (Name name)
+  unnullifier _ (N (Name name)) = N (Name name)
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

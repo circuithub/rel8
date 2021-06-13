@@ -23,11 +23,11 @@ import qualified Opaleye.Internal.QueryArr as Opaleye hiding ( Select )
 import qualified Opaleye.Internal.Sql as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
-import Rel8.Schema.Name ( Selects, Col(..) )
+import Rel8.Schema.Name ( Name( Name ), Selects, Col( N ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( namesFromLabels )
@@ -68,7 +68,7 @@ selectFrom (toColumns -> names) (toColumns . castTable -> exprs) query =
   where
     select = Opaleye.foldPrimQuery Opaleye.sqlQueryGenerator query
     attributes = getConst $ htabulateA $ \field -> case hfield names field of
-      NameCol name -> case hfield exprs field of
-        DB (toPrimExpr -> expr) -> Const (pure (makeAttr name expr))
+      N (Name name) -> case hfield exprs field of
+        E (toPrimExpr -> expr) -> Const (pure (makeAttr name expr))
     makeAttr label expr =
       (Opaleye.sqlExpr expr, Just (Opaleye.SqlColumn label))

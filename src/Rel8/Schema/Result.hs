@@ -5,7 +5,7 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Result
-  ( Col( Result ), Result
+  ( Col( R, unR ), Result
   , relabel
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
@@ -30,24 +30,24 @@ data Result a
 
 instance Interpretation Result where
   data Col Result _spec where
-    Result :: a -> Col Result ('Spec labels necessity a)
+    R :: {unR :: !a} -> Col Result ('Spec labels necessity a)
 
 
 relabel :: ()
   => HIdentity ('Spec labels necessity a) (Col Result)
   -> HIdentity ('Spec relabels necessity a) (Col Result)
-relabel (HIdentity (Result a)) = HIdentity (Result a)
+relabel (HIdentity (R a)) = HIdentity (R a)
 
 
 null :: Col Result ('Spec labels necessity (Maybe a))
-null = Result Nothing
+null = R Nothing
 
 
 nullifier :: ()
   => SSpec ('Spec labels necessity a)
   -> Col Result ('Spec labels necessity a)
   -> Col Result ('Spec labels necessity (Nullify a))
-nullifier SSpec {nullity} (Result a) = Result $ case nullity of
+nullifier SSpec {nullity} (R a) = R $ case nullity of
   Null -> a
   NotNull -> Just a
 
@@ -56,21 +56,21 @@ unnullifier :: ()
   => SSpec ('Spec labels necessity a)
   -> Col Result ('Spec labels necessity (Nullify a))
   -> Maybe (Col Result ('Spec labels necessity a))
-unnullifier SSpec {nullity} (Result a) =
+unnullifier SSpec {nullity} (R a) =
   case nullity of
-    Null -> pure $ Result a
-    NotNull -> Result <$> a
+    Null -> pure $ R a
+    NotNull -> R <$> a
 
 
 vectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
   -> f (Col Result ('Spec labels necessity a))
   -> Col Result ('Spec labels 'Required (f a))
-vectorizer _ = Result . fmap (\(Result a) -> a)
+vectorizer _ = R . fmap unR
 
 
 unvectorizer :: Functor f
   => SSpec ('Spec labels necessity a)
   -> Col Result ('Spec labels 'Required (f a))
   -> f (Col Result ('Spec labels necessity a))
-unvectorizer _ (Result results) = Result <$> results
+unvectorizer _ (R results) = R <$> results

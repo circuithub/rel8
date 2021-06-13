@@ -16,8 +16,8 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Col(..) )
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Aggregate ( Aggregate, Col( A ) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , listAggExpr
@@ -41,7 +41,7 @@ groupBy :: forall exprs. EqTable exprs => exprs -> Aggregate exprs
 groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield (eqTable @exprs) field of
     Dict -> case hfield exprs field of
-      DB expr -> Aggregation $ groupByExpr expr
+      E expr -> A $ groupByExpr expr
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
@@ -63,7 +63,7 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 listAgg :: Table Expr a => a -> Aggregate (ListTable a)
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB a)) -> Aggregation $ listAggExpr a)
+    (\_ (Identity (E a)) -> A $ listAggExpr a)
     (pure exprs)
 
 
@@ -71,7 +71,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 nonEmptyAgg :: Table Expr a => a -> Aggregate (NonEmptyTable a)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB a)) -> Aggregation $ nonEmptyAggExpr a)
+    (\_ (Identity (E a)) -> A $ nonEmptyAggExpr a)
     (pure exprs)
 
 
@@ -79,7 +79,7 @@ listAggWithOrder :: Table Expr a
   => Order o -> o -> a -> Aggregate (ListTable a)
 listAggWithOrder order o (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB x)) -> Aggregation $ listAggExprWithOrder order o x)
+    (\_ (Identity (E x)) -> A $ listAggExprWithOrder order o x)
     (pure exprs)
 
 
@@ -87,5 +87,5 @@ nonEmptyAggWithOrder :: Table Expr a
   => Order o -> o -> a -> Aggregate (NonEmptyTable a)
 nonEmptyAggWithOrder order o (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (DB x)) -> Aggregation $ nonEmptyAggExprWithOrder order o x)
+    (\_ (Identity (E x)) -> A $ nonEmptyAggExprWithOrder order o x)
     (pure exprs)

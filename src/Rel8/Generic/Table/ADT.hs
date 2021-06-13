@@ -47,7 +47,7 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullify )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec )
 import Rel8.Schema.Result
-  ( Col( Result ), Result
+  ( Col( R ), Result
   , null, nullifier, unnullifier
   )
 import Rel8.Type.Tag ( Tag( Tag ) )
@@ -219,12 +219,12 @@ instance
       Just rep -> M1 rep
       _ -> error "ADT.fromColumns: mismatch between tag and data"
     where
-      tag = (\(HType (Result a)) -> a) . hunlabel @_ @"tag" unlabeler
+      tag = (\(HType (R a)) -> a) . hunlabel @_ @"tag" unlabeler
 
   gtoResultADT toResult (M1 rep) =
     gtoResultADT' @_ToExprs @_Columns @_ @exprs toResult tag (Just rep)
     where
-      tag = hlabel @_ @"tag" labeler . HType . Result
+      tag = hlabel @_ @"tag" labeler . HType . R
 
 
 type GToExprsADT'

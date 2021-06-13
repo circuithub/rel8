@@ -14,7 +14,7 @@
 
 module Rel8.Schema.Name
   ( Name(..)
-  , Col( NameCol )
+  , Col( N, unN )
   , Selects
   )
 where
@@ -33,6 +33,7 @@ import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns, reify, unreify
   )
@@ -60,8 +61,8 @@ instance Sql DBType a => Table Name (Name a) where
   type Columns (Name a) = HType a
   type Context (Name a) = Name
 
-  toColumns (Name a) = HType (NameCol a)
-  fromColumns (HType (NameCol a)) = Name a
+  toColumns a = HType (N a)
+  fromColumns (HType (N a)) = a
   reify = notReify
   unreify = notReify
 
@@ -82,12 +83,13 @@ instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
 
 
 instance Interpretation Name where
-  newtype Col Name _spec = NameCol String
+  data Col Name _spec where
+    N :: {unN :: !(Name a)} -> Col Name ('Spec labels necessity a)
 
 
 instance Labelable Name where
-  labeler (NameCol a) = NameCol a
-  unlabeler (NameCol a) = NameCol a
+  labeler (N a) = N a
+  unlabeler (N a) = N a
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

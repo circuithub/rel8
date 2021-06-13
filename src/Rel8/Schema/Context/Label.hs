@@ -19,7 +19,7 @@ import Rel8.Schema.Context ( Interpretation )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Kind ( Context, HContext )
 import Rel8.Schema.Spec ( Spec( Spec ) )
-import Rel8.Schema.Result ( Col( Result ), Result )
+import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 
 
@@ -35,8 +35,8 @@ class Interpretation context => Labelable context where
 
 
 instance Labelable Result where
-  labeler (Result a) = Result a
-  unlabeler (Result a) = Result a
+  labeler (R a) = R a
+  unlabeler (R a) = R a
 
 
 type HLabelable :: HContext -> Constraint

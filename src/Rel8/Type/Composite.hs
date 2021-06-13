@@ -30,12 +30,12 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( DB ), Expr )
+import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
 import Rel8.Schema.HTable ( hfield, hspecs, htabulate, htabulateA )
-import Rel8.Schema.Name ( Col( NameCol ), Name )
+import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Col( Result ), Result )
+import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Eq ( EqTable )
@@ -98,8 +98,8 @@ compose = castExpr . fromPrimExpr . encoder
 decompose :: forall a. DBComposite a => Expr a -> HKD a Expr
 decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
   case hfield names field of
-    NameCol name -> case hfield hspecs field of
-      SSpec {} -> DB $ fromPrimExpr $ Opaleye.CompositeExpr a name
+    N (Name name) -> case hfield hspecs field of
+      SSpec {} -> E $ fromPrimExpr $ Opaleye.CompositeExpr a name
   where
     names = toColumns (compositeFields @a)
 
@@ -107,7 +107,7 @@ decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
 decoder :: Table Result a => Hasql.Composite a
 decoder = fmap fromColumns $ unwrapApplicative $ htabulateA \field ->
   case hfield hspecs field of
-    SSpec {nullity, info} -> WrapApplicative $ Result <$>
+    SSpec {nullity, info} -> WrapApplicative $ R <$>
       case nullity of
         Null -> Hasql.field $ Hasql.nullable $ decode info
         NotNull -> Hasql.field $ Hasql.nonNullable $ decode info
@@ -117,4 +117,4 @@ encoder :: Table Expr a => a -> Opaleye.PrimExpr
 encoder (toColumns -> a) = Opaleye.FunExpr "ROW" exprs
   where
     exprs = getConst $ htabulateA \field -> case hfield a field of
-      DB (toPrimExpr -> expr) -> Const [expr]
+      E (toPrimExpr -> expr) -> Const [expr]

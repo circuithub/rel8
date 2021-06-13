@@ -15,7 +15,7 @@ module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
-  , Col( Aggregation )
+  , Col( A, unA )
   )
 where
 
@@ -31,7 +31,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable ( hfield, htabulate, htabulateA, hspecs )
@@ -71,8 +71,8 @@ instance Apply Aggregate where
 
 instance Interpretation Aggregate where
   data Col Aggregate _spec where
-    Aggregation :: ()
-      => Aggregate (Expr a)
+    A :: ()
+      => { unA :: !(Aggregate (Expr a)) }
       -> Col Aggregate ('Spec labels necessity a)
 
 
@@ -81,10 +81,10 @@ instance Table Expr a => Table Aggregate (Aggregate a) where
   type Context (Aggregate a) = Aggregate
 
   toColumns a = htabulate $ \field -> case hfield hspecs field of
-    SSpec {} -> Aggregation $ unDB . (`hfield` field) . toColumns <$> a
+    SSpec {} -> A $ unE . (`hfield` field) . toColumns <$> a
   fromColumns as = fmap fromColumns $ htabulateA $ \field ->
     case hfield as field of
-      Aggregation a -> DB <$> a
+      A a -> E <$> a
 
   reify = notReify
   unreify = notReify
@@ -119,8 +119,8 @@ instance Sql DBType a =>
 
 
 instance Labelable Aggregate where
-  labeler (Aggregation aggregate) = Aggregation aggregate
-  unlabeler (Aggregation aggregate) = Aggregation aggregate
+  labeler (A aggregate) = A aggregate
+  unlabeler (A aggregate) = A aggregate
 
 
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's

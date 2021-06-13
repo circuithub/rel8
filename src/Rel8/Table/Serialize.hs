@@ -30,7 +30,7 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record(..) )
@@ -42,7 +42,7 @@ import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Result ( Col( Result ), Result )
+import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
 import Rel8.Type ( DBType )
@@ -96,25 +96,25 @@ type instance Eval (TToExprs exprs a) = ToExprs exprs a
 
 
 instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a where
-  fromResult (HType (Result a)) = a
-  toResult = HType . Result
+  fromResult (HType (R a)) = a
+  toResult = HType . R
 
 
 instance (Sql DBType a, x ~ [a]) => ToExprs (Expr x) [a] where
-  fromResult (HType (Result a)) = a
-  toResult = HType . Result
+  fromResult (HType (R a)) = a
+  toResult = HType . R
 
 
 instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Expr x) (Maybe a)
  where
-  fromResult (HType (Result a)) = a
-  toResult = HType . Result
+  fromResult (HType (R a)) = a
+  toResult = HType . R
 
 
 instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty a)
  where
-  fromResult (HType (Result a)) = a
-  toResult = HType . Result
+  fromResult (HType (R a)) = a
+  toResult = HType . R
 
 
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ (exprs1, exprs2)) =>
@@ -234,10 +234,10 @@ litHTable :: HTable t => t (Col Result) -> t (Col Expr)
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> case hfield as field of
-      Result value -> DB (slitExpr nullity info value)
+      R value -> E (slitExpr nullity info value)
 
 
 parseHTable :: HTable t => Hasql.Row (t (Col Result))
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
-    SSpec {nullity, info} -> Result <$> sparseValue nullity info
+    SSpec {nullity, info} -> R <$> sparseValue nullity info

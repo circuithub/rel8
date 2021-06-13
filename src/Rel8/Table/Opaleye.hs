@@ -45,8 +45,8 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Insert ( Insert, Inserts, Col( InsertCol ), Insertion(..) )
-import Rel8.Schema.Name ( Name, Selects, Col(..) )
+import Rel8.Schema.Insert ( Insert, Inserts, Col( I ), Insertion(..) )
+import Rel8.Schema.Name ( Name( Name ), Selects, Col( N ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
@@ -66,7 +66,7 @@ binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
   fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
     WrapApplicative $
       case (hfield (toColumns as) field, hfield (toColumns bs) field) of
-        (DB a, DB b) -> DB . fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
+        (E a, E b) -> E . fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
 
 
 distinctspec :: Table Expr a => Opaleye.Distinctspec a a
@@ -75,8 +75,8 @@ distinctspec =
     fmap fromColumns .
     unwrapApplicative .
     htraverse
-      (\(DB a) ->
-         WrapApplicative $ DB . fromPrimExpr <$> f (Nothing, toPrimExpr a)) .
+      (\(E a) ->
+         WrapApplicative $ E . fromPrimExpr <$> f (Nothing, toPrimExpr a)) .
     toColumns
 
 
@@ -97,14 +97,14 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
-    go SSpec {necessity} (NameCol name) = case necessity of
+    go SSpec {necessity} (N (Name name)) = case necessity of
       SRequired ->
-        lmap (\(InsertCol (Insertion a)) -> toColumn $ toPrimExpr a) $
-        DB . fromPrimExpr . fromColumn <$>
+        lmap (\(I (Insertion a)) -> toColumn $ toPrimExpr a) $
+        E . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
       SOptional ->
-        lmap (\(InsertCol ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
-        DB . fromPrimExpr . fromColumn <$>
+        lmap (\(I ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
+        E . fromPrimExpr . fromColumn <$>
           Opaleye.optionalTableField name
       where
         fromInsert = \case
@@ -116,7 +116,7 @@ unpackspec :: Table Expr a => Opaleye.Unpackspec a a
 unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
   fmap fromColumns .
   unwrapApplicative .
-  htraverse (\(DB a) -> WrapApplicative $ DB <$> traversePrimExpr f a) .
+  htraverse (\(E a) -> WrapApplicative $ E <$> traversePrimExpr f a) .
   toColumns
 {-# INLINABLE unpackspec #-}
 
@@ -130,7 +130,7 @@ toPackMap :: Table Expr a
 toPackMap as = Opaleye.PackMap $ \f () ->
   fmap fromColumns $
   unwrapApplicative .
-  htraverse (\(DB a) -> WrapApplicative $ DB <$> traversePrimExpr f a) $
+  htraverse (\(E a) -> WrapApplicative $ E <$> traversePrimExpr f a) $
   toColumns as
 
 
@@ -142,5 +142,5 @@ castTable (toColumns -> as) = fromColumns $ htabulate \i ->
   case hfield hspecs i of
     SSpec{info} -> 
       case hfield as i of
-        DB expr ->
-          DB (scastExpr info expr)
+        E expr ->
+          E (scastExpr info expr)

@@ -13,7 +13,7 @@ where
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Bool ( boolExpr, caseExpr )
 import Rel8.Expr.Null ( isNull, unsafeUnnullify )
 import Rel8.Schema.HTable ( htabulate, hfield )
@@ -28,8 +28,8 @@ bool :: Table Expr a => a -> a -> Expr Bool -> a
 bool (toColumns -> false) (toColumns -> true) condition =
   fromColumns $ htabulate $ \field ->
     case (hfield false field, hfield true field) of
-      (DB falseExpr, DB trueExpr) ->
-        DB (boolExpr falseExpr trueExpr condition)
+      (E falseExpr, E trueExpr) ->
+        E (boolExpr falseExpr trueExpr condition)
 {-# INLINABLE bool #-}
 
 
@@ -39,9 +39,9 @@ bool (toColumns -> false) (toColumns -> true) condition =
 case_ :: Table Expr a => [(Expr Bool, a)] -> a -> a
 case_ (map (fmap toColumns) -> branches) (toColumns -> fallback) =
   fromColumns $ htabulate $ \field -> case hfield fallback field of
-    DB fallbackExpr ->
-      case map (fmap (unDB . (`hfield` field))) branches of
-        branchExprs -> DB (caseExpr branchExprs fallbackExpr)
+    E fallbackExpr ->
+      case map (fmap (unE . (`hfield` field))) branches of
+        branchExprs -> E (caseExpr branchExprs fallbackExpr)
 
 
 -- | Like 'maybe', but to eliminate @null@.

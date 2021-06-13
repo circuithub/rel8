@@ -15,8 +15,8 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Col(..) )
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Aggregate ( Aggregate, Col( A ) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Kind.Necessity
   ( Necessity( Required, Optional )
@@ -24,12 +24,12 @@ import Rel8.Kind.Necessity
   , KnownNecessity, necessitySing
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Schema.Insert ( Insert, Insertion(..), Col(..) )
+import Rel8.Schema.Insert ( Insert, Insertion(..), Col( I ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name(..), Col(..) )
+import Rel8.Schema.Name ( Name(..), Col( N ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( Reify, Col(..) )
-import Rel8.Schema.Result ( Col( Result ), Result )
+import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -84,16 +84,16 @@ sfromColumn :: ()
   -> Col context ('Spec labels necessity a)
   -> AField context necessity a
 sfromColumn = \case
-  SAggregate -> \_ (Aggregation a) -> AField a
-  SExpr -> \_ (DB a) -> AField a
-  SResult -> \_ (Result a) -> AField a
+  SAggregate -> \_ (A a) -> AField a
+  SExpr -> \_ (E a) -> AField a
   SInsert -> \case
     SRequired -> \case
-      InsertCol (Insertion a) -> AField a
+      I (Insertion a) -> AField a
     SOptional -> \case
-      InsertCol Default -> AField Nothing
-      InsertCol (Insertion a) -> AField (Just a)
-  SName -> \_ (NameCol a) -> AField (Name a)
+      I Default -> AField Nothing
+      I (Insertion a) -> AField (Just a)
+  SName -> \_ (N a) -> AField a
+  SResult -> \_ (R a) -> AField a
   SReify context ->
     \necessity (Reify a) -> AField (sfromColumn context necessity a)
 
@@ -104,12 +104,12 @@ stoColumn :: ()
   -> AField context necessity a
   -> Col context ('Spec labels necessity a)
 stoColumn = \case
-  SAggregate -> \_ (AField a) -> Aggregation a
-  SExpr -> \_ (AField a) -> DB a
-  SResult -> \_ (AField a) -> Result a
+  SAggregate -> \_ (AField a) -> A a
+  SExpr -> \_ (AField a) -> E a
   SInsert -> \case
-    SRequired -> \(AField a) -> InsertCol (Insertion a)
-    SOptional -> \(AField ma) -> InsertCol $ maybe Default Insertion ma
-  SName -> \_ (AField (Name a)) -> NameCol a
+    SRequired -> \(AField a) -> I (Insertion a)
+    SOptional -> \(AField ma) -> I $ maybe Default Insertion ma
+  SName -> \_ (AField a) -> N a
+  SResult -> \_ (AField a) -> R a
   SReify context ->
     \necessity (AField a) -> Reify (stoColumn context necessity a)

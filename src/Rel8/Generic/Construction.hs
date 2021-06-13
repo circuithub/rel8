@@ -35,8 +35,8 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Col( Aggregation ), Aggregate )
-import Rel8.Expr ( Col( DB ), Expr )
+import Rel8.Aggregate ( Col( A ), Aggregate )
+import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
@@ -64,9 +64,9 @@ import qualified Rel8.Kind.Algebra as K
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
-import Rel8.Schema.Insert ( Col( InsertCol ), Insert, Insertion(..) )
+import Rel8.Schema.Insert ( Col( I ), Insert, Insertion(..) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( NameCol ), Name( Name ) )
+import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
@@ -147,11 +147,11 @@ ggbuild gfromColumns = case algebraSing @algebra of
       @name
       @(Eval (rep (Reify Expr)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {info} -> Reify (DB (snull info)))
+      (\SSpec {info} -> Reify (E (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
-        NotNull -> \(Reify (DB a)) -> Reify (DB (nullify a)))
-      (HType . Reify . DB . litExpr)
+        NotNull -> \(Reify (E a)) -> Reify (E (nullify a)))
+      (HType . Reify . E . litExpr)
 
 
 type GGInsert :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
@@ -189,13 +189,13 @@ gginsert gfromColumns = case algebraSing @algebra of
       @name
       @(Eval (rep (Reify Insert)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {info} -> Reify $ InsertCol (Insertion (snull info)))
+      (\SSpec {info} -> Reify $ I (Insertion (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
         NotNull -> \case
-          Reify (InsertCol Default) -> Reify (InsertCol Default)
-          Reify (InsertCol (Insertion a)) -> Reify (InsertCol (Insertion (nullify a))))
-      (HType . Reify . InsertCol . Insertion . litExpr)
+          Reify (I Default) -> Reify (I Default)
+          Reify (I (Insertion a)) -> Reify (I (Insertion (nullify a))))
+      (HType . Reify . I . Insertion . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
@@ -273,11 +273,11 @@ ggconstruct gfromColumns f = case algebraSing @algebra of
       @(Col (Reify Expr))
       @(Eval (rep (Reify Expr)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {info} -> Reify (DB (snull info)))
+      (\SSpec {info} -> Reify (E (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
-        NotNull -> \(Reify (DB a)) -> Reify (DB (nullify a)))
-      (HType . Reify . DB . litExpr)
+        NotNull -> \(Reify (E a)) -> Reify (E (nullify a)))
+      (HType . Reify . E . litExpr)
 
 
 type GGDeconstruct :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type -> Type
@@ -306,7 +306,7 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
   SSum ->
     gctabulate @TUnreify @(Eval (rep (Reify Expr))) @r @(a -> r) $ \constructors as ->
       let
-        (HType (Reify (DB tag)), cases) =
+        (HType (Reify (E tag)), cases) =
           gdeconstructADT
             @(TTable (Reify Expr))
             @TColumns
@@ -316,7 +316,7 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
             (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns)
             (\SSpec {nullity} -> case nullity of
               Null -> id
-              NotNull -> \(Reify (DB a)) -> Reify (DB (unsafeUnnullify a)))
+              NotNull -> \(Reify (E a)) -> Reify (E (unsafeUnnullify a)))
             constructors $
           hreify $
           gtoColumns as
@@ -358,8 +358,8 @@ ggname gfromColumns = case algebraSing @algebra of
       @(Col (Reify Name))
       @(Eval (rep (Reify Name)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\_ _ (Reify (NameCol a)) -> Reify (NameCol a))
-      (HType ((\(Name a) -> Reify (NameCol a)) tag))
+      (\_ _ (Reify (N (Name a))) -> Reify (N (Name a)))
+      (HType (Reify (N tag)))
 
 
 type GGAggregate :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
@@ -418,9 +418,9 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
           @(Col (Reify Expr))
           @(Eval (rep (Reify Expr)))
           (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-          (\tag'' SSpec {nullity} (Reify (DB a)) ->
-            Reify $ DB $ runTag nullity (tag ==. litExpr tag'') a)
-          (HType (Reify (DB tag'))))
+          (\tag'' SSpec {nullity} (Reify (E a)) ->
+            Reify $ E $ runTag nullity (tag ==. litExpr tag'') a)
+          (HType (Reify (E tag'))))
       (groupByExpr tag) .
     gftraverse @TUnreify @(Eval (rep (Reify Expr))) @_ @Aggregate (MaybeApply . Left)
     where
@@ -428,7 +428,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
         gfindex @TUnreify @(Eval (rep (Reify Expr))) @(Aggregate a) .
         agg .
         gftabulate @(Compose Aggregate TUnreify) @(Eval (rep (Reify Expr))) @(Aggregate a)
-      (HType (Reify (DB tag)), exprs) =
+      (HType (Reify (E tag)), exprs) =
         gunbuildADT
           @(TTable (Reify Expr))
           @TColumns
@@ -438,7 +438,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
           (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns)
           (\SSpec {nullity} -> case nullity of
             Null -> id
-            NotNull -> \(Reify (DB a)) -> Reify (DB (unsafeUnnullify a))) $
+            NotNull -> \(Reify (E a)) -> Reify (E (unsafeUnnullify a))) $
         hreify $
         gtoColumns es
 
@@ -493,15 +493,15 @@ ggaggregate' gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @(Col (Reify Aggregate))
       @(Eval (rep (Reify Aggregate)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\tag' SSpec {nullity} (Reify (Aggregation a)) ->
-        Reify $ Aggregation $ runTag nullity (tag ==. litExpr tag') <$> a)
-      (HType (Reify (Aggregation (groupByExpr tag))))
+      (\tag' SSpec {nullity} (Reify (A a)) ->
+        Reify $ A $ runTag nullity (tag ==. litExpr tag') <$> a)
+      (HType (Reify (A (groupByExpr tag))))
     where
       f =
         gfindex @TUnreify @(Eval (rep (Reify Expr))) @agg .
         agg .
         gftabulate @TUnreify @(Eval (rep (Reify Aggregate))) @agg
-      (HType (Reify (DB tag)), exprs) =
+      (HType (Reify (E tag)), exprs) =
         gunbuildADT
           @(TTable (Reify Expr))
           @TColumns
@@ -511,7 +511,7 @@ ggaggregate' gfromColumns gtoColumns agg es = case algebraSing @algebra of
           (\(_ :: proxy x) -> unreify @_ @x Refl . fromColumns)
           (\SSpec {nullity} -> case nullity of
             Null -> id
-            NotNull -> \(Reify (DB a)) -> Reify (DB (unsafeUnnullify a))) $
+            NotNull -> \(Reify (E a)) -> Reify (E (unsafeUnnullify a))) $
         hreify $
         gtoColumns es
 

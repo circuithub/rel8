@@ -24,11 +24,11 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Kind.Labels ( renderLabels )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.Name ( Name, Col(..) )
+import Rel8.Schema.Name ( Name( Name ), Col( N ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 
@@ -43,14 +43,14 @@ namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {labels} -> NameCol (f (renderLabels labels))
+    SSpec {labels} -> N (Name (f (renderLabels labels)))
 
 
 showExprs :: Table Expr a => a -> [(String, Opaleye.PrimExpr)]
 showExprs as = case (namesFromLabels, toColumns as) of
   (names, exprs) -> getConst $ htabulateA $ \field ->
     case (hfield names field, hfield exprs field) of
-      (NameCol name, DB expr) -> Const [(name, toPrimExpr expr)]
+      (N (Name name), E expr) -> Const [(name, toPrimExpr expr)]
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]
@@ -62,4 +62,4 @@ showLabels _ = getConst $
 showNames :: forall a. Table Name a => a -> [String]
 showNames (toColumns -> names) = getConst $
   htabulateA @(Columns a) $ \field -> case hfield names field of
-    NameCol name -> Const [name]
+    N (Name name) -> Const [name]

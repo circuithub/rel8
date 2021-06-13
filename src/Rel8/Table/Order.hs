@@ -15,7 +15,7 @@ import Data.Functor.Contravariant ( (>$<), contramap )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( unDB )
+import Rel8.Expr ( unE )
 import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -34,7 +34,7 @@ ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
     SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case dbTypeDict dict of
-        Dict -> Const $ unDB . (`hfield` field) >$<
+        Dict -> Const $ unE . (`hfield` field) >$<
           case dbTypeNullity dict of
             Null -> nullsFirst asc
             NotNull -> asc
@@ -47,7 +47,7 @@ descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
     SSpec {} -> case hfield (ordTable @a) field of
       dict@Dict -> case dbTypeDict dict of
-        Dict -> Const $ unDB . (`hfield` field) >$<
+        Dict -> Const $ unE . (`hfield` field) >$<
           case dbTypeNullity dict of
             Null -> nullsLast desc
             NotNull -> desc

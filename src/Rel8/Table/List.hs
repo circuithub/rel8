@@ -21,13 +21,13 @@ import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
 import Rel8.Schema.Insert ( Inserts )
-import Rel8.Schema.Name ( Col( NameCol ), Name )
+import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
@@ -112,18 +112,18 @@ instance AlternativeTable ListTable where
 
 instance Table Expr a => Semigroup (ListTable a) where
   ListTable as <> ListTable bs = ListTable $
-    happend (\_ _ (DB a) (DB b) -> DB (sappend a b)) as bs
+    happend (\_ _ (E a) (E b) -> E (sappend a b)) as bs
 
 
 instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ hempty $ \nullability info ->
-    DB (sempty nullability info)
+    E (sempty nullability info)
 
 
 listTable :: Table Expr a => [a] -> ListTable a
 listTable =
   ListTable .
-  hvectorize (\SSpec {info} -> DB . slistOf info . fmap unDB) .
+  hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
   fmap toColumns
 
 
@@ -134,6 +134,6 @@ insertListTable = toInsert . listTable
 nameListTable :: Table Name a => a -> ListTable a
 nameListTable =
   ListTable .
-  hvectorize (\_ (Identity (NameCol a)) -> NameCol a) .
+  hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
   pure .
   toColumns

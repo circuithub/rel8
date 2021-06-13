@@ -28,7 +28,7 @@ import GHC.Generics ( Rep )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
 import Rel8.FCF ( Eval, Exp )
@@ -124,7 +124,7 @@ instance
 (toColumns -> as) ==: (toColumns -> bs) =
   foldl1' (&&.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (eqTable @a) field of
+      (E a, E b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a ==. b))
 infix 4 ==:
 
@@ -136,7 +136,7 @@ infix 4 ==:
 (toColumns -> as) /=: (toColumns -> bs) =
   foldl1' (||.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (eqTable @a) field of
+      (E a, E b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a /=. b))
 infix 4 /=:
 

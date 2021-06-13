@@ -60,7 +60,7 @@ import Rel8.Schema.Reify
   , notReify
   )
 import Rel8.Schema.Result
-  ( Col( Result ), Result
+  ( Col( R ), Result
   , relabel
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
@@ -234,8 +234,8 @@ instance Sql DBType a => Table Result (Identity a) where
   type Columns (Identity a) = HType a
   type Context (Identity a) = Result
 
-  toColumns (Identity a) = HType (Result a)
-  fromColumns (HType (Result a)) = Identity a
+  toColumns (Identity a) = HType (R a)
+  fromColumns (HType (R a)) = Identity a
 
   reify = notReify
   unreify = notReify
@@ -247,18 +247,18 @@ instance (Table Result a, Table Result b) => Table Result (Either a b) where
 
   toColumns = \case
     Left table -> HEitherTable
-      { htag = HIdentity (Result IsLeft)
+      { htag = HIdentity (R IsLeft)
       , hleft = hlabel labeler (hnullify nullifier (toColumns table))
       , hright = hlabel labeler (hnulls (const null))
       }
     Right table -> HEitherTable
-      { htag = HIdentity (Result IsRight)
+      { htag = HIdentity (R IsRight)
       , hleft = hlabel labeler (hnulls (const null))
       , hright = hlabel labeler (hnullify nullifier (toColumns table))
       }
 
   fromColumns HEitherTable {htag, hleft, hright} = case htag of
-    HIdentity (Result tag) -> case tag of
+    HIdentity (R tag) -> case tag of
       IsLeft -> maybe err (Left . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hleft)
       IsRight -> maybe err (Right . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hright)
     where
@@ -279,16 +279,16 @@ instance Table Result a => Table Result (Maybe a) where
 
   toColumns = \case
     Nothing -> HMaybeTable
-      { htag = HIdentity (Result Nothing)
+      { htag = HIdentity (R Nothing)
       , hjust = hlabel labeler (hnulls (const null))
       }
     Just table -> HMaybeTable
-      { htag = HIdentity (Result (Just IsJust))
+      { htag = HIdentity (R (Just IsJust))
       , hjust = hlabel labeler (hnullify nullifier (toColumns table))
       }
 
   fromColumns HMaybeTable {htag, hjust} = case htag of
-    HIdentity (Result tag) -> tag $>
+    HIdentity (R tag) -> tag $>
       case hunnullify unnullifier (hunlabel unlabeler hjust) of
         Nothing -> error "Maybe.fromColumns: mismatch between tag and data"
         Just just -> fromColumns just

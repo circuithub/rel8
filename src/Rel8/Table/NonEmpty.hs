@@ -22,13 +22,13 @@ import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
 import Rel8.Schema.Insert ( Inserts )
-import Rel8.Schema.Name ( Col( NameCol ), Name )
+import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -108,13 +108,13 @@ instance AltTable NonEmptyTable where
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where
   NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
-    happend (\_ _ (DB a) (DB b) -> DB (sappend1 a b)) as bs
+    happend (\_ _ (E a) (E b) -> E (sappend1 a b)) as bs
 
 
 nonEmptyTable :: Table Expr a => NonEmpty a -> NonEmptyTable a
 nonEmptyTable =
   NonEmptyTable .
-  hvectorize (\SSpec {info} -> DB . snonEmptyOf info . fmap unDB) .
+  hvectorize (\SSpec {info} -> E . snonEmptyOf info . fmap unE) .
   fmap toColumns
 
 
@@ -126,6 +126,6 @@ insertNonEmptyTable = toInsert . nonEmptyTable
 nameNonEmptyTable :: Table Name a => a -> NonEmptyTable a
 nameNonEmptyTable =
   NonEmptyTable .
-  hvectorize (\_ (Identity (NameCol a)) -> NameCol a) .
+  hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
   pure .
   toColumns

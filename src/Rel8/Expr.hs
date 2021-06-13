@@ -15,7 +15,7 @@
 
 module Rel8.Expr
   ( Expr(..)
-  , Col( DB, unDB )
+  , Col( E, unE )
   )
 where
 
@@ -128,15 +128,15 @@ instance Sql DBFloating a => Floating (Expr a) where
 
 instance Interpretation Expr where
   data Col Expr _spec where
-    DB :: {unDB :: Expr a} -> Col Expr ('Spec labels necessity a)
+    E :: {unE :: !(Expr a)} -> Col Expr ('Spec labels necessity a)
 
 
 instance Sql DBType a => Table Expr (Expr a) where
   type Columns (Expr a) = HType a
   type Context (Expr a) = Expr
 
-  toColumns a = HType (DB a)
-  fromColumns (HType (DB a)) = a
+  toColumns a = HType (E a)
+  fromColumns (HType (E a)) = a
   reify = notReify
   unreify = notReify
 
@@ -151,5 +151,5 @@ instance Sql DBType a => Recontextualize Result Expr (Identity a) (Expr a)
 
 
 instance Labelable Expr where
-  labeler (DB a) = DB a
-  unlabeler (DB a) = DB a
+  labeler (E a) = E a
+  unlabeler (E a) = E a

@@ -25,7 +25,7 @@ import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
 -- rel8
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
@@ -127,7 +127,7 @@ instance
 (toColumns -> as) <: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (ordTable @a) field of
+      (E a, E b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
     go (lt, eq) a = lt ||. (eq &&. a)
@@ -140,7 +140,7 @@ infix 4 <:
 (toColumns -> as) <=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (ordTable @a) field of
+      (E a, E b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
     go (lt, eq) a = lt ||. (eq &&. a)
@@ -153,7 +153,7 @@ infix 4 <=:
 (toColumns -> as) >: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (ordTable @a) field of
+      (E a, E b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
     go (gt, eq) a = gt ||. (eq &&. a)
@@ -166,7 +166,7 @@ infix 4 >:
 (toColumns -> as) >=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (DB a, DB b) -> case hfield (ordTable @a) field of
+      (E a, E b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
     go (gt, eq) a = gt ||. (eq &&. a)
