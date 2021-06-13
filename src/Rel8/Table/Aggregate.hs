@@ -6,6 +6,7 @@
 
 module Rel8.Table.Aggregate
   ( groupBy
+  , headAgg
   , listAgg, nonEmptyAgg
   , listAggWithOrder, nonEmptyAggWithOrder
   )
@@ -20,6 +21,7 @@ import Rel8.Aggregate ( Aggregate, Col( A ) )
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
+  , headAggExpr
   , listAggExpr
   , listAggExprWithOrder
   , nonEmptyAggExpr
@@ -27,7 +29,7 @@ import Rel8.Expr.Aggregate
   )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( htabulate, hfield )
+import Rel8.Schema.HTable ( hfield, hmap, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
 import Rel8.Table ( Table, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
@@ -42,6 +44,11 @@ groupBy (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield (eqTable @exprs) field of
     Dict -> case hfield exprs field of
       E expr -> A $ groupByExpr expr
+
+
+-- | Keep only the first row.
+headAgg :: Table Expr a => a -> Aggregate a
+headAgg = fromColumns . hmap (\(E a) -> A $ headAggExpr a) . toColumns
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated

@@ -215,10 +215,11 @@ module Rel8
   , Aggregate
   , aggregate
   , countRows
+  , groupBy
+  , headAgg
   , array1DAggExpr
   , listAgg, listAggWithOrder, listAggExpr
   , nonEmptyAgg, nonEmptyAggWithOrder, nonEmptyAggExpr
-  , groupBy
   , DBMax, max
   , DBMin, min
   , DBSum, sum, sumWhere

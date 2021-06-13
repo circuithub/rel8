@@ -12,6 +12,7 @@ module Rel8.Expr.Aggregate
   , sum, sumWhere
   , stringAgg
   , groupByExpr
+  , headAggExpr
   , array1DAggExpr, listAggExpr, nonEmptyAggExpr
   , listAggExprWithOrder, nonEmptyAggExprWithOrder
   )
@@ -153,6 +154,20 @@ stringAgg delimiter =
 -- | Aggregate a value by grouping by it.
 groupByExpr :: Sql DBEq a => Expr a -> Aggregate (Expr a)
 groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
+
+
+-- | Keep only the first value.
+headAggExpr :: Expr a -> Aggregate (Expr a)
+headAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
+  where
+    from = fromPrimExpr . flip Opaleye.ArrayIndex one
+      where
+        one = Opaleye.ConstExpr (Opaleye.NumericLit 1)
 
 
 -- | Collect expressions values as an array.
