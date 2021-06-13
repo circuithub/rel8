@@ -47,13 +47,13 @@ import Rel8.Generic.Construction.ADT
   , GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
-  , CorepConstructors, GConstructors, gcindex, gctabulate
-  , CorepFields, gfindex, gftabulate, gftraverse
+  , RepresentableConstructors, GConstructors, gcindex, gctabulate
+  , RepresentableFields, gfindex, gftabulate, gftraverse
   )
 import Rel8.Generic.Construction.Record
   ( GConstructor
   , GConstructable, GConstruct, gconstruct, gdeconstruct
-  , Corep, gindex, gtabulate, gtraverse
+  , Representable, gindex, gtabulate, gtraverse
   )
 import Rel8.Generic.Table ( GGColumns )
 import Rel8.Kind.Algebra
@@ -99,14 +99,14 @@ type family GGBuildable' algebra name rep where
   GGBuildable' 'K.Product name rep =
     ( name ~ GConstructor (Eval (rep (Reify Expr)))
     , name ~ GConstructor (Eval (rep (Reify Insert)))
-    , Corep TUnreify (Eval (rep (Reify Expr)))
-    , Corep TUnreify (Eval (rep (Reify Insert)))
+    , Representable TUnreify (Eval (rep (Reify Expr)))
+    , Representable TUnreify (Eval (rep (Reify Insert)))
     , GConstructable (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
     , GConstructable (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
     )
   GGBuildable' 'K.Sum name rep =
-    ( Corep TUnreify (GConstructorADT name (Eval (rep (Reify Expr))))
-    , Corep TUnreify (GConstructorADT name (Eval (rep (Reify Insert))))
+    ( Representable TUnreify (GConstructorADT name (Eval (rep (Reify Expr))))
+    , Representable TUnreify (GConstructorADT name (Eval (rep (Reify Insert))))
     , GMakeableADT (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) name (Eval (rep (Reify Expr)))
     , GMakeableADT (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) name (Eval (rep (Reify Insert)))
     )
@@ -213,23 +213,23 @@ type GGConstructable algebra rep =
 type GGConstructable' :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
 type family GGConstructable' algebra rep where
   GGConstructable' 'K.Product rep =
-    ( Corep (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
-    , Corep TUnreify (Eval (rep (Reify Aggregate)))
-    , Corep TUnreify (Eval (rep (Reify Expr)))
-    , Corep TUnreify (Eval (rep (Reify Insert)))
-    , Corep TUnreify (Eval (rep (Reify Name)))
+    ( Representable (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
+    , Representable TUnreify (Eval (rep (Reify Aggregate)))
+    , Representable TUnreify (Eval (rep (Reify Expr)))
+    , Representable TUnreify (Eval (rep (Reify Insert)))
+    , Representable TUnreify (Eval (rep (Reify Name)))
     , GConstructable (TTable (Reify Aggregate)) TColumns TUnreify (Col (Reify Aggregate)) (Eval (rep (Reify Aggregate)))
     , GConstructable (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
     , GConstructable (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
     , GConstructable (TTable (Reify Name)) TColumns TUnreify (Col (Reify Name)) (Eval (rep (Reify Name)))
     )
   GGConstructable' 'K.Sum rep =
-    ( CorepConstructors TUnreify (Eval (rep (Reify Expr)))
-    , CorepConstructors TUnreify (Eval (rep (Reify Insert)))
-    , CorepFields (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
-    , CorepFields TUnreify (Eval (rep (Reify Aggregate)))
-    , CorepFields TUnreify (Eval (rep (Reify Expr)))
-    , CorepFields TUnreify (Eval (rep (Reify Name)))
+    ( RepresentableConstructors TUnreify (Eval (rep (Reify Expr)))
+    , RepresentableConstructors TUnreify (Eval (rep (Reify Insert)))
+    , RepresentableFields (Compose Aggregate TUnreify) (Eval (rep (Reify Expr)))
+    , RepresentableFields TUnreify (Eval (rep (Reify Aggregate)))
+    , RepresentableFields TUnreify (Eval (rep (Reify Expr)))
+    , RepresentableFields TUnreify (Eval (rep (Reify Name)))
     , Functor (GConstructors TUnreify (Eval (rep (Reify Expr))))
     , Functor (GConstructors TUnreify (Eval (rep (Reify Insert))))
     , GConstructableADT (TTable (Reify Aggregate)) TColumns TUnreify (Col (Reify Aggregate)) (Eval (rep (Reify Aggregate)))

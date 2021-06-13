@@ -16,8 +16,8 @@ module Rel8.Generic.Construction.ADT
   ( GConstructableADT
   , GBuildADT, gbuildADT, gunbuildADT
   , GConstructADT, gconstructADT, gdeconstructADT
-  , GFields, CorepFields, gftabulate, gfindex, gftraverse
-  , GConstructors, CorepConstructors, gctabulate, gcindex
+  , GFields, RepresentableFields, gftabulate, gfindex, gftraverse
+  , GConstructors, RepresentableConstructors, gctabulate, gcindex
   , GConstructorADT, GMakeableADT, gmakeADT
   )
 where
@@ -44,7 +44,7 @@ import Prelude hiding ( null )
 import Rel8.FCF ( Compose, Exp )
 import Rel8.Generic.Construction.Record
   ( GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Corep, gtabulate, gindex, gtraverse
+  , GFields, Representable, gtabulate, gindex, gtraverse
   , FromColumns, ToColumns
   )
 import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
@@ -126,26 +126,26 @@ type family GConstructors f rep where
   GConstructors f (M1 C _ rep) = (->) (GFields f rep)
 
 
-type CorepConstructors :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
-class CorepConstructors f rep where
+type RepresentableConstructors :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
+class RepresentableConstructors f rep where
   gctabulate :: (GConstructors f rep r -> a) -> GConstructADT f rep r a
   gcindex :: GConstructADT f rep r a -> GConstructors f rep r -> a
 
 
-instance CorepConstructors f rep => CorepConstructors f (M1 D meta rep) where
+instance RepresentableConstructors f rep => RepresentableConstructors f (M1 D meta rep) where
   gctabulate = gctabulate @f @rep
   gcindex = gcindex @f @rep
 
 
-instance (CorepConstructors f a, CorepConstructors f b) =>
-  CorepConstructors f (a :+: b)
+instance (RepresentableConstructors f a, RepresentableConstructors f b) =>
+  RepresentableConstructors f (a :+: b)
  where
   gctabulate f =
     gctabulate @f @a \a -> gctabulate @f @b \b -> f (a :*: b)
   gcindex f (a :*: b) = gcindex @f @b (gcindex @f @a f a) b
 
 
-instance Corep f rep => CorepConstructors f (M1 C meta rep) where
+instance Representable f rep => RepresentableConstructors f (M1 C meta rep) where
   gctabulate f = f . gindex @f @rep
   gcindex f = f . gtabulate @f @rep
 
@@ -164,8 +164,8 @@ type family GFieldsADT f rep where
   GFieldsADT f (M1 C _ rep) = GFields f rep
 
 
-type CorepFields :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
-class CorepFields f rep where
+type RepresentableFields :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
+class RepresentableFields f rep where
   gftabulate :: (GFieldsADT f rep -> a) -> GBuildADT f rep a
   gfindex :: GBuildADT f rep a -> GFieldsADT f rep -> a
   gftraverse :: Applicative m
@@ -173,20 +173,20 @@ class CorepFields f rep where
     -> GFieldsADT (Compose g f) rep -> m (GFieldsADT f rep)
 
 
-instance CorepFields f rep => CorepFields f (M1 D meta rep) where
+instance RepresentableFields f rep => RepresentableFields f (M1 D meta rep) where
   gftabulate = gftabulate @f @rep
   gfindex = gfindex @f @rep
   gftraverse = gftraverse @f @rep
 
 
-instance (CorepFields f a, CorepFields f b) => CorepFields f (a :+: b) where
+instance (RepresentableFields f a, RepresentableFields f b) => RepresentableFields f (a :+: b) where
   gftabulate f =
     gftabulate @f @a \a -> gftabulate @f @b \b -> f (a, b)
   gfindex f (a, b) = gfindex @f @b (gfindex @f @a f a) b
   gftraverse f (a, b) = liftA2 (,) (gftraverse @f @a f a) (gftraverse @f @b f b)
 
 
-instance Corep f rep => CorepFields f (M1 C meta rep) where
+instance Representable f rep => RepresentableFields f (M1 C meta rep) where
   gftabulate = gtabulate @f @rep
   gfindex = gindex @f @rep
   gftraverse = gtraverse @f @rep

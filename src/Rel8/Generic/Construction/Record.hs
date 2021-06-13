@@ -13,7 +13,7 @@
 
 module Rel8.Generic.Construction.Record
   ( GConstructor, GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Corep, gtabulate, gindex, gtraverse
+  , GFields, Representable, gtabulate, gindex, gtraverse
   , FromColumns, ToColumns
   )
 where
@@ -88,8 +88,8 @@ type family GFields f rep where
   GFields f (K1 _ a) = Eval (f a)
 
 
-type Corep :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
-class Corep f rep where
+type Representable :: (Type -> Exp Type) -> (Type -> Type) -> Constraint
+class Representable f rep where
   gtabulate :: (GFields f rep -> a) -> GConstruct f rep a
   gindex :: GConstruct f rep a -> GFields f rep -> a
   gtraverse :: Applicative m
@@ -97,27 +97,27 @@ class Corep f rep where
     -> GFields (Compose g f) rep -> m (GFields f rep)
 
 
-instance Corep f rep => Corep f (M1 i meta rep) where
+instance Representable f rep => Representable f (M1 i meta rep) where
   gtabulate = gtabulate @f @rep
   gindex = gindex @f @rep
   gtraverse = gtraverse @f @rep
 
 
-instance (Corep f a, Corep f b) =>
-  Corep f (a :*: b)
+instance (Representable f a, Representable f b) =>
+  Representable f (a :*: b)
  where
   gtabulate f = gtabulate @f @a \a -> gtabulate @f @b \b -> f (a, b)
   gindex f (a, b) = gindex @f @b (gindex @f @a f a) b
   gtraverse f (a, b) = liftA2 (,) (gtraverse @f @a f a) (gtraverse @f @b f b)
 
 
-instance Corep f U1 where
+instance Representable f U1 where
   gtabulate = ($ ())
   gindex = const
   gtraverse = const pure
 
 
-instance Corep f (K1 i a) where
+instance Representable f (K1 i a) where
   gtabulate = id
   gindex = id
   gtraverse = id
