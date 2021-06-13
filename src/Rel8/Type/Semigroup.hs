@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
@@ -15,7 +16,7 @@ where
 import Data.Function ( on )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
-import Prelude ()
+import Prelude
 
 -- bytestring
 import Data.ByteString ( ByteString )
@@ -32,7 +33,7 @@ import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
-import Rel8.Type.Array ( toPrimArray )
+import Rel8.Type.Array ( fromPrimArray, toPrimArray )
 
 -- text
 import Data.Text ( Text )
@@ -52,11 +53,13 @@ class DBType a => DBSemigroup a where
 
 
 instance Sql DBType a => DBSemigroup [a] where
-  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||) `on` toPrimArray)
+  (<>.) = zipPrimExprsWith do
+    (fromPrimArray .) . Opaleye.BinExpr (Opaleye.:||) `on` toPrimArray
 
 
 instance Sql DBType a => DBSemigroup (NonEmpty a) where
-  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||) `on` toPrimArray)
+  (<>.) = zipPrimExprsWith do
+    (fromPrimArray .) . Opaleye.BinExpr (Opaleye.:||) `on` toPrimArray
 
 
 instance DBSemigroup CalendarDiffTime where
