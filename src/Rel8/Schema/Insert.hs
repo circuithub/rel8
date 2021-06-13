@@ -18,6 +18,7 @@ module Rel8.Schema.Insert
   , Col( I, unI )
   , Inserts
   , Create(..)
+  , unValue
   )
 where
 
@@ -86,6 +87,10 @@ type Create :: Necessity -> Type -> Type
 data Create necessity a where
   Default :: Create 'Optional a
   Value :: Expr a -> Create necessity a
+
+
+unValue :: Create 'Required a -> Expr a
+unValue (Value a) = a
 
 
 instance (KnownNecessity necessity, Sql DBType a) =>

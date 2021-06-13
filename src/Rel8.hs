@@ -251,6 +251,9 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
+
+  , Create( Default, Value )
+  , unValue
   , toInsert
   , toInsertDefaults
 
@@ -327,6 +330,7 @@ import Rel8.Query.These
 import Rel8.Query.Values
 import Rel8.Schema.Context.Label
 import Rel8.Schema.HTable
+import Rel8.Schema.Insert
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
 import Rel8.Schema.Result ( Result )

@@ -18,11 +18,7 @@ import Prelude
 import Rel8.Aggregate ( Aggregate, Col( A ) )
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
-import Rel8.Kind.Necessity
-  ( Necessity( Required, Optional )
-  , SNecessity( SRequired, SOptional )
-  , KnownNecessity, necessitySing
-  )
+import Rel8.Kind.Necessity ( Necessity, KnownNecessity )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
@@ -44,8 +40,7 @@ type family Field context necessity a where
   Field (Reify context) necessity  a = AField context necessity a
   Field Aggregate       _necessity a = Aggregate a
   Field Expr            _necessity a = Expr a
-  Field Insert          'Required  a = Expr a
-  Field Insert          'Optional  a = Maybe (Expr a)
+  Field Insert          necessity  a = Create necessity a
   Field Name            _necessity a = Name a
   Field Result          _necessity a = a
 
@@ -61,8 +56,8 @@ instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
   type Columns (AField context necessity a) = HIdentity ('Spec '[] necessity a)
   type Unreify (AField context necessity a) = Field context necessity a
 
-  fromColumns (HIdentity (Reify a)) = sfromColumn contextSing necessitySing a
-  toColumns = HIdentity . Reify . stoColumn contextSing necessitySing
+  fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a
+  toColumns = HIdentity . Reify . stoColumn contextSing
   reify _ = AField
   unreify _ (AField a) = a
 
@@ -80,36 +75,25 @@ instance
 
 sfromColumn :: ()
   => SContext context
-  -> SNecessity necessity
   -> Col context ('Spec labels necessity a)
   -> AField context necessity a
 sfromColumn = \case
-  SAggregate -> \_ (A a) -> AField a
-  SExpr -> \_ (E a) -> AField a
-  SInsert -> \case
-    SRequired -> \case
-      I (Value a) -> AField a
-    SOptional -> \case
-      I Default -> AField Nothing
-      I (Value a) -> AField (Just a)
-  SName -> \_ (N a) -> AField a
-  SResult -> \_ (R a) -> AField a
-  SReify context ->
-    \necessity (Reify a) -> AField (sfromColumn context necessity a)
+  SAggregate -> \(A a) -> AField a
+  SExpr -> \(E a) -> AField a
+  SInsert -> \(I a) -> AField a
+  SName -> \(N a) -> AField a
+  SResult -> \(R a) -> AField a
+  SReify context -> \(Reify a) -> AField (sfromColumn context a)
 
 
 stoColumn :: ()
   => SContext context
-  -> SNecessity necessity
   -> AField context necessity a
   -> Col context ('Spec labels necessity a)
 stoColumn = \case
-  SAggregate -> \_ (AField a) -> A a
-  SExpr -> \_ (AField a) -> E a
-  SInsert -> \case
-    SRequired -> \(AField a) -> I (Value a)
-    SOptional -> \(AField ma) -> I $ maybe Default Value ma
-  SName -> \_ (AField a) -> N a
-  SResult -> \_ (AField a) -> R a
-  SReify context ->
-    \necessity (AField a) -> Reify (stoColumn context necessity a)
+  SAggregate -> \(AField a) -> A a
+  SExpr -> \(AField a) -> E a
+  SInsert -> \(AField a) -> I a
+  SName -> \(AField a) -> N a
+  SResult -> \(AField a) -> R a
+  SReify context -> \(AField a) -> Reify (stoColumn context a)

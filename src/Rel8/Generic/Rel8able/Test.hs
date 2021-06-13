@@ -151,7 +151,7 @@ data TableSum f
 data TableProduct f = TableProduct
   { sum :: HADT f TableSum
   , list :: TableList f
-  , foos :: HList f (HADT f TableSum, Lift f HKDSum, HKDTest f)
+  , foos :: HList f (HADT f TableSum, Lift f HKDSum, HKDTest f, Column f Bool)
   }
   deriving stock Generic
   deriving anyclass Rel8able
