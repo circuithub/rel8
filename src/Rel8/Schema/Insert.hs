@@ -17,7 +17,7 @@ module Rel8.Schema.Insert
   , OnConflict(..)
   , Col( I, unI )
   , Inserts
-  , Insertion(..)
+  , Create(..)
   )
 where
 
@@ -79,20 +79,20 @@ data Insert a where
 
 instance Interpretation Insert where
   data Col Insert _spec where
-    I :: {unI :: !(Insertion necessity a)} -> Col Insert ('Spec labels necessity a)
+    I :: {unI :: !(Create necessity a)} -> Col Insert ('Spec labels necessity a)
 
 
-type Insertion :: Necessity -> Type -> Type
-data Insertion necessity a where
-  Default :: Insertion 'Optional a
-  Value :: Expr a -> Insertion necessity a
+type Create :: Necessity -> Type -> Type
+data Create necessity a where
+  Default :: Create 'Optional a
+  Value :: Expr a -> Create necessity a
 
 
 instance (KnownNecessity necessity, Sql DBType a) =>
-  Table Insert (Insertion necessity a)
+  Table Insert (Create necessity a)
  where
-  type Columns (Insertion necessity a) = HIdentity ('Spec '[] necessity a)
-  type Context (Insertion necessity a) = Insert
+  type Columns (Create necessity a) = HIdentity ('Spec '[] necessity a)
+  type Context (Create necessity a) = Insert
 
   toColumns = HIdentity . I
   fromColumns (HIdentity (I a)) = a
@@ -101,34 +101,34 @@ instance (KnownNecessity necessity, Sql DBType a) =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Insertion 'Required a)
+  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Create 'Required a)
 
 
-instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Insertion 'Required a)
-
-
-instance Sql DBType a =>
-  Recontextualize Result Insert (Identity a) (Insertion 'Required a)
+instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Create 'Required a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Aggregate (Insertion 'Required a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Insert Expr (Insertion 'Required a) (Expr a)
+  Recontextualize Result Insert (Identity a) (Create 'Required a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Result (Insertion 'Required a) (Identity a)
+  Recontextualize Insert Aggregate (Create 'Required a) (Aggregate (Expr a))
 
 
-instance Sql DBType a => Recontextualize Insert Insert (Insertion 'Required a) (Insertion 'Required a)
+instance Sql DBType a => Recontextualize Insert Expr (Create 'Required a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Insert Name (Insertion 'Required a) (Name a)
+instance Sql DBType a =>
+  Recontextualize Insert Result (Create 'Required a) (Identity a)
 
 
-instance Sql DBType a => Recontextualize Name Insert (Name a) (Insertion 'Required a)
+instance Sql DBType a => Recontextualize Insert Insert (Create 'Required a) (Create 'Required a)
+
+
+instance Sql DBType a => Recontextualize Insert Name (Create 'Required a) (Name a)
+
+
+instance Sql DBType a => Recontextualize Name Insert (Name a) (Create 'Required a)
 
 
 instance Labelable Insert where

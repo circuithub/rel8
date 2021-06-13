@@ -64,7 +64,7 @@ import qualified Rel8.Kind.Algebra as K
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
-import Rel8.Schema.Insert ( Col( I ), Insert, Insertion(..) )
+import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )

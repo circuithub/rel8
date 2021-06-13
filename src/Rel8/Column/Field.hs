@@ -24,7 +24,7 @@ import Rel8.Kind.Necessity
   , KnownNecessity, necessitySing
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Schema.Insert ( Insert, Insertion(..), Col( I ) )
+import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col( N ) )
 import Rel8.Schema.Null ( Sql )

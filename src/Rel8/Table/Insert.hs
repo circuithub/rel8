@@ -16,7 +16,7 @@ import Prelude
 import Rel8.Expr ( Col( E ) )
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
-import Rel8.Schema.Insert ( Inserts, Col( I ), Insertion(..) )
+import Rel8.Schema.Insert ( Inserts, Col( I ), Create(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( fromColumns, toColumns )
 
