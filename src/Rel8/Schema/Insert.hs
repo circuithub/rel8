@@ -85,7 +85,7 @@ instance Interpretation Insert where
 type Insertion :: Necessity -> Type -> Type
 data Insertion necessity a where
   Default :: Insertion 'Optional a
-  Insertion :: Expr a -> Insertion necessity a
+  Value :: Expr a -> Insertion necessity a
 
 
 instance (KnownNecessity necessity, Sql DBType a) =>
@@ -137,20 +137,19 @@ instance Labelable Insert where
 
 
 instance Nullifiable Insert where
-  encodeTag = I . Insertion . expr
+  encodeTag = I . Value . expr
 
-  decodeTag (I (Insertion a)) = fromExpr a
+  decodeTag (I (Value a)) = fromExpr a
 
   nullifier Tag {expr} test SSpec {nullity} = \case
     I Default -> I Default
-    I (Insertion a) ->
-      I $ Insertion $ runTag nullity condition a
+    I (Value a) -> I $ Value $ runTag nullity condition a
     where
       condition = test expr
 
   unnullifier SSpec {nullity} = \case
     I Default -> I Default
-    I (Insertion a) -> I $ Insertion $ unnull nullity a
+    I (Value a) -> I $ Value $ unnull nullity a
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

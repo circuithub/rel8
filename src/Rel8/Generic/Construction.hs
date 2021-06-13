@@ -189,13 +189,13 @@ gginsert gfromColumns = case algebraSing @algebra of
       @name
       @(Eval (rep (Reify Insert)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {info} -> Reify $ I (Insertion (snull info)))
+      (\SSpec {info} -> Reify $ I (Value (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
         NotNull -> \case
           Reify (I Default) -> Reify (I Default)
-          Reify (I (Insertion a)) -> Reify (I (Insertion (nullify a))))
-      (HType . Reify . I . Insertion . litExpr)
+          Reify (I (Value a)) -> Reify (I (Value (nullify a))))
+      (HType . Reify . I . Value . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint

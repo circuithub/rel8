@@ -88,10 +88,10 @@ sfromColumn = \case
   SExpr -> \_ (E a) -> AField a
   SInsert -> \case
     SRequired -> \case
-      I (Insertion a) -> AField a
+      I (Value a) -> AField a
     SOptional -> \case
       I Default -> AField Nothing
-      I (Insertion a) -> AField (Just a)
+      I (Value a) -> AField (Just a)
   SName -> \_ (N a) -> AField a
   SResult -> \_ (R a) -> AField a
   SReify context ->
@@ -107,8 +107,8 @@ stoColumn = \case
   SAggregate -> \_ (AField a) -> A a
   SExpr -> \_ (AField a) -> E a
   SInsert -> \case
-    SRequired -> \(AField a) -> I (Insertion a)
-    SOptional -> \(AField ma) -> I $ maybe Default Insertion ma
+    SRequired -> \(AField a) -> I (Value a)
+    SOptional -> \(AField ma) -> I $ maybe Default Value ma
   SName -> \_ (AField a) -> N a
   SResult -> \_ (AField a) -> R a
   SReify context ->

@@ -99,7 +99,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
     go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
     go SSpec {necessity} (N (Name name)) = case necessity of
       SRequired ->
-        lmap (\(I (Insertion a)) -> toColumn $ toPrimExpr a) $
+        lmap (\(I (Value a)) -> toColumn $ toPrimExpr a) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
       SOptional ->
@@ -109,7 +109,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
       where
         fromInsert = \case
           Default -> Nothing
-          Insertion a -> Just a
+          Value a -> Just a
 
 
 unpackspec :: Table Expr a => Opaleye.Unpackspec a a

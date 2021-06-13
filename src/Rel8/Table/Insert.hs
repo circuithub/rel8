@@ -29,7 +29,7 @@ toInsert :: Inserts exprs inserts => exprs -> inserts
 toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {} -> I $ case hfield exprs field of
-      E expr -> Insertion expr
+      E expr -> Value expr
 
 
 -- | @toInsertDefaults@ converts a 'Table' of 'Expr's into a 'Table' that can
@@ -45,5 +45,5 @@ toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {necessity} -> case hfield exprs field of
       E expr -> I $ case necessity of
-        SRequired -> Insertion expr
+        SRequired -> Value expr
         SOptional -> Default
