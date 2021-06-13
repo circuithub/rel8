@@ -16,7 +16,7 @@ import Prelude
 import Rel8.Expr ( Col(..) )
 import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
-import Rel8.Schema.Insert ( Inserts, Col(..) )
+import Rel8.Schema.Insert ( Inserts, Col( InsertCol ), Insertion(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( fromColumns, toColumns )
 
@@ -28,10 +28,8 @@ import Rel8.Table ( fromColumns, toColumns )
 toInsert :: Inserts exprs inserts => exprs -> inserts
 toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {necessity} -> case hfield exprs field of
-      DB expr -> case necessity of
-        SRequired -> RequiredInsert expr
-        SOptional -> OptionalInsert (Just expr)
+    SSpec {} -> InsertCol $ case hfield exprs field of
+      DB expr -> Insertion expr
 
 
 -- | @toInsertDefaults@ converts a 'Table' of 'Expr's into a 'Table' that can
@@ -46,6 +44,6 @@ toInsertDefaults :: Inserts exprs inserts => exprs -> inserts
 toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
     SSpec {necessity} -> case hfield exprs field of
-      DB expr -> case necessity of
-        SRequired -> RequiredInsert expr
-        SOptional -> OptionalInsert Nothing
+      DB expr -> InsertCol $ case necessity of
+        SRequired -> Insertion expr
+        SOptional -> Default

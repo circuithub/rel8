@@ -24,7 +24,7 @@ import Rel8.Kind.Necessity
   , KnownNecessity, necessitySing
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Schema.Insert ( Insert, Col(..) )
+import Rel8.Schema.Insert ( Insert, Insertion(..), Col(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col(..) )
 import Rel8.Schema.Null ( Sql )
@@ -61,7 +61,7 @@ instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
   type Columns (AField context necessity a) = HIdentity ('Spec '[] necessity a)
   type Unreify (AField context necessity a) = Field context necessity a
 
-  fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a
+  fromColumns (HIdentity (Reify a)) = sfromColumn contextSing necessitySing a
   toColumns = HIdentity . Reify . stoColumn contextSing necessitySing
   reify _ = AField
   unreify _ (AField a) = a
@@ -80,17 +80,22 @@ instance
 
 sfromColumn :: ()
   => SContext context
+  -> SNecessity necessity
   -> Col context ('Spec labels necessity a)
   -> AField context necessity a
 sfromColumn = \case
-  SAggregate -> \(Aggregation a) -> AField a
-  SExpr -> \(DB a) -> AField a
-  SResult -> \(Result a) -> AField a
+  SAggregate -> \_ (Aggregation a) -> AField a
+  SExpr -> \_ (DB a) -> AField a
+  SResult -> \_ (Result a) -> AField a
   SInsert -> \case
-    RequiredInsert a -> AField a
-    OptionalInsert a -> AField a
-  SName -> \(NameCol a) -> AField (Name a)
-  SReify context -> \(Reify a) -> AField (sfromColumn context a)
+    SRequired -> \case
+      InsertCol (Insertion a) -> AField a
+    SOptional -> \case
+      InsertCol Default -> AField Nothing
+      InsertCol (Insertion a) -> AField (Just a)
+  SName -> \_ (NameCol a) -> AField (Name a)
+  SReify context ->
+    \necessity (Reify a) -> AField (sfromColumn context necessity a)
 
 
 stoColumn :: ()
@@ -103,8 +108,8 @@ stoColumn = \case
   SExpr -> \_ (AField a) -> DB a
   SResult -> \_ (AField a) -> Result a
   SInsert -> \case
-    SRequired -> \(AField a) -> RequiredInsert a
-    SOptional -> \(AField a) -> OptionalInsert a
+    SRequired -> \(AField a) -> InsertCol (Insertion a)
+    SOptional -> \(AField ma) -> InsertCol $ maybe Default Insertion ma
   SName -> \_ (AField (Name a)) -> NameCol a
   SReify context ->
     \necessity (AField a) -> Reify (stoColumn context necessity a)

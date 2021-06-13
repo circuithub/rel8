@@ -15,7 +15,7 @@
 module Rel8.Schema.Insert
   ( Insert(..)
   , OnConflict(..)
-  , Col( RequiredInsert, OptionalInsert )
+  , Col( InsertCol )
   , Inserts
   , Insertion(..)
   )
@@ -29,14 +29,14 @@ import Prelude
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Necessity ( Necessity(Optional, Required) )
+import Rel8.Kind.Necessity ( Necessity(Optional, Required), KnownNecessity )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, encodeTag, decodeTag, nullifier, unnullifier
   , runTag, unnull
   )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Name ( Name, Selects )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( notReify )
@@ -79,80 +79,78 @@ data Insert a where
 
 instance Interpretation Insert where
   data Col Insert _spec where
-    RequiredInsert :: Expr a -> Col Insert ('Spec labels 'Required a)
-    OptionalInsert :: Maybe (Expr a) -> Col Insert ('Spec labels 'Optional a)
+    InsertCol :: Insertion necessity a -> Col Insert ('Spec labels necessity a)
 
 
-type Insertion :: Type -> Type
-newtype Insertion a = Insertion (Expr a)
+type Insertion :: Necessity -> Type -> Type
+data Insertion necessity a where
+  Default :: Insertion 'Optional a
+  Insertion :: Expr a -> Insertion necessity a
 
 
-instance Sql DBType a => Table Insert (Insertion a) where
-  type Columns (Insertion a) = HType a
-  type Context (Insertion a) = Insert
+instance (KnownNecessity necessity, Sql DBType a) =>
+  Table Insert (Insertion necessity a)
+ where
+  type Columns (Insertion necessity a) = HIdentity ('Spec '[] necessity a)
+  type Context (Insertion necessity a) = Insert
 
-  toColumns (Insertion a) = HType (RequiredInsert a)
-  fromColumns (HType (RequiredInsert a)) = Insertion a
+  toColumns = HIdentity . InsertCol
+  fromColumns (HIdentity (InsertCol a)) = a
   reify = notReify
   unreify = notReify
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Insertion a)
+  Recontextualize Aggregate Insert (Aggregate (Expr a)) (Insertion 'Required a)
 
 
-instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Insertion a)
-
-
-instance Sql DBType a =>
-  Recontextualize Result Insert (Identity a) (Insertion a)
+instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Insertion 'Required a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Aggregate (Insertion a) (Aggregate (Expr a))
-
-
-instance Sql DBType a => Recontextualize Insert Expr (Insertion a) (Expr a)
+  Recontextualize Result Insert (Identity a) (Insertion 'Required a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Result (Insertion a) (Identity a)
+  Recontextualize Insert Aggregate (Insertion 'Required a) (Aggregate (Expr a))
 
 
-instance Sql DBType a => Recontextualize Insert Insert (Insertion a) (Insertion a)
+instance Sql DBType a => Recontextualize Insert Expr (Insertion 'Required a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Insert Name (Insertion a) (Name a)
+instance Sql DBType a =>
+  Recontextualize Insert Result (Insertion 'Required a) (Identity a)
 
 
-instance Sql DBType a => Recontextualize Name Insert (Name a) (Insertion a)
+instance Sql DBType a => Recontextualize Insert Insert (Insertion 'Required a) (Insertion 'Required a)
+
+
+instance Sql DBType a => Recontextualize Insert Name (Insertion 'Required a) (Name a)
+
+
+instance Sql DBType a => Recontextualize Name Insert (Name a) (Insertion 'Required a)
 
 
 instance Labelable Insert where
-  labeler = \case
-    RequiredInsert a -> RequiredInsert a
-    OptionalInsert ma -> OptionalInsert ma
-
-  unlabeler = \case
-    RequiredInsert a -> RequiredInsert a
-    OptionalInsert ma -> OptionalInsert ma
+  labeler (InsertCol a) = InsertCol a
+  unlabeler (InsertCol a) = InsertCol a
 
 
 instance Nullifiable Insert where
-  encodeTag = RequiredInsert . expr
-  decodeTag (RequiredInsert a) = fromExpr a
+  encodeTag = InsertCol . Insertion . expr
+
+  decodeTag (InsertCol (Insertion a)) = fromExpr a
 
   nullifier Tag {expr} test SSpec {nullity} = \case
-    RequiredInsert a ->
-      RequiredInsert $ runTag nullity condition a
-    OptionalInsert ma ->
-      OptionalInsert $ runTag nullity condition <$> ma
+    InsertCol Default -> InsertCol Default
+    InsertCol (Insertion a) ->
+      InsertCol $ Insertion $ runTag nullity condition a
     where
       condition = test expr
 
   unnullifier SSpec {nullity} = \case
-    RequiredInsert a -> RequiredInsert $ unnull nullity a
-    OptionalInsert ma -> OptionalInsert $ unnull nullity <$> ma
+    InsertCol Default -> InsertCol Default
+    InsertCol (Insertion a) -> InsertCol $ Insertion $ unnull nullity a
 
   {-# INLINABLE encodeTag #-}
   {-# INLINABLE decodeTag #-}

@@ -61,15 +61,14 @@ import Rel8.Kind.Algebra
   , KnownAlgebra, algebraSing
   )
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
-import Rel8.Schema.Insert ( Col( OptionalInsert, RequiredInsert ), Insert )
+import Rel8.Schema.Insert ( Col( InsertCol ), Insert, Insertion(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( NameCol ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( SSpec( SSpec, necessity, nullity, info ) )
+import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
@@ -190,15 +189,13 @@ gginsert gfromColumns = case algebraSing @algebra of
       @name
       @(Eval (rep (Reify Insert)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {necessity, info} -> Reify $ case necessity of
-        SRequired -> RequiredInsert (snull info)
-        SOptional -> OptionalInsert (Just (snull info)))
+      (\SSpec {info} -> Reify $ InsertCol (Insertion (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
         NotNull -> \case
-          Reify (RequiredInsert a) -> Reify (RequiredInsert (nullify a))
-          Reify (OptionalInsert a) -> Reify (OptionalInsert (nullify <$> a)))
-      (HType . Reify . RequiredInsert . litExpr)
+          Reify (InsertCol Default) -> Reify (InsertCol Default)
+          Reify (InsertCol (Insertion a)) -> Reify (InsertCol (Insertion (nullify a))))
+      (HType . Reify . InsertCol . Insertion . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint

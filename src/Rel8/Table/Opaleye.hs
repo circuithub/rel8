@@ -1,6 +1,7 @@
 {-# language BlockArguments #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
@@ -44,7 +45,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Insert ( Insert, Inserts, Col(..) )
+import Rel8.Schema.Insert ( Insert, Inserts, Col( InsertCol ), Insertion(..) )
 import Rel8.Schema.Name ( Name, Selects, Col(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -98,13 +99,17 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
     go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
     go SSpec {necessity} (NameCol name) = case necessity of
       SRequired ->
-        lmap (\(RequiredInsert a) -> toColumn $ toPrimExpr a) $
+        lmap (\(InsertCol (Insertion a)) -> toColumn $ toPrimExpr a) $
         DB . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
       SOptional ->
-        lmap (\(OptionalInsert ma) -> toColumn . toPrimExpr <$> ma) $
+        lmap (\(InsertCol ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
         DB . fromPrimExpr . fromColumn <$>
           Opaleye.optionalTableField name
+      where
+        fromInsert = \case
+          Default -> Nothing
+          Insertion a -> Just a
 
 
 unpackspec :: Table Expr a => Opaleye.Unpackspec a a
