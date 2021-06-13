@@ -24,6 +24,7 @@ module Rel8.Tabulate
   , similarity
   , difference
   , aggregateTabulation
+  , orderTabulation
   , optionalTabulation
   , manyTabulation
   , someTabulation
@@ -35,6 +36,7 @@ import Control.Applicative ( liftA2 )
 import Control.Monad ( join, liftM2 )
 import Data.Bifunctor ( bimap, first )
 import Data.Foldable ( traverse_ )
+import Data.Functor.Contravariant ( (>$<) )
 import Data.Maybe ( fromMaybe )
 import Prelude hiding ( filter, lookup, undefined, zip, zipWith )
 
@@ -42,11 +44,13 @@ import Prelude hiding ( filter, lookup, undefined, zip, zipWith )
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( not_, true )
+import Rel8.Order ( Order )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
 import Rel8.Query.Exists ( withBy, withoutBy )
 import Rel8.Query.Filter ( filter, where_ )
 import Rel8.Query.Maybe ( optional )
+import Rel8.Query.Order ( orderBy )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table )
 import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
@@ -328,6 +332,15 @@ aggregateTabulation :: EqTable k
 aggregateTabulation kas = do
   as <- toQuery kas
   fromQuery $ aggregate $ bitraverse1 groupBy id <$> as
+
+
+-- | 'orderTabulation' orders the /values/ of a 'Tabulation' (not the keys).
+-- In general this is meaningless, but if used together with 'manyTabulation'
+-- or 'someTabulation', the resulting lists will be ordered according to
+-- ordering given to 'orderTabulation'.
+orderTabulation :: Order a -> Tabulation k a -> Tabulation k a
+orderTabulation ordering (Tabulation as) =
+  Tabulation $ orderBy (snd >$< ordering) . as
 
 
 optionalTabulation :: EqTable k
