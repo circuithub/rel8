@@ -8,6 +8,7 @@ module Rel8.Tabulate
   ( Tabulation
   , tabulate
   , tabulateA
+  , runTabulation
   , fromQuery
   , liftQuery
   , prebind
@@ -130,6 +131,13 @@ instance (EqTable k, Table Expr a, Semigroup a) => Semigroup (Tabulation k a)
 instance (EqTable k, Table Expr a, Semigroup a) => Monoid (Tabulation k a)
  where
   mempty = emptyTable
+
+
+runTabulation :: EqTable k => Query k -> Tabulation k a -> Query (k, a)
+runTabulation ks tabulation = do
+  k <- ks
+  a <- lookup k tabulation
+  pure (k, a)
 
 
 liftQuery :: Query a -> Tabulation k a
