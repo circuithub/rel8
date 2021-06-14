@@ -8,7 +8,6 @@ module Rel8.Table.Aggregate
   ( groupBy
   , headAgg
   , listAgg, nonEmptyAgg
-  , listAggWithOrder, nonEmptyAggWithOrder
   )
 where
 
@@ -23,11 +22,8 @@ import Rel8.Expr.Aggregate
   ( groupByExpr
   , headAggExpr
   , listAggExpr
-  , listAggExprWithOrder
   , nonEmptyAggExpr
-  , nonEmptyAggExprWithOrder
   )
-import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( hfield, hmap, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
@@ -79,20 +75,4 @@ nonEmptyAgg :: Table Expr a => a -> Aggregate (NonEmptyTable a)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\_ (Identity (E a)) -> A $ nonEmptyAggExpr a)
-    (pure exprs)
-
-
-listAggWithOrder :: Table Expr a
-  => Order o -> o -> a -> Aggregate (ListTable a)
-listAggWithOrder order o (toColumns -> exprs) = fromColumns $
-  hvectorize
-    (\_ (Identity (E x)) -> A $ listAggExprWithOrder order o x)
-    (pure exprs)
-
-
-nonEmptyAggWithOrder :: Table Expr a
-  => Order o -> o -> a -> Aggregate (NonEmptyTable a)
-nonEmptyAggWithOrder order o (toColumns -> exprs) = fromColumns $
-  hvectorize
-    (\_ (Identity (E x)) -> A $ nonEmptyAggExprWithOrder order o x)
     (pure exprs)
