@@ -44,6 +44,7 @@ module Rel8
 
   , Table(..)
   , AltTable((<|>:))
+  , AlternativeTable( emptyTable )
   , EqTable, (==:), (/=:)
   , OrdTable, ascTable, descTable
   , lit
