@@ -1,7 +1,9 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
+{-# language LambdaCase #-}
 {-# language TupleSections #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Tabulate
   ( Tabulation
@@ -54,6 +56,10 @@ import Rel8.Query.Order ( orderBy )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table )
 import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
+import Rel8.Table.Alternative
+  ( AltTable, (<|>:)
+  , AlternativeTable, emptyTable
+  )
 import Rel8.Table.Eq ( EqTable, (==:) )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable, maybeTable )
@@ -75,7 +81,7 @@ import Data.Semigroup.Traversable.Class ( bitraverse1 )
 -- \"Identity\" 'Tabulation's are created using 'tabulate'. 'Tabulation's can
 -- be composed with 'Query's with 'prebind' or 'postbind' to form new
 -- 'Tabulation's.
-newtype Tabulation k a = Tabulation (k -> Query (Maybe k, a))
+newtype Tabulation k a = Tabulation (Either k k -> Query (Maybe k, a))
   deriving stock Functor
 
 
@@ -100,12 +106,33 @@ instance EqTable k => Monad (Tabulation k) where
         Tabulation bs -> bs i
       Just k -> case f a of
         Tabulation bs -> do
-          (mk', b) <- bs k
+          (mk', b) <- bs (Right k)
           case mk' of
             Nothing -> pure (mk, b)
             Just k' -> do
               where_ $ k ==: k'
               pure (mk', b)
+
+
+instance EqTable k => AltTable (Tabulation k) where
+  kas <|>: kbs = do
+    as <- toQuery kas
+    bs <- toQuery kbs
+    fromQuery $ as <|>: bs
+
+
+instance EqTable k => AlternativeTable (Tabulation k) where
+  emptyTable = fromQuery emptyTable
+
+
+instance (EqTable k, Table Expr a, Semigroup a) => Semigroup (Tabulation k a)
+ where
+  (<>) = alignWith (theseTable id id (<>))
+
+
+instance (EqTable k, Table Expr a, Semigroup a) => Monoid (Tabulation k a)
+ where
+  mempty = emptyTable
 
 
 -- | This "undoes" 'fromQuery'.
@@ -120,16 +147,14 @@ instance EqTable k => Monad (Tabulation k) where
 -- will always produce zero rows.
 runTabulation :: EqTable k => Tabulation k a -> Query (k, a)
 runTabulation (Tabulation f) = do
-  (mk, a) <- f i
+  (mk, a) <- f (Left undefined)
   case mk of
     Nothing -> do
       -- Opaleye tries to be too clever optimising "WHERE FALSE" and generates
       -- invalid SQL, so we use "WHERE NOT TRUE" instead
       where_ $ not_ true
-      pure (i, a)
+      pure (undefined, a)
     Just k -> pure (k, a)
-  where
-    i = undefined
 
 
 liftQuery :: Query a -> Tabulation k a
@@ -177,7 +202,7 @@ fromQuery = Tabulation . const . fmap (first Just)
 
 indexed :: Tabulation k a -> Tabulation k (k, a)
 indexed (Tabulation query) = Tabulation $ \i ->
-  (\(mk, a) -> (mk, (fromMaybe i mk, a))) <$> query i
+  (\(mk, a) -> (mk, (fromMaybe (either id id i) mk, a))) <$> query i
 
 
 ifilter :: (k -> a -> Expr Bool) -> Tabulation k a -> Tabulation k a
@@ -209,7 +234,7 @@ infixr 1 `postbind`
 -- 'lookup' can and often does contain multiple results.
 lookup :: EqTable k => k -> Tabulation k a -> Query a
 lookup key (Tabulation query) = do
-  (mk, a) <- query key
+  (mk, a) <- query (Right key)
   traverse_ (where_ . (key ==:)) mk
   pure a
 
@@ -345,9 +370,12 @@ orderTabulation ordering (Tabulation as) =
 
 optionalTabulation :: EqTable k
   => Tabulation k a -> Tabulation k (MaybeTable a)
-optionalTabulation as = Tabulation $ \k -> do
-  ma <- optional $ lookup k as
-  pure (Just k, ma)
+optionalTabulation as = Tabulation $ \case
+  Left k -> case as of
+    Tabulation f -> fmap pure <$> f (Left k)
+  Right k -> do
+    ma <- optional $ lookup k as
+    pure (Just k, ma)
 
 
 manyTabulation :: (EqTable k, Table Expr a)
@@ -366,4 +394,4 @@ someTabulation = aggregateTabulation . fmap nonEmptyAgg
 
 toQuery :: Tabulation k a -> Tabulation k (Query (k, a))
 toQuery (Tabulation as) = Tabulation $ \k ->
-  pure (Nothing, first (fromMaybe k) <$> as k)
+  pure (Nothing, first (fromMaybe (either id id k)) <$> as k)
