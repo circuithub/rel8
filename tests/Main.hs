@@ -694,10 +694,15 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
   rows <- forAll $ Gen.list (Range.linear 1 10) Gen.bool
 
   transaction \connection -> do
-    selected <- liftIO $ Rel8.select connection $ Rel8.aggregate do
-      Rel8.listAgg <$> Rel8.values (map Rel8.lit rows)
+    selected <- liftIO $ Rel8.select connection do
+      Rel8.many $ Rel8.values (map Rel8.lit rows)
 
     selected === [foldMap pure rows]
+
+    selected' <- liftIO $ Rel8.select connection $ Rel8.catListTable =<< do
+      Rel8.many $ Rel8.values (map Rel8.lit rows)
+
+    selected' === rows
 
 
 data NestedMaybeTable f = NestedMaybeTable

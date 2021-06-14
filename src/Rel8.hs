@@ -100,6 +100,8 @@ module Rel8
   , nameListTable
   , many
   , manyExpr
+  , catListTable
+  , catList
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
@@ -108,6 +110,8 @@ module Rel8
   , nameNonEmptyTable
   , some
   , someExpr
+  , catNonEmptyTable
+  , catNonEmpty
 
     -- ** @ADT@
   , ADT, ADTable, fromADT, toADT

@@ -5,7 +5,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Type.Array
-  ( array, encodeArrayElement
+  ( array, encodeArrayElement, extractArrayElement
   , listTypeInformation
   , nonEmptyTypeInformation
   )
@@ -91,4 +91,10 @@ decodeArrayElement info
 encodeArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 encodeArrayElement info
   | isArray info = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+  | otherwise = id
+
+
+extractArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+extractArrayElement info
+  | isArray info = flip Opaleye.CompositeExpr "f1"
   | otherwise = id

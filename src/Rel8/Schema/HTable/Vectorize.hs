@@ -46,7 +46,7 @@ import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
-import Data.Zip ( Unzip, Repeat, Zippy(..) )
+import Data.Zip ( Unzip, Zip, Zippy(..) )
 import Rel8.FCF
 import Rel8.Schema.HTable.MapTable
 import GHC.Generics (Generic)
@@ -106,7 +106,7 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 {-# INLINABLE hvectorize #-}
 
 
-hunvectorize :: (HTable t, Repeat f, Vector list)
+hunvectorize :: (HTable t, Zip f, Vector list)
   => (forall labels necessity a. ()
     => SSpec ('Spec labels necessity a)
     -> context ('Spec labels 'Required (list a))
