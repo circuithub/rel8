@@ -5,7 +5,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Type.Array
-  ( array, wrap
+  ( array, encodeArrayElement
   , listTypeInformation
   , nonEmptyTypeInformation
   )
@@ -31,7 +31,7 @@ array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
 array info =
   Opaleye.CastExpr (arrayType info <> "[]") .
-  Opaleye.ArrayExpr . map (wrap info) . toList
+  Opaleye.ArrayExpr . map (encodeArrayElement info) . toList
 {-# INLINABLE array #-}
 
 
@@ -42,11 +42,17 @@ listTypeInformation :: ()
 listTypeInformation nullity info@TypeInformation {encode, decode} =
   TypeInformation
     { decode = case nullity of
-        Null -> Hasql.listArray (Hasql.nullable (unwrap info decode))
-        NotNull -> Hasql.listArray (Hasql.nonNullable (unwrap info decode))
+        Null ->
+          Hasql.listArray (decodeArrayElement info (Hasql.nullable decode))
+        NotNull ->
+          Hasql.listArray (decodeArrayElement info (Hasql.nonNullable decode))
     , encode = case nullity of
-        Null -> Opaleye.ArrayExpr . fmap (wrap info . maybe null encode)
-        NotNull -> Opaleye.ArrayExpr . fmap (wrap info . encode)
+        Null ->
+          Opaleye.ArrayExpr .
+          fmap (encodeArrayElement info . maybe null encode)
+        NotNull ->
+          Opaleye.ArrayExpr .
+          fmap (encodeArrayElement info . encode)
     , typeName = arrayType info <> "[]"
     }
   where
@@ -76,13 +82,13 @@ arrayType info
   | otherwise = typeName info
 
 
-wrap :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-wrap info
-  | isArray info = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+decodeArrayElement :: TypeInformation a -> Hasql.NullableOrNot Hasql.Value x -> Hasql.NullableOrNot Hasql.Value x
+decodeArrayElement info
+  | isArray info = Hasql.nonNullable . Hasql.composite . Hasql.field
   | otherwise = id
 
 
-unwrap :: TypeInformation a -> Hasql.Value x -> Hasql.Value x
-unwrap info
-  | isArray info = Hasql.composite . Hasql.field . Hasql.nonNullable
+encodeArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+encodeArrayElement info
+  | isArray info = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
   | otherwise = id

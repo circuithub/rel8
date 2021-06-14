@@ -40,7 +40,7 @@ import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( wrap )
+import Rel8.Type.Array ( encodeArrayElement )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation )
 import Rel8.Type.Num ( DBNum )
@@ -189,7 +189,7 @@ slistAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
     , distinction = Opaleye.AggrAll
     }
   where
-    to = wrap info . toPrimExpr
+    to = encodeArrayElement info . toPrimExpr
 
 
 snonEmptyAggExpr :: ()
@@ -201,4 +201,4 @@ snonEmptyAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
     , distinction = Opaleye.AggrAll
     }
   where
-    to = wrap info . toPrimExpr
+    to = encodeArrayElement info . toPrimExpr
