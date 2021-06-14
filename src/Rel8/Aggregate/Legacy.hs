@@ -1,6 +1,7 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
+{-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -37,7 +38,8 @@ import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , headAggExpr
-  , listAggExpr, nonEmptyAggExpr
+  , slistAggExpr
+  , snonEmptyAggExpr
   )
 import Rel8.Generic.Construction ( GGAggregate', ggaggregate' )
 import Rel8.Generic.Table ( GAlgebra )
@@ -48,6 +50,7 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( hmap, hfield, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
 import Rel8.Schema.Kind ( Rel8able )
+import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
 import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.ADT ( ConstructableADT, ADT( ADT ), ADTRep )
 import Rel8.Table.Eq ( EqTable, eqTable )
@@ -105,7 +108,7 @@ headAgg = fromColumns . hmap (\(E a) -> A $ headAggExpr a) . toColumns
 listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (E a)) -> A $ listAggExpr a)
+    (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)
     (pure exprs)
 
 
@@ -113,7 +116,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (E a)) -> A $ nonEmptyAggExpr a)
+    (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)
     (pure exprs)
 
 

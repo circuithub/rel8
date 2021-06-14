@@ -55,5 +55,5 @@ manyExpr = fmap (maybeTable mempty id) . optional . aggregate . fmap listAggExpr
 
 
 -- | A version of 'many' specialised to single expressions.
-someExpr :: Query (Expr a) -> Query (Expr (NonEmpty a))
+someExpr :: Sql DBType a => Query (Expr a) -> Query (Expr (NonEmpty a))
 someExpr = aggregate . fmap nonEmptyAggExpr

@@ -116,8 +116,7 @@ instance Table Expr a => Semigroup (ListTable a) where
 
 
 instance Table Expr a => Monoid (ListTable a) where
-  mempty = ListTable $ hempty $ \nullability info ->
-    E (sempty nullability info)
+  mempty = ListTable $ hempty $ \_ -> E . sempty
 
 
 listTable :: Table Expr a => [a] -> ListTable a

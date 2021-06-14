@@ -218,7 +218,6 @@ module Rel8
   , countRows
   , groupBy
   , headAgg
-  , array1DAggExpr
   , listAgg, listAggExpr
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max
@@ -272,8 +271,6 @@ module Rel8
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
-  , Array1D( Array1D )
-  , NotArray
   , Nullable
   , NotNull
   , HTable
@@ -358,7 +355,6 @@ import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Type
-import Rel8.Type.Array1D
 import Rel8.Type.Composite
 import Rel8.Type.Eq
 import Rel8.Type.Enum

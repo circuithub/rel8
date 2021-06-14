@@ -1,12 +1,13 @@
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
+{-# language ViewPatterns #-}
 
 module Rel8.Type.Array
-  ( array
+  ( array, wrap
   , listTypeInformation
   , nonEmptyTypeInformation
-  , fromPrimArray, toPrimArray, zipPrimArraysWith
   )
 where
 
@@ -28,10 +29,9 @@ import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 
 array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
-array TypeInformation {typeName} =
-  fromPrimArray .
-  Opaleye.CastExpr (typeName <> "[]") .
-  Opaleye.ArrayExpr . toList
+array info =
+  Opaleye.CastExpr (arrayType info <> "[]") .
+  Opaleye.ArrayExpr . map (wrap info) . toList
 {-# INLINABLE array #-}
 
 
@@ -39,19 +39,17 @@ listTypeInformation :: ()
   => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation [a]
-listTypeInformation nullity info =
-  case info of
-    TypeInformation{ encode, decode } -> TypeInformation
-      { decode = row $ case nullity of
-          Null -> Hasql.listArray (Hasql.nullable decode)
-          NotNull -> Hasql.listArray (Hasql.nonNullable decode)
-      , encode = case nullity of
-          Null -> array info . fmap (maybe null encode)
-          NotNull -> array info . fmap encode
-      , typeName = "record"
-      }
+listTypeInformation nullity info@TypeInformation {encode, decode} =
+  TypeInformation
+    { decode = case nullity of
+        Null -> Hasql.listArray (Hasql.nullable (unwrap info decode))
+        NotNull -> Hasql.listArray (Hasql.nonNullable (unwrap info decode))
+    , encode = case nullity of
+        Null -> Opaleye.ArrayExpr . fmap (wrap info . maybe null encode)
+        NotNull -> Opaleye.ArrayExpr . fmap (wrap info . encode)
+    , typeName = arrayType info <> "[]"
+    }
   where
-    row = Hasql.composite . Hasql.field . Hasql.nonNullable
     null = Opaleye.ConstExpr Opaleye.NullLit
 
 
@@ -66,15 +64,25 @@ nonEmptyTypeInformation nullity =
     message = "failed to decode NonEmptyList: got empty list"
 
 
-fromPrimArray :: Opaleye.PrimExpr -> Opaleye.PrimExpr
-fromPrimArray = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+isArray :: TypeInformation a -> Bool
+isArray = \case
+  (reverse . typeName -> ']' : '[' : _) -> True
+  _ -> False
 
 
-toPrimArray :: Opaleye.PrimExpr -> Opaleye.PrimExpr
-toPrimArray a = Opaleye.CompositeExpr a "f1"
+arrayType :: TypeInformation a -> String
+arrayType info
+  | isArray info = "record"
+  | otherwise = typeName info
 
 
-zipPrimArraysWith :: ()
-  => (Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr)
-  -> Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-zipPrimArraysWith f a b = fromPrimArray (f (toPrimArray a) (toPrimArray b))
+wrap :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+wrap info
+  | isArray info = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+  | otherwise = id
+
+
+unwrap :: TypeInformation a -> Hasql.Value x -> Hasql.Value x
+unwrap info
+  | isArray info = Hasql.composite . Hasql.field . Hasql.nonNullable
+  | otherwise = id

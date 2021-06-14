@@ -32,7 +32,6 @@ import Data.ByteString ( ByteString )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
-import Rel8.Type.Array1D ( Array1D )
 
 -- text
 import Data.Text (Text)
@@ -218,7 +217,7 @@ regexpReplace a b c Nothing = function "regexp_replace" a b c
 
 -- | Corresponds to the @regexp_split_to_array@ function.
 regexpSplitToArray :: ()
-  => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr (Array1D Text)
+  => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr [Text]
 regexpSplitToArray a b (Just c) = function "regexp_split_to_array" a b c
 regexpSplitToArray a b Nothing = function "regexp_split_to_array" a b
 

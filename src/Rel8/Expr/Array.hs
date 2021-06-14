@@ -25,21 +25,21 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( array, zipPrimArraysWith )
+import Rel8.Type.Array ( array )
 import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Schema.Null ( Unnullify, Nullity, Sql )
+import Rel8.Schema.Null ( Unnullify, Sql )
 
 
 sappend :: Expr [a] -> Expr [a] -> Expr [a]
-sappend = zipPrimExprsWith (zipPrimArraysWith (Opaleye.BinExpr (Opaleye.:||)))
+sappend = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
 sappend1 :: Expr (NonEmpty a) -> Expr (NonEmpty a) -> Expr (NonEmpty a)
-sappend1 = zipPrimExprsWith (zipPrimArraysWith (Opaleye.BinExpr (Opaleye.:||)))
+sappend1 = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
 
 
-sempty :: Nullity a -> TypeInformation (Unnullify a) -> Expr [a]
-sempty _ info = fromPrimExpr $ array info []
+sempty :: TypeInformation (Unnullify a) -> Expr [a]
+sempty info = fromPrimExpr $ array info []
 
 
 slistOf :: TypeInformation (Unnullify a) -> [Expr a] -> Expr [a]

@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -21,12 +22,13 @@ import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , headAggExpr
-  , listAggExpr
-  , nonEmptyAggExpr
+  , slistAggExpr
+  , snonEmptyAggExpr
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( hfield, hmap, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
+import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
 import Rel8.Table ( Table, toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
@@ -66,7 +68,7 @@ headAgg = fromColumns . hmap (\(E a) -> A $ headAggExpr a) . toColumns
 listAgg :: Table Expr a => a -> Aggregate (ListTable a)
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (E a)) -> A $ listAggExpr a)
+    (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)
     (pure exprs)
 
 
@@ -74,5 +76,5 @@ listAgg (toColumns -> exprs) = fromColumns $
 nonEmptyAgg :: Table Expr a => a -> Aggregate (NonEmptyTable a)
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\_ (Identity (E a)) -> A $ nonEmptyAggExpr a)
+    (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)
     (pure exprs)

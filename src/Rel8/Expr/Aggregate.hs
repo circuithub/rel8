@@ -13,7 +13,8 @@ module Rel8.Expr.Aggregate
   , stringAgg
   , groupByExpr
   , headAggExpr
-  , array1DAggExpr, listAggExpr, nonEmptyAggExpr
+  , listAggExpr, nonEmptyAggExpr
+  , slistAggExpr, snonEmptyAggExpr
   )
 where
 
@@ -37,10 +38,11 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Null ( null )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Null ( Sql )
-import Rel8.Type.Array ( fromPrimArray )
-import Rel8.Type.Array1D ( Array1D, NotArray )
+import Rel8.Schema.Null ( Sql, Unnullify )
+import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type.Array ( wrap )
 import Rel8.Type.Eq ( DBEq )
+import Rel8.Type.Information ( TypeInformation )
 import Rel8.Type.Num ( DBNum )
 import Rel8.Type.Ord ( DBMax, DBMin )
 import Rel8.Type.String ( DBString )
@@ -168,35 +170,35 @@ headAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
         one = Opaleye.ConstExpr (Opaleye.NumericLit 1)
 
 
--- | Collect expressions values as an array.
-array1DAggExpr :: NotArray a => Expr a -> Aggregate (Expr (Array1D a))
-array1DAggExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr $ Just
-  Aggregator
-    { operation = Opaleye.AggrArr
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
-
-
 -- | Collect expressions values as a list.
-listAggExpr :: Expr a -> Aggregate (Expr [a])
-listAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
-  Aggregator
-    { operation = Opaleye.AggrArr
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
-  where
-    from = fromPrimExpr . fromPrimArray
+listAggExpr :: Sql DBType a => Expr a -> Aggregate (Expr [a])
+listAggExpr = slistAggExpr typeInformation
 
 
 -- | Collect expressions values as a non-empty list.
-nonEmptyAggExpr :: Expr a -> Aggregate (Expr (NonEmpty a))
-nonEmptyAggExpr = unsafeMakeAggregate toPrimExpr from $ Just
+nonEmptyAggExpr :: Sql DBType a => Expr a -> Aggregate (Expr (NonEmpty a))
+nonEmptyAggExpr = snonEmptyAggExpr typeInformation
+
+
+slistAggExpr :: ()
+  => TypeInformation (Unnullify a) -> Expr a -> Aggregate (Expr [a])
+slistAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
   Aggregator
     { operation = Opaleye.AggrArr
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
   where
-    from = fromPrimExpr . fromPrimArray
+    to = wrap info . toPrimExpr
+
+
+snonEmptyAggExpr :: ()
+  => TypeInformation (Unnullify a) -> Expr a -> Aggregate (Expr (NonEmpty a))
+snonEmptyAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
+  Aggregator
+    { operation = Opaleye.AggrArr
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
+  where
+    to = wrap info . toPrimExpr
