@@ -1,13 +1,11 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language TupleSections #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Tabulate
   ( Tabulation
-  , runTabulation
   , tabulate
   , tabulateA
   , fromQuery
@@ -41,12 +39,11 @@ import Data.Bifunctor ( bimap, first )
 import Data.Foldable ( traverse_ )
 import Data.Functor.Contravariant ( (>$<) )
 import Data.Maybe ( fromMaybe )
-import Prelude hiding ( filter, lookup, undefined, zip, zipWith )
+import Prelude hiding ( filter, lookup, zip, zipWith )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( not_, true )
 import Rel8.Order ( Order )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
@@ -66,7 +63,6 @@ import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable, maybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.These ( TheseTable, theseTable )
-import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, liftF2 )
@@ -82,7 +78,7 @@ import Data.Semigroup.Traversable.Class ( bitraverse1 )
 -- \"Identity\" 'Tabulation's are created using 'tabulate'. 'Tabulation's can
 -- be composed with 'Query's with 'prebind' or 'postbind' to form new
 -- 'Tabulation's.
-newtype Tabulation k a = Tabulation (Either k k -> Query (Maybe k, a))
+newtype Tabulation k a = Tabulation (k -> Query (Maybe k, a))
   deriving stock Functor
 
 
@@ -107,7 +103,7 @@ instance EqTable k => Monad (Tabulation k) where
         Tabulation bs -> bs i
       Just k -> case f a of
         Tabulation bs -> do
-          (mk', b) <- bs (Right k)
+          (mk', b) <- bs k
           case mk' of
             Nothing -> pure (mk, b)
             Just k' -> do
@@ -134,28 +130,6 @@ instance (EqTable k, Table Expr a, Semigroup a) => Semigroup (Tabulation k a)
 instance (EqTable k, Table Expr a, Semigroup a) => Monoid (Tabulation k a)
  where
   mempty = emptyTable
-
-
--- | This "undoes" 'fromQuery'.
---
--- @
--- 'runTabulation' . 'fromQuery' = id
--- 'fromQuery' . 'runTabulation' = id
--- @
---
--- Note however that it produces nonsense when passed a 'Tabulation' that was
--- made with from 'liftQuery' or 'pure'. In such cases the returned 'Query'
--- will always produce zero rows.
-runTabulation :: EqTable k => Tabulation k a -> Query (k, a)
-runTabulation (Tabulation f) = do
-  (mk, a) <- f (Left undefined)
-  case mk of
-    Nothing -> do
-      -- Opaleye tries to be too clever optimising "WHERE FALSE" and generates
-      -- invalid SQL, so we use "WHERE NOT TRUE" instead
-      where_ $ not_ true
-      pure (undefined, a)
-    Just k -> pure (k, a)
 
 
 liftQuery :: Query a -> Tabulation k a
@@ -203,7 +177,7 @@ fromQuery = Tabulation . const . fmap (first Just)
 
 indexed :: Tabulation k a -> Tabulation k (k, a)
 indexed (Tabulation query) = Tabulation $ \i ->
-  (\(mk, a) -> (mk, (fromMaybe (either id id i) mk, a))) <$> query i
+  (\(mk, a) -> (mk, (fromMaybe i mk, a))) <$> query i
 
 
 ifilter :: (k -> a -> Expr Bool) -> Tabulation k a -> Tabulation k a
@@ -235,7 +209,7 @@ infixr 1 `postbind`
 -- 'lookup' can and often does contain multiple results.
 lookup :: EqTable k => k -> Tabulation k a -> Query a
 lookup key (Tabulation query) = do
-  (mk, a) <- query (Right key)
+  (mk, a) <- query key
   traverse_ (where_ . (key ==:)) mk
   pure a
 
@@ -379,12 +353,9 @@ singularize = aggregateTabulation . fmap headAgg
 
 optionalTabulation :: EqTable k
   => Tabulation k a -> Tabulation k (MaybeTable a)
-optionalTabulation as = Tabulation $ \case
-  Left k -> case as of
-    Tabulation f -> fmap pure <$> f (Left k)
-  Right k -> do
-    ma <- optional $ lookup k as
-    pure (Just k, ma)
+optionalTabulation as = Tabulation $ \k -> do
+  ma <- optional $ lookup k as
+  pure (Just k, ma)
 
 
 manyTabulation :: (EqTable k, Table Expr a)
@@ -403,4 +374,4 @@ someTabulation = aggregateTabulation . fmap nonEmptyAgg
 
 toQuery :: Tabulation k a -> Tabulation k (Query (k, a))
 toQuery (Tabulation as) = Tabulation $ \k ->
-  pure (Nothing, first (fromMaybe (either id id k)) <$> as k)
+  pure (Nothing, first (fromMaybe k) <$> as k)
