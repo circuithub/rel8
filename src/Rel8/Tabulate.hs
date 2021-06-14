@@ -27,6 +27,7 @@ module Rel8.Tabulate
   , difference
   , aggregateTabulation
   , orderTabulation
+  , singularize
   , optionalTabulation
   , manyTabulation
   , someTabulation
@@ -55,7 +56,7 @@ import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Order ( orderBy )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table )
-import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
+import Rel8.Table.Aggregate ( groupBy, headAgg, listAgg, nonEmptyAgg )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
@@ -366,6 +367,14 @@ aggregateTabulation kas = do
 orderTabulation :: Order a -> Tabulation k a -> Tabulation k a
 orderTabulation ordering (Tabulation as) =
   Tabulation $ orderBy (snd >$< ordering) . as
+
+
+-- | Turns the given 'Tabulation' from a \"multimap\" into a \"map\". If there
+-- is more than one value at a particular key, only the first one is kept.
+-- \"First\" is in general undefined, but 'orderTabulation' can be used to
+-- make it deterministic.
+singularize :: (EqTable k, Table Expr a) => Tabulation k a -> Tabulation k a
+singularize = aggregateTabulation . fmap headAgg
 
 
 optionalTabulation :: EqTable k
