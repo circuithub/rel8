@@ -221,7 +221,6 @@ module Rel8
   , aggregate
   , countRows
   , groupBy
-  , headAgg
   , listAgg, listAggExpr
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max

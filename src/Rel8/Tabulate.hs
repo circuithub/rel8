@@ -26,7 +26,7 @@ module Rel8.Tabulate
   , difference
   , aggregateTabulation
   , orderTabulation
-  , singularize
+  , distinctTabulation
   , optionalTabulation
   , manyTabulation
   , someTabulation
@@ -48,13 +48,14 @@ import Rel8.Expr ( Expr )
 import Rel8.Order ( Order )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
+import Rel8.Query.Distinct ( distinctOn )
 import Rel8.Query.Exists ( withBy, withoutBy )
 import Rel8.Query.Filter ( filter, where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Order ( orderBy )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table )
-import Rel8.Table.Aggregate ( groupBy, headAgg, listAgg, nonEmptyAgg )
+import Rel8.Table.Aggregate ( groupBy, listAgg, nonEmptyAgg )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
@@ -63,6 +64,8 @@ import Rel8.Table.Eq ( EqTable, (==:) )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( MaybeTable, maybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
+import Rel8.Table.Ord ( OrdTable )
+import Rel8.Table.Order ( ascTable )
 import Rel8.Table.These ( TheseTable, theseTable )
 
 -- semigroupoids
@@ -337,26 +340,26 @@ difference kas kbs = do
 
 aggregateTabulation :: EqTable k
   => Tabulation k (Aggregate a) -> Tabulation k a
-aggregateTabulation kas = do
-  as <- toQuery kas
-  fromQuery $ aggregate $ bitraverse1 groupBy id <$> as
+aggregateTabulation = mapQuery (aggregate . fmap (bitraverse1 groupBy id))
 
 
--- | 'orderTabulation' orders the /values/ of a 'Tabulation' (not the keys).
+-- | 'orderTabulation' orders the /values/ of a 'Tabulation' within each key.
+--
 -- In general this is meaningless, but if used together with 'manyTabulation'
 -- or 'someTabulation', the resulting lists will be ordered according to
 -- ordering given to 'orderTabulation'.
-orderTabulation :: Order a -> Tabulation k a -> Tabulation k a
-orderTabulation ordering (Tabulation as) =
-  Tabulation $ orderBy (snd >$< ordering) . as
+orderTabulation :: OrdTable k => Order a -> Tabulation k a -> Tabulation k a
+orderTabulation ordering = mapQuery $ orderBy ordering'
+  where
+    ordering' = (fst >$< ascTable) <> (snd >$< ordering)
 
 
 -- | Turns the given 'Tabulation' from a \"multimap\" into a \"map\". If there
 -- is more than one value at a particular key, only the first one is kept.
 -- \"First\" is in general undefined, but 'orderTabulation' can be used to
 -- make it deterministic.
-singularize :: (EqTable k, Table Expr a) => Tabulation k a -> Tabulation k a
-singularize = aggregateTabulation . fmap headAgg
+distinctTabulation :: EqTable k => Tabulation k a -> Tabulation k a
+distinctTabulation = mapQuery (distinctOn fst)
 
 
 optionalTabulation :: EqTable k
@@ -378,6 +381,11 @@ manyTabulation =
 someTabulation :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (NonEmptyTable a)
 someTabulation = aggregateTabulation . fmap nonEmptyAgg
+
+
+mapQuery :: (Query (k, a) -> Query (k, b)) -> Tabulation k a -> Tabulation k b
+mapQuery f (Tabulation query) = Tabulation $ \k ->
+  first Just <$> f (first (fromMaybe k) <$> query k)
 
 
 toQuery :: Tabulation k a -> Tabulation k (Query (k, a))
