@@ -67,9 +67,9 @@ aggregate = mapOpaleye (Opaleye.aggregate aggregator) . fmap (fromColumns . toCo
 
 aggregateTabulation
   :: (EqTable k, Aggregates aggregates exprs)
-  => (t -> aggregates) -> Tabulation k t -> Tabulation k exprs
-aggregateTabulation f =
-  Rel8.Tabulate.aggregateTabulation . fmap (fromColumns . toColumns . f)
+  => Tabulation k aggregates -> Tabulation k exprs
+aggregateTabulation =
+  Rel8.Tabulate.aggregateTabulation . fmap (fromColumns . toColumns)
 
 
 -- | Group equal tables together. This works by aggregating each column in the
