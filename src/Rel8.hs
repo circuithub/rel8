@@ -59,7 +59,7 @@ module Rel8
   , catMaybeTable
   , bindMaybeTable
   , traverseMaybeTable
-  , insertMaybeTable
+  , writeMaybeTable
   , nameMaybeTable
 
     -- ** @EitherTable@
@@ -70,7 +70,7 @@ module Rel8
   , keepRightTable
   , bindEitherTable
   , bitraverseEitherTable
-  , insertEitherTable
+  , writeEitherTable
   , nameEitherTable
 
     -- ** @TheseTable@
@@ -87,13 +87,13 @@ module Rel8
   , keepThoseTable, loseThoseTable
   , bindTheseTable
   , bitraverseTheseTable
-  , insertTheseTable
+  , writeTheseTable
   , nameTheseTable
 
     -- ** @ListTable@
   , ListTable
   , listTable
-  , insertListTable
+  , writeListTable
   , nameListTable
   , many
   , manyExpr
@@ -103,7 +103,7 @@ module Rel8
     -- ** @NonEmptyTable@
   , NonEmptyTable
   , nonEmptyTable
-  , insertNonEmptyTable
+  , writeNonEmptyTable
   , nameNonEmptyTable
   , some
   , someExpr
@@ -115,7 +115,7 @@ module Rel8
   , BuildADT, buildADT
   , ConstructADT, constructADT
   , DeconstructADT, deconstructADT
-  , InsertADT, insertADT
+  , WriteADT, writeADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
 
@@ -124,7 +124,7 @@ module Rel8
   , BuildHKD, buildHKD
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
-  , InsertHKD, insertHKD
+  , WriteHKD, writeHKD
   , NameHKD, nameHKD
   , AggregateHKD, aggregateHKD
 
@@ -252,11 +252,6 @@ module Rel8
   , OnConflict(..)
   , insert
 
-  , Create( Default, Value )
-  , unValue
-  , toInsert
-  , toInsertDefaults
-
     -- ** @DELETE@
   , Delete(..)
   , delete
@@ -271,10 +266,23 @@ module Rel8
     -- ** @CREATE VIEW@
   , createView
 
+    -- ** Write
+  , Writable( Default, Value )
+  , Write
+  , Writes
+  , defaultValue
+  , override
+  , write
+  , reset
+
+  , fromWrite
+  , unwrite
+
     -- * TODO
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
+  , Recontextualize
   , Nullable
   , NotNull
   , HTable
@@ -330,11 +338,11 @@ import Rel8.Query.These
 import Rel8.Query.Values
 import Rel8.Schema.Context.Label
 import Rel8.Schema.HTable
-import Rel8.Schema.Insert
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
+import Rel8.Schema.Write
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
 import Rel8.Statement.Returning
@@ -349,16 +357,17 @@ import Rel8.Table.Bool
 import Rel8.Table.Either
 import Rel8.Table.Eq
 import Rel8.Table.HKD
-import Rel8.Table.Insert
 import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
+import Rel8.Table.Recontextualize
 import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
+import Rel8.Table.Write
 import Rel8.Type
 import Rel8.Type.Composite
 import Rel8.Type.Eq

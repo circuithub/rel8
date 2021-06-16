@@ -23,11 +23,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.Either ( HEitherTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..) )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Unreify, reify, unreify
@@ -41,7 +41,7 @@ type family HEither context where
   HEither (Reify context) = AHEither context
   HEither Aggregate = EitherTable
   HEither Expr = EitherTable
-  HEither Insert = EitherTable
+  HEither Write = EitherTable
   HEither Name = EitherTable
   HEither Result = Either
 
@@ -92,9 +92,9 @@ sbimapEither :: ()
 sbimapEither = \case
   SAggregate -> \f g (AHEither a) -> AHEither (bimap f g a)
   SExpr -> \f g (AHEither a) -> AHEither (bimap f g a)
-  SResult -> \f g (AHEither a) -> AHEither (bimap f g a)
-  SInsert -> \f g (AHEither a) -> AHEither (bimap f g a)
   SName -> \f g (AHEither a) -> AHEither (bimap f g a)
+  SResult -> \f g (AHEither a) -> AHEither (bimap f g a)
+  SWrite -> \f g (AHEither a) -> AHEither (bimap f g a)
   SReify context -> \f g (AHEither a) -> AHEither (sbimapEither context f g a)
 
 
@@ -113,17 +113,17 @@ sfromColumnsEither = \case
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
     hunreify
+  SName ->
+    AHEither .
+    bimap (fromColumns . hreify) (fromColumns . hreify) .
+    fromColumns .
+    hunreify
   SResult ->
     AHEither .
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
     hunreify
-  SInsert ->
-    AHEither .
-    bimap (fromColumns . hreify) (fromColumns . hreify) .
-    fromColumns .
-    hunreify
-  SName ->
+  SWrite ->
     AHEither .
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
@@ -150,17 +150,17 @@ stoColumnsEither = \case
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHEither a) -> a)
+  SName ->
+    hreify .
+    toColumns .
+    bimap (hunreify . toColumns) (hunreify . toColumns) .
+    (\(AHEither a) -> a)
   SResult ->
     hreify .
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHEither a) -> a)
-  SInsert ->
-    hreify .
-    toColumns .
-    bimap (hunreify . toColumns) (hunreify . toColumns) .
-    (\(AHEither a) -> a)
-  SName ->
+  SWrite ->
     hreify .
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .

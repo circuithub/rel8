@@ -121,7 +121,6 @@ library
     Rel8.Schema.HTable.Product
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Vectorize
-    Rel8.Schema.Insert
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
@@ -131,6 +130,7 @@ library
     Rel8.Schema.Spec.ConstrainDBType
     Rel8.Schema.Spec.ConstrainType
     Rel8.Schema.Table
+    Rel8.Schema.Write
 
     Rel8.Statement.Delete
     Rel8.Statement.Insert
@@ -147,7 +147,6 @@ library
     Rel8.Table.Either
     Rel8.Table.Eq
     Rel8.Table.HKD
-    Rel8.Table.Insert
     Rel8.Table.List
     Rel8.Table.Maybe
     Rel8.Table.Name
@@ -162,6 +161,7 @@ library
     Rel8.Table.These
     Rel8.Table.Undefined
     Rel8.Table.Unreify
+    Rel8.Table.Write
 
     Rel8.Type
     Rel8.Type.Array

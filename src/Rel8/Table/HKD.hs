@@ -16,7 +16,7 @@ module Rel8.Table.HKD
   , HKDable, fromHKD, toHKD, HKDT(..)
   , BuildableHKD
   , BuildHKD, buildHKD
-  , InsertHKD, insertHKD
+  , WriteHKD, writeHKD
   , ConstructableHKD
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
@@ -44,7 +44,7 @@ import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Generic.Construction
   ( GGBuildable
   , GGBuild, ggbuild
-  , GGInsert, gginsert
+  , GGWrite, ggwrite
   , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
@@ -66,7 +66,7 @@ import Rel8.Generic.Table
 import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.Insert ( Insert )
+import Rel8.Schema.Write ( Write )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify, notReify )
 import Rel8.Schema.Result ( Result )
@@ -223,13 +223,13 @@ buildHKD =
   ggbuild @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Expr) HKD
 
 
-type InsertHKD :: Type -> Symbol -> Type
-type InsertHKD a name = GGInsert (GAlgebra (Rep a)) name (HKDRep a) (HKD a Insert)
+type WriteHKD :: Type -> Symbol -> Type
+type WriteHKD a name = GGWrite (GAlgebra (Rep a)) name (HKDRep a) (HKD a Write)
 
 
-insertHKD :: forall a name. BuildableHKD a name => InsertHKD a name
-insertHKD =
-  gginsert @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Insert) HKD
+writeHKD :: forall a name. BuildableHKD a name => WriteHKD a name
+writeHKD =
+  ggwrite @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Write) HKD
 
 
 type ConstructableHKD :: Type -> Constraint

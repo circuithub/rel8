@@ -41,11 +41,11 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable, sReifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table ( Table, Context, Congruent, Unreify )
 
 
@@ -59,16 +59,16 @@ type Unreifiable :: Type -> Constraint
 class
   ( Context a ~ Reify Aggregate => Unreifier Aggregate a
   , Context a ~ Reify Expr => Unreifier Expr a
-  , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
+  , Context a ~ Reify Write => Unreifier Write a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
   => Unreifiable a
 instance
   ( Context a ~ Reify Aggregate => Unreifier Aggregate a
   , Context a ~ Reify Expr => Unreifier Expr a
-  , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
+  , Context a ~ Reify Write => Unreifier Write a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
   => Unreifiable a
@@ -99,8 +99,8 @@ unreifiability :: (Context a ~ Reify context, Unreifiable a)
 unreifiability = \case
   SAggregate -> Unreifiability SAggregate
   SExpr -> Unreifiability SExpr
-  SInsert -> Unreifiability SInsert
   SName -> Unreifiability SName
   SResult -> UResult
+  SWrite -> Unreifiability SWrite
   SReify context -> case sReifiable context of
     Dict -> Unreifiability (SReify context)

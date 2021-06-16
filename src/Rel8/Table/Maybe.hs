@@ -17,7 +17,8 @@ module Rel8.Table.Maybe
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
   , ($?)
-  , insertMaybeTable, nameMaybeTable
+  , nameMaybeTable
+  , writeMaybeTable
   )
 where
 
@@ -44,9 +45,9 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , reify, unreify
@@ -57,7 +58,7 @@ import Rel8.Table.Alternative
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Insert ( toInsert )
+import Rel8.Table.Write ( write )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -209,14 +210,14 @@ f $? ma@(MaybeTable _ a) = case nullable @b of
 infixl 4 $?
 
 
-insertMaybeTable :: Table Insert a => Maybe a -> MaybeTable a
-insertMaybeTable = \case
-  Nothing -> MaybeTable (fromExpr null) (fromColumns (toInsert undefined))
-  Just a -> justTable a
-
-
 nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a
 nameMaybeTable = MaybeTable . fromName
+
+
+writeMaybeTable :: Table Write a => Maybe a -> MaybeTable a
+writeMaybeTable = \case
+  Nothing -> MaybeTable (fromExpr null) (fromColumns (write undefined))
+  Just a -> justTable a
 
 
 toColumns1 ::

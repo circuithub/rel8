@@ -21,7 +21,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
-  , insertTheseTable, nameTheseTable
+  , nameTheseTable, writeTheseTable
   )
 where
 
@@ -51,8 +51,8 @@ import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , reify, unreify
@@ -62,7 +62,7 @@ import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
-  , insertMaybeTable, nameMaybeTable
+  , nameMaybeTable, writeMaybeTable
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -231,12 +231,6 @@ theseTable f g h TheseTable {here, there} =
     there
 
 
-insertTheseTable :: (Table Insert a, Table Insert b)
-  => These a b -> TheseTable a b
-insertTheseTable =
-  TheseTable <$> insertMaybeTable . justHere <*> insertMaybeTable . justThere
-
-
 nameTheseTable :: ()
   => Name (Maybe MaybeTag)
   -> Name (Maybe MaybeTag)
@@ -248,6 +242,12 @@ nameTheseTable here there a b =
     { here = nameMaybeTable here a
     , there = nameMaybeTable there b
     }
+
+
+writeTheseTable :: (Table Write a, Table Write b)
+  => These a b -> TheseTable a b
+writeTheseTable =
+  TheseTable <$> writeMaybeTable . justHere <*> writeMaybeTable . justThere
 
 
 toColumns2 ::

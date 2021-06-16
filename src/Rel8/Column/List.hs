@@ -22,11 +22,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table
   ( Table, Columns, Congruent, Context, fromColumns, toColumns
   , Unreify, reify, unreify
@@ -41,7 +41,7 @@ type family HList context where
   HList (Reify context) = AHList context
   HList Aggregate = ListTable
   HList Expr = ListTable
-  HList Insert = ListTable
+  HList Write = ListTable
   HList Name = ListTable
   HList Result = []
 
@@ -85,9 +85,9 @@ smapList :: Congruent a b
 smapList = \case
   SAggregate -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SExpr -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
-  SResult -> \f _ (AHList as) -> AHList (fmap f as)
-  SInsert -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SName -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
+  SResult -> \f _ (AHList as) -> AHList (fmap f as)
+  SWrite -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SReify context -> \f g (AHList as) -> AHList (smapList context f g as)
 
 
@@ -98,9 +98,9 @@ sfromColumnsList :: Table (Reify context) a
 sfromColumnsList = \case
   SAggregate -> AHList . ListTable
   SExpr -> AHList . ListTable
-  SResult -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SInsert -> AHList . ListTable
   SName -> AHList . ListTable
+  SResult -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
+  SWrite -> AHList . ListTable
   SReify context ->
     AHList .
     smapList context (fromColumns . hreify) hreify .
@@ -115,10 +115,10 @@ stoColumnsList :: Table (Reify context) a
 stoColumnsList = \case
   SAggregate -> \(AHList (ListTable a)) -> a
   SExpr -> \(AHList (ListTable a)) -> a
+  SName -> \(AHList (ListTable a)) -> a
   SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
-  SInsert -> \(AHList (ListTable a)) -> a
-  SName -> \(AHList (ListTable a)) -> a
+  SWrite -> \(AHList (ListTable a)) -> a
   SReify context ->
     hreify .
     stoColumnsList context .

@@ -1,6 +1,8 @@
+{-# language DuplicateRecordFields #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 
 module Rel8.Statement.Insert
@@ -13,6 +15,7 @@ where
 -- base
 import Control.Exception ( throwIO )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+import Data.Kind ( Type )
 import Prelude
 
 -- hasql
@@ -27,7 +30,9 @@ import qualified Opaleye.Internal.Manipulation as Opaleye
 import qualified Opaleye.Manipulation as Opaleye
 
 -- rel8
-import Rel8.Schema.Insert ( Insert(..), OnConflict(..) )
+import Rel8.Schema.Name ( Selects )
+import Rel8.Schema.Table ( TableSchema )
+import Rel8.Schema.Write ( Writes )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
@@ -36,6 +41,31 @@ import Rel8.Table.Serialize ( Serializable, parse )
 -- text
 import qualified Data.Text as Text ( pack )
 import Data.Text.Encoding ( encodeUtf8 )
+
+
+-- | @OnConflict@ allows you to add an @ON CONFLICT@ clause to an @INSERT@
+-- statement.
+type OnConflict :: Type
+data OnConflict
+  = Abort     -- ^ @ON CONFLICT ABORT@
+  | DoNothing -- ^ @ON CONFLICT DO NOTHING@
+
+
+-- | The constituent parts of a SQL @INSERT@ statement.
+type Insert :: Type -> Type
+data Insert a where
+  Insert :: (Selects names exprs, Writes exprs writes) =>
+    { into :: TableSchema names
+      -- ^ Which table to insert into.
+    , rows :: [writes]
+      -- ^ The rows to insert.
+    , onConflict :: OnConflict
+      -- ^ What to do if the inserted rows conflict with data already in the
+      -- table.
+    , returning :: Returning names a
+      -- ^ What information to return on completion.
+    }
+    -> Insert a
 
 
 -- | Run an @INSERT@ statement

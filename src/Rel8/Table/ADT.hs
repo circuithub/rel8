@@ -16,7 +16,7 @@ module Rel8.Table.ADT
   , ADTable, fromADT, toADT
   , BuildableADT
   , BuildADT, buildADT
-  , InsertADT, insertADT
+  , WriteADT, writeADT
   , ConstructableADT
   , ConstructADT, constructADT
   , DeconstructADT, deconstructADT
@@ -41,7 +41,7 @@ import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Construction
   ( GGBuildable
   , GGBuild, ggbuild
-  , GGInsert, gginsert
+  , GGWrite, ggwrite
   , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
@@ -59,7 +59,7 @@ import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.Insert ( Insert )
+import Rel8.Schema.Write ( Write )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
@@ -156,13 +156,13 @@ buildADT =
   ggbuild @'K.Sum @name @(ADTRep t) @(ADT t Expr) ADT
 
 
-type InsertADT :: K.Rel8able -> Symbol -> Type
-type InsertADT t name = GGInsert 'K.Sum name (ADTRep t) (ADT t Insert)
+type WriteADT :: K.Rel8able -> Symbol -> Type
+type WriteADT t name = GGWrite 'K.Sum name (ADTRep t) (ADT t Write)
 
 
-insertADT :: forall t name. BuildableADT t name => InsertADT t name
-insertADT =
-  gginsert @'K.Sum @name @(ADTRep t) @(ADT t Insert) ADT
+writeADT :: forall t name. BuildableADT t name => WriteADT t name
+writeADT =
+  ggwrite @'K.Sum @name @(ADTRep t) @(ADT t Write) ADT
 
 
 type ConstructableADT :: K.Rel8able -> Constraint

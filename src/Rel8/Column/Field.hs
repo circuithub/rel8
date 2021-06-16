@@ -20,13 +20,13 @@ import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Kind.Defaulting ( Defaulting, KnownDefaulting )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
-import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col( N ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( Reify, Col(..) )
 import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
+import Rel8.Schema.Write ( Col( W ), Write, Writable(..) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Unreify, reify, unreify
@@ -40,7 +40,7 @@ type family Field context defaulting a where
   Field (Reify context) defaulting  a = AField context defaulting a
   Field Aggregate       _defaulting a = Aggregate a
   Field Expr            _defaulting a = Expr a
-  Field Insert          defaulting  a = Create defaulting a
+  Field Write           defaulting  a = Writable defaulting a
   Field Name            _defaulting a = Name a
   Field Result          _defaulting a = a
 
@@ -80,9 +80,9 @@ sfromColumn :: ()
 sfromColumn = \case
   SAggregate -> \(A a) -> AField a
   SExpr -> \(E a) -> AField a
-  SInsert -> \(I a) -> AField a
   SName -> \(N a) -> AField a
   SResult -> \(R a) -> AField a
+  SWrite -> \(W a) -> AField a
   SReify context -> \(Reify a) -> AField (sfromColumn context a)
 
 
@@ -93,7 +93,7 @@ stoColumn :: ()
 stoColumn = \case
   SAggregate -> \(AField a) -> A a
   SExpr -> \(AField a) -> E a
-  SInsert -> \(AField a) -> I a
   SName -> \(AField a) -> N a
   SResult -> \(AField a) -> R a
+  SWrite -> \(AField a) -> W a
   SReify context -> \(AField a) -> Reify (stoColumn context a)

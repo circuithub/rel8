@@ -16,7 +16,7 @@
 module Rel8.Generic.Construction
   ( GGBuildable
   , GGBuild, ggbuild
-  , GGInsert, gginsert
+  , GGWrite, ggwrite
   , GGConstructable
   , GGConstruct, ggconstruct
   , GGDeconstruct, ggdeconstruct
@@ -63,13 +63,13 @@ import qualified Rel8.Kind.Algebra as K
 import Rel8.Schema.Context.Nullify ( runTag )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
-import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Write ( Col( W ), Write, Writable(..) )
 import Rel8.Table
   ( TTable, TColumns, TUnreify
   , Table, fromColumns, toColumns, reify, unreify
@@ -83,7 +83,7 @@ type GGBuildable algebra name rep =
   ( KnownAlgebra algebra
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Aggregate)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Expr)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
-  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Insert)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Write)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Name)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , HTable (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))))
   , GGBuildable' algebra name rep
@@ -94,17 +94,17 @@ type GGBuildable' :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) ->
 type family GGBuildable' algebra name rep where
   GGBuildable' 'K.Product name rep =
     ( name ~ GConstructor (Eval (rep (Reify Expr)))
-    , name ~ GConstructor (Eval (rep (Reify Insert)))
+    , name ~ GConstructor (Eval (rep (Reify Write)))
     , Representable TUnreify (Eval (rep (Reify Expr)))
-    , Representable TUnreify (Eval (rep (Reify Insert)))
+    , Representable TUnreify (Eval (rep (Reify Write)))
     , GConstructable (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
-    , GConstructable (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
+    , GConstructable (TTable (Reify Write)) TColumns TUnreify (Col (Reify Write)) (Eval (rep (Reify Write)))
     )
   GGBuildable' 'K.Sum name rep =
     ( Representable TUnreify (GConstructorADT name (Eval (rep (Reify Expr))))
-    , Representable TUnreify (GConstructorADT name (Eval (rep (Reify Insert))))
+    , Representable TUnreify (GConstructorADT name (Eval (rep (Reify Write))))
     , GMakeableADT (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) name (Eval (rep (Reify Expr)))
-    , GMakeableADT (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) name (Eval (rep (Reify Insert)))
+    , GMakeableADT (TTable (Reify Write)) TColumns TUnreify (Col (Reify Write)) name (Eval (rep (Reify Write)))
     )
 
 
@@ -150,48 +150,48 @@ ggbuild gfromColumns = case algebraSing @algebra of
       (HType . Reify . E . litExpr)
 
 
-type GGInsert :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
-type family GGInsert algebra name rep r where
-  GGInsert 'K.Product _name rep r =
-    GConstruct TUnreify (Eval (rep (Reify Insert))) r
-  GGInsert 'K.Sum name rep r =
-    GConstruct TUnreify (GConstructorADT name (Eval (rep (Reify Insert)))) r
+type GGWrite :: K.Algebra -> Symbol -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
+type family GGWrite algebra name rep r where
+  GGWrite 'K.Product _name rep r =
+    GConstruct TUnreify (Eval (rep (Reify Write))) r
+  GGWrite 'K.Sum name rep r =
+    GConstruct TUnreify (GConstructorADT name (Eval (rep (Reify Write)))) r
 
 
-gginsert :: forall algebra name rep a. GGBuildable algebra name rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Insert) -> a)
-  -> GGInsert algebra name rep a
-gginsert gfromColumns = case algebraSing @algebra of
+ggwrite :: forall algebra name rep a. GGBuildable algebra name rep
+  => (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))) (Col Write) -> a)
+  -> GGWrite algebra name rep a
+ggwrite gfromColumns = case algebraSing @algebra of
   SProduct ->
-    gtabulate @TUnreify @(Eval (rep (Reify Insert))) @a $
+    gtabulate @TUnreify @(Eval (rep (Reify Write))) @a $
     gfromColumns .
     hunreify .
     gconstruct
-      @(TTable (Reify Insert))
+      @(TTable (Reify Write))
       @TColumns
       @TUnreify
-      @(Col (Reify Insert))
-      @(Eval (rep (Reify Insert)))
+      @(Col (Reify Write))
+      @(Eval (rep (Reify Write)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
   SSum ->
-    gtabulate @TUnreify @(GConstructorADT name (Eval (rep (Reify Insert)))) @a $
+    gtabulate @TUnreify @(GConstructorADT name (Eval (rep (Reify Write)))) @a $
     gfromColumns .
     hunreify .
     gmakeADT
-      @(TTable (Reify Insert))
+      @(TTable (Reify Write))
       @TColumns
       @TUnreify
-      @(Col (Reify Insert))
+      @(Col (Reify Write))
       @name
-      @(Eval (rep (Reify Insert)))
+      @(Eval (rep (Reify Write)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
-      (\SSpec {info} -> Reify $ I (Value (snull info)))
+      (\SSpec {info} -> Reify $ W (Value (snull info)))
       (\SSpec {nullity} -> case nullity of
         Null -> id
         NotNull -> \case
-          Reify (I Default) -> Reify (I Default)
-          Reify (I (Value a)) -> Reify (I (Value (nullify a))))
-      (HType . Reify . I . Value . litExpr)
+          Reify (W Default) -> Reify (W Default)
+          Reify (W (Value a)) -> Reify (W (Value (nullify a))))
+      (HType . Reify . W . Value . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
@@ -199,7 +199,7 @@ type GGConstructable algebra rep =
   ( KnownAlgebra algebra
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Aggregate)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Expr)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
-  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Insert)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
+  , Eval (GGColumns algebra TColumns (Eval (rep (Reify Write)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , Eval (GGColumns algebra TColumns (Eval (rep (Reify Name)))) ~ Eval (GGColumns algebra TColumns (Eval (rep (Reify Result))))
   , HTable (Eval (GGColumns algebra TColumns (Eval (rep (Reify Result)))))
   , GGConstructable' algebra rep
@@ -211,24 +211,24 @@ type family GGConstructable' algebra rep where
   GGConstructable' 'K.Product rep =
     ( Representable TUnreify (Eval (rep (Reify Aggregate)))
     , Representable TUnreify (Eval (rep (Reify Expr)))
-    , Representable TUnreify (Eval (rep (Reify Insert)))
+    , Representable TUnreify (Eval (rep (Reify Write)))
     , Representable TUnreify (Eval (rep (Reify Name)))
     , GConstructable (TTable (Reify Aggregate)) TColumns TUnreify (Col (Reify Aggregate)) (Eval (rep (Reify Aggregate)))
     , GConstructable (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
-    , GConstructable (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
+    , GConstructable (TTable (Reify Write)) TColumns TUnreify (Col (Reify Write)) (Eval (rep (Reify Write)))
     , GConstructable (TTable (Reify Name)) TColumns TUnreify (Col (Reify Name)) (Eval (rep (Reify Name)))
     )
   GGConstructable' 'K.Sum rep =
     ( RepresentableConstructors TUnreify (Eval (rep (Reify Expr)))
-    , RepresentableConstructors TUnreify (Eval (rep (Reify Insert)))
+    , RepresentableConstructors TUnreify (Eval (rep (Reify Write)))
     , RepresentableFields TUnreify (Eval (rep (Reify Aggregate)))
     , RepresentableFields TUnreify (Eval (rep (Reify Expr)))
     , RepresentableFields TUnreify (Eval (rep (Reify Name)))
     , Functor (GConstructors TUnreify (Eval (rep (Reify Expr))))
-    , Functor (GConstructors TUnreify (Eval (rep (Reify Insert))))
+    , Functor (GConstructors TUnreify (Eval (rep (Reify Write))))
     , GConstructableADT (TTable (Reify Aggregate)) TColumns TUnreify (Col (Reify Aggregate)) (Eval (rep (Reify Aggregate)))
     , GConstructableADT (TTable (Reify Expr)) TColumns TUnreify (Col (Reify Expr)) (Eval (rep (Reify Expr)))
-    , GConstructableADT (TTable (Reify Insert)) TColumns TUnreify (Col (Reify Insert)) (Eval (rep (Reify Insert)))
+    , GConstructableADT (TTable (Reify Write)) TColumns TUnreify (Col (Reify Write)) (Eval (rep (Reify Write)))
     , GConstructableADT (TTable (Reify Name)) TColumns TUnreify (Col (Reify Name)) (Eval (rep (Reify Name)))
     )
 

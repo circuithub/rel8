@@ -22,11 +22,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Write ( Write )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , Unreify, reify, unreify
@@ -40,9 +40,9 @@ type family HMaybe context where
   HMaybe (Reify context) = AHMaybe context
   HMaybe Aggregate = MaybeTable
   HMaybe Expr = MaybeTable
-  HMaybe Insert = MaybeTable
   HMaybe Name = MaybeTable
   HMaybe Result = Maybe
+  HMaybe Write = MaybeTable
 
 
 type AHMaybe :: K.Context -> Type -> Type
@@ -85,9 +85,9 @@ smapMaybe :: ()
 smapMaybe = \case
   SAggregate -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SExpr -> \f (AHMaybe a) -> AHMaybe (fmap f a)
-  SResult -> \f (AHMaybe a) -> AHMaybe (fmap f a)
-  SInsert -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SName -> \f (AHMaybe a) -> AHMaybe (fmap f a)
+  SResult -> \f (AHMaybe a) -> AHMaybe (fmap f a)
+  SWrite -> \f (AHMaybe a) -> AHMaybe (fmap f a)
   SReify context -> \f (AHMaybe a) -> AHMaybe (smapMaybe context f a)
 
 
@@ -98,9 +98,9 @@ sfromColumnsMaybe :: Table (Reify context) a
 sfromColumnsMaybe = \case
   SAggregate -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SExpr -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SResult -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SInsert -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SName -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
+  SResult -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
+  SWrite -> AHMaybe . fmap (fromColumns . hreify) . fromColumns . hunreify
   SReify context ->
     AHMaybe .
     smapMaybe context (fromColumns . hreify) .
@@ -117,11 +117,11 @@ stoColumnsMaybe = \case
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
   SExpr ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
+  SName ->
+    hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
   SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
-  SInsert ->
-    hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
-  SName ->
+  SWrite ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHMaybe a) -> a)
   SReify context ->
     hreify .

@@ -1,7 +1,7 @@
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
@@ -45,10 +45,10 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Kind.Defaulting ( SDefaulting( SNoDefault, SHasDefault ) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Insert ( Col( I ), Create(..), Insert, Inserts )
 import Rel8.Schema.Name ( Col( N ), Name( Name ), Selects )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
+import Rel8.Schema.Write ( Col( W ), Write, Writes, Writable(..), fromWrite )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Undefined ( undefined )
 
@@ -83,36 +83,32 @@ distinctspec =
     toColumns
 
 
-table ::(Selects names exprs, Inserts exprs inserts)
-  => TableSchema names -> Opaleye.Table inserts exprs
+table ::(Selects names exprs, Writes exprs writes)
+  => TableSchema names -> Opaleye.Table writes exprs
 table (TableSchema name schema columns) =
   case schema of
     Nothing -> Opaleye.Table name (tableFields columns)
     Just schemaName -> Opaleye.TableWithSchema schemaName name (tableFields columns)
 
 
-tableFields :: (Selects names exprs, Inserts exprs inserts)
-  => names -> Opaleye.TableFields inserts exprs
+tableFields :: (Selects names exprs, Writes exprs writes)
+  => names -> Opaleye.TableFields writes exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
   unwrapApplicative $ htabulateA $ \field -> WrapApplicative $
     case hfield hspecs field of
       specs -> case hfield names field of
         name -> lmap (`hfield` field) (go specs name)
   where
-    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
+    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Write spec) (Col Expr spec)
     go SSpec {defaulting} (N (Name name)) = case defaulting of
       SNoDefault ->
-        lmap (\(I (Value a)) -> toColumn $ toPrimExpr a) $
+        lmap (\(W (Value a)) -> toColumn $ toPrimExpr a) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
       SHasDefault ->
-        lmap (\(I ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
+        lmap (\(W ma) -> toColumn . toPrimExpr <$> fromWrite ma) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.optionalTableField name
-      where
-        fromInsert = \case
-          Default -> Nothing
-          Value a -> Just a
 
 
 unpackspec :: Table Expr a => Opaleye.Unpackspec a a

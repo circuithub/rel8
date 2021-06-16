@@ -70,9 +70,9 @@ sfromColumnsLift :: HKDable a
 sfromColumnsLift = \case
   SAggregate -> ALift . fromColumns . hunreify
   SExpr -> ALift . fromColumns . hunreify
-  SInsert -> ALift . fromColumns . hunreify
   SName -> ALift . fromColumns . hunreify
   SResult -> ALift . fromHKD . HKD . hunreify
+  SWrite -> ALift . fromColumns . hunreify
   SReify context -> ALift . sfromColumnsLift context . hunreify
 
 
@@ -83,7 +83,7 @@ stoColumnsLift :: HKDable a
 stoColumnsLift = \case
   SAggregate -> hreify . toColumns . unALift
   SExpr -> hreify . toColumns . unALift
-  SInsert -> hreify . toColumns . unALift
   SName -> hreify . toColumns . unALift
   SResult -> hreify . (\(HKD a) -> a) . toHKD . unALift
+  SWrite -> hreify . toColumns . unALift
   SReify context -> hreify . stoColumnsLift context . unALift

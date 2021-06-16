@@ -16,12 +16,12 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Kind.Defaulting
   ( Defaulting
   , SDefaulting
   , KnownDefaulting, defaultingSing
   )
+import Rel8.Kind.Labels ( Labels, SLabels, KnownLabels, labelsSing )
 import Rel8.Schema.Null ( Nullity, Sql, Unnullify, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
