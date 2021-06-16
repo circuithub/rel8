@@ -26,12 +26,12 @@ import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 type Labelable :: Context -> Constraint
 class Interpretation context => Labelable context where
   labeler :: ()
-    => Col context ('Spec labels necessity a)
-    -> Col context ('Spec (label ': labels) necessity a)
+    => Col context ('Spec labels defaulting a)
+    -> Col context ('Spec (label ': labels) defaulting a)
 
   unlabeler :: ()
-    => Col context ('Spec (label ': labels) necessity a)
-    -> Col context ('Spec labels necessity a)
+    => Col context ('Spec (label ': labels) defaulting a)
+    -> Col context ('Spec labels defaulting a)
 
 
 instance Labelable Result where
@@ -42,12 +42,12 @@ instance Labelable Result where
 type HLabelable :: HContext -> Constraint
 class HLabelable context where
   hlabeler :: ()
-    => context ('Spec labels necessity a)
-    -> context ('Spec (label ': labels) necessity a)
+    => context ('Spec labels defaulting a)
+    -> context ('Spec (label ': labels) defaulting a)
 
   hunlabeler :: ()
-    => context ('Spec (label ': labels) necessity a)
-    -> context ('Spec labels necessity a)
+    => context ('Spec (label ': labels) defaulting a)
+    -> context ('Spec labels defaulting a)
 
 
 instance Labelable context => HLabelable (Col context) where

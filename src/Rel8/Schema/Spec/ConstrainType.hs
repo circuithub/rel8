@@ -22,10 +22,10 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 
 type ConstrainType :: (Type -> Constraint) -> Spec -> Constraint
 class
-  ( forall labels necessity a. ()
-     => (spec ~ 'Spec labels necessity a)
+  ( forall labels defaulting a. ()
+     => (spec ~ 'Spec labels defaulting a)
      => constraint a
   ) =>
   ConstrainType constraint spec
-instance (spec ~ 'Spec labels necessity a, constraint a) =>
+instance (spec ~ 'Spec labels defaulting a, constraint a) =>
   ConstrainType constraint spec

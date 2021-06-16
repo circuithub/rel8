@@ -31,13 +31,13 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec, nullity ) )
 
 type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
 class
-  ( forall c labels necessity a. ()
-     => (spec ~ 'Spec labels necessity a)
+  ( forall c labels defaulting a. ()
+     => (spec ~ 'Spec labels defaulting a)
      => (forall x. (constraint x => c x)) => Sql c a
   )
   => ConstrainDBType constraint spec
 instance
-  ( spec ~ 'Spec labels necessity a
+  ( spec ~ 'Spec labels defaulting a
   , Sql constraint a
   )
   => ConstrainDBType constraint spec
@@ -69,9 +69,9 @@ fromNullityDict NotNull Dict = Dict
 
 
 nullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
+  => SSpec ('Spec labels defaulting a)
+  -> Dict (ConstrainDBType c) ('Spec labels defaulting a)
+  -> Dict (ConstrainDBType c) ('Spec labels defaulting (Nullify a))
 nullifier SSpec {} dict = case dbTypeDict dict of
   Dict -> case dbTypeNullity dict of
     Null -> Dict
@@ -79,9 +79,9 @@ nullifier SSpec {} dict = case dbTypeDict dict of
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
-  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
+  => SSpec ('Spec labels defaulting a)
+  -> Dict (ConstrainDBType c) ('Spec labels defaulting (Nullify a))
+  -> Dict (ConstrainDBType c) ('Spec labels defaulting a)
 unnullifier SSpec {nullity} dict = case dbTypeDict dict of
   Dict -> case nullity of
     Null -> Dict

@@ -15,7 +15,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Necessity ( Necessity( Required ) )
+import Rel8.Kind.Defaulting ( Defaulting( NoDefault ) )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable, HField
@@ -26,10 +26,10 @@ import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec, specSing )
 
 
 type HType :: Type -> K.HTable
-type HType a = HIdentity ('Spec '[] 'Required a)
+type HType a = HIdentity ('Spec '[] 'NoDefault a)
 
 
-pattern HType :: context ('Spec '[] 'Required a) -> HType a context
+pattern HType :: context ('Spec '[] 'NoDefault a) -> HType a context
 pattern HType a = HIdentity a
 {-# COMPLETE HType #-}
 

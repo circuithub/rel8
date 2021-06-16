@@ -32,7 +32,7 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Necessity ( Necessity( Required ), SNecessity( SRequired ) )
+import Rel8.Kind.Defaulting ( Defaulting( NoDefault ), SDefaulting( SNoDefault ) )
 import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
@@ -79,14 +79,14 @@ newtype HVectorize list table context = HVectorize (HMapTable (Vectorize list) t
 data Vectorize :: (Type -> Type) -> Spec -> Exp Spec
 
 
-type instance Eval (Vectorize list ('Spec labels _necessity a)) = 'Spec labels 'Required (list a)
+type instance Eval (Vectorize list ('Spec labels _defaulting a)) = 'Spec labels 'NoDefault (list a)
 
 
 instance Vector list => MapSpec (Vectorize list) where
   mapInfo = \case
     SSpec {..} -> case listNotNull @list nullity of
       Dict -> SSpec
-        { necessity = SRequired
+        { defaulting = SNoDefault
         , nullity = NotNull
         , info = vectorTypeInformation nullity info
         , ..
@@ -94,10 +94,10 @@ instance Vector list => MapSpec (Vectorize list) where
 
 
 hvectorize :: (HTable t, Unzip f, Vector list)
-  => (forall labels necessity a. ()
-    => SSpec ('Spec labels necessity a)
-    -> f (context ('Spec labels necessity a))
-    -> context' ('Spec labels 'Required (list a)))
+  => (forall labels defaulting a. ()
+    => SSpec ('Spec labels defaulting a)
+    -> f (context ('Spec labels defaulting a))
+    -> context' ('Spec labels 'NoDefault (list a)))
   -> f (t context)
   -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
@@ -107,10 +107,10 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 
 
 hunvectorize :: (HTable t, Zip f, Vector list)
-  => (forall labels necessity a. ()
-    => SSpec ('Spec labels necessity a)
-    -> context ('Spec labels 'Required (list a))
-    -> f (context' ('Spec labels necessity a)))
+  => (forall labels defaulting a. ()
+    => SSpec ('Spec labels defaulting a)
+    -> context ('Spec labels 'NoDefault (list a))
+    -> f (context' ('Spec labels defaulting a)))
   -> HVectorize list t context
   -> f (t context')
 hunvectorize unvectorizer (HVectorize table) =
@@ -121,12 +121,12 @@ hunvectorize unvectorizer (HVectorize table) =
 
 
 happend :: (HTable t, Vector list) =>
-  ( forall labels necessity a. ()
+  ( forall labels defaulting a. ()
     => Nullity a
     -> TypeInformation (Unnullify a)
-    -> context ('Spec labels necessity (list a))
-    -> context ('Spec labels necessity (list a))
-    -> context ('Spec labels necessity (list a))
+    -> context ('Spec labels defaulting (list a))
+    -> context ('Spec labels defaulting (list a))
+    -> context ('Spec labels defaulting (list a))
   )
   -> HVectorize list t context
   -> HVectorize list t context
@@ -138,10 +138,10 @@ happend append (HVectorize as) (HVectorize bs) = HVectorize $
 
 
 hempty :: HTable t =>
-  ( forall labels necessity a. ()
+  ( forall labels defaulting a. ()
     => Nullity a
     -> TypeInformation (Unnullify a)
-    -> context ('Spec labels necessity [a])
+    -> context ('Spec labels defaulting [a])
   )
   -> HVectorize [] t context
 hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of

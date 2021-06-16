@@ -70,8 +70,8 @@ library
 
     Rel8.Kind.Algebra
     Rel8.Kind.Context
+    Rel8.Kind.Defaulting
     Rel8.Kind.Labels
-    Rel8.Kind.Necessity
 
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT

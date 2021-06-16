@@ -16,7 +16,7 @@ where
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Kind.Necessity ( Necessity( Required ) )
+import Rel8.Kind.Defaulting ( Defaulting( NoDefault ) )
 import Rel8.Schema.Context ( Interpretation( Col ) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.Kind ( Context )
@@ -30,32 +30,32 @@ data Result a
 
 instance Interpretation Result where
   data Col Result _spec where
-    R :: {unR :: !a} -> Col Result ('Spec labels necessity a)
+    R :: {unR :: !a} -> Col Result ('Spec labels defaulting a)
 
 
 relabel :: ()
-  => HIdentity ('Spec labels necessity a) (Col Result)
-  -> HIdentity ('Spec relabels necessity a) (Col Result)
+  => HIdentity ('Spec labels defaulting a) (Col Result)
+  -> HIdentity ('Spec relabels defaulting a) (Col Result)
 relabel (HIdentity (R a)) = HIdentity (R a)
 
 
-null :: Col Result ('Spec labels necessity (Maybe a))
+null :: Col Result ('Spec labels defaulting (Maybe a))
 null = R Nothing
 
 
 nullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (Nullify a))
+  => SSpec ('Spec labels defaulting a)
+  -> Col Result ('Spec labels defaulting a)
+  -> Col Result ('Spec labels defaulting (Nullify a))
 nullifier SSpec {nullity} (R a) = R $ case nullity of
   Null -> a
   NotNull -> Just a
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels necessity (Nullify a))
-  -> Maybe (Col Result ('Spec labels necessity a))
+  => SSpec ('Spec labels defaulting a)
+  -> Col Result ('Spec labels defaulting (Nullify a))
+  -> Maybe (Col Result ('Spec labels defaulting a))
 unnullifier SSpec {nullity} (R a) =
   case nullity of
     Null -> pure $ R a
@@ -63,14 +63,14 @@ unnullifier SSpec {nullity} (R a) =
 
 
 vectorizer :: Functor f
-  => SSpec ('Spec labels necessity a)
-  -> f (Col Result ('Spec labels necessity a))
-  -> Col Result ('Spec labels 'Required (f a))
+  => SSpec ('Spec labels defaulting a)
+  -> f (Col Result ('Spec labels defaulting a))
+  -> Col Result ('Spec labels 'NoDefault (f a))
 vectorizer _ = R . fmap unR
 
 
 unvectorizer :: Functor f
-  => SSpec ('Spec labels necessity a)
-  -> Col Result ('Spec labels 'Required (f a))
-  -> f (Col Result ('Spec labels necessity a))
+  => SSpec ('Spec labels defaulting a)
+  -> Col Result ('Spec labels 'NoDefault (f a))
+  -> f (Col Result ('Spec labels defaulting a))
 unvectorizer _ (R results) = R <$> results

@@ -30,7 +30,7 @@ import Prelude
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Kind.Necessity ( Necessity(Optional, Required), KnownNecessity )
+import Rel8.Kind.Defaulting ( Defaulting(HasDefault, NoDefault), KnownDefaulting )
 import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.Context.Nullify
@@ -80,24 +80,24 @@ data Insert a where
 
 instance Interpretation Insert where
   data Col Insert _spec where
-    I :: {unI :: !(Create necessity a)} -> Col Insert ('Spec labels necessity a)
+    I :: {unI :: !(Create defaulting a)} -> Col Insert ('Spec labels defaulting a)
 
 
-type Create :: Necessity -> Type -> Type
-data Create necessity a where
-  Default :: Create 'Optional a
-  Value :: Expr a -> Create necessity a
+type Create :: Defaulting -> Type -> Type
+data Create defaulting a where
+  Default :: Create 'HasDefault a
+  Value :: Expr a -> Create defaulting a
 
 
-unValue :: Create 'Required a -> Expr a
+unValue :: Create 'NoDefault a -> Expr a
 unValue (Value a) = a
 
 
-instance (KnownNecessity necessity, Sql DBType a) =>
-  Table Insert (Create necessity a)
+instance (KnownDefaulting defaulting, Sql DBType a) =>
+  Table Insert (Create defaulting a)
  where
-  type Columns (Create necessity a) = HIdentity ('Spec '[] necessity a)
-  type Context (Create necessity a) = Insert
+  type Columns (Create defaulting a) = HIdentity ('Spec '[] defaulting a)
+  type Context (Create defaulting a) = Insert
 
   toColumns = HIdentity . I
   fromColumns (HIdentity (I a)) = a
@@ -106,34 +106,34 @@ instance (KnownNecessity necessity, Sql DBType a) =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Insert (Aggregate a) (Create 'Required a)
+  Recontextualize Aggregate Insert (Aggregate a) (Create 'NoDefault a)
 
 
-instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Create 'Required a)
-
-
-instance Sql DBType a =>
-  Recontextualize Result Insert (Identity a) (Create 'Required a)
+instance Sql DBType a => Recontextualize Expr Insert (Expr a) (Create 'NoDefault a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Aggregate (Create 'Required a) (Aggregate a)
-
-
-instance Sql DBType a => Recontextualize Insert Expr (Create 'Required a) (Expr a)
+  Recontextualize Result Insert (Identity a) (Create 'NoDefault a)
 
 
 instance Sql DBType a =>
-  Recontextualize Insert Result (Create 'Required a) (Identity a)
+  Recontextualize Insert Aggregate (Create 'NoDefault a) (Aggregate a)
 
 
-instance Sql DBType a => Recontextualize Insert Insert (Create 'Required a) (Create 'Required a)
+instance Sql DBType a => Recontextualize Insert Expr (Create 'NoDefault a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Insert Name (Create 'Required a) (Name a)
+instance Sql DBType a =>
+  Recontextualize Insert Result (Create 'NoDefault a) (Identity a)
 
 
-instance Sql DBType a => Recontextualize Name Insert (Name a) (Create 'Required a)
+instance Sql DBType a => Recontextualize Insert Insert (Create 'NoDefault a) (Create 'NoDefault a)
+
+
+instance Sql DBType a => Recontextualize Insert Name (Create 'NoDefault a) (Name a)
+
+
+instance Sql DBType a => Recontextualize Name Insert (Name a) (Create 'NoDefault a)
 
 
 instance Labelable Insert where

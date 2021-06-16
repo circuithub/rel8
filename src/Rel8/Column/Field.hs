@@ -18,7 +18,7 @@ import Prelude
 import Rel8.Aggregate ( Aggregate, Col( A ) )
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
-import Rel8.Kind.Necessity ( Necessity, KnownNecessity )
+import Rel8.Kind.Defaulting ( Defaulting, KnownDefaulting )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Insert ( Col( I ), Create(..), Insert )
 import qualified Rel8.Schema.Kind as K
@@ -35,26 +35,26 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 
 
-type Field :: K.Context -> Necessity -> Type -> Type
-type family Field context necessity a where
-  Field (Reify context) necessity  a = AField context necessity a
-  Field Aggregate       _necessity a = Aggregate a
-  Field Expr            _necessity a = Expr a
-  Field Insert          necessity  a = Create necessity a
-  Field Name            _necessity a = Name a
-  Field Result          _necessity a = a
+type Field :: K.Context -> Defaulting -> Type -> Type
+type family Field context defaulting a where
+  Field (Reify context) defaulting  a = AField context defaulting a
+  Field Aggregate       _defaulting a = Aggregate a
+  Field Expr            _defaulting a = Expr a
+  Field Insert          defaulting  a = Create defaulting a
+  Field Name            _defaulting a = Name a
+  Field Result          _defaulting a = a
 
 
-type AField :: K.Context -> Necessity -> Type -> Type
-newtype AField context necessity a = AField (Field context necessity a)
+type AField :: K.Context -> Defaulting -> Type -> Type
+newtype AField context defaulting a = AField (Field context defaulting a)
 
 
-instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
-  Table (Reify context) (AField context necessity a)
+instance (Reifiable context, KnownDefaulting defaulting, Sql DBType a) =>
+  Table (Reify context) (AField context defaulting a)
  where
-  type Context (AField context necessity a) = Reify context
-  type Columns (AField context necessity a) = HIdentity ('Spec '[] necessity a)
-  type Unreify (AField context necessity a) = Field context necessity a
+  type Context (AField context defaulting a) = Reify context
+  type Columns (AField context defaulting a) = HIdentity ('Spec '[] defaulting a)
+  type Unreify (AField context defaulting a) = Field context defaulting a
 
   fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a
   toColumns = HIdentity . Reify . stoColumn contextSing
@@ -64,19 +64,19 @@ instance (Reifiable context, KnownNecessity necessity, Sql DBType a) =>
 
 instance
   ( Reifiable context, Reifiable context'
-  , KnownNecessity necessity, Sql DBType a
+  , KnownDefaulting defaulting, Sql DBType a
   ) =>
   Recontextualize
     (Reify context)
     (Reify context')
-    (AField context necessity a)
-    (AField context' necessity a)
+    (AField context defaulting a)
+    (AField context' defaulting a)
 
 
 sfromColumn :: ()
   => SContext context
-  -> Col context ('Spec labels necessity a)
-  -> AField context necessity a
+  -> Col context ('Spec labels defaulting a)
+  -> AField context defaulting a
 sfromColumn = \case
   SAggregate -> \(A a) -> AField a
   SExpr -> \(E a) -> AField a
@@ -88,8 +88,8 @@ sfromColumn = \case
 
 stoColumn :: ()
   => SContext context
-  -> AField context necessity a
-  -> Col context ('Spec labels necessity a)
+  -> AField context defaulting a
+  -> Col context ('Spec labels defaulting a)
 stoColumn = \case
   SAggregate -> \(AField a) -> A a
   SExpr -> \(AField a) -> E a

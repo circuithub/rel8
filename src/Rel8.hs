@@ -32,7 +32,7 @@ module Rel8
 
     -- * Tables and higher-kinded tables
   , Rel8able, KRel8able
-  , Column, Field, Necessity( Required, Optional )
+  , Column, Field, Defaulting( NoDefault, HasDefault )
   , Default
   , HADT
   , HEither
@@ -310,7 +310,7 @@ import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
-import Rel8.Kind.Necessity
+import Rel8.Kind.Defaulting
 import Rel8.Order
 import Rel8.Query
 import Rel8.Query.Aggregate

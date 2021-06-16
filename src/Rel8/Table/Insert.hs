@@ -14,7 +14,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Col( E ) )
-import Rel8.Kind.Necessity ( SNecessity( SOptional, SRequired ) )
+import Rel8.Kind.Defaulting ( SDefaulting( SHasDefault, SNoDefault ) )
 import Rel8.Schema.HTable ( hfield, htabulate, hspecs )
 import Rel8.Schema.Insert ( Inserts, Col( I ), Create(..) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -43,7 +43,7 @@ toInsert (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
 toInsertDefaults :: Inserts exprs inserts => exprs -> inserts
 toInsertDefaults (toColumns -> exprs) = fromColumns $ htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {necessity} -> case hfield exprs field of
-      E expr -> I $ case necessity of
-        SRequired -> Value expr
-        SOptional -> Default
+    SSpec {defaulting} -> case hfield exprs field of
+      E expr -> I $ case defaulting of
+        SNoDefault -> Value expr
+        SHasDefault -> Default

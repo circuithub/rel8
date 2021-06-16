@@ -43,7 +43,7 @@ import Rel8.Expr.Opaleye
   , fromColumn, toColumn
   , scastExpr
   )
-import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
+import Rel8.Kind.Defaulting ( SDefaulting( SNoDefault, SHasDefault ) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
 import Rel8.Schema.Insert ( Col( I ), Create(..), Insert, Inserts )
 import Rel8.Schema.Name ( Col( N ), Name( Name ), Selects )
@@ -100,12 +100,12 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
         name -> lmap (`hfield` field) (go specs name)
   where
     go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
-    go SSpec {necessity} (N (Name name)) = case necessity of
-      SRequired ->
+    go SSpec {defaulting} (N (Name name)) = case defaulting of
+      SNoDefault ->
         lmap (\(I (Value a)) -> toColumn $ toPrimExpr a) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
-      SOptional ->
+      SHasDefault ->
         lmap (\(I ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.optionalTableField name

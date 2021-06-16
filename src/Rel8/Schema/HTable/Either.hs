@@ -14,7 +14,7 @@ import GHC.Generics ( Generic )
 import Prelude ()
 
 -- rel8
-import Rel8.Kind.Necessity ( Necessity( Required ) )
+import Rel8.Kind.Defaulting ( Defaulting( NoDefault ) )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( HLabel )
@@ -26,7 +26,7 @@ import Rel8.Type.Tag ( EitherTag )
 
 type HEitherTable :: K.HTable -> K.HTable -> K.HTable
 data HEitherTable left right context = HEitherTable
-  { htag :: HIdentity ('Spec '["isRight"] 'Required EitherTag) context
+  { htag :: HIdentity ('Spec '["isRight"] 'NoDefault EitherTag) context
   , hleft :: HLabel "Left" (HNullify left) context
   , hright :: HLabel "Right" (HNullify right) context
   }

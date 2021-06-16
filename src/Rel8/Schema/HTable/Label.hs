@@ -49,7 +49,7 @@ newtype HLabel label table context = HLabel (HMapTable (Label label) table conte
 data Label :: Symbol -> Spec -> Exp Spec
 
 
-type instance Eval (Label label ('Spec labels necessity a)) = 'Spec (label : labels) necessity a
+type instance Eval (Label label ('Spec labels defaulting a)) = 'Spec (label : labels) defaulting a
 
 
 instance KnownSymbol l => MapSpec (Label l) where
@@ -58,9 +58,9 @@ instance KnownSymbol l => MapSpec (Label l) where
 
 
 hlabel :: (HTable t, KnownSymbol label)
-  => (forall labels necessity a. ()
-    => context ('Spec labels necessity a)
-    -> context ('Spec (label ': labels) necessity a))
+  => (forall labels defaulting a. ()
+    => context ('Spec labels defaulting a)
+    -> context ('Spec (label ': labels) defaulting a))
   -> t context
   -> HLabel label t context
 hlabel labeler a = HLabel $ htabulate $ \(HMapTableField field) ->
@@ -70,9 +70,9 @@ hlabel labeler a = HLabel $ htabulate $ \(HMapTableField field) ->
 
 
 hunlabel :: (HTable t, KnownSymbol label)
-  => (forall labels necessity a. ()
-    => context ('Spec (label ': labels) necessity a)
-    -> context ('Spec labels necessity a))
+  => (forall labels defaulting a. ()
+    => context ('Spec (label ': labels) defaulting a)
+    -> context ('Spec labels defaulting a))
   -> HLabel label t context
   -> t context
 hunlabel unlabler (HLabel as) =
