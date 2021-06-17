@@ -262,6 +262,10 @@ module Rel8
     -- ** Sequences
   , nextval
 
+  , Evaluate
+  , eval
+  , evaluate
+
     -- * TODO
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
@@ -308,6 +312,7 @@ import Rel8.Query.Aggregate
 import Rel8.Query.Distinct
 import Rel8.Query.Each
 import Rel8.Query.Either
+import Rel8.Query.Evaluate
 import Rel8.Query.Exists
 import Rel8.Query.Filter
 import Rel8.Query.Limit
