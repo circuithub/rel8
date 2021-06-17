@@ -272,6 +272,7 @@ module Rel8
     -- TODO
     -- These need organizing, but are reachable from Rel8's documentation so we
     -- do need to export and document them.
+  , Recontextualize
   , Nullable
   , NotNull
   , HTable
@@ -352,6 +353,7 @@ import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
+import Rel8.Table.Recontextualize
 import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
