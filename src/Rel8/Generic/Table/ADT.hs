@@ -96,10 +96,10 @@ class GTableADT _Table _Columns context rep where
 
   gtableADT :: ()
     => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
-    -> (forall a labels necessity. ()
-        => SSpec ('Spec labels necessity a)
-        -> context ('Spec labels necessity a)
-        -> context ('Spec labels necessity (Nullify a)))
+    -> (forall a labels. ()
+        => SSpec ('Spec labels a)
+        -> context ('Spec labels a)
+        -> context ('Spec labels (Nullify a)))
     -> GColumnsADT _Columns rep context
 
 
@@ -136,10 +136,10 @@ type GTableADT'
 class GTableADT' _Table _Columns htable context rep where
   gtableADT' :: ()
     => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
-    -> (forall a labels necessity. ()
-        => SSpec ('Spec labels necessity a)
-        -> context ('Spec labels necessity a)
-        -> context ('Spec labels necessity (Nullify a)))
+    -> (forall a labels. ()
+        => SSpec ('Spec labels a)
+        -> context ('Spec labels a)
+        -> context ('Spec labels (Nullify a)))
     -> htable context
     -> GColumnsADT' _Columns htable rep context
 

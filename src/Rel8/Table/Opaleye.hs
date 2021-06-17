@@ -43,9 +43,7 @@ import Rel8.Expr.Opaleye
   , fromColumn, toColumn
   , scastExpr
   )
-import Rel8.Kind.Necessity ( SNecessity( SRequired, SOptional ) )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Insert ( Col( I ), Create(..), Insert, Inserts )
 import Rel8.Schema.Name ( Col( N ), Name( Name ), Selects )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
@@ -83,36 +81,25 @@ distinctspec =
     toColumns
 
 
-table ::(Selects names exprs, Inserts exprs inserts)
-  => TableSchema names -> Opaleye.Table inserts exprs
+table ::Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
 table (TableSchema name schema columns) =
   case schema of
     Nothing -> Opaleye.Table name (tableFields columns)
     Just schemaName -> Opaleye.TableWithSchema schemaName name (tableFields columns)
 
 
-tableFields :: (Selects names exprs, Inserts exprs inserts)
-  => names -> Opaleye.TableFields inserts exprs
+tableFields ::Selects names exprs
+  => names -> Opaleye.TableFields exprs exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
   unwrapApplicative $ htabulateA $ \field -> WrapApplicative $
-    case hfield hspecs field of
-      specs -> case hfield names field of
-        name -> lmap (`hfield` field) (go specs name)
+    case hfield names field of
+      name -> lmap (`hfield` field) (go name)
   where
-    go :: SSpec spec -> Col Name spec -> Opaleye.TableFields (Col Insert spec) (Col Expr spec)
-    go SSpec {necessity} (N (Name name)) = case necessity of
-      SRequired ->
-        lmap (\(I (Value a)) -> toColumn $ toPrimExpr a) $
+    go :: Col Name spec -> Opaleye.TableFields (Col Expr spec) (Col Expr spec)
+    go (N (Name name)) =
+      lmap (\(E a) -> toColumn $ toPrimExpr a) $
         E . fromPrimExpr . fromColumn <$>
           Opaleye.requiredTableField name
-      SOptional ->
-        lmap (\(I ma) -> toColumn . toPrimExpr <$> fromInsert ma) $
-        E . fromPrimExpr . fromColumn <$>
-          Opaleye.optionalTableField name
-      where
-        fromInsert = \case
-          Default -> Nothing
-          Value a -> Just a
 
 
 unpackspec :: Table Expr a => Opaleye.Unpackspec a a

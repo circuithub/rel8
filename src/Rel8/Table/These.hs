@@ -21,7 +21,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
-  , insertTheseTable, nameTheseTable
+  , nameTheseTable
   )
 where
 
@@ -51,7 +51,6 @@ import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
-import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -62,7 +61,7 @@ import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
-  , insertMaybeTable, nameMaybeTable
+  , nameMaybeTable
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -77,7 +76,6 @@ import Data.Functor.Bind ( Bind, (>>-) )
 
 -- these
 import Data.These ( These )
-import Data.These.Combinators ( justHere, justThere )
 
 
 type TheseTable :: Type -> Type -> Type
@@ -229,12 +227,6 @@ theseTable f g h TheseTable {here, there} =
     (maybeTable undefined f here)
     (\b -> maybeTable (g b) (`h` b) here)
     there
-
-
-insertTheseTable :: (Table Insert a, Table Insert b)
-  => These a b -> TheseTable a b
-insertTheseTable =
-  TheseTable <$> insertMaybeTable . justHere <*> insertMaybeTable . justThere
 
 
 nameTheseTable :: ()

@@ -41,7 +41,6 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable, sReifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify )
@@ -59,7 +58,6 @@ type Unreifiable :: Type -> Constraint
 class
   ( Context a ~ Reify Aggregate => Unreifier Aggregate a
   , Context a ~ Reify Expr => Unreifier Expr a
-  , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
@@ -67,7 +65,6 @@ class
 instance
   ( Context a ~ Reify Aggregate => Unreifier Aggregate a
   , Context a ~ Reify Expr => Unreifier Expr a
-  , Context a ~ Reify Insert => Unreifier Insert a
   , Context a ~ Reify Name => Unreifier Name a
   , (forall ctx. (Context a ~ Reify (Reify ctx), Reifiable ctx) => Unreifier (Reify ctx) a)
   )
@@ -99,7 +96,6 @@ unreifiability :: (Context a ~ Reify context, Unreifiable a)
 unreifiability = \case
   SAggregate -> Unreifiability SAggregate
   SExpr -> Unreifiability SExpr
-  SInsert -> Unreifiability SInsert
   SName -> Unreifiability SName
   SResult -> UResult
   SReify context -> case sReifiable context of

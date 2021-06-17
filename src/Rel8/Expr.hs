@@ -128,7 +128,7 @@ instance Sql DBFloating a => Floating (Expr a) where
 
 instance Interpretation Expr where
   data Col Expr _spec where
-    E :: {unE :: !(Expr a)} -> Col Expr ('Spec labels necessity a)
+    E :: {unE :: !(Expr a)} -> Col Expr ('Spec labels a)
 
 
 instance Sql DBType a => Table Expr (Expr a) where

@@ -71,7 +71,6 @@ sfromColumnsADT :: ADTable t
 sfromColumnsADT = \case
   SAggregate -> AHADT . ADT . hunreify
   SExpr -> AHADT . ADT . hunreify
-  SInsert -> AHADT . ADT . hunreify
   SName -> AHADT . ADT . hunreify
   SResult -> AHADT . fromADT . ADT . hunreify
   SReify context -> AHADT . sfromColumnsADT context . hunreify
@@ -84,7 +83,6 @@ stoColumnsADT :: ADTable t
 stoColumnsADT = \case
   SAggregate -> hreify . (\(AHADT (ADT a)) -> a)
   SExpr -> hreify . (\(AHADT (ADT a)) -> a)
-  SInsert -> hreify . (\(AHADT (ADT a)) -> a)
   SName -> hreify . (\(AHADT (ADT a)) -> a)
   SResult -> hreify . (\(ADT a) -> a) . toADT . (\(AHADT a) -> a)
   SReify context -> hreify . stoColumnsADT context . (\(AHADT a) -> a)

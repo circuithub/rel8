@@ -25,9 +25,6 @@ import qualified Hasql.Statement as Hasql
 -- opaleye
 import qualified Opaleye.Internal.Manipulation as Opaleye
 
--- profunctors
-import Data.Profunctor ( lmap )
-
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
@@ -35,7 +32,6 @@ import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
-import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
@@ -74,7 +70,7 @@ update c Update {target, set, updateWhere, returning} =
         prepare = False
         sql = Opaleye.arrangeUpdateSql target' set' where'
           where
-            target' = lmap toInsert $ table $ toColumns <$> target
+            target' = table $ toColumns <$> target
             set' = toColumns . set . fromColumns
             where' = toColumn . toPrimExpr . updateWhere . fromColumns
 
@@ -94,7 +90,7 @@ update c Update {target, set, updateWhere, returning} =
             where'
             project'
           where
-            target' = lmap toInsert $ table $ toColumns <$> target
+            target' = table $ toColumns <$> target
             set' = toColumns . set . fromColumns
             where' = toColumn . toPrimExpr . updateWhere . fromColumns
             project' = castTable . toColumns . project . fromColumns

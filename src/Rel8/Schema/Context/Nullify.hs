@@ -33,7 +33,6 @@ import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
-import Rel8.Kind.Necessity ( Necessity( Required ) )
 import Rel8.Schema.Context ( Interpretation )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ), Col( N ) )
@@ -56,27 +55,27 @@ class Interpretation context => Nullifiable context where
     , Taggable a
     )
     => Tag label a
-    -> Col context ('Spec labels 'Required a)
+    -> Col context ('Spec labels a)
 
   decodeTag ::
     ( Sql (ConstrainTag context) a
     , KnownSymbol label
     , Taggable a
     )
-    => Col context ('Spec labels 'Required a)
+    => Col context ('Spec labels a)
     -> Tag label a
 
   nullifier :: ()
     => Tag label a
     -> (Expr a -> Expr Bool)
-    -> SSpec ('Spec labels necessity x)
-    -> Col context ('Spec labels necessity x)
-    -> Col context ('Spec labels necessity (Nullify x))
+    -> SSpec ('Spec labels x)
+    -> Col context ('Spec labels x)
+    -> Col context ('Spec labels (Nullify x))
 
   unnullifier :: ()
-    => SSpec ('Spec labels necessity x)
-    -> Col context ('Spec labels necessity (Nullify x))
-    -> Col context ('Spec labels necessity x)
+    => SSpec ('Spec labels x)
+    -> Col context ('Spec labels (Nullify x))
+    -> Col context ('Spec labels x)
 
 
 instance Nullifiable Aggregate where
@@ -148,23 +147,23 @@ class HNullifiable context where
 
   hencodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
     => Tag label a
-    -> context ('Spec labels 'Required a)
+    -> context ('Spec labels a)
 
   hdecodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
-    => context ('Spec labels 'Required a)
+    => context ('Spec labels a)
     -> Tag label a
 
   hnullifier :: ()
     => Tag label a
     -> (Expr a -> Expr Bool)
-    -> SSpec ('Spec labels necessity x)
-    -> context ('Spec labels necessity x)
-    -> context ('Spec labels necessity (Nullify x))
+    -> SSpec ('Spec labels x)
+    -> context ('Spec labels x)
+    -> context ('Spec labels (Nullify x))
 
   hunnullifier :: ()
-    => SSpec ('Spec labels necessity x)
-    -> context ('Spec labels necessity (Nullify x))
-    -> context ('Spec labels necessity x)
+    => SSpec ('Spec labels x)
+    -> context ('Spec labels (Nullify x))
+    -> context ('Spec labels x)
 
 
 instance Nullifiable context => HNullifiable (Col context) where

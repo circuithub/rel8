@@ -18,7 +18,7 @@ module Rel8.Table.Either
   ( EitherTable(..)
   , eitherTable, leftTable, rightTable
   , isLeftTable, isRightTable
-  , insertEitherTable, nameEitherTable
+  , nameEitherTable
   )
 where
 
@@ -47,7 +47,6 @@ import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Schema.Insert ( Insert )
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -55,7 +54,6 @@ import Rel8.Table
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -175,13 +173,6 @@ rightTable = rightTableWith undefined
 
 rightTableWith :: a -> b -> EitherTable a b
 rightTableWith = EitherTable (fromExpr (litExpr IsRight))
-
-
-insertEitherTable :: (Table Insert a, Table Insert b)
-  => Either a b -> EitherTable a b
-insertEitherTable = \case
-  Left a -> EitherTable (fromExpr (litExpr IsLeft)) a (fromColumns (toInsert undefined))
-  Right b -> EitherTable (fromExpr (litExpr IsRight)) (fromColumns (toInsert undefined)) b
 
 
 nameEitherTable :: Name EitherTag -> a -> b -> EitherTable a b

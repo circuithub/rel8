@@ -23,7 +23,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
@@ -42,7 +41,6 @@ type family HNonEmpty context where
   HNonEmpty (Reify context) = AHNonEmpty context
   HNonEmpty Aggregate = NonEmptyTable
   HNonEmpty Expr = NonEmptyTable
-  HNonEmpty Insert = NonEmptyTable
   HNonEmpty Name = NonEmptyTable
   HNonEmpty Result = NonEmpty
 
@@ -87,7 +85,6 @@ smapNonEmpty = \case
   SAggregate -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SExpr -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SResult -> \f _ (AHNonEmpty as) -> AHNonEmpty (fmap f as)
-  SInsert -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SName -> \_ f (AHNonEmpty (NonEmptyTable a)) -> AHNonEmpty (NonEmptyTable (f a))
   SReify context -> \f g (AHNonEmpty as) -> AHNonEmpty (smapNonEmpty context f g as)
 
@@ -101,7 +98,6 @@ sfromColumnsNonEmpty = \case
   SExpr -> AHNonEmpty . NonEmptyTable
   SResult ->
     AHNonEmpty . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SInsert -> AHNonEmpty . NonEmptyTable
   SName -> AHNonEmpty . NonEmptyTable
   SReify context ->
     AHNonEmpty .
@@ -119,7 +115,6 @@ stoColumnsNonEmpty = \case
   SExpr -> \(AHNonEmpty (NonEmptyTable a)) -> a
   SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHNonEmpty a) -> a)
-  SInsert -> \(AHNonEmpty (NonEmptyTable a)) -> a
   SName -> \(AHNonEmpty (NonEmptyTable a)) -> a
   SReify context ->
     hreify .

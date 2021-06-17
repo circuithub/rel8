@@ -84,7 +84,7 @@ instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
 
 instance Interpretation Name where
   data Col Name _spec where
-    N :: {unN :: !(Name a)} -> Col Name ('Spec labels necessity a)
+    N :: {unN :: !(Name a)} -> Col Name ('Spec labels a)
 
 
 instance Labelable Name where

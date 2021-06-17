@@ -64,23 +64,23 @@ import Data.Text ( pack )
 
 
 type Null :: K.HContext -> Type
-type Null context = forall labels necessity a. ()
-  => SSpec ('Spec labels necessity a)
-  -> context ('Spec labels necessity (Nullify a))
+type Null context = forall labels a. ()
+  => SSpec ('Spec labels a)
+  -> context ('Spec labels (Nullify a))
 
 
 type Nullifier :: K.HContext -> Type
-type Nullifier context = forall labels necessity a. ()
-  => SSpec ('Spec labels necessity a)
-  -> context ('Spec labels necessity a)
-  -> context ('Spec labels necessity (Nullify a))
+type Nullifier context = forall labels a. ()
+  => SSpec ('Spec labels a)
+  -> context ('Spec labels a)
+  -> context ('Spec labels (Nullify a))
 
 
 type Unnullifier :: K.HContext -> Type
-type Unnullifier context = forall labels necessity a. ()
-  => SSpec ('Spec labels necessity a)
-  -> context ('Spec labels necessity (Nullify a))
-  -> context ('Spec labels necessity a)
+type Unnullifier context = forall labels a. ()
+  => SSpec ('Spec labels a)
+  -> context ('Spec labels (Nullify a))
+  -> context ('Spec labels a)
 
 
 type NoConstructor :: Symbol -> Symbol -> ErrorMessage

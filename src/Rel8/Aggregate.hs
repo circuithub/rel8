@@ -62,7 +62,7 @@ instance Interpretation Aggregate where
   data Col Aggregate _spec where
     A :: ()
       => { unA :: !(Aggregate a) }
-      -> Col Aggregate ('Spec labels necessity a)
+      -> Col Aggregate ('Spec labels a)
 
 
 instance Sql DBType a => Table Aggregate (Aggregate a) where

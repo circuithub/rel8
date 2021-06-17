@@ -24,7 +24,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.These ( HTheseTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
@@ -45,7 +44,6 @@ type family HThese context where
   HThese (Reify context) = AHThese context
   HThese Aggregate = TheseTable
   HThese Expr = TheseTable
-  HThese Insert = TheseTable
   HThese Name = TheseTable
   HThese Result = These
 
@@ -97,7 +95,6 @@ sbimapThese = \case
   SAggregate -> \f g (AHThese a) -> AHThese (bimap f g a)
   SExpr -> \f g (AHThese a) -> AHThese (bimap f g a)
   SResult -> \f g (AHThese a) -> AHThese (bimap f g a)
-  SInsert -> \f g (AHThese a) -> AHThese (bimap f g a)
   SName -> \f g (AHThese a) -> AHThese (bimap f g a)
   SReify context -> \f g (AHThese a) -> AHThese (sbimapThese context f g a)
 
@@ -118,11 +115,6 @@ sfromColumnsThese = \case
     fromColumns .
     hunreify
   SResult ->
-    AHThese .
-    bimap (fromColumns . hreify) (fromColumns . hreify) .
-    fromColumns .
-    hunreify
-  SInsert ->
     AHThese .
     bimap (fromColumns . hreify) (fromColumns . hreify) .
     fromColumns .
@@ -155,11 +147,6 @@ stoColumnsThese = \case
     bimap (hunreify . toColumns) (hunreify . toColumns) .
     (\(AHThese a) -> a)
   SResult ->
-    hreify .
-    toColumns .
-    bimap (hunreify . toColumns) (hunreify . toColumns) .
-    (\(AHThese a) -> a)
-  SInsert ->
     hreify .
     toColumns .
     bimap (hunreify . toColumns) (hunreify . toColumns) .

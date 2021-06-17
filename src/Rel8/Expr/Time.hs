@@ -31,7 +31,7 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Function ( binaryOperator, nullaryFunction )
-import Rel8.Expr.Opaleye ( unsafeCastExpr, unsafeLiteral )
+import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral )
 
 -- time
 import Data.Time.Calendar ( Day )
@@ -164,4 +164,4 @@ years = (`scaleInterval` year)
 
 
 singleton :: String -> Expr CalendarDiffTime
-singleton unit = unsafeLiteral $ "'1 " ++ unit ++ "'"
+singleton unit = castExpr $ unsafeLiteral $ "'1 " ++ unit ++ "'"

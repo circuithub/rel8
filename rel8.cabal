@@ -47,7 +47,6 @@ library
     Rel8.Column
     Rel8.Column.ADT
     Rel8.Column.Either
-    Rel8.Column.Field
     Rel8.Column.Lift
     Rel8.Column.List
     Rel8.Column.Maybe
@@ -64,6 +63,7 @@ library
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Order
+    Rel8.Expr.Sequence
     Rel8.Expr.Serialize
 
     Rel8.FCF
@@ -71,7 +71,6 @@ library
     Rel8.Kind.Algebra
     Rel8.Kind.Context
     Rel8.Kind.Labels
-    Rel8.Kind.Necessity
 
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
@@ -121,7 +120,6 @@ library
     Rel8.Schema.HTable.Product
     Rel8.Schema.HTable.These
     Rel8.Schema.HTable.Vectorize
-    Rel8.Schema.Insert
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
@@ -129,7 +127,6 @@ library
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Spec.ConstrainDBType
-    Rel8.Schema.Spec.ConstrainType
     Rel8.Schema.Table
 
     Rel8.Statement.Delete
@@ -147,7 +144,6 @@ library
     Rel8.Table.Either
     Rel8.Table.Eq
     Rel8.Table.HKD
-    Rel8.Table.Insert
     Rel8.Table.List
     Rel8.Table.Maybe
     Rel8.Table.Name

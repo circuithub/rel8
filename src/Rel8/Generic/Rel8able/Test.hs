@@ -36,7 +36,7 @@ data TableTest f = TableTest
 
 
 data TablePair f = TablePair
-  { foo :: Default f Bool
+  { foo :: Column f Bool
   , bars :: (Column f Text, Column f Text)
   }
   deriving stock Generic

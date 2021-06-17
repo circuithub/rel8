@@ -22,7 +22,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.Insert ( Insert )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
@@ -41,7 +40,6 @@ type family HList context where
   HList (Reify context) = AHList context
   HList Aggregate = ListTable
   HList Expr = ListTable
-  HList Insert = ListTable
   HList Name = ListTable
   HList Result = []
 
@@ -86,7 +84,6 @@ smapList = \case
   SAggregate -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SExpr -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SResult -> \f _ (AHList as) -> AHList (fmap f as)
-  SInsert -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SName -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
   SReify context -> \f g (AHList as) -> AHList (smapList context f g as)
 
@@ -99,7 +96,6 @@ sfromColumnsList = \case
   SAggregate -> AHList . ListTable
   SExpr -> AHList . ListTable
   SResult -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SInsert -> AHList . ListTable
   SName -> AHList . ListTable
   SReify context ->
     AHList .
@@ -117,7 +113,6 @@ stoColumnsList = \case
   SExpr -> \(AHList (ListTable a)) -> a
   SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
-  SInsert -> \(AHList (ListTable a)) -> a
   SName -> \(AHList (ListTable a)) -> a
   SReify context ->
     hreify .

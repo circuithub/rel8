@@ -32,8 +32,7 @@ module Rel8
 
     -- * Tables and higher-kinded tables
   , Rel8able, KRel8able
-  , Column, Field, Necessity( Required, Optional )
-  , Default
+  , Column
   , HADT
   , HEither
   , HMaybe
@@ -59,7 +58,6 @@ module Rel8
   , catMaybeTable
   , bindMaybeTable
   , traverseMaybeTable
-  , insertMaybeTable
   , nameMaybeTable
 
     -- ** @EitherTable@
@@ -70,7 +68,6 @@ module Rel8
   , keepRightTable
   , bindEitherTable
   , bitraverseEitherTable
-  , insertEitherTable
   , nameEitherTable
 
     -- ** @TheseTable@
@@ -87,13 +84,11 @@ module Rel8
   , keepThoseTable, loseThoseTable
   , bindTheseTable
   , bitraverseTheseTable
-  , insertTheseTable
   , nameTheseTable
 
     -- ** @ListTable@
   , ListTable
   , listTable
-  , insertListTable
   , nameListTable
   , many
   , manyExpr
@@ -103,7 +98,6 @@ module Rel8
     -- ** @NonEmptyTable@
   , NonEmptyTable
   , nonEmptyTable
-  , insertNonEmptyTable
   , nameNonEmptyTable
   , some
   , someExpr
@@ -115,7 +109,6 @@ module Rel8
   , BuildADT, buildADT
   , ConstructADT, constructADT
   , DeconstructADT, deconstructADT
-  , InsertADT, insertADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
 
@@ -124,7 +117,6 @@ module Rel8
   , BuildHKD, buildHKD
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
-  , InsertHKD, insertHKD
   , NameHKD, nameHKD
   , AggregateHKD, aggregateHKD
 
@@ -139,6 +131,7 @@ module Rel8
   , Sql
   , litExpr
   , unsafeCastExpr
+  , unsafeLiteral
 
     -- ** @null@
   , null
@@ -251,8 +244,6 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
-  , toInsert
-  , toInsertDefaults
 
     -- ** @DELETE@
   , Delete(..)
@@ -267,6 +258,9 @@ module Rel8
 
     -- ** @CREATE VIEW@
   , createView
+
+    -- ** Sequences
+  , nextval
 
     -- * TODO
     -- TODO
@@ -291,7 +285,6 @@ import Rel8.Aggregate
 import Rel8.Column
 import Rel8.Column.ADT
 import Rel8.Column.Either
-import Rel8.Column.Field
 import Rel8.Column.Lift
 import Rel8.Column.List
 import Rel8.Column.Maybe
@@ -303,12 +296,12 @@ import Rel8.Expr.Bool
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null
-import Rel8.Expr.Opaleye (unsafeCastExpr)
+import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeLiteral)
 import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
+import Rel8.Expr.Sequence
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
-import Rel8.Kind.Necessity
 import Rel8.Order
 import Rel8.Query
 import Rel8.Query.Aggregate
@@ -346,7 +339,6 @@ import Rel8.Table.Bool
 import Rel8.Table.Either
 import Rel8.Table.Eq
 import Rel8.Table.HKD
-import Rel8.Table.Insert
 import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name

@@ -48,8 +48,8 @@ sunsafeCastExpr TypeInformation {typeName} =
   fromPrimExpr . Opaleye.CastExpr typeName . toPrimExpr
 
 
-unsafeLiteral :: Sql DBType a => String -> Expr a
-unsafeLiteral = castExpr . Expr . Opaleye.ConstExpr . Opaleye.OtherLit
+unsafeLiteral :: String -> Expr a
+unsafeLiteral = Expr . Opaleye.ConstExpr . Opaleye.OtherLit
 
 
 fromPrimExpr :: Opaleye.PrimExpr -> Expr a

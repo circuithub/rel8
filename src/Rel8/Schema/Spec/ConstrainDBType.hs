@@ -31,47 +31,47 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec( SSpec, nullity ) )
 
 type ConstrainDBType :: (Type -> Constraint) -> Spec -> Constraint
 class
-  ( forall c labels necessity a. ()
-     => (spec ~ 'Spec labels necessity a)
+  ( forall c labels a. ()
+     => (spec ~ 'Spec labels a)
      => (forall x. (constraint x => c x)) => Sql c a
   )
   => ConstrainDBType constraint spec
 instance
-  ( spec ~ 'Spec labels necessity a
+  ( spec ~ 'Spec labels a
   , Sql constraint a
   )
   => ConstrainDBType constraint spec
 
 
-dbTypeNullity :: Dict (ConstrainDBType c) ('Spec l n a) -> Nullity a
+dbTypeNullity :: Dict (ConstrainDBType c) ('Spec l a) -> Nullity a
 dbTypeNullity = step2 . step1
   where
-    step1 :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict (Sql c) a
+    step1 :: Dict (ConstrainDBType c) ('Spec l a) -> Dict (Sql c) a
     step1 Dict = Dict
 
     step2 :: Dict (Sql c) a -> Nullity a
     step2 Dict = nullable
 
 
-dbTypeDict :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict c (Unnullify a)
+dbTypeDict :: Dict (ConstrainDBType c) ('Spec l a) -> Dict c (Unnullify a)
 dbTypeDict = step2 . step1
   where
-    step1 :: Dict (ConstrainDBType c) ('Spec l n a) -> Dict (Sql c) a
+    step1 :: Dict (ConstrainDBType c) ('Spec l a) -> Dict (Sql c) a
     step1 Dict = Dict
 
     step2 :: Dict (Sql c) a -> Dict c (Unnullify a)
     step2 Dict = Dict
 
 
-fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l n a)
+fromNullityDict :: Nullity a -> Dict c (Unnullify a) -> Dict (ConstrainDBType c) ('Spec l a)
 fromNullityDict Null Dict = Dict
 fromNullityDict NotNull Dict = Dict
 
 
 nullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
+  => SSpec ('Spec labels a)
+  -> Dict (ConstrainDBType c) ('Spec labels a)
+  -> Dict (ConstrainDBType c) ('Spec labels (Nullify a))
 nullifier SSpec {} dict = case dbTypeDict dict of
   Dict -> case dbTypeNullity dict of
     Null -> Dict
@@ -79,9 +79,9 @@ nullifier SSpec {} dict = case dbTypeDict dict of
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels necessity a)
-  -> Dict (ConstrainDBType c) ('Spec labels necessity (Nullify a))
-  -> Dict (ConstrainDBType c) ('Spec labels necessity a)
+  => SSpec ('Spec labels a)
+  -> Dict (ConstrainDBType c) ('Spec labels (Nullify a))
+  -> Dict (ConstrainDBType c) ('Spec labels a)
 unnullifier SSpec {nullity} dict = case dbTypeDict dict of
   Dict -> case nullity of
     Null -> Dict

@@ -50,15 +50,14 @@ newtype HNullify table context = HNullify (HMapTable Nullify table context)
 data Nullify :: Spec -> Exp Spec
 
 
-type instance Eval (Nullify ('Spec labels necessity a)) =
-  'Spec labels necessity (Type.Nullify a)
+type instance Eval (Nullify ('Spec labels a)) =
+  'Spec labels (Type.Nullify a)
 
 
 instance MapSpec Nullify where
   mapInfo = \case
-    SSpec{labels, necessity, info, nullity} -> SSpec
+    SSpec{labels, info, nullity} -> SSpec
       { labels
-      , necessity
       , info
       , nullity = case nullity of
           Null    -> Null
@@ -67,9 +66,9 @@ instance MapSpec Nullify where
 
 
 hnulls :: HTable t
-  => (forall labels necessity a. ()
-    => SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity (Type.Nullify a)))
+  => (forall labels a. ()
+    => SSpec ('Spec labels a)
+    -> context ('Spec labels (Type.Nullify a)))
   -> HNullify t context
 hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
   spec@SSpec {} -> null spec
@@ -77,10 +76,10 @@ hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspe
 
 
 hnullify :: HTable t
-  => (forall labels necessity a. ()
-    => SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity a)
-    -> context ('Spec labels necessity (Type.Nullify a)))
+  => (forall labels a. ()
+    => SSpec ('Spec labels a)
+    -> context ('Spec labels a)
+    -> context ('Spec labels (Type.Nullify a)))
   -> t context
   -> HNullify t context
 hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
@@ -90,10 +89,10 @@ hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
 
 
 hunnullify :: (HTable t, Apply m)
-  => (forall labels necessity a. ()
-    => SSpec ('Spec labels necessity a)
-    -> context ('Spec labels necessity (Type.Nullify a))
-    -> m (context ('Spec labels necessity a)))
+  => (forall labels a. ()
+    => SSpec ('Spec labels a)
+    -> context ('Spec labels (Type.Nullify a))
+    -> m (context ('Spec labels a)))
   -> HNullify t context
   -> m (t context)
 hunnullify unnullifier (HNullify as) =

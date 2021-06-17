@@ -10,7 +10,7 @@
 
 module Rel8.Table.List
   ( ListTable(..)
-  , listTable, insertListTable, nameListTable
+  , listTable, nameListTable
   )
 where
 
@@ -26,7 +26,6 @@ import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
-import Rel8.Schema.Insert ( Inserts )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -41,7 +40,6 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Insert ( toInsert )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -124,10 +122,6 @@ listTable =
   ListTable .
   hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
   fmap toColumns
-
-
-insertListTable :: Inserts exprs inserts => [exprs] -> ListTable inserts
-insertListTable = toInsert . listTable
 
 
 nameListTable :: Table Name a => a -> ListTable a
