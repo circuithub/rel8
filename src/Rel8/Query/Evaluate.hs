@@ -14,7 +14,6 @@ where
 -- base
 import Data.Kind ( Type )
 import Data.Monoid ( Endo ( Endo ), appEndo )
-import Debug.Trace
 import Prelude
 
 -- opaleye
@@ -80,4 +79,4 @@ evaluate :: Evaluate a -> Query a
 evaluate (Evaluate m) = Query $ Opaleye.QueryArr $ \(_, query, tag) ->
   case runState m (Evaluations tag mempty) of
     (a, Evaluations {tag = tag', bindings}) ->
-      (a, Opaleye.Rebind True (traceShowId (appEndo bindings mempty)) query, tag')
+      (a, Opaleye.Rebind True (appEndo bindings mempty) query, tag')
