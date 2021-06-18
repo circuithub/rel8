@@ -23,6 +23,10 @@ import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 
+-- | The @Result@ context is the context used for decoded query results.
+--
+-- When a query is executed against a PostgreSQL database, Rel8 parses the
+-- returned rows, decoding each row into the @Result@ context.
 type Result :: Context
 data Result a
 
