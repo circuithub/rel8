@@ -27,6 +27,9 @@ import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
 
 
+-- | @Recontextualize from to a b@ is evidence that the types @a@ and @b@ are
+-- related, and that @b@ is the same type as @a@, but after changing the
+-- context from the initial context @from@, to the new context @to@.
 type Recontextualize :: K.Context -> K.Context -> Type -> Type -> Constraint
 class
   ( Table from a
