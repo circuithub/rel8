@@ -125,7 +125,13 @@ listTable =
   fmap toColumns
 
 
-nameListTable :: Table Name a => a -> ListTable a
+-- | Construct a 'ListTable' in the 'Name' context. This can be useful if you
+-- have a 'ListTable' that you are storing in a table and need to construct a
+-- 'TableSchema'.
+nameListTable
+  :: Table Name a
+  => a -- ^ The names of the columns of elements of the list.
+  -> ListTable a
 nameListTable =
   ListTable .
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .

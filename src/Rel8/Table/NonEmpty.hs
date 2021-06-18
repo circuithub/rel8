@@ -117,7 +117,13 @@ nonEmptyTable =
   fmap toColumns
 
 
-nameNonEmptyTable :: Table Name a => a -> NonEmptyTable a
+-- | Construct a 'NonEmptyTable' in the 'Name' context. This can be useful if
+-- you have a 'NonEmptyTable' that you are storing in a table and need to
+-- construct a 'TableSchema'.
+nameNonEmptyTable
+  :: Table Name a
+  => a -- ^ The names of the columns of elements of the list.
+  -> NonEmptyTable a
 nameNonEmptyTable =
   NonEmptyTable .
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .

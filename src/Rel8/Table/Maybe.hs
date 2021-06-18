@@ -207,7 +207,16 @@ f $? ma@(MaybeTable _ a) = case nullable @b of
 infixl 4 $?
 
 
-nameMaybeTable :: Name (Maybe MaybeTag) -> a -> MaybeTable a
+-- | Construct a 'MaybeTable' in the 'Name' context. This can be useful if you
+-- have a 'MaybeTable' that you are storing in a table and need to construct a
+-- 'TableSchema'.
+nameMaybeTable
+  :: Name (Maybe MaybeTag)
+     -- ^ The name of the column to track whether a row is a 'justTable' or
+     -- 'nothingTable'.
+  -> a
+     -- ^ Names of the columns in @a@.
+  -> MaybeTable a
 nameMaybeTable = MaybeTable . fromName
 
 

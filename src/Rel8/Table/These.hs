@@ -247,11 +247,18 @@ theseTable f g h TheseTable {here, there} =
     there
 
 
+-- | Construct a 'TheseTable' in the 'Name' context. This can be useful if you
+-- have a 'TheseTable' that you are storing in a table and need to construct a
+-- 'TableSchema'.
 nameTheseTable :: ()
   => Name (Maybe MaybeTag)
+     -- ^ The name of the column to track the presence of 'thisTable'.
   -> Name (Maybe MaybeTag)
+     -- ^ The name of the column to track the presence of 'thatTable'.
   -> a
+     -- ^ Names of the columns in the @a@ table.
   -> b
+     -- ^ Names of the columns in the @b@ table.
   -> TheseTable a b
 nameTheseTable here there a b =
   TheseTable

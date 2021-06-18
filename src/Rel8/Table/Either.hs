@@ -187,7 +187,18 @@ rightTableWith :: a -> b -> EitherTable a b
 rightTableWith = EitherTable (fromExpr (litExpr IsRight))
 
 
-nameEitherTable :: Name EitherTag -> a -> b -> EitherTable a b
+-- | Construct a 'EitherTable' in the 'Name' context. This can be useful if you
+-- have a 'EitherTable' that you are storing in a table and need to construct a
+-- 'TableSchema'.
+nameEitherTable
+  :: Name EitherTag
+     -- ^ The name of the column to track whether a row is a 'leftTable' or
+     -- 'rightTable'.
+  -> a
+     -- ^ Names of the columns in the @a@ table.
+  -> b
+     -- ^ Names of the columns in the @b@ table.
+  -> EitherTable a b
 nameEitherTable = EitherTable . fromName
 
 
