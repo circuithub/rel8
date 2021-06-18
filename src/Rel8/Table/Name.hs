@@ -33,12 +33,31 @@ import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 
 
+-- | Construct a table in the 'Name' context containing the names of all
+-- columns. Nested column names will be combined with @/@.
+--
+-- See also: 'namesFromLabelsWith'.
 namesFromLabels :: Table Name a => a
 namesFromLabels = namesFromLabelsWith go
   where
     go = fold . intersperse "/"
 
 
+-- | Construct a table in the 'Name' context containing the names of all
+-- columns. The supplied function can be used to transform column names.
+--
+-- This function can be used to generically derive the columns for a
+-- 'TableSchema'. For example,
+--
+-- @
+-- myTableSchema :: TableSchema (MyTable Name)
+-- myTableSchema = TableSchema
+--   { columns = namesFromLabelsWith last
+--   }
+-- @
+--
+-- will construct a 'TableSchema' where each columns names exactly corresponds
+-- to the name of the Haskell field.
 namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
 namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
