@@ -47,6 +47,7 @@ import Rel8.Table
   )
 
 
+-- | The kind of 'Rel8able' types
 type KRel8able :: Type
 type KRel8able = K.Rel8able
 
@@ -62,34 +63,34 @@ type KRel8able = K.Rel8able
 --          , fieldN :: Column f Tn OR HKn f
 --          }
 -- @
--- 
+--
 -- where @Tn@ is any Haskell type, and @HKn@ is any higher-kinded type.
--- 
+--
 -- That is, higher-kinded data are records where all fields in the record are
 -- all either of the type @Column f T@ (for any @T@), or are themselves
 -- higher-kinded data:
--- 
+--
 -- [Nested]
--- 
+--
 -- @
 -- data Nested f =
 --   Nested { nested1 :: MyType f
 --          , nested2 :: MyType f
 --          }
 -- @
--- 
+--
 -- The @Rel8able@ type class is used to give us a special mapping operation
 -- that lets us change the type parameter @f@.
--- 
+--
 -- [Supplying @Rel8able@ instances]
--- 
+--
 -- This type class should be derived generically for all table types in your
 -- project. To do this, enable the @DeriveAnyType@ and @DeriveGeneric@ language
 -- extensions:
--- 
+--
 -- @
 -- \{\-\# LANGUAGE DeriveAnyClass, DeriveGeneric #-\}
--- 
+--
 -- data MyType f = MyType { fieldA :: Column f T }
 --   deriving ( GHC.Generics.Generic, Rel8able )
 -- @
