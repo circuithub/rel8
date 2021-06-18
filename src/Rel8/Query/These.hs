@@ -7,13 +7,11 @@ module Rel8.Query.These
   , keepThisTable, loseThisTable
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
-  , bindTheseTable
   , bitraverseTheseTable
   )
 where
 
 -- base
-import Data.Functor ( (<&>) )
 import Prelude
 
 -- opaleye
@@ -57,10 +55,12 @@ alignBy condition as bs =
         on = toColumn . toPrimExpr . uncurry condition
 
 
+-- | Filter 'TheseTable's, keeping only 'thisTable's and 'thoseTable's.
 keepHereTable :: TheseTable a b -> Query (a, MaybeTable b)
 keepHereTable = loseThatTable
 
 
+-- | Filter 'TheseTable's, keeping on
 loseHereTable :: TheseTable a b -> Query b
 loseHereTable = keepThatTable
 
@@ -110,13 +110,6 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where
     tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
     result = (mempty `asTypeOf` result) {expr = tag}
-
-
-bindTheseTable :: (Table Expr a, Semigroup a, Functor m)
-  => (i -> m (TheseTable a b)) -> TheseTable a i -> m (TheseTable a b)
-bindTheseTable query (TheseTable here (MaybeTable input i)) =
-  query i <&> \(TheseTable here' (MaybeTable output b)) ->
-    TheseTable (here <> here') (MaybeTable (input <> output) b)
 
 
 bitraverseTheseTable :: ()

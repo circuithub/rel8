@@ -3,23 +3,18 @@
 module Rel8.Query.Either
   ( keepLeftTable
   , keepRightTable
-  , bindEitherTable
   , bitraverseEitherTable
   )
 where
 
 -- base
-import Data.Functor ( (<&>) )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( optional )
-import Rel8.Table ( Table )
-import Rel8.Table.Bool ( bool )
 import Rel8.Table.Either
   ( EitherTable( EitherTable )
   , isLeftTable, isRightTable
@@ -39,17 +34,6 @@ keepRightTable :: EitherTable a b -> Query b
 keepRightTable e@(EitherTable _ _ b) = do
   where_ $ isRightTable e
   pure b
-
-
--- | Extend an 'EitherTable' with a 'Query' if it's a 'rightTable'. If the
--- @EitherTable@ is a 'leftTable', the original value is preserved.
---
--- This is like the '>>=' implementation for @ExceptT@.
-bindEitherTable :: (Table Expr a, Functor m)
-  => (i -> m (EitherTable a b)) -> EitherTable a i -> m (EitherTable a b)
-bindEitherTable query e@(EitherTable input a i) = do
-  query i <&> \(EitherTable output a' b) ->
-    EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
 -- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and

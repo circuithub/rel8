@@ -101,8 +101,7 @@ instance Bind MaybeTable where
     MaybeTable tag' b -> MaybeTable (tag <> tag') b
 
 
--- | Has the same behavior as the @Monad@ instance for @Maybe@. See also:
--- 'Rel8.bindMaybeTable'.
+-- | Has the same behavior as the @Monad@ instance for @Maybe@.
 instance Monad MaybeTable where
   (>>=) = (>>-)
 

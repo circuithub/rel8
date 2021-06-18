@@ -56,7 +56,6 @@ module Rel8
   , isNothingTable, isJustTable
   , optional
   , catMaybeTable
-  , bindMaybeTable
   , traverseMaybeTable
   , nameMaybeTable
 
@@ -66,7 +65,6 @@ module Rel8
   , isLeftTable, isRightTable
   , keepLeftTable
   , keepRightTable
-  , bindEitherTable
   , bitraverseEitherTable
   , nameEitherTable
 
@@ -82,7 +80,6 @@ module Rel8
   , keepThisTable, loseThisTable
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
-  , bindTheseTable
   , bitraverseTheseTable
   , nameTheseTable
 

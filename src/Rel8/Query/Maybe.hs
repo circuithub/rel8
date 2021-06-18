@@ -1,13 +1,11 @@
 module Rel8.Query.Maybe
   ( optional
   , catMaybeTable
-  , bindMaybeTable
   , traverseMaybeTable
   )
 where
 
 -- base
-import Data.Functor ( (<&>) )
 import Prelude
 
 -- opaleye
@@ -57,19 +55,6 @@ catMaybeTable :: MaybeTable a -> Query a
 catMaybeTable ma@(MaybeTable _ a) = do
   where_ $ isJustTable ma
   pure a
-
-
--- | @bindMaybeTable f x@ is similar to the monadic bind (@>>=@) operation. It
--- allows you to "extend" an optional query with another query. If either the
--- input or output are 'Rel8.nothingTable', then the result is
--- 'Rel8.nothingTable'.
---
--- This is similar to 'traverseMaybeTable', followed by a @join@ on the
--- resulting @MaybeTable@s.
-bindMaybeTable :: Functor m
-  => (a -> m (MaybeTable b)) -> MaybeTable a -> m (MaybeTable b)
-bindMaybeTable query (MaybeTable input a) =
-  query a <&> \(MaybeTable output b) -> MaybeTable (input <> output) b
 
 
 -- | Extend an optional query with another query.  This is useful if you want
