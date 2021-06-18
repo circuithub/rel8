@@ -52,8 +52,22 @@ bindEitherTable query e@(EitherTable input a i) = do
     EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
--- | Extend an 'EitherTable' with queries for both 'leftTable' and
--- 'rightTable'.
+-- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and
+-- all @rightTable@s through @g@. The results are then lifted back into
+-- @leftTable@ and @rightTable@, respectively. This is similar to 'bitraverse'
+-- for 'Either'.
+--
+-- For example,
+--
+-- >>> :{
+-- select do
+--   x <- values (map lit [ Left True, Right (42 :: Int32) ])
+--   bitraverseEitherTable (\y -> values [y, not_ y]) (\y -> pure (y * 100)) x
+-- :}
+-- [ Left True
+-- , Left False
+-- , Right 4200
+-- ]
 bitraverseEitherTable :: ()
   => (a -> Query c)
   -> (b -> Query d)
