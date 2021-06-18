@@ -91,11 +91,16 @@ instance DBEnum a => DBMax (Enum a)
 instance DBEnum a => DBMin (Enum a)
 
 
+-- | @DBEnum@ contains the necessary metadata to describe a PostgreSQL @enum@ type.
 type DBEnum :: Type -> Constraint
 class (DBType a, Enumable a) => DBEnum a where
+  -- | Map Haskell values to the corresponding element of the @enum@ type. The
+  -- default implementation of this method will use the exact name of the
+  -- Haskell constructors.
   enumValue :: a -> String
   enumValue = gshow @(Rep a) . from
 
+  -- | The name of the PostgreSQL @enum@ type that @a@ maps to.
   enumTypeName :: String
 
 
