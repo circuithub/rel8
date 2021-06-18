@@ -35,6 +35,9 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 
 
+-- | This type family is used to specify columns in 'Rel8able's. In @Column f
+-- a@, @f@ is the context of the column (which should be left polymorphic in
+-- 'Rel8able' definitions), and @a@ is the type of the column.
 type Column :: K.Context -> Type -> Type
 type family Column context a where
   Column (Reify context) a = AColumn context a
