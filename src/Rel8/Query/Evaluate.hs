@@ -48,9 +48,9 @@ data Evaluations = Evaluations
 -- | Some PostgreSQL functions, such as 'Rel8.nextval', have side effects,
 -- breaking the referential transparency we would otherwise enjoy.
 --
--- To try to recover our ability to reason about such expressions, 'Rel8'
--- provides the 'Evaluate' monad, which allows us to control the evaluation
--- order of side-effects by sequencing them monadically.
+-- To try to recover our ability to reason about such expressions, 'Evaluate'
+-- allows us to control the evaluation order of side-effects by sequencing
+-- them monadically.
 type Evaluate :: Type -> Type
 newtype Evaluate a = Evaluate (State Evaluations a)
   deriving newtype (Functor, Apply, Applicative, Monad)
@@ -61,8 +61,8 @@ instance Bind Evaluate where
 
 
 -- | 'eval' takes expressions that could potentially have side effects and
--- lifts them into the 'Evaluate' monad. The resulting expressions has no side
--- effetcs and can safely be reused.
+-- \"runs\" them in the 'Evaluate' monad. The returned expressions have no
+-- side effetcs and can safely be reused.
 eval :: Table Expr a => a -> Evaluate a
 eval a = Evaluate $ do
   Evaluations {tag, bindings} <- get
