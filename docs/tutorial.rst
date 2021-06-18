@@ -22,7 +22,7 @@ imports throughout this guide::
   {-# language TypeApplications #-}
   {-# language TypeFamilies #-}
 
-  import Prelude
+  import Prelude hiding (filter)
   import Rel8
 
 The Example Schema
@@ -104,9 +104,9 @@ And similarly, the ``project`` table::
     deriving stock (Generic)
     deriving anyclass (Rel8able)
 
-To show query results in this documentation, we'll also need ``Show`` instances:
-Unfortunately these definitions look a bit scary, but they are essentially just
-``deriving (Show)``::
+To show query results in this documentation, we'll also need ``Show``
+instances: Unfortunately these definitions look a bit scary, but they are
+essentially just ``deriving (Show)``::
 
   deriving stock instance f ~ Result => Show (Author f)
   deriving stock instance f ~ Result => Show (Project f)
@@ -164,11 +164,11 @@ can use ``namesFromLabelsWith``, which takes a transformation function.
 .. note::
 
   You might be wondering why this information isn't in the definitions of
-  ``Author`` and ``Project`` above. Rel8 decouples ``TableSchema`` from the data
-  types themselves, as not all tables you define will necessarily have a schema.
-  For example, Rel8 allows you to define helper types to simplify the types of
-  queries - these tables only exist at query time, but there is no corresponding
-  base table. We'll see more on this idea later!
+  ``Author`` and ``Project`` above. Rel8 decouples ``TableSchema`` from the
+  data types themselves, as not all tables you define will necessarily have a
+  schema.  For example, Rel8 allows you to define helper types to simplify the
+  types of queries - these tables only exist at query time, but there is no
+  corresponding base table. We'll see more on this idea later!
 
 With these table definitions, we can now start writing some queries!
 
@@ -187,13 +187,14 @@ required knowledge.
 
 To start, we'll look at one of the simplest queries possible - a basic ``SELECT
 * FROM`` statement. To select all rows from a table, we use ``each``, and
-supply a ``TableSchema``. So to select all ``project`` rows, we can write::
+  supply a ``TableSchema``. So to select all ``project`` rows, we can write::
 
   >>> :t each projectSchema
   each projectSchema :: Query (Project Expr)
 
 Notice that ``each`` gives us a ``Query`` that yields ``Project Expr`` rows. To
-see what this means, let's have a look at a single field of a ``Project Expr``::
+see what this means, let's have a look at a single field of a ``Project
+Expr``::
 
   >>> let aProjectExpr = undefined :: Project Expr
   >>> :t projectAuthorId aProjectExpr
@@ -220,8 +221,8 @@ Haskell values. Studying ``projectAuthorId`` again, we have::
   >>> :t projectAuthorId aProjectResult
   projectAuthorId aProjectResult :: AuthorId
 
-Here ``Column Result AuthorId`` reduces to just ``AuthorId``, with no
-wrappping type at all.
+Here ``Column Result AuthorId`` reduces to just ``AuthorId``, with no wrappping
+type at all.
 
 Putting this all together, we can run our first query::
 
@@ -276,9 +277,9 @@ returned rows. We could write::
     where_ $ projectAuthorId project ==. authorId author
     return (project, author)
 
-but doing this every time you need a join can obscure the meaning of the
-query you're writing. A good practice is to introduce specialised functions
-for the particular joins in your database. In our case, this would be::
+but doing this every time you need a join can obscure the meaning of the query
+you're writing. A good practice is to introduce specialised functions for the
+particular joins in your database. In our case, this would be::
 
   projectsForAuthor :: Author Expr -> Query (Project Expr)
   projectsForAuthor a = each projectSchema >>= filter \p ->
@@ -347,8 +348,8 @@ structures. Earlier we saw an example of returning authors with their projects,
 but the query didn't do a great job of describing the one-to-many relationship
 between authors and their projects.
 
-Let's look again at a query that returns authors and their projects, and
-focus on the /type/ of that query::
+Let's look again at a query that returns authors and their projects, and focus
+on the /type/ of that query::
 
   projectsForAuthor a = each projectSchema >>= filter \p ->
     projectAuthorId p ==. authorId a
@@ -362,7 +363,6 @@ focus on the /type/ of that query::
   >>> :t select conn authorsAndProjects
   select conn authorsAndProjects
     :: MonadIO m => m [(Author Result, Project Result)]
-
 
 Our query gives us a single list of pairs of authors and projects. However,
 with our domain knowledge of the schema, this isn't a great type - what we'd
