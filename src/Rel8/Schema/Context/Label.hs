@@ -23,6 +23,8 @@ import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
 
 
+-- | The @Labelable@ class is an internal implementation detail of Rel8, and
+-- indicates that we can successfully "name" all columns in a type.
 type Labelable :: Context -> Constraint
 class Interpretation context => Labelable context where
   labeler :: ()
