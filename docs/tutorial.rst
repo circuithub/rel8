@@ -196,7 +196,7 @@ To execute this ``Query``, we pass it to ``select``::
   >>> :t select c (each projectSchema)
   select c (each projectSchema) :: MonadIO m => m [Project Result]
 
-When we ``select`` things containing ``Expr``s, Rel8 builds a new response
+When we ``select`` things containing ``Expr``\s, Rel8 builds a new response
 table with the ``Result`` interpretation. This means you'll get back plain
 Haskell values. Studying ``projectAuthorId`` again, we have::
 
