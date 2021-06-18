@@ -194,7 +194,7 @@ and this query can be written in Rel8 as::
 
     authorForBlogPost :: BlogPost Expr -> Query (Author Expr)
     authorForBlogPost blogPost =
-      filter ((blogPostAuthorId blogPost ==.) authorId author) =<<
+      filter ((blogPostAuthorId blogPost ==.) . authorId) =<<
       each authorSchema
 
   While this is a little more code over all, in our experience this style
