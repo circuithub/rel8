@@ -58,7 +58,7 @@ Through the API reference documentation for Rel8, you might encounter the
 ``Sql`` type class. For example, if we look at the type of ``litExpr``, we
 have::
 
-  litExpr :: Sql DBType a => a -> Expr a 
+  litExpr :: Sql DBType a => a -> Expr a
 
 Here ``Sql DBType a`` means that ``a`` can either be literally a type that has
 an instance of ``DBType`` (like ``UserId`` or ``Bool``), *or* that same type
@@ -69,6 +69,6 @@ Some functions work regardless of whether or not a value is null, and in these
 cases you'll see ``Sql DBType a``. ``Sql`` can be used with any ``DBType``
 subtype. For example, the type of ``div`` is::
 
-  div :: Sql DBIntegral a => Expr a -> Expr a -> Expr a 
+  div :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
 
 Which means ``div`` works on any ``DBIntegral a``, including ``Maybe a``.

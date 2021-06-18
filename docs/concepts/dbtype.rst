@@ -11,18 +11,19 @@ though most of these primitive ``DBType``\s should already be available.
 Combining ``newtype`` and ``DBType``
 ------------------------------------
 
-You can define new instances of ``DBType`` by using Haskell "generalized newtype
-deriving" strategy. This is useful when you have a common database type, but
-need to interpret this type differently in different contexts. A very common
-example here is with auto-incrementing ``id`` counters. In PostgreSQL, it's
-common for a table to have a primary key that uses the ``serial`` type, which
-means the key is an ``int8`` with a default value for ``INSERT``. In Rel8, we
-could use ``Int64`` (as ``Int64`` is the ``DBType`` instance for ``int8``), but
-we can be even clearer if we make a ``newtype`` for each *type* of id.
+You can define new instances of ``DBType`` by using Haskell "generalized
+newtype deriving" strategy. This is useful when you have a common database
+type, but need to interpret this type differently in different contexts. A very
+common example here is with auto-incrementing ``id`` counters. In PostgreSQL,
+it's common for a table to have a primary key that uses the ``serial`` type,
+which means the key is an ``int8`` with a default value for ``INSERT``. In
+Rel8, we could use ``Int64`` (as ``Int64`` is the ``DBType`` instance for
+``int8``), but we can be even clearer if we make a ``newtype`` for each *type*
+of id.
 
-If our database has users and orders, these tables might both have ids, but they
-are clearly not meant to be treated as a common type. Instead, we can make these
-types clearly different by writing::
+If our database has users and orders, these tables might both have ids, but
+they are clearly not meant to be treated as a common type. Instead, we can make
+these types clearly different by writing::
 
   newtype UserId = UserId { getUserId :: Int64 }
     deriving newtype DBType
@@ -57,8 +58,8 @@ In our PostgreSQL we have a few choices, but for now we'll assume that they are
 stored as ``text`` values.
 
 In order to use this type in Rel8 queries, we need to write an instance of
-``DBType`` for ``OrderStatus``. One approach is to use ``parseTypeInformation``,
-which allows you to refine an existing ``DBType``::
+``DBType`` for ``OrderStatus``. One approach is to use
+``parseTypeInformation``, which allows you to refine an existing ``DBType``::
 
   instance DBType OrderStatus where
     typeInformation = parseTypeInformation parser printer typeInformation
@@ -100,9 +101,9 @@ There usage is very similar to ``ReadShow`` - simply derive ``DBType via
 JSONEncoded``, and Rel8 will use ``ToJSON`` and ``FromJSON`` instances (from
 ``aeson``) to serialize the given type.
 
-For example, a project might use event sourcing with a table of events. Each row
-in this table is an event, but this event is stored as a JSON object. We can use
-this type with Rel8 by writing::
+For example, a project might use event sourcing with a table of events. Each
+row in this table is an event, but this event is stored as a JSON object. We
+can use this type with Rel8 by writing::
 
   data Event = UserCreated UserCreatedData | OrderCreated OrderCreatedData
     deriving stock Generic

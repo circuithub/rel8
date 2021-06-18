@@ -5,7 +5,7 @@ Getting Started
 
 In this section, we'll take a look at using Rel8 to work with a small database
 for Haskell packages. We'll take a look at idiomatic usage of Rel8, mapping
-tables to Haskell, and then look at writing some simple queries. 
+tables to Haskell, and then look at writing some simple queries.
 
 Before we get started, we'll be using the following language extensions and
 imports throughout this guide::
@@ -70,7 +70,7 @@ Following these steps for ``author``, we have::
     { authorId :: Column f Int64
     , name     :: Column f Text
     , url      :: Column f (Maybe Text)
-    } 
+    }
     deriving stock (Generic)
     deriving anyclass (Rel8able)
 
@@ -81,7 +81,7 @@ in our project, it would be too easy to accidentally mix them up and create
 nonsensical joins. As Haskell programmers, we often solve this problem by
 creating ``newtype`` wrappers, and we can also use this technique with Rel8::
 
-  newtype AuthorId = AuthorId { toInt64 :: Int64 } 
+  newtype AuthorId = AuthorId { toInt64 :: Int64 }
     deriving newtype (DBEq, DBType, Eq, Show)
 
 Now we can write our final schema mapping. First, the ``author`` table::
@@ -90,7 +90,7 @@ Now we can write our final schema mapping. First, the ``author`` table::
     { authorId   :: Column f AuthorId
     , authorName :: Column f Text
     , authorUrl  :: Column f (Maybe Text)
-    } 
+    }
     deriving stock (Generic)
     deriving anyclass (Rel8able)
 
@@ -99,7 +99,7 @@ And similarly, the ``project`` table::
   data Project f = Project
     { projectAuthorId :: Column f AuthorId
     , projectName     :: Column f Text
-    } 
+    }
     deriving stock (Generic)
     deriving anyclass (Rel8able
 
@@ -107,8 +107,8 @@ To show query results in this documentation, we'll also need ``Show`` instances:
 Unfortunately these definitions look a bit scary, but they are essentially just
 ``deriving (Show)``::
 
-  deriving stock instance f ~ Identity => Show (Author f)
-  deriving stock instance f ~ Identity => Show (Project f)
+  deriving stock instance f ~ Result => Show (Author f)
+  deriving stock instance f ~ Result => Show (Project f)
 
 These data types describe the structural mapping of the tables, but we also
 need to specify a ``TableSchema`` for each table. A ``TableSchema`` contains
@@ -169,7 +169,7 @@ database heavy applications.
 
 In Rel8, ``SELECT`` statements are built using the ``Query`` monad. You can
 think of this monad like the ordinary ``[]`` (List) monad - but this isn't
-required knowledge. 
+required knowledge.
 
 To start, we'll look at one of the simplest queries possible - a basic ``SELECT
 * FROM`` statement. To select all rows from a table, we use ``each``, and
@@ -193,17 +193,17 @@ expressions of type ``a``\".
 To execute this ``Query``, we pass it to ``select``::
 
   >>> :t select c (each projectSchema)
-  select c (each projectSchema) :: MonadIO m => m [Project Identity]
+  select c (each projectSchema) :: MonadIO m => m [Project Result]
 
 When we ``select`` things containing ``Expr``s, Rel8 builds a new response
-table with the ``Identity`` interpretation. This means you'll get back plain
+table with the ``Result`` interpretation. This means you'll get back plain
 Haskell values. Studying ``projectAuthorId`` again, we have::
 
-  >>> let aProjectIdentity = undefined :: Project Identity
-  >>> :t projectAuthorId aProjectIdentity
-  projectAuthorId aProjectIdentity :: AuthorId
+  >>> let aProjectResult = undefined :: Project Result
+  >>> :t projectAuthorId aProjectResult
+  projectAuthorId aProjectResult :: AuthorId
 
-Here ``Column Identity AuthorId`` reduces to just ``AuthorId``, with no
+Here ``Column Result AuthorId`` reduces to just ``AuthorId``, with no
 wrappping type at all.
 
 Putting this all together, we can run our first query::
@@ -343,8 +343,8 @@ focus on the /type/ of that query::
         where
 
   >>> :t select c authorsAndProjects
-  select c authorsAndProjects 
-    :: MonadIO m => m [(Author Identity, Project Identity)]
+  select c authorsAndProjects
+    :: MonadIO m => m [(Author Result, Project Result)]
 
 
 Our query gives us a single list of pairs of authors and projects. However,
@@ -352,7 +352,7 @@ with our domain knowledge of the schema, this isn't a great type - what we'd
 rather have is a list of pairs of authors and /lists/ of projects. That is,
 what we'd like is::
 
-  [(Author Identity, [Project Identity])]
+  [(Author Result, [Project Result])]
 
 This would be a much better type! Rel8 can produce a query with this type by
 simply wrapping the call to ``projectsForAuthor`` with either ``some`` or
