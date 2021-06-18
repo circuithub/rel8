@@ -27,18 +27,24 @@ import Rel8.Table.Either
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 
 
+-- | Filter 'EitherTable's, keeping only 'leftTable's.
 keepLeftTable :: EitherTable a b -> Query a
 keepLeftTable e@(EitherTable _ a _) = do
   where_ $ isLeftTable e
   pure a
 
 
+-- | Filter 'EitherTable's, keeping only 'rightTable's.
 keepRightTable :: EitherTable a b -> Query b
 keepRightTable e@(EitherTable _ _ b) = do
   where_ $ isRightTable e
   pure b
 
 
+-- | Extend an 'EitherTable' with a 'Query' if it's a 'rightTable'. If the
+-- @EitherTable@ is a 'leftTable', the original value is preserved.
+--
+-- This is like the '>>=' implementation for @ExceptT@.
 bindEitherTable :: (Table Expr a, Functor m)
   => (i -> m (EitherTable a b)) -> EitherTable a i -> m (EitherTable a b)
 bindEitherTable query e@(EitherTable input a i) = do
@@ -46,6 +52,8 @@ bindEitherTable query e@(EitherTable input a i) = do
     EitherTable (input <> output) (bool a a' (isRightTable e)) b
 
 
+-- | Extend an 'EitherTable' with queries for both 'leftTable' and
+-- 'rightTable'.
 bitraverseEitherTable :: ()
   => (a -> Query c)
   -> (b -> Query d)

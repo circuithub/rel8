@@ -66,6 +66,12 @@ import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 
+-- | An @EitherTable a b@ is a Rel8 table that contains either the table @a@ or
+-- the table @b@. You can construct an @EitherTable@ using 'leftTable' and
+-- 'rightTable', and eliminate/pattern match using 'eitherTable'.
+--
+-- An @EitherTable@ is operationally the same as Haskell's 'Either' type, but
+-- adapted to work with Rel8.
 type EitherTable :: Type -> Type -> Type
 data EitherTable a b = EitherTable
   { tag :: Tag "isRight" EitherTag
@@ -149,24 +155,30 @@ instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable exprs1 exprs2) =>
     bimap (toResult @exprs1) (toResult @exprs2)
 
 
+-- | Test if an 'EitherTable' is a 'leftTable'.
 isLeftTable :: EitherTable a b -> Expr Bool
 isLeftTable = isLeft . expr . tag
 
 
+-- | Test if an 'EitherTable' is a 'rightTable'.
 isRightTable :: EitherTable a b -> Expr Bool
 isRightTable = isRight . expr . tag
 
 
+-- | Pattern match/eliminate an 'EitherTable', by providing mappings from a
+-- 'leftTable' and 'rightTable'.
 eitherTable :: Table Expr c
   => (a -> c) -> (b -> c) -> EitherTable a b -> c
 eitherTable f g EitherTable {tag, left, right} =
   bool (f left) (g right) (isRight (expr tag))
 
 
+-- | Construct a left 'EitherTable'. Like 'Left'.
 leftTable :: Table Expr b => a -> EitherTable a b
 leftTable a = EitherTable (fromExpr (litExpr IsLeft)) a undefined
 
 
+-- | Construct a right 'EitherTable'. Like 'Right'.
 rightTable :: Table Expr a => b -> EitherTable a b
 rightTable = rightTableWith undefined
 
