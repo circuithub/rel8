@@ -32,7 +32,7 @@ library
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-monomorphism-restriction
-    -Wno-missing-local-signatures 
+    -Wno-missing-local-signatures
   hs-source-dirs:
     src
   exposed-modules:
@@ -40,7 +40,6 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
-    Rel8.Tabulate
 
   other-modules:
     Rel8.Aggregate
