@@ -88,7 +88,7 @@ notation allows you to write these queries in a simpler form, where we don't
 have to introduce functions. Expanding on the latter query, we could write::
 
   do user  <- getAllUsers
-     order <- getOrdersForUser (user)
+     order <- getOrdersForUser user
      return (user, order)
 
 Now we have a query that, for each ``User``, fetches all orders for that user.
