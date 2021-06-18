@@ -85,16 +85,30 @@ instance (DBComposite a, OrdTable (HKD a Expr)) => DBMax (Composite a)
 instance (DBComposite a, OrdTable (HKD a Expr)) => DBMin (Composite a)
 
 
+-- | 'DBComposite' is used to associate composite type metadata with a Haskell
+-- type.
 type DBComposite :: Type -> Constraint
 class (DBType a, HKDable a) => DBComposite a where
+  -- | The names of all fields in the composite type that @a@ maps to.
   compositeFields :: HKD a Name
+
+  -- | The name of the composite type that @a@ maps to.
   compositeTypeName :: String
 
 
+-- | Collapse a 'HKD' into a PostgreSQL composite type.
+--
+-- 'HKD' values are represented in queries by having a column for each field in
+-- the corresponding Haskell type. 'compose' collapses these columns into a
+-- single column expression, by combining them into a PostgreSQL composite
+-- type.
 compose :: DBComposite a => HKD a Expr -> Expr a
 compose = castExpr . fromPrimExpr . encoder
 
 
+-- | Expand a composite type into a 'HKD'.
+--
+-- 'decompose' is the inverse of 'compose'.
 decompose :: forall a. DBComposite a => Expr a -> HKD a Expr
 decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
   case hfield names field of
