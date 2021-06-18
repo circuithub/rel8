@@ -109,6 +109,7 @@ instance Table Expr a => Semigroup (NonEmptyTable a) where
     happend (\_ _ (E a) (E b) -> E (sappend1 a b)) as bs
 
 
+-- | Construct a @NonEmptyTable@ from a non-empty list of expressions.
 nonEmptyTable :: Table Expr a => NonEmpty a -> NonEmptyTable a
 nonEmptyTable =
   NonEmptyTable .

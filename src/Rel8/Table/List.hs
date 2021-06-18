@@ -117,6 +117,7 @@ instance Table Expr a => Monoid (ListTable a) where
   mempty = ListTable $ hempty $ \_ -> E . sempty
 
 
+-- | Construct a @ListTable@ from a list of expressions.
 listTable :: Table Expr a => [a] -> ListTable a
 listTable =
   ListTable .
