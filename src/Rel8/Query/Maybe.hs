@@ -7,6 +7,7 @@ module Rel8.Query.Maybe
 where
 
 -- base
+import Data.Functor ( (<&>) )
 import Prelude
 
 -- opaleye
@@ -65,11 +66,10 @@ catMaybeTable ma@(MaybeTable _ a) = do
 --
 -- This is similar to 'traverseMaybeTable', followed by a @join@ on the
 -- resulting @MaybeTable@s.
-bindMaybeTable :: Monad m
+bindMaybeTable :: Functor m
   => (a -> m (MaybeTable b)) -> MaybeTable a -> m (MaybeTable b)
-bindMaybeTable query (MaybeTable input a) = do
-  MaybeTable output b <- query a
-  pure $ MaybeTable (input <> output) b
+bindMaybeTable query (MaybeTable input a) =
+  query a <&> \(MaybeTable output b) -> MaybeTable (input <> output) b
 
 
 -- | Extend an optional query with another query.  This is useful if you want

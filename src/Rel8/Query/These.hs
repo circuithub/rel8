@@ -13,6 +13,7 @@ module Rel8.Query.These
 where
 
 -- base
+import Data.Functor ( (<&>) )
 import Prelude
 
 -- opaleye
@@ -111,11 +112,11 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
     result = (mempty `asTypeOf` result) {expr = tag}
 
 
-bindTheseTable :: (Table Expr a, Semigroup a, Monad m)
+bindTheseTable :: (Table Expr a, Semigroup a, Functor m)
   => (i -> m (TheseTable a b)) -> TheseTable a i -> m (TheseTable a b)
-bindTheseTable query (TheseTable here (MaybeTable input i)) = do
-  TheseTable here' (MaybeTable output b) <- query i
-  pure $ TheseTable (here <> here') (MaybeTable (input <> output) b)
+bindTheseTable query (TheseTable here (MaybeTable input i)) =
+  query i <&> \(TheseTable here' (MaybeTable output b)) ->
+    TheseTable (here <> here') (MaybeTable (input <> output) b)
 
 
 bitraverseTheseTable :: ()
