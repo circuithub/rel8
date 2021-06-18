@@ -101,7 +101,7 @@ And similarly, the ``project`` table::
     , projectName     :: Column f Text
     }
     deriving stock (Generic)
-    deriving anyclass (Rel8able
+    deriving anyclass (Rel8able)
 
 To show query results in this documentation, we'll also need ``Show`` instances:
 Unfortunately these definitions look a bit scary, but they are essentially just
