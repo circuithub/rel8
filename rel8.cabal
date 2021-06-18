@@ -21,6 +21,7 @@ library
   build-depends:
       aeson
     , base ^>= 4.14 || ^>=4.15
+    , bifunctors
     , bytestring
     , case-insensitive
     , comonad
@@ -29,6 +30,7 @@ library
     , opaleye ^>= 0.7.3.0
     , pretty
     , profunctors
+    , product-profunctors
     , scientific
     , semialign
     , semigroupoids
@@ -52,6 +54,7 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
+    Rel8.Tabulate
 
   other-modules:
     Rel8.Aggregate

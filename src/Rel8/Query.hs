@@ -23,10 +23,12 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import Rel8.Query.Set ( unionAll )
 import Rel8.Query.Opaleye ( fromOpaleye )
 import Rel8.Query.Values ( values )
+import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
+import Rel8.Table.Projection ( Projectable, apply, project )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
@@ -149,6 +151,10 @@ newtype Query a =
     -- This gives nine calls to nextval() as we would expect.
     [Opaleye.PrimExpr] -> Opaleye.Select (Any, a)
   )
+
+
+instance Projectable Query where
+  project f = fmap (fromColumns . apply f . toColumns)
 
 
 instance Functor Query where
