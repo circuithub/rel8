@@ -78,6 +78,13 @@ import Data.Functor.Bind ( Bind, (>>-) )
 import Data.These ( These )
 
 
+-- | @TheseTable a b@ is a Rel8 table that contains either the table @a@, the
+-- table @b@, or both tables @a@ and @b@. You can construct @TheseTable@s using
+-- 'thisTable', 'thatTable' and 'thoseTable'. @TheseTable@s can be
+-- eliminated/pattern matched using 'theseTable'.
+--
+-- @TheseTable@ is operationally the same as Haskell's 'These' type, but
+-- adapted to work with Rel8.
 type TheseTable :: Type -> Type -> Type
 data TheseTable a b = TheseTable
   { here :: MaybeTable a
@@ -180,46 +187,57 @@ toThereTag :: Tag "isJust" a -> Tag "hasThere" a
 toThereTag Tag {..} = Tag {..}
 
 
+-- | Test if a 'TheseTable' was constructed with 'thisTable'.
 isThisTable :: TheseTable a b -> Expr Bool
 isThisTable a = hasHereTable a &&. not_ (hasThereTable a)
 
 
+-- | Test if a 'TheseTable' was constructed with 'thatTable'.
 isThatTable :: TheseTable a b -> Expr Bool
 isThatTable a = not_ (hasHereTable a) &&. hasThereTable a
 
 
+-- | Test if a 'TheseTable' was constructed with 'thoseTable'.
 isThoseTable :: TheseTable a b -> Expr Bool
 isThoseTable a = hasHereTable a &&. hasThereTable a
 
 
+-- | Test if the @a@ table of @TheseTable a b@ is present.
 hasHereTable :: TheseTable a b -> Expr Bool
 hasHereTable TheseTable {here} = isJustTable here
 
 
+-- | Test if the @b@ table of @TheseTable a b@ is present.
 hasThereTable :: TheseTable a b -> Expr Bool
 hasThereTable TheseTable {there} = isJustTable there
 
 
+-- | Attempt to project out the @a@ table of a @TheseTable a b@.
 justHereTable :: TheseTable a b -> MaybeTable a
 justHereTable = here
 
 
+-- | Attempt to project out the @b@ table of a @TheseTable a b@.
 justThereTable :: TheseTable a b -> MaybeTable b
 justThereTable = there
 
 
+-- | Construct a @TheseTable@. Corresponds to 'This'.
 thisTable :: Table Expr b => a -> TheseTable a b
 thisTable a = TheseTable (justTable a) nothingTable
 
 
+-- | Construct a @TheseTable@. Corresponds to 'That'.
 thatTable :: Table Expr a => b -> TheseTable a b
 thatTable b = TheseTable nothingTable (justTable b)
 
 
+-- | Construct a @TheseTable@. Corresponds to 'These'.
 thoseTable :: a -> b -> TheseTable a b
 thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
+-- | Pattern match on a 'TheseTable'.
 theseTable :: Table Expr c
   => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
 theseTable f g h TheseTable {here, there} =
