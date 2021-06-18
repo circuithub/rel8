@@ -42,7 +42,7 @@ import Rel8.Type.Information ( TypeInformation )
 -- rows, this function will produce a 'Query' that returns one row containing
 -- the empty @ListTable@. If the supplied @Query@ does return rows, @many@ will
 -- return exactly one row, with a @ListTable@ collecting all returned rows.
--- 
+--
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
 many :: Table Expr a => Query a -> Query (ListTable a)
@@ -78,20 +78,36 @@ someExpr :: Sql DBType a => Query (Expr a) -> Query (Expr (NonEmpty a))
 someExpr = aggregate . fmap nonEmptyAggExpr
 
 
+-- | Expand a 'ListTable' into a 'Query', where each row in the query is an
+-- element of the given @ListTable@.
+--
+-- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable a -> Query a
 catListTable (ListTable as) = pure $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
+-- | Expand a 'NonEmptyTable' into a 'Query', where each row in the query is an
+-- element of the given @NonEmptyTable@.
+--
+-- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable a -> Query a
 catNonEmptyTable (NonEmptyTable as) = pure $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
+-- | Expand an expression that contains a list into a 'Query', where each row
+-- in the query is an element of the given list.
+--
+-- @catList@ is an inverse to 'manyExpr'.
 catList :: Sql DBType a => Expr [a] -> Query (Expr a)
 catList = pure . sunnest typeInformation
 
 
+-- | Expand an expression that contains a non-empty list into a 'Query', where
+-- each row in the query is an element of the given list.
+--
+-- @catNonEmpty@ is an inverse to 'someExpr'.
 catNonEmpty :: Sql DBType a => Expr (NonEmpty a) -> Query (Expr a)
 catNonEmpty = pure . sunnest typeInformation
 
