@@ -187,7 +187,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
       liftIO $ Rel8.insert connection
         Rel8.Insert
           { into = testTableSchema
-          , rows = map (Rel8.toInsert . Rel8.lit) rows
+          , rows = map Rel8.lit rows
           , onConflict = Rel8.DoNothing
           , returning = Rel8.NumberOfRowsAffected
           }
@@ -539,7 +539,7 @@ data TwoTestTables f =
     { testTable1 :: TestTable f
     , testTable2 :: TestTable f
     }
-  deriving stock Generic 
+  deriving stock Generic
   deriving anyclass Rel8.Rel8able
 
 
@@ -586,8 +586,8 @@ rollingBack
   :: (MonadBaseControl IO m, MonadIO m)
   => Connection -> m a -> m a
 rollingBack connection =
-  bracket_ 
-    (liftIO (run (sql "BEGIN") connection)) 
+  bracket_
+    (liftIO (run (sql "BEGIN") connection))
     (liftIO (run (sql "ROLLBACK") connection))
 
 
@@ -606,7 +606,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
     void $ liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map (Rel8.toInsert . Rel8.lit) $ Map.keys rows
+        , rows = map Rel8.lit $ Map.keys rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }
@@ -650,7 +650,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
     void $ liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map (Rel8.toInsert . Rel8.lit) rows
+        , rows = map Rel8.lit rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }
