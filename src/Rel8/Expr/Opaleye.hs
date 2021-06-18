@@ -48,6 +48,11 @@ sunsafeCastExpr TypeInformation {typeName} =
   fromPrimExpr . Opaleye.CastExpr typeName . toPrimExpr
 
 
+-- | Unsafely construct an expression from literal SQL.
+--
+-- This is an escape hatch, and can be used if Rel8 can not adequately express
+-- the query you need. If you find yourself using this function, please let us
+-- know, as it may indicate that something is missing from Rel8!
 unsafeLiteral :: String -> Expr a
 unsafeLiteral = Expr . Opaleye.ConstExpr . Opaleye.OtherLit
 
