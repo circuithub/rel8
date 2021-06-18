@@ -188,36 +188,50 @@ toThereTag Tag {..} = Tag {..}
 
 
 -- | Test if a 'TheseTable' was constructed with 'thisTable'.
+--
+-- Corresponds to 'Data.These.Combinators.isThis'.
 isThisTable :: TheseTable a b -> Expr Bool
 isThisTable a = hasHereTable a &&. not_ (hasThereTable a)
 
 
 -- | Test if a 'TheseTable' was constructed with 'thatTable'.
+--
+-- Corresponds to 'Data.These.Combinators.isThat'.
 isThatTable :: TheseTable a b -> Expr Bool
 isThatTable a = not_ (hasHereTable a) &&. hasThereTable a
 
 
 -- | Test if a 'TheseTable' was constructed with 'thoseTable'.
+--
+-- Corresponds to 'Data.These.Combinators.isThese'.
 isThoseTable :: TheseTable a b -> Expr Bool
 isThoseTable a = hasHereTable a &&. hasThereTable a
 
 
--- | Test if the @a@ table of @TheseTable a b@ is present.
+-- | Test if the @a@ side of @TheseTable a b@ is present.
+--
+-- Corresponds to 'Data.These.Combinators.hasHere'.
 hasHereTable :: TheseTable a b -> Expr Bool
 hasHereTable TheseTable {here} = isJustTable here
 
 
 -- | Test if the @b@ table of @TheseTable a b@ is present.
+--
+-- Corresponds to 'Data.These.Combinators.hasThere'.
 hasThereTable :: TheseTable a b -> Expr Bool
 hasThereTable TheseTable {there} = isJustTable there
 
 
 -- | Attempt to project out the @a@ table of a @TheseTable a b@.
+--
+-- Corresponds to 'Data.These.Combinators.justHere'.
 justHereTable :: TheseTable a b -> MaybeTable a
 justHereTable = here
 
 
 -- | Attempt to project out the @b@ table of a @TheseTable a b@.
+--
+-- Corresponds to 'Data.These.Combinators.justThere'.
 justThereTable :: TheseTable a b -> MaybeTable b
 justThereTable = there
 
@@ -237,7 +251,7 @@ thoseTable :: a -> b -> TheseTable a b
 thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
--- | Pattern match on a 'TheseTable'.
+-- | Pattern match on a 'TheseTable'. Corresponds to 'these'.
 theseTable :: Table Expr c
   => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
 theseTable f g h TheseTable {here, there} =
@@ -252,9 +266,9 @@ theseTable f g h TheseTable {here, there} =
 -- 'TableSchema'.
 nameTheseTable :: ()
   => Name (Maybe MaybeTag)
-     -- ^ The name of the column to track the presence of 'thisTable'.
+     -- ^ The name of the column to track the presence of the @a@ table.
   -> Name (Maybe MaybeTag)
-     -- ^ The name of the column to track the presence of 'thatTable'.
+     -- ^ The name of the column to track the presence of the @b@ table.
   -> a
      -- ^ Names of the columns in the @a@ table.
   -> b
