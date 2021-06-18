@@ -51,6 +51,9 @@ import Rel8.Type ( DBType )
 import Data.Functor.Apply ( WrappedApplicative(..) )
 
 
+-- | @ToExprs exprs a@ is evidence that the types @exprs@ and @a@ describe
+-- essentially the same type, but @exprs@ is in the 'Expr' context, and @a@ is
+-- in the 'Result' context.
 type ToExprs :: Type -> Type -> Constraint
 class Table Expr exprs => ToExprs exprs a where
   fromResult :: Columns exprs (Col Result) -> a
@@ -190,6 +193,8 @@ instance (KnownSpec spec, x ~ Col Expr spec) =>
   toResult = toColumns
 
 
+-- | The @FromExprs@ type function maps a type in the @Expr@ context to the
+-- corresponding type in the @Result@ context.
 type FromExprs :: Type -> Type
 type family FromExprs a
 type instance FromExprs (Expr a) = a
