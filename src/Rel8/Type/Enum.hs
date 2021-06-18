@@ -104,6 +104,8 @@ class (DBType a, Enumable a) => DBEnum a where
   enumTypeName :: String
 
 
+-- | Types that are sum types, where each constructor is unary (that is, has no
+-- fields).
 class (Generic a, GEnumable (Rep a)) => Enumable a
 instance (Generic a, GEnumable (Rep a)) => Enumable a
 
