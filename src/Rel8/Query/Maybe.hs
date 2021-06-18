@@ -79,7 +79,8 @@ bindMaybeTable query (MaybeTable input a) =
 -- you also have the ability to "expand" one row into multiple rows.  If the 
 -- @a -> Query b@ function returns no rows, then the resulting query will also
 -- have no rows. However, regardless of the given @a -> Query b@ function, if
--- the input is @noTable@, you will always get exactly one @noTable@ back.
+-- the input is @nothingTable@, you will always get exactly one @nothingTable@
+-- back.
 traverseMaybeTable :: (a -> Query b) -> MaybeTable a -> Query (MaybeTable b)
 traverseMaybeTable query ma@(MaybeTable input _) = do
   MaybeTable output b <- optional (query =<< catMaybeTable ma)
