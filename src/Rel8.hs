@@ -42,6 +42,8 @@ module Rel8
   , Lift
 
   , Table(..)
+  , HTable
+  , Recontextualize
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
   , EqTable, (==:), (/=:)
@@ -131,6 +133,8 @@ module Rel8
   , unsafeLiteral
 
     -- ** @null@
+  , NotNull
+  , Nullable
   , null
   , nullify
   , nullable
@@ -232,6 +236,9 @@ module Rel8
 
     -- * IO
   , Serializable
+  , ToExprs(..)
+  , FromExprs
+  , Result
 
     -- * Running statements
     -- ** @SELECT@
@@ -263,18 +270,8 @@ module Rel8
   , eval
   , evaluate
 
-    -- * TODO
-    -- TODO
-    -- These need organizing, but are reachable from Rel8's documentation so we
-    -- do need to export and document them.
-  , Recontextualize
-  , Nullable
-  , NotNull
-  , HTable
+    -- * Implementation details
   , Labelable
-  , ToExprs(..)
-  , FromExprs
-  , Result
   , HKDT(..)
   ) where
 
