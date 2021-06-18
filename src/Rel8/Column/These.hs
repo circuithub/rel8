@@ -39,6 +39,9 @@ import Rel8.Table.These ( TheseTable )
 import Data.These ( These )
 
 
+-- | Nest an 'These' value within a 'Rel8able'. @HThese f a b@ will produce a
+-- 'TheseTable' @a b@ in the 'Expr' context, and a 'These' @a b@ in the
+-- 'Result' context.
 type HThese :: K.Context -> Type -> Type -> Type
 type family HThese context where
   HThese (Reify context) = AHThese context

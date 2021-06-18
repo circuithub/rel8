@@ -36,6 +36,9 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
+-- | Nest a 'NonEmpty' list within a 'Rel8able'. @HNonEmpty f a@ will produce a
+-- 'NonEmptyTable' @a@ in the 'Expr' context, and a 'NonEmpty' @a@ in the
+-- 'Result' context.
 type HNonEmpty :: K.Context -> Type -> Type
 type family HNonEmpty context where
   HNonEmpty (Reify context) = AHNonEmpty context

@@ -34,6 +34,9 @@ import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
+-- | Nest a 'Maybe' value within a 'Rel8able'. @HMaybe f a@ will produce a
+-- 'MaybeTable' @a@ in the 'Expr' context, and a 'Maybe' @a@ in the 'Result'
+-- context.
 type HMaybe :: K.Context -> Type -> Type
 type family HMaybe context where
   HMaybe (Reify context) = AHMaybe context

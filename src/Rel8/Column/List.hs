@@ -35,6 +35,8 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
+-- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
+-- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
 type family HList context where
   HList (Reify context) = AHList context
