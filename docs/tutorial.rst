@@ -10,19 +10,20 @@ tables to Haskell, and then look at writing some simple queries.
 Before we get started, we'll be using the following language extensions and
 imports throughout this guide::
 
-  {-# language -XBlockArguments #-}
-  {-# language -XDeriveAnyClass #-}
-  {-# language -XDeriveGeneric #-}
-  {-# language -XDerivingStrategies #-}
-  {-# language -XDerivingVia #-}
-  {-# language -XDuplicateRecordFields #-}
-  {-# language -XGeneralizedNewtypeDeriving #-}
-  {-# language -XOverloadedStrings #-}
-  {-# language -XStandaloneDeriving #-}
-  {-# language -XTypeApplications #-}
-  {-# language -XTypeFamilies #-}
+  {-# language BlockArguments #-}
+  {-# language DeriveAnyClass #-}
+  {-# language DeriveGeneric #-}
+  {-# language DerivingStrategies #-}
+  {-# language DerivingVia #-}
+  {-# language DuplicateRecordFields #-}
+  {-# language GeneralizedNewtypeDeriving #-}
+  {-# language OverloadedStrings #-}
+  {-# language StandaloneDeriving #-}
+  {-# language TypeApplications #-}
+  {-# language TypeFamilies #-}
 
   import Prelude
+  import Rel8
 
 The Example Schema
 ------------------
@@ -125,9 +126,9 @@ associated with the ``Author`` type::
 
   authorSchema :: TableSchema (Author Name)
   authorSchema = TableSchema
-    { tableName = "author"
-    , tableSchema = Nothing
-    , tableColumns = Author
+    { name = "author"
+    , schema = Nothing
+    , columns = Author
         { authorId = "author_id"
         , authorName = "name"
         , authorUrl = "url"
@@ -138,9 +139,9 @@ And likewise for ``project`` and ``Project``::
 
   projectSchema :: TableSchema (Project Name)
   projectSchema = TableSchema
-    { tableName = "project"
-    , tableSchema = Nothing
-    , tableColumns = Project
+    { name = "project"
+    , schema = Nothing
+    , columns = Project
         { projectAuthorId = "author_id"
         , projectName = "name"
         }
