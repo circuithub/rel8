@@ -24,6 +24,7 @@ import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
+import Rel8.Query.Evaluate ( rebind )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
@@ -83,7 +84,7 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 --
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable a -> Query a
-catListTable (ListTable as) = pure $ fromColumns $ runIdentity $
+catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
@@ -92,7 +93,7 @@ catListTable (ListTable as) = pure $ fromColumns $ runIdentity $
 --
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable a -> Query a
-catNonEmptyTable (NonEmptyTable as) = pure $ fromColumns $ runIdentity $
+catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
@@ -101,7 +102,7 @@ catNonEmptyTable (NonEmptyTable as) = pure $ fromColumns $ runIdentity $
 --
 -- @catList@ is an inverse to 'manyExpr'.
 catList :: Sql DBType a => Expr [a] -> Query (Expr a)
-catList = pure . sunnest typeInformation
+catList = rebind . sunnest typeInformation
 
 
 -- | Expand an expression that contains a non-empty list into a 'Query', where
@@ -109,7 +110,7 @@ catList = pure . sunnest typeInformation
 --
 -- @catNonEmpty@ is an inverse to 'someExpr'.
 catNonEmpty :: Sql DBType a => Expr (NonEmpty a) -> Query (Expr a)
-catNonEmpty = pure . sunnest typeInformation
+catNonEmpty = rebind . sunnest typeInformation
 
 
 sunnest :: TypeInformation (Unnullify a) -> Expr (list a) -> Expr a

@@ -701,10 +701,14 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
 
     selected === [foldMap pure rows]
 
-    selected' <- liftIO $ Rel8.select connection $ Rel8.catListTable =<< do
-      Rel8.many $ Rel8.values (map Rel8.lit rows)
+    selected' <- liftIO $ Rel8.select connection $ do
+      a <- Rel8.catListTable =<< do
+        Rel8.many $ Rel8.values (map Rel8.lit rows)
+      b <- Rel8.catListTable =<< do
+        Rel8.many $ Rel8.values (map Rel8.lit rows)
+      pure (a, b)
 
-    selected' === rows
+    selected' === liftA2 (,) rows rows
 
 
 data NestedMaybeTable f = NestedMaybeTable
