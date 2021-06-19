@@ -6,10 +6,16 @@ license:             BSD3
 license-file:        LICENSE
 author:              Oliver Charles
 maintainer:          ollie@ocharles.org.uk
+homepage:            https://github.com/circuithub/rel8
+bug-reports:         https://github.com/circuithub/rel8/issues
 build-type:          Simple
 extra-doc-files:
     README.md
     Changelog.md
+
+source-repository head
+    type: git
+    location: https://github.com/circuithub/rel8
 
 library
   build-depends:
