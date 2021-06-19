@@ -21,4 +21,4 @@ import Control.Monad.Trans.State.Strict ( State )
 
 
 type Query :: Type -> Type
-data Query a = forall x. Query (State Opaleye.Tag (Endo Opaleye.PrimQuery, x), x -> Opaleye.Select a)
+data Query a = Query (State Opaleye.Tag (Endo Opaleye.PrimQuery, Opaleye.Select a))

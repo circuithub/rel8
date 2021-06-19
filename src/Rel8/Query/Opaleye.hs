@@ -25,14 +25,14 @@ import Control.Monad.Trans.State.Strict ( runState )
 
 
 fromOpaleye :: Opaleye.Select a -> Query a
-fromOpaleye a = Query (pure (mempty, ()), const a)
+fromOpaleye a = Query (pure (mempty, a))
 
 
 toOpaleye :: Query a -> Opaleye.Select a
-toOpaleye (Query (s, qff)) = Opaleye.QueryArr $ \(_, query, tag) ->
+toOpaleye (Query s) = Opaleye.QueryArr $ \(_, query, tag) ->
   let
-    ((Endo modify, x), tag') = runState s tag
-    Opaleye.QueryArr qf = qff x
+    ((Endo modify, qff), tag') = runState s tag
+    Opaleye.QueryArr qf = qff
     lquery = modify query
     (a, rquery, tag'') = qf ((), Opaleye.Unit, tag')
     query' =
@@ -44,13 +44,11 @@ toOpaleye (Query (s, qff)) = Opaleye.QueryArr $ \(_, query, tag) ->
 
 
 mapOpaleye :: (Opaleye.Select a -> Opaleye.Select b) -> Query a -> Query b
-mapOpaleye f (Query (s, q)) = Query (s, f . q)
+mapOpaleye f (Query s) = Query ((fmap . fmap) f s)
 
 
 zipOpaleyeWith :: ()
   => (Opaleye.Select a -> Opaleye.Select b -> Opaleye.Select c)
   -> Query a -> Query b -> Query c
-zipOpaleyeWith f (Query (s, q)) (Query (s', q')) = Query
-  ( liftA2 (\(modify, x) (modify', x') -> (modify <> modify', (x, x'))) s s'
-  , \(x, x') -> f (q x) (q' x')
-  )
+zipOpaleyeWith f (Query s) (Query s') = Query $
+  liftA2 (\(modify, x) (modify', x') -> (modify <> modify', f x x')) s s'

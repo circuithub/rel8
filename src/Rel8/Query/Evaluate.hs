@@ -37,6 +37,5 @@ eval a = Query
         (a', bindings) = Opaleye.run $
           Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag) a
       modify Opaleye.next
-      pure (Endo (Opaleye.Rebind True bindings), a')
-  , pure
+      pure (Endo (Opaleye.Rebind True bindings), pure a')
   )

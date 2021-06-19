@@ -40,11 +40,11 @@ import Control.Monad.Trans.State.Strict ( State, runState )
 -- | The @Query@ monad allows you to compose a @SELECT@ query. This monad has
 -- semantics similar to the list (@[]@) monad.
 type Query :: Type -> Type
-data Query a = forall x. Query (State Opaleye.Tag (Endo Opaleye.PrimQuery, x), x -> Opaleye.Select a)
+data Query a = Query (State Opaleye.Tag (Endo Opaleye.PrimQuery, Opaleye.Select a))
 
 
 instance Functor Query where
-  fmap f (Query (s, a)) = Query (s, fmap f . a)
+  fmap f (Query s) = Query ((fmap . fmap . fmap) f s)
 
 
 instance Apply Query where
@@ -52,7 +52,7 @@ instance Apply Query where
 
 
 instance Applicative Query where
-  pure a = Query (pure (mempty, ()), const (pure a))
+  pure a = Query (pure (mempty, pure a))
   liftA2 = liftM2
 
 
@@ -61,18 +61,18 @@ instance Bind Query where
 
 
 instance Monad Query where
-  Query (s, qff) >>= f = Query
-    ( s
-    , \x -> Opaleye.QueryArr $ \i ->
+  Query s >>= f = Query
+    ( flip (fmap . fmap) s $
+     \qff -> Opaleye.QueryArr $ \i ->
         let
-          Opaleye.QueryArr qf = qff x
+          Opaleye.QueryArr qf = qff
           (a, query, tag) = qf i
         in
           case f a of
-            Query (s', qff') ->
+            Query s' ->
               let
-                ((Endo modify, x'), tag') = runState s' tag
-                Opaleye.QueryArr qf' = qff' x'
+                ((Endo modify, qff'), tag') = runState s' tag
+                Opaleye.QueryArr qf' = qff'
                 lquery = modify query
                 (b, rquery, tag'') = qf' ((), Opaleye.Unit, tag')
                 query'' =
