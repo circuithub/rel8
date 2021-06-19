@@ -147,6 +147,15 @@ And likewise for ``project`` and ``Project``::
         }
     }
 
+There is also some generics machinery available if you want to grab the field information from your Rel8able type::
+
+  projectSchema :: TableSchema (Project Name)
+  projectSchema = TableSchema
+    { name = "project"
+    , schema = Nothing
+    , columns = namesFromLabels @(Project Name)
+    }
+    
 
 .. note::
 
