@@ -138,20 +138,20 @@ a query. The above query could thus be written as::
 
 ``where_`` and ``filter`` allow you to filter rows based on an expression, but
 sometimes we want to filter based on another query. For this, Rel8 offers
-``whereExists`` and ``whereNotExists``. For example, if all blog posts have a
-list of tags, we could use ``whereExists`` to find all blog posts that have been
+``present`` and ``absent``. For example, if all blog posts have a
+list of tags, we could use ``present`` to find all blog posts that have been
 tagged as "Haskell"::
 
   blogPost <- each blogPostSchema
-  whereExists do
+  present do
     filter (("Haskell" ==.) . tagName) =<< tagFromBlogPost blogPost
 
-Notice that this example uses ``whereExists`` with a query that itself uses
-``filter``. For each blog post, ``whereExists`` causes that row to be selected
+Notice that this example uses ``present`` with a query that itself uses
+``filter``. For each blog post, ``present`` causes that row to be selected
 only if the associated query finds a tag for that blog post with the ``tagName``
 "Haskell".
 
-Like ``filter`` there is also a chaining variant of ``whereExists`` - ``with``.
+Like ``filter`` there is also a chaining variant of ``present`` - ``with``.
 We could rewrite the above query using ``with`` as::
 
   haskellBlogPost <-

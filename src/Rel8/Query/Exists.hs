@@ -2,8 +2,8 @@
 
 module Rel8.Query.Exists
   ( exists, inQuery
-  , whereExists, with, withBy
-  , whereNotExists, without, withoutBy
+  , present, with, withBy
+  , absent, without, withoutBy
   )
 where
 
@@ -25,7 +25,7 @@ import Rel8.Table.Maybe ( isJustTable )
 
 -- | Checks if a query returns at least one row.
 exists :: Query a -> Query (Expr Bool)
-exists = fmap isJustTable . optional . whereExists
+exists = fmap isJustTable . optional . present
 -- FIXME: change this when b7aacc07c6392654cae439fc3b997620c3aa7a87 makes it
 -- into a release of Opaleye
 
@@ -34,23 +34,23 @@ inQuery :: EqTable a => a -> Query a -> Query (Expr Bool)
 inQuery a = exists . (>>= filter (a ==:))
 
 
--- | Produce the empty query if the given query returns no rows. @whereExists@
+-- | Produce the empty query if the given query returns no rows. @present@
 -- is equivalent to @WHERE EXISTS@ in SQL.
-whereExists :: Query a -> Query ()
-whereExists = mapOpaleye Opaleye.restrictExists
+present :: Query a -> Query ()
+present = mapOpaleye Opaleye.restrictExists
 
 
--- | Produce the empty query if the given query returns rows. @whereNotExists@
+-- | Produce the empty query if the given query returns rows. @absent@
 -- is equivalent to @WHERE NOT EXISTS@ in SQL.
-whereNotExists :: Query a -> Query ()
-whereNotExists = mapOpaleye Opaleye.restrictNotExists
+absent :: Query a -> Query ()
+absent = mapOpaleye Opaleye.restrictNotExists
 
 
 -- | @with@ is similar to 'filter', but allows the predicate to be a full query.
 --
--- @with f a = a <$ whereExists (f a)@, but this form matches 'filter'.
+-- @with f a = a <$ present (f a)@, but this form matches 'filter'.
 with :: (a -> Query b) -> a -> Query a
-with f a = a <$ whereExists (f a)
+with f a = a <$ present (f a)
 
 
 -- | Like @with@, but with a custom membership test.
@@ -60,7 +60,7 @@ withBy predicate bs = with $ \a -> bs >>= filter (predicate a)
 
 -- | Filter rows where @a -> Query b@ yields no rows.
 without :: (a -> Query b) -> a -> Query a
-without f a = a <$ whereNotExists (f a)
+without f a = a <$ absent (f a)
 
 
 -- | Like @without@, but with a custom membership test.

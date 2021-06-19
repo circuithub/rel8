@@ -178,8 +178,8 @@ module Rel8
     -- ** Filtering
   , filter
   , where_
-  , whereExists
-  , whereNotExists
+  , present
+  , absent
   , distinct
   , distinctOn
   , distinctOnBy
