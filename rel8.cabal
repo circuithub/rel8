@@ -208,3 +208,26 @@ test-suite tests
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
+
+
+executable schema-to-rel8
+  build-depends:
+      base ^>= 4.14 || ^>=4.15
+    , bytestring
+    , casing
+    , haskell-src-exts
+    , hasql
+    , optparse-applicative
+    , rel8
+    , text
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures
+  hs-source-dirs:
+    exe-rel8-import
+  main-is:
+    Main.hs
