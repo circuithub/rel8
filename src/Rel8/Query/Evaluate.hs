@@ -1,23 +1,14 @@
-{-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language NamedFieldPuns #-}
-{-# language StandaloneKindSignatures #-}
 
 module Rel8.Query.Evaluate
-  ( Evaluate
-  , eval
-  , evaluate
+  ( eval
   )
 where
 
 -- base
-import Data.Kind ( Type )
-import Data.Monoid ( Endo ( Endo ), appEndo )
 import Prelude
 
 -- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
@@ -30,53 +21,15 @@ import Rel8.Query ( Query( Query ) )
 import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( unpackspec )
 
--- semigroupoids
-import Data.Functor.Apply ( Apply )
-import Data.Functor.Bind ( Bind, (>>-) )
-
--- transformers
-import Control.Monad.Trans.State.Strict ( State, get, put, runState )
-
-
-type Evaluations :: Type
-data Evaluations = Evaluations
-  { tag :: !Opaleye.Tag
-  , bindings :: !(Endo (Opaleye.Bindings Opaleye.PrimExpr))
-  }
-
-
--- | Some PostgreSQL functions, such as 'Rel8.nextval', have side effects,
--- breaking the referential transparency we would otherwise enjoy.
---
--- To try to recover our ability to reason about such expressions, 'Evaluate'
--- allows us to control the evaluation order of side-effects by sequencing
--- them monadically.
-type Evaluate :: Type -> Type
-newtype Evaluate a = Evaluate (State Evaluations a)
-  deriving newtype (Functor, Apply, Applicative, Monad)
-
-
-instance Bind Evaluate where
-  (>>-) = (>>=)
-
 
 -- | 'eval' takes expressions that could potentially have side effects and
--- \"runs\" them in the 'Evaluate' monad. The returned expressions have no
+-- \"runs\" them in the 'Query' monad. The returned expressions have no
 -- side effetcs and can safely be reused.
-eval :: Table Expr a => a -> Evaluate a
-eval a = Evaluate $ do
-  Evaluations {tag, bindings} <- get
+eval :: Table Expr a => a -> Query a
+eval a = Query $ Opaleye.QueryArr $ \(_, query, tag) ->
   let
     tag' = Opaleye.next tag
-    (a', bindings') = Opaleye.run $
+    (a', bindings) = Opaleye.run $
       Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag') a
-  put Evaluations {tag = tag', bindings = bindings <> Endo (bindings' ++)}
-  pure a'
-
-
--- | 'evaluate' runs an 'Evaluate' inside the 'Query' monad.
-evaluate :: Evaluate a -> Query a
-evaluate (Evaluate m) = Query $ Opaleye.QueryArr $ \(_, query, tag) ->
-  case runState m (Evaluations tag mempty) of
-    (a, Evaluations {tag = tag', bindings}) ->
-      (a, Opaleye.Rebind True (appEndo bindings mempty) query, tag')
+  in
+    (a', Opaleye.Rebind True bindings query, tag')

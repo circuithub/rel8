@@ -265,10 +265,7 @@ module Rel8
 
     -- ** Sequences
   , nextval
-
-  , Evaluate
   , eval
-  , evaluate
 
     -- * Implementation details
   , Labelable
