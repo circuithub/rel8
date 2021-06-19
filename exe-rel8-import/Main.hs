@@ -16,6 +16,8 @@
 
 module Main ( main ) where
 
+import Data.Functor.Contravariant ( (>$<) )
+import Data.Maybe ( fromMaybe )
 import qualified Data.ByteString.Char8 as BS
 import Options.Applicative ( Parser, strOption, long, info, execParser )
 import Data.ByteString ( ByteString )
@@ -148,10 +150,10 @@ parser = do
 main :: IO ()
 main = do
   Arguments{ connectionString, schema } <- execParser $ info parser mempty
+  c <- acquire connectionString >>= either (fail . show) return
 
-  Right c <- acquire connectionString
   tables <- select c do
-    table@PGClass{ oid = tableOid, relname, relnamespace } <-
+    table@PGClass{ oid = tableOid, relname, relnamespace } <- orderBy (relname >$< asc) do
       each pgclass
         >>= filter ((lit RTable ==.) . relkind)
 
@@ -222,7 +224,11 @@ tablesToModule tables = HS.Module () Nothing pragmas imports allTableDecls
                     field Attribute{ attribute, typ } = HS.FieldDecl () [fieldName] $ columnF columnType
                       where
                         fieldName = HS.Ident () $ camel $ unpack $ attname attribute
-                        columnType = HS.TyCon () $ HS.UnQual () $ HS.Ident () $ pascal $ unpack $ typname typ
+
+                        columnType =
+                          HS.TyCon () $ HS.UnQual () $ HS.Ident () $
+                            maybe (pascal $ unpack $ typname typ) unpack (lookup (typname typ) typeMapping)
+
                         columnF = HS.TyApp () (HS.TyApp () _Column f)
                           where
                             _Column = HS.TyCon () $ HS.UnQual () $ HS.Ident () "Column"
@@ -278,3 +284,25 @@ tablesToModule tables = HS.Module () Nothing pragmas imports allTableDecls
                           where
                             str = unpack $ attname attribute
 
+
+typeMapping :: [(Text, Text)]
+typeMapping =
+  [ ("bool", "Bool")
+  , ("char", "Char")
+  , ("float8", "Double")
+  , ("int2", "Int16")
+  , ("int4", "Int32")
+  , ("int8", "Int64")
+  , ("bytea", "ByteString")
+  , ("numeric", "Scientific")
+  , ("text", "Text")
+  , ("varchar", "Text")
+  , ("timestamptz", "UTCTime")
+  , ("jsonb", "Value")
+  , ("uuid", "UUID")
+  , ("interval", "CalendarDiffTime")
+  , ("date", "Day")
+  , ("time", "TimeOfDay")
+  , ("timestamp", "LocalTime")
+  , ("citext", "CI Text")
+  ]
