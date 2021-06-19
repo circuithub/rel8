@@ -72,7 +72,7 @@ can be written as::
     each myTableSchema
 
 Note that we use ``>$<`` (from ``Data.Functor.Contravariant``) to select table
-columns, and we can use `mconcat` to combine orderings.
+columns, and we can use ``mconcat`` to combine orderings.
 
 If all columns of a table have an ordering, you can also use ``ascTable`` and
 ``descTable``. For example::
