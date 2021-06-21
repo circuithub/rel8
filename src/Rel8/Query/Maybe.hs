@@ -13,17 +13,15 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
-import qualified Opaleye.Internal.Unpackspec as Opaleye
 
 -- rel8
 import Rel8.Expr.Bool ( true )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( toPrimExpr )
+import Rel8.Expr.Opaleye ( toPrimExpr, traversePrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
-import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Tag ( Tag(..), fromExpr )
 
 
@@ -33,17 +31,18 @@ import Rel8.Table.Tag ( Tag(..), fromExpr )
 -- To speak in more concrete terms, 'optional' is most useful to write @LEFT
 -- JOIN@s.
 optional :: Query a -> Query (MaybeTable a)
-optional = mapOpaleye $ Opaleye.QueryArr . go
-  where
-    go query (i, left, tag) =
-      (MaybeTable (fromExpr t') a, join, Opaleye.next tag')
-      where
-        (MaybeTable Tag {expr = t} a, right, tag') =
-          Opaleye.runSimpleQueryArr (pure <$> query) (i, tag)
-        (t', bindings) = Opaleye.run $
-          Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "maybe" tag') t
-        join = Opaleye.Join Opaleye.LeftJoin condition [] bindings left right
-        condition = toPrimExpr true
+optional = mapOpaleye $ \query -> Opaleye.QueryArr $ \i -> case i of
+  (_, left, tag) -> (ma', join, tag'')
+    where
+      (ma, right, tag') = Opaleye.runSimpleQueryArr (pure <$> query) ((), tag)
+      MaybeTable Tag {expr = just} a = ma
+      (just', bindings) = Opaleye.run $ do
+        traversePrimExpr (Opaleye.extractAttr "isJust" tag') just
+      tag'' = Opaleye.next tag'
+      join = Opaleye.Join Opaleye.LeftJoin on [] bindings left right
+        where
+          on = toPrimExpr true
+      ma' = MaybeTable (fromExpr just') a
 
 
 -- | Filter out 'MaybeTable's, returning only the tables that are not-null.

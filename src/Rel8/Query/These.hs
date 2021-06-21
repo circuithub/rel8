@@ -15,26 +15,26 @@ where
 import Prelude
 
 -- opaleye
-import qualified Opaleye.Internal.Join as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
+import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr, not_ )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
+import Rel8.Expr.Opaleye ( toPrimExpr, traversePrimExpr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Opaleye ( zipOpaleyeWith )
-import Rel8.Table ( Table )
 import Rel8.Table.Either ( EitherTable( EitherTable ) )
 import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
-import Rel8.Table.Opaleye ( unpackspec )
-import Rel8.Table.Tag ( Tag(..) )
+import Rel8.Table.Tag ( Tag(..), fromExpr )
 import Rel8.Table.These
-  ( TheseTable( TheseTable )
+  ( TheseTable( TheseTable, here, there )
   , hasHereTable, hasThereTable
   , isThisTable, isThatTable, isThoseTable
   )
@@ -42,17 +42,28 @@ import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
 
 
 -- | Corresponds to a @FULL OUTER JOIN@ between two queries.
-alignBy :: (Table Expr a, Table Expr b)
+alignBy :: ()
   => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
-alignBy condition as bs =
-  uncurry TheseTable <$> zipOpaleyeWith fullOuterJoin as bs
-  where
-    fullOuterJoin a b =
-      Opaleye.joinExplicit unpackspec unpackspec pure pure full a b on
-      where
-        full = Opaleye.FullJoin
-        on = toColumn . toPrimExpr . uncurry condition
+alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> case i of
+  (_, input, tag) -> (tab, join', tag''')
+    where
+      (ma, left', tag') = Opaleye.runSimpleQueryArr (pure <$> left) ((), tag)
+      (mb, right', tag'') = Opaleye.runSimpleQueryArr (pure <$> right) ((), tag')
+      MaybeTable Tag {expr = hasHere} a = ma
+      MaybeTable Tag {expr = hasThere} b = mb
+      (hasHere', lbindings) = Opaleye.run $ do
+        traversePrimExpr (Opaleye.extractAttr "hasHere" tag'') hasHere
+      (hasThere', rbindings) = Opaleye.run $ do
+        traversePrimExpr (Opaleye.extractAttr "hasThere" tag'') hasThere
+      tag''' = Opaleye.next tag''
+      join = Opaleye.Join Opaleye.FullJoin on lbindings rbindings left' right'
+        where
+          on = toPrimExpr $ condition a b
+      ma' = MaybeTable (fromExpr hasHere') a
+      mb' = MaybeTable (fromExpr hasThere') b
+      tab = TheseTable {here = ma', there = mb'}
+      join' = Opaleye.times input join
 
 
 -- | Filter 'TheseTable's, keeping only 'thisTable's and 'thoseTable's.
