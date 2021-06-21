@@ -198,7 +198,7 @@ and this query can be written in Rel8 as::
       each authorSchema
 
   While this is a little more code over all, in our experience this style
-  dramatically increases the readabality of queries using joins.
+  dramatically increases the readability of queries using joins.
 
 Left (outer) joins with ``optional``
 ------------------------------------
