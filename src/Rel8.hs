@@ -241,6 +241,8 @@ module Rel8
   , Result
 
     -- * Running statements
+    -- $running
+
     -- ** @SELECT@
   , select
 
@@ -362,3 +364,10 @@ import Rel8.Type.ReadShow
 import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
+
+
+-- $running
+-- To run queries and otherwise interact with a PostgreSQL database, Rel8
+-- provides 'select', 'insert', 'update' and 'delete' functions. Note that
+-- 'insert', 'update' and 'delete' will generally need the
+-- `DuplicateRecordFields` language extension enabled.
