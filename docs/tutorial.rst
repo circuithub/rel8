@@ -204,10 +204,13 @@ Recall we defined ``projectAuthorId`` as ``Column f AuthorId``. Now we have
 We'll see more about ``Expr`` soon, but you can think of ``Expr a`` as "SQL
 expressions of type ``a``\".
 
-To execute this ``Query``, we pass it to ``select``::
+To execute this ``Query``, we pass it to ``select``. This function takes both a
+database connection (which can be obtained using hasql's ``acquire`` function),
+and the ``Query`` to run::
 
-  >>> :t select c (each projectSchema)
-  select c (each projectSchema) :: MonadIO m => m [Project Result]
+  >>> Right conn <- acquire "user=postgres"
+  >>> :t select conn (each projectSchema)
+  select conn (each projectSchema) :: MonadIO m => m [Project Result]
 
 When we ``select`` things containing ``Expr``\s, Rel8 builds a new response
 table with the ``Result`` interpretation. This means you'll get back plain
@@ -222,7 +225,7 @@ wrappping type at all.
 
 Putting this all together, we can run our first query::
 
-  >>> select c (each projectSchema) >>= mapM_ print
+  >>> select conn (each projectSchema) >>= mapM_ print
   Project {projectAuthorId = 1, projectName = "rel8"}
   Project {projectAuthorId = 2, projectName = "aeson"}
   Project {projectAuthorId = 2, projectName = "text"}
@@ -232,7 +235,7 @@ sometimes we're only interested in a subset of the columns of a table. To
 restrict the returned columns, we can specify a projection by using ``Query``\s
 ``Functor`` instance::
 
-  >>> select c $ projectName <$> each projectSchema
+  >>> select conn $ projectName <$> each projectSchema
   ["rel8","aeson","text"]
 
 Joins
@@ -248,7 +251,7 @@ We can do this by simply calling ``each`` twice, and then returning a tuple of
 their results::
 
   >>> :{
-  mapM_ print =<< select c do
+  mapM_ print =<< select conn do
     author  <- each authorSchema
     project <- each projectSchema
     return (projectName project, authorName author)
@@ -267,7 +270,7 @@ This isn't quite right, though, as we have ended up pairing up the wrong
 projects and authors. To fix this, we can use ``where_`` to restrict the
 returned rows. We could write::
 
-  select c $ do
+  select conn $ do
     author  <- each authorSchema
     project <- each projectSchema
     where_ $ projectAuthorId project ==. authorId author
@@ -284,7 +287,7 @@ for the particular joins in your database. In our case, this would be::
 Our final query is then::
 
   >>> :{
-  mapM_ print =<< select c do
+  mapM_ print =<< select conn do
     author  <- each authorSchema
     project <- projectsForAuthor author
     return (projectName project, authorName author)
@@ -303,7 +306,7 @@ transformer to allow for the possibility of the join to fail.
 In our test database, we can see that there's another author who we haven't
 seen yet::
 
-  >>> select c $ authorName <$> each authorSchema
+  >>> select conn $ authorName <$> each authorSchema
   ["Ollie","Bryan O'Sullivan","Emily Pillmore"]
 
 Emily wasn't returned in our earlier query because - in our database - she
@@ -311,7 +314,7 @@ doesn't have any registered projects. We can account for this partiality in our
 original query by wrapping the ``projectsForAuthor`` call with ``optional``::
 
   >>> :{
-  mapM_ print =<< select c do
+  mapM_ print =<< select conn do
     author   <- each authorSchema
     mproject <- optional $ projectsForAuthor author
     return (authorName author, projectName <$> mproject)
@@ -356,8 +359,8 @@ focus on the /type/ of that query::
         return (author, project)
         where
 
-  >>> :t select c authorsAndProjects
-  select c authorsAndProjects
+  >>> :t select conn authorsAndProjects
+  select conn authorsAndProjects
     :: MonadIO m => m [(Author Result, Project Result)]
 
 
@@ -374,7 +377,7 @@ simply wrapping the call to ``projectsForAuthor`` with either ``some`` or
 author to have no projects::
 
   >>> :{
-  mapM_ print =<< select c do
+  mapM_ print =<< select conn do
     author       <- each authorSchema
     projectNames <- many $ projectName <$> projectsForAuthor author
     return (authorName author, projectNames)
