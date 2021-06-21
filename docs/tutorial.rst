@@ -147,7 +147,8 @@ And likewise for ``project`` and ``Project``::
         }
     }
 
-There is also some generics machinery available if you want to grab the field information from your Rel8able type::
+There is also some generics machinery available if you want to grab the field
+information from your ``Rel8able`` type::
 
   projectSchema :: TableSchema (Project Name)
   projectSchema = TableSchema
@@ -155,7 +156,10 @@ There is also some generics machinery available if you want to grab the field in
     , schema = Nothing
     , columns = namesFromLabels @(Project Name)
     }
-    
+
+This will create a ``TableSchema`` for ``Project`` where every column name
+corresponds exactly to the name of the field. If you need more flexibility, you
+can use ``namesFromLabelsWith``, which takes a transformation function.
 
 .. note::
 
