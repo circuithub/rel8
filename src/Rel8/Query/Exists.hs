@@ -11,23 +11,21 @@ where
 import Prelude hiding ( filter )
 
 -- opaleye
-import qualified Opaleye.Operators as Opaleye
+import qualified Opaleye.Exists as Opaleye
+import qualified Opaleye.Operators as Opaleye hiding ( exists )
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( filter )
-import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Table.Eq ( EqTable, (==:) )
-import Rel8.Table.Maybe ( isJustTable )
 
 
 -- | Checks if a query returns at least one row.
 exists :: Query a -> Query (Expr Bool)
-exists = fmap isJustTable . optional . present
--- FIXME: change this when b7aacc07c6392654cae439fc3b997620c3aa7a87 makes it
--- into a release of Opaleye
+exists = fmap (fromPrimExpr . fromColumn) . mapOpaleye Opaleye.exists
 
 
 inQuery :: EqTable a => a -> Query a -> Query (Expr Bool)
