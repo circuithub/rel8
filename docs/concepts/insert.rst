@@ -144,7 +144,7 @@ them in Rel8, rather than in your database schema.
 .. hint::
    A common default value for primary keys is to use `nextval` to obtain the
    next value from a sequence. This can be done in Rel8 by using the ``nextval``
-   function:
+   function::
 
      insert Insert
        { into = orderSchema
