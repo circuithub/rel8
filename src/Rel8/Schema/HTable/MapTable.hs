@@ -6,7 +6,7 @@
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -19,11 +19,12 @@ module Rel8.Schema.HTable.MapTable
   , MapSpec(..)
   , Precompose(..)
   , HMapTableField(..)
+  , hproject
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Constraint )
 import Prelude ( ($), (.), (<$>), fmap )
 
 -- rel8
@@ -34,19 +35,19 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Dict ( Dict( Dict ) )
 
 
-type HMapTable :: (a -> Exp b) -> ((a -> Type) -> Type) -> (b -> Type) -> Type
-newtype HMapTable f t g = HMapTable
-  { unHMapTable :: t (Precompose f g)
+type HMapTable :: (Spec -> Exp Spec) -> K.HTable -> K.HTable
+newtype HMapTable f t context = HMapTable
+  { unHMapTable :: t (Precompose f context)
   }
 
 
-type Precompose :: (a -> Exp b) -> (b -> Type) -> a -> Type
+type Precompose :: (Spec -> Exp Spec) -> K.HContext -> K.HContext
 newtype Precompose f g x = Precompose
   { precomposed :: g (Eval (f x))
   }
 
 
-type HMapTableField :: (Spec -> Exp a) -> K.HTable -> a -> Type
+type HMapTableField :: (Spec -> Exp Spec) -> K.HTable -> K.HContext
 data HMapTableField f t x where
   HMapTableField :: HField t a -> HMapTableField f t (Eval (f a))
 
@@ -84,6 +85,10 @@ class MapSpec f where
   mapInfo :: SSpec x -> SSpec (Eval (f x))
 
 
-type ComposeConstraint :: (a -> Exp b) -> (b -> Constraint) -> a -> Constraint
+type ComposeConstraint :: (Spec -> Exp Spec) -> (Spec -> Constraint) -> Spec -> Constraint
 class c (Eval (f a)) => ComposeConstraint f c a
 instance c (Eval (f a)) => ComposeConstraint f c a
+
+
+hproject :: (forall ctx. t ctx -> u ctx) -> HMapTable f t context -> HMapTable f u context
+hproject f (HMapTable t) = HMapTable (f t)

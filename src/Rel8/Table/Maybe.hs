@@ -3,9 +3,9 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -26,7 +26,11 @@ import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
 import Prelude hiding ( null, undefined )
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
@@ -40,7 +44,7 @@ import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
-import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import Rel8.Schema.HTable.Nullify ( hnullify, hproject, hunnullify )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Table
@@ -80,6 +84,14 @@ data MaybeTable a = MaybeTable
   , just :: a
   }
   deriving stock Functor
+
+
+instance Cat.Functor MaybeTable Projection Projection where
+  fmap (Projection f) = Projection $ \HMaybeTable {..} ->
+    HMaybeTable {hjust = hlabel (hproject f (hunlabel hjust)), ..}
+
+
+instance Cat.Endofunctor MaybeTable Projection
 
 
 instance Apply MaybeTable where

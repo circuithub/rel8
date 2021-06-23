@@ -166,6 +166,13 @@ module Rel8
   , nullaryFunction
   , binaryOperator
 
+    -- ** Projection
+  , Projection
+  , project
+  , Fanoutable
+  , Fanout
+  , fanout
+
     -- * Queries
   , Query
   , showQuery
@@ -279,6 +286,7 @@ import Prelude ()
 
 -- rel8
 import Rel8.Aggregate
+import Rel8.Category.Projection
 import Rel8.Column
 import Rel8.Column.ADT
 import Rel8.Column.Either
@@ -299,6 +307,7 @@ import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
+import Rel8.Generic.Projection
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query

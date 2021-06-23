@@ -2,10 +2,10 @@
 {-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.FCF
   ( Exp, Eval
-  , Compose
   )
 where
 
@@ -20,7 +20,3 @@ type Exp e = e -> Type
 
 type Eval :: Exp e -> e
 type family Eval a
-
-
-data Compose :: (Type -> Type) -> (Type -> Exp Type) -> Type -> Exp Type
-type instance Eval (Compose f g a) = f (Eval (g a))

@@ -27,12 +27,18 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Prelude hiding ( undefined )
+import Prelude hiding ( id, undefined )
+
+-- categories
+import qualified Control.Categorical.Bifunctor as Cat
+import qualified Control.Categorical.Functor as Cat
 
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
@@ -44,8 +50,10 @@ import Rel8.Schema.Context.Nullify
   )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
+import qualified Rel8.Schema.HTable.Label as Label ( hproject )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import qualified Rel8.Schema.HTable.Nullify as Nullify ( hproject )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
@@ -89,8 +97,32 @@ data TheseTable a b = TheseTable
   deriving stock Functor
 
 
+instance Cat.Bifunctor TheseTable Projection Projection Projection where
+  bimap (Projection f) (Projection g) = Projection $ \HTheseTable {..} ->
+    HTheseTable
+      { hhere = Label.hproject (Nullify.hproject f) hhere
+      , hthere = Label.hproject (Nullify.hproject g) hthere
+      , ..
+      }
+
+
 instance Bifunctor TheseTable where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
+
+
+instance Cat.PFunctor TheseTable Projection Projection where
+  first f = Cat.bimap f id
+
+
+instance Cat.QFunctor TheseTable Projection Projection where
+  second = Cat.bimap id
+
+
+instance Cat.Functor (TheseTable a) Projection Projection where
+  fmap = Cat.second
+
+
+instance Cat.Endofunctor (TheseTable a) Projection
 
 
 instance (Table Expr a, Semigroup a) => Apply (TheseTable a) where

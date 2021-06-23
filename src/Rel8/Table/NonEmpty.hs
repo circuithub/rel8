@@ -21,12 +21,16 @@ import Data.List.NonEmpty ( NonEmpty )
 import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
+import Rel8.Schema.HTable.Vectorize ( happend, hproject, hvectorize )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Reify ( hreify, hunreify )
@@ -49,6 +53,17 @@ import Rel8.Table.Unreify ( Unreifies )
 type NonEmptyTable :: Type -> Type
 newtype NonEmptyTable a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Col (Context a)))
+
+
+instance Cat.Functor NonEmptyTable Projection Projection where
+  fmap (Projection f) = Projection $ hproject f
+
+
+instance Cat.Endofunctor NonEmptyTable Projection
+
+
+instance AltTable NonEmptyTable where
+  (<|>:) = (<>)
 
 
 instance (Table context a, Unreifies context a) =>
@@ -98,10 +113,6 @@ instance ToExprs exprs a => ToExprs (NonEmptyTable exprs) (NonEmpty a)
  where
   fromResult = fmap (fromResult @exprs) . fromColumns
   toResult = toColumns . fmap (toResult @exprs)
-
-
-instance AltTable NonEmptyTable where
-  (<|>:) = (<>)
 
 
 instance Table Expr a => Semigroup (NonEmptyTable a) where

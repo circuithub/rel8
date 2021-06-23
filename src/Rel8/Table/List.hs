@@ -10,7 +10,8 @@
 
 module Rel8.Table.List
   ( ListTable(..)
-  , listTable, nameListTable
+  , listTable
+  , nameListTable
   )
 where
 
@@ -20,12 +21,16 @@ import Data.Kind ( Type )
 import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
+import Rel8.Schema.HTable.Vectorize ( happend, hempty, hproject, hvectorize )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -50,6 +55,21 @@ import Rel8.Table.Unreify ( Unreifies )
 -- @ListTable@s with 'Rel8.many' or 'Rel8.listAgg'.
 type ListTable :: Type -> Type
 newtype ListTable a = ListTable (HListTable (Columns a) (Col (Context a)))
+
+
+instance Cat.Functor ListTable Projection Projection where
+  fmap (Projection f) = Projection $ hproject f
+
+
+instance Cat.Endofunctor ListTable Projection
+
+
+instance AltTable ListTable where
+  (<|>:) = (<>)
+
+
+instance AlternativeTable ListTable where
+  emptyTable = mempty
 
 
 instance (Table context a, Unreifies context a) =>
@@ -98,14 +118,6 @@ type instance FromExprs (ListTable a) = [FromExprs a]
 instance ToExprs exprs a => ToExprs (ListTable exprs) [a] where
   fromResult = fmap (fromResult @exprs) . fromColumns
   toResult = toColumns . fmap (toResult @exprs)
-
-
-instance AltTable ListTable where
-  (<|>:) = (<>)
-
-
-instance AlternativeTable ListTable where
-  emptyTable = mempty
 
 
 instance Table Expr a => Semigroup (ListTable a) where

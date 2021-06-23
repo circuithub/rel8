@@ -20,14 +20,22 @@ module Rel8.Schema.HTable.Nullify
   ( HNullify( HNullify )
   , Nullify
   , hnulls, hnullify, hunnullify
+  , hproject
   )
 where
 
 -- base
+import GHC.Generics ( Generic )
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable.MapTable
+  ( HMapTable, HMapTableField( HMapTableField )
+  , MapSpec, mapInfo
+  )
+import qualified Rel8.Schema.HTable.MapTable as HMapTable
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import qualified Rel8.Schema.Null as Type ( Nullify )
@@ -35,9 +43,6 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply )
-import Rel8.Schema.HTable.MapTable
-import Rel8.FCF
-import GHC.Generics (Generic)
 
 
 type HNullify :: K.HTable -> K.HTable
@@ -100,3 +105,7 @@ hunnullify unnullifier (HNullify as) =
     spec@SSpec {} -> case hfield as (HMapTableField field) of
       a -> unnullifier spec a
 {-# INLINABLE hunnullify #-}
+
+
+hproject :: (forall ctx. t ctx -> u ctx) -> HNullify t context -> HNullify u context
+hproject f (HNullify t) = HNullify (HMapTable.hproject f t)

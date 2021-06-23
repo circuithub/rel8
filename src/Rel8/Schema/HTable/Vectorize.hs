@@ -23,21 +23,26 @@ module Rel8.Schema.HTable.Vectorize
   ( HVectorize
   , hvectorize, hunvectorize
   , happend, hempty
+  , hproject
   )
 where
 
 -- base
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
+import GHC.Generics ( Generic )
 import Prelude
 
 -- rel8
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.HTable
-  ( HTable
-  , hfield, htabulate, htabulateA, hspecs
+import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable.MapTable
+  ( HMapTable, HMapTableField( HMapTableField )
+  , MapSpec, mapInfo
   )
+import qualified Rel8.Schema.HTable.MapTable as HMapTable
 import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
@@ -45,9 +50,6 @@ import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
 import Data.Zip ( Unzip, Zip, Zippy(..) )
-import Rel8.FCF
-import Rel8.Schema.HTable.MapTable
-import GHC.Generics (Generic)
 
 
 class Vector list where
@@ -143,3 +145,7 @@ hempty :: HTable t =>
   -> HVectorize [] t context
 hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
   SSpec {nullity, info} -> empty nullity info
+
+
+hproject :: (forall ctx. t ctx -> u ctx) -> HVectorize list t context -> HVectorize list u context
+hproject f (HVectorize t) = HVectorize (HMapTable.hproject f t)

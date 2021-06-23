@@ -3,9 +3,9 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -24,12 +24,18 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Prelude hiding ( undefined )
+import Prelude hiding ( id, undefined )
+
+-- categories
+import qualified Control.Categorical.Bifunctor as Cat
+import qualified Control.Categorical.Functor as Cat
 
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context.Nullify
@@ -42,7 +48,9 @@ import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
+import qualified Rel8.Schema.HTable.Label as Label ( hproject )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
+import qualified Rel8.Schema.HTable.Nullify as Nullify ( hproject )
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -77,8 +85,32 @@ data EitherTable a b = EitherTable
   deriving stock Functor
 
 
+instance Cat.Bifunctor EitherTable Projection Projection Projection where
+  bimap (Projection f) (Projection g) = Projection $ \HEitherTable {..} ->
+    HEitherTable
+      { hleft = Label.hproject (Nullify.hproject f) hleft
+      , hright = Label.hproject (Nullify.hproject g) hright
+      , ..
+      }
+
+
 instance Bifunctor EitherTable where
   bimap f g (EitherTable tag a b) = EitherTable tag (f a) (g b)
+
+
+instance Cat.PFunctor EitherTable Projection Projection where
+  first f = Cat.bimap f id
+
+
+instance Cat.QFunctor EitherTable Projection Projection where
+  second = Cat.bimap id
+
+
+instance Cat.Functor (EitherTable a) Projection Projection where
+  fmap = Cat.second
+
+
+instance Cat.Endofunctor (EitherTable a) Projection
 
 
 instance Table Expr a => Apply (EitherTable a) where
