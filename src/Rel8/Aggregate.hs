@@ -33,7 +33,6 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Schema.Context ( Interpretation(..) )
-import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
@@ -62,7 +61,7 @@ instance Interpretation Aggregate where
   data Col Aggregate _spec where
     A :: ()
       => { unA :: !(Aggregate a) }
-      -> Col Aggregate ('Spec labels a)
+      -> Col Aggregate ('Spec a)
 
 
 instance Sql DBType a => Table Aggregate (Aggregate a) where
@@ -102,11 +101,6 @@ instance Sql DBType a =>
 
 instance Sql DBType a =>
   Recontextualize Name Aggregate (Name a) (Aggregate a)
-
-
-instance Labelable Aggregate where
-  labeler (A aggregate) = A aggregate
-  unlabeler (A aggregate) = A aggregate
 
 
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's

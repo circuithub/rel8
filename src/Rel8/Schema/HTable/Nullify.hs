@@ -10,6 +10,7 @@
 {-# language NamedFieldPuns #-}
 {-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -50,25 +51,24 @@ newtype HNullify table context = HNullify (HMapTable Nullify table context)
 data Nullify :: Spec -> Exp Spec
 
 
-type instance Eval (Nullify ('Spec labels a)) =
-  'Spec labels (Type.Nullify a)
+type instance Eval (Nullify ('Spec a)) =
+  'Spec (Type.Nullify a)
 
 
 instance MapSpec Nullify where
   mapInfo = \case
-    SSpec{labels, info, nullity} -> SSpec
-      { labels
-      , info
-      , nullity = case nullity of
+    SSpec {nullity, ..} -> SSpec
+      { nullity = case nullity of
           Null    -> Null
           NotNull -> Null
+      , ..
       } 
 
 
 hnulls :: HTable t
-  => (forall labels a. ()
-    => SSpec ('Spec labels a)
-    -> context ('Spec labels (Type.Nullify a)))
+  => (forall a. ()
+    => SSpec ('Spec a)
+    -> context ('Spec (Type.Nullify a)))
   -> HNullify t context
 hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
   spec@SSpec {} -> null spec
@@ -76,10 +76,10 @@ hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspe
 
 
 hnullify :: HTable t
-  => (forall labels a. ()
-    => SSpec ('Spec labels a)
-    -> context ('Spec labels a)
-    -> context ('Spec labels (Type.Nullify a)))
+  => (forall a. ()
+    => SSpec ('Spec a)
+    -> context ('Spec a)
+    -> context ('Spec (Type.Nullify a)))
   -> t context
   -> HNullify t context
 hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
@@ -89,10 +89,10 @@ hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
 
 
 hunnullify :: (HTable t, Apply m)
-  => (forall labels a. ()
-    => SSpec ('Spec labels a)
-    -> context ('Spec labels (Type.Nullify a))
-    -> m (context ('Spec labels a)))
+  => (forall a. ()
+    => SSpec ('Spec a)
+    -> context ('Spec (Type.Nullify a))
+    -> m (context ('Spec a)))
   -> HNullify t context
   -> m (t context)
 hunnullify unnullifier (HNullify as) =

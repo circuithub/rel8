@@ -36,7 +36,6 @@ import Rel8.Generic.Table ( GAlgebra )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Reify ( Reify, UnwrapReify )
@@ -98,16 +97,16 @@ type Rel8able :: K.Rel8able -> Constraint
 class HTable (GColumns t) => Rel8able t where
   type GColumns t :: K.HTable
 
-  gfromColumns :: (Labelable context, Reifiable context)
+  gfromColumns :: Reifiable context
     => GColumns t (Col (Reify context)) -> t (Reify context)
 
-  gtoColumns :: (Labelable context, Reifiable context)
+  gtoColumns :: Reifiable context
     => t (Reify context) -> GColumns t (Col (Reify context))
 
-  greify :: (Labelable context, Reifiable context)
+  greify :: Reifiable context
     => t context -> t (Reify context)
 
-  gunreify :: (Labelable context, Reifiable context)
+  gunreify :: Reifiable context
     => t (Reify context) -> t context
 
   type GColumns t = G.GColumns TColumns (GRep t (Reify Result))

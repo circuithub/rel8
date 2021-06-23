@@ -30,9 +30,6 @@ import Prelude hiding ( null, undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Schema.Context.Label
-  ( Labelable, HLabelable, hlabeler, hunlabeler
-  )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
   , HNullifiable, HConstrainTag
@@ -131,7 +128,7 @@ instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
 
 instance
   ( Table context a
-  , Labelable context, Nullifiable context
+  , Nullifiable context
   , ConstrainTag context MaybeTag
   ) => Table context (MaybeTable a)
  where
@@ -145,8 +142,8 @@ instance
 
 
 instance
-  ( Labelable from, Nullifiable from, ConstrainTag from MaybeTag
-  , Labelable to, Nullifiable to, ConstrainTag to MaybeTag
+  ( Nullifiable from, ConstrainTag from MaybeTag
+  , Nullifiable to, ConstrainTag to MaybeTag
   , Recontextualize from to a b
   )
   => Recontextualize from to (MaybeTable a) (MaybeTable b)
@@ -222,7 +219,6 @@ nameMaybeTable = MaybeTable . fromName
 toColumns1 ::
   ( HTable t
   , HConstrainTag context MaybeTag
-  , HLabelable context
   , HNullifiable context
   )
   => (a -> t context)
@@ -230,25 +226,24 @@ toColumns1 ::
   -> HMaybeTable t context
 toColumns1 f MaybeTable {tag, just} = HMaybeTable
   { htag
-  , hjust = hlabel hlabeler $ hnullify (hnullifier tag isNonNull) $ f just
+  , hjust = hlabel $ hnullify (hnullifier tag isNonNull) $ f just
   }
   where
-    htag = HIdentity (hencodeTag tag)
+    htag = hlabel (HType (hencodeTag tag))
 
 
 fromColumns1 ::
   ( HTable t
   , HConstrainTag context MaybeTag
-  , HLabelable context
   , HNullifiable context
   )
   => (t context -> a)
   -> HMaybeTable t context
   -> MaybeTable a
-fromColumns1 f HMaybeTable {htag = HIdentity htag, hjust} = MaybeTable
+fromColumns1 f HMaybeTable {htag, hjust} = MaybeTable
   { tag
   , just = f $ runIdentity $
-      hunnullify (\a -> pure . hunnullifier a) (hunlabel hunlabeler hjust)
+      hunnullify (\a -> pure . hunnullifier a) (hunlabel hjust)
   }
   where
-    tag = hdecodeTag htag
+    tag = hdecodeTag (unHIdentity (hunlabel htag))

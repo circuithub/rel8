@@ -28,7 +28,6 @@ import Prelude
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Schema.Context ( Interpretation, Col )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( notReify )
@@ -84,12 +83,7 @@ instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
 
 instance Interpretation Name where
   data Col Name _spec where
-    N :: {unN :: !(Name a)} -> Col Name ('Spec labels a)
-
-
-instance Labelable Name where
-  labeler (N a) = N a
-  unlabeler (N a) = N a
+    N :: {unN :: !(Name a)} -> Col Name ('Spec a)
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

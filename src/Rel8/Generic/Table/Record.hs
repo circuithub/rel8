@@ -26,13 +26,11 @@ import GHC.Generics
   , C, D, S
   , Meta( MetaSel )
   )
-import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Product ( HProduct(..) )
@@ -116,18 +114,15 @@ instance
 
 
 instance
-  ( HTable (Eval (_Columns a))
-  , Eval (_Table a)
-  , HLabelable context
-  , KnownSymbol label
+  ( Eval (_Table a)
   , meta ~ 'MetaSel ('Just label) _su _ss _ds
   , k1 ~ K1 i a
   )
   => GTable _Table _Columns context (M1 S meta k1)
  where
-  gfromColumns fromColumns = M1 . K1 . fromColumns . hunlabel hunlabeler
-  gtoColumns toColumns (M1 (K1 a)) = hlabel hlabeler (toColumns a)
-  gtable table = hlabel hlabeler (table (Proxy @a))
+  gfromColumns fromColumns = M1 . K1 . fromColumns . hunlabel
+  gtoColumns toColumns (M1 (K1 a)) = hlabel (toColumns a)
+  gtable table = hlabel (table (Proxy @a))
 
 
 type GToExprs
@@ -193,7 +188,6 @@ instance
 instance
   ( Eval (_ToExprs exprs a)
   , HTable (Eval (_Columns exprs))
-  , KnownSymbol label
   , meta ~ 'MetaSel ('Just label) _su _ss _ds
   , k1 ~ K1 i exprs
   , k1' ~ K1 i a
@@ -201,6 +195,6 @@ instance
   => GToExprs _ToExprs _Columns (M1 S meta k1) (M1 S meta k1')
  where
   gfromResult fromResult =
-    M1 . K1 . fromResult (Proxy @exprs) . hunlabel hunlabeler
+    M1 . K1 . fromResult (Proxy @exprs) . hunlabel
   gtoResult toResult (M1 (K1 a)) =
-    hlabel hlabeler (toResult (Proxy @exprs) a)
+    hlabel (toResult (Proxy @exprs) a)

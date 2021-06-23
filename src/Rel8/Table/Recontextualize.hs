@@ -18,7 +18,6 @@ import Prelude ()
 
 -- rel8
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Sql )
@@ -54,8 +53,6 @@ instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
 instance
   ( Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
-  , Labelable from
-  , Labelable to
   )
   => Recontextualize from to (a1, a2) (b1, b2)
 
@@ -64,7 +61,6 @@ instance
   ( Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   , Recontextualize from to a3 b3
-  , Labelable from, Labelable to
   )
   => Recontextualize from to (a1, a2, a3) (b1, b2, b3)
 
@@ -74,7 +70,6 @@ instance
   , Recontextualize from to a2 b2
   , Recontextualize from to a3 b3
   , Recontextualize from to a4 b4
-  , Labelable from, Labelable to
   )
   => Recontextualize from to (a1, a2, a3, a4) (b1, b2, b3, b4)
 
@@ -85,6 +80,28 @@ instance
   , Recontextualize from to a3 b3
   , Recontextualize from to a4 b4
   , Recontextualize from to a5 b5
-  , Labelable from, Labelable to
   )
   => Recontextualize from to (a1, a2, a3, a4, a5) (b1, b2, b3, b4, b5)
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , Recontextualize from to a3 b3
+  , Recontextualize from to a4 b4
+  , Recontextualize from to a5 b5
+  , Recontextualize from to a6 b6
+  )
+  => Recontextualize from to (a1, a2, a3, a4, a5, a6) (b1, b2, b3, b4, b5, b6)
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , Recontextualize from to a3 b3
+  , Recontextualize from to a4 b4
+  , Recontextualize from to a5 b5
+  , Recontextualize from to a6 b6
+  , Recontextualize from to a7 b7
+  )
+  => Recontextualize from to (a1, a2, a3, a4, a5, a6, a7) (b1, b2, b3, b4, b5, b6, b7)

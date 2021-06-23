@@ -7,7 +7,6 @@ module Rel8.Kind.Context
   ( Reifiable( contextSing )
   , SContext(..)
   , sReifiable
-  , sLabelable
   )
 where
 
@@ -20,7 +19,6 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.Context ( Interpretation )
-import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify )
@@ -68,14 +66,4 @@ sReifiable = \case
   SName -> Dict
   SResult -> Dict
   SReify context -> case sReifiable context of
-    Dict -> Dict
-
-
-sLabelable :: SContext context -> Dict Labelable context
-sLabelable = \case
-  SAggregate -> Dict
-  SExpr -> Dict
-  SName -> Dict
-  SResult -> Dict
-  SReify context -> case sLabelable context of
     Dict -> Dict

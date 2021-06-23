@@ -37,7 +37,6 @@ import Rel8.Generic.Table.Record
   ( GTable, GColumns, gtable
   , GToExprs, gfromResult, gtoResult
   )
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hmap )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
@@ -96,10 +95,10 @@ class GTableADT _Table _Columns context rep where
 
   gtableADT :: ()
     => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
-    -> (forall a labels. ()
-        => SSpec ('Spec labels a)
-        -> context ('Spec labels a)
-        -> context ('Spec labels (Nullify a)))
+    -> (forall a. ()
+        => SSpec ('Spec a)
+        -> context ('Spec a)
+        -> context ('Spec (Nullify a)))
     -> GColumnsADT _Columns rep context
 
 
@@ -136,10 +135,10 @@ type GTableADT'
 class GTableADT' _Table _Columns htable context rep where
   gtableADT' :: ()
     => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
-    -> (forall a labels. ()
-        => SSpec ('Spec labels a)
-        -> context ('Spec labels a)
-        -> context ('Spec labels (Nullify a)))
+    -> (forall a. ()
+        => SSpec ('Spec a)
+        -> context ('Spec a)
+        -> context ('Spec (Nullify a)))
     -> htable context
     -> GColumnsADT' _Columns htable rep context
 
@@ -165,9 +164,7 @@ instance meta ~ 'MetaCons label _fixity _isRecord =>
 instance {-# OVERLAPPABLE #-}
   ( HTable (GColumns _Columns rep)
   , GTable _Table _Columns context rep
-  , HLabelable context
   , meta ~ 'MetaCons label _fixity _isRecord
-  , KnownSymbol label
   , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep) ~
       HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
   )
@@ -175,7 +172,7 @@ instance {-# OVERLAPPABLE #-}
  where
   gtableADT' table hnullifier htable =
     HProduct htable $
-      hlabel hlabeler $
+      hlabel $
       hnullify hnullifier $
       gtable @_Table @_Columns @_ @rep table
 
@@ -219,12 +216,12 @@ instance
       Just rep -> M1 rep
       _ -> error "ADT.fromColumns: mismatch between tag and data"
     where
-      tag = (\(HType (R a)) -> a) . hunlabel @_ @"tag" unlabeler
+      tag = (\(HType (R a)) -> a) . hunlabel @"tag"
 
   gtoResultADT toResult (M1 rep) =
     gtoResultADT' @_ToExprs @_Columns @_ @exprs toResult tag (Just rep)
     where
-      tag = hlabel @_ @"tag" labeler . HType . R
+      tag = hlabel @"tag" . HType . R
 
 
 type GToExprsADT'
@@ -342,15 +339,15 @@ instance {-# OVERLAPPABLE #-}
   gfromResultADT' fromResult tag (HProduct a b)
     | tag a == tag' =
         M1 . gfromResult @_ToExprs @_Columns @exprs fromResult <$>
-          hunnullify unnullifier (hunlabel unlabeler b)
+          hunnullify unnullifier (hunlabel b)
     | otherwise = Nothing
     where
       tag' = Tag $ pack $ symbolVal (Proxy @label)
 
   gtoResultADT' toResult tag = \case
-    Nothing -> HProduct (tag tag') (hlabel labeler (hnulls (const null)))
+    Nothing -> HProduct (tag tag') (hlabel (hnulls (const null)))
     Just (M1 rep) -> HProduct (tag tag') $
-      hlabel labeler $
+      hlabel $
       hnullify nullifier $
       gtoResult @_ToExprs @_Columns @exprs toResult rep
     where
