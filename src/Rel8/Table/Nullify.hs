@@ -21,11 +21,15 @@ import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
 import Prelude
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- comonad
 import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( Reifiable, contextSing )
 import Rel8.Schema.Context.Nullify
@@ -39,7 +43,11 @@ import Rel8.Schema.Context.Nullify
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify, hguard )
+import Rel8.Schema.HTable.Nullify
+  ( HNullify, hnulls, hnullify, hunnullify
+  , hguard
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import qualified Rel8.Schema.Result as R
 import Rel8.Schema.Spec ( Spec( Spec ) )
@@ -61,6 +69,13 @@ type Nullify :: K.Context -> Type -> Type
 data Nullify context a
   = Table (Nullifiability context) a
   | Fields (NonNullifiability context) (HNullify (Columns a) (Context a))
+
+
+instance Cat.Functor (Nullify context) Projection Projection where
+  fmap (Projection f) = Projection $ hproject f
+
+
+instance Cat.Endofunctor (Nullify context) Projection
 
 
 instance Nullifiable context => Functor (Nullify context) where

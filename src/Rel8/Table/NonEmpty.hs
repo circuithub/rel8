@@ -21,12 +21,20 @@ import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hvectorize, hunvectorize )
+import Rel8.Schema.HTable.Vectorize
+  ( happend
+  , hvectorize, hunvectorize
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
@@ -48,6 +56,13 @@ import Rel8.Table.Serialize ( ToExprs )
 type NonEmptyTable :: K.Context -> Type -> Type
 newtype NonEmptyTable context a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Context a))
+
+
+instance Cat.Functor (NonEmptyTable context) Projection Projection where
+  fmap (Projection f) = Projection $ hproject f
+
+
+instance Cat.Endofunctor (NonEmptyTable context) Projection
 
 
 instance (Table context a, context ~ context') =>

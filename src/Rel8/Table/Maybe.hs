@@ -5,6 +5,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -27,11 +28,15 @@ import Data.Kind ( Type )
 import Data.Maybe ( fromMaybe, isJust )
 import Prelude hiding ( null, undefined )
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- comonad
 import Control.Comonad ( extract )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate( A ) )
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr(E ) )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
@@ -42,6 +47,7 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
+import Rel8.Schema.HTable.Nullify ( hproject )
 import Rel8.Schema.Name ( Name( N ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import qualified Rel8.Schema.Null as N
@@ -84,6 +90,14 @@ data MaybeTable context a = MaybeTable
   , just :: Nullify context a
   }
   deriving stock Functor
+
+
+instance Cat.Functor (MaybeTable context) Projection Projection where
+  fmap (Projection f) = Projection $ \HMaybeTable {..} ->
+   HMaybeTable {hjust = hlabel (hproject f (hunlabel hjust)), ..}
+
+
+instance Cat.Endofunctor (MaybeTable context) Projection
 
 
 instance context ~ Expr => Apply (MaybeTable context) where

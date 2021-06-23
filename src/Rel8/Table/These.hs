@@ -5,6 +5,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
@@ -26,13 +27,19 @@ module Rel8.Table.These
 where
 
 -- base
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
 import Data.Maybe ( isJust )
-import Prelude hiding ( undefined )
+import Prelude hiding ( id, undefined )
+
+-- categories
+import qualified Control.Categorical.Bifunctor as Cat
+import qualified Control.Categorical.Functor as Cat
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
@@ -41,7 +48,9 @@ import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Label ( hlabel, hrelabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import qualified Rel8.Schema.HTable.Label as Label ( hproject)
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
+import qualified Rel8.Schema.HTable.Nullify as Nullify ( hproject)
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -88,8 +97,33 @@ data TheseTable context a b = TheseTable
   deriving stock Functor
 
 
+instance Cat.Bifunctor (TheseTable context) Projection Projection Projection
+ where
+  bimap (Projection f) (Projection g) = Projection $ \HTheseTable {..} ->
+    HTheseTable
+      { hhere = Label.hproject (Nullify.hproject f) hhere
+      , hthere = Label.hproject (Nullify.hproject g) hthere
+      , ..
+      }
+
+
 instance Nullifiable context => Bifunctor (TheseTable context) where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
+
+
+instance Cat.PFunctor (TheseTable context) Projection Projection where
+  first f = Cat.bimap f id
+
+
+instance Cat.QFunctor (TheseTable context) Projection Projection where
+  second = Cat.bimap id
+
+
+instance Cat.Functor (TheseTable context a) Projection Projection where
+  fmap = Cat.second
+
+
+instance Cat.Endofunctor (TheseTable context a) Projection
 
 
 instance (context ~ Expr, Table Expr a, Semigroup a) =>

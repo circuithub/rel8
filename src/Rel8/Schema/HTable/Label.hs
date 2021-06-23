@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -7,6 +8,7 @@
 
 module Rel8.Schema.HTable.Label
   ( HLabel, hlabel, hrelabel, hunlabel
+  , hproject
   )
 where
 
@@ -18,6 +20,9 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.HTable
+  ( HTable, HConstrainTable, HField
+  , hfield, htraverse, htabulate, hspecs, hdicts
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( Spec, SSpec(..) )
 
@@ -57,3 +62,7 @@ hrelabel = hlabel . hunlabel
 hunlabel :: forall label t context. HLabel label t context -> t context
 hunlabel (HLabel a) = a
 {-# INLINABLE hunlabel #-}
+
+
+hproject :: (forall ctx. t ctx -> u ctx) -> HLabel label t context -> HLabel label u context
+hproject f (HLabel t) = HLabel (f t)

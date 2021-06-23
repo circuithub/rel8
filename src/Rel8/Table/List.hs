@@ -20,12 +20,20 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
 import Prelude
 
+-- categories
+import qualified Control.Categorical.Functor as Cat
+
 -- rel8
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
+import Rel8.Schema.HTable.Vectorize
+  ( happend, hempty
+  , hvectorize, hunvectorize
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
@@ -50,6 +58,13 @@ import Rel8.Table.Serialize ( ToExprs )
 type ListTable :: K.Context -> Type -> Type
 newtype ListTable context a =
   ListTable (HListTable (Columns a) (Context a))
+
+
+instance Cat.Functor (ListTable context) Projection Projection where
+  fmap (Projection f) = Projection $ hproject f
+
+
+instance Cat.Endofunctor (ListTable context) Projection
 
 
 instance (Table context a, context ~ context') =>
