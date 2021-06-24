@@ -20,7 +20,7 @@ import Rel8.Aggregate ( Aggregate, Col( A ) )
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
-import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
+import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col( N ) )
 import Rel8.Schema.Null ( Sql )
@@ -55,11 +55,11 @@ instance (Reifiable context, Sql DBType a) =>
   Table (Reify context) (AColumn context a)
  where
   type Context (AColumn context a) = Reify context
-  type Columns (AColumn context a) = HIdentity ('Spec '[] a)
+  type Columns (AColumn context a) = HType a
   type Unreify (AColumn context a) = Column context a
 
-  fromColumns (HIdentity (Reify a)) = sfromColumn contextSing a
-  toColumns = HIdentity . Reify . stoColumn contextSing
+  fromColumns (HType (Reify a)) = sfromColumn contextSing a
+  toColumns = HType . Reify . stoColumn contextSing
   reify _ = AColumn
   unreify _ (AColumn a) = a
 
@@ -77,7 +77,7 @@ instance
 
 sfromColumn :: ()
   => SContext context
-  -> Col context ('Spec labels a)
+  -> Col context ('Spec a)
   -> AColumn context a
 sfromColumn = \case
   SAggregate -> \(A a) -> AColumn a
@@ -90,7 +90,7 @@ sfromColumn = \case
 stoColumn :: ()
   => SContext context
   -> AColumn context a
-  -> Col context ('Spec labels a)
+  -> Col context ('Spec a)
 stoColumn = \case
   SAggregate -> \(AColumn a) -> A a
   SExpr -> \(AColumn a) -> E a

@@ -23,7 +23,6 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Context ( Interpretation, Col )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable, hmap )
 import Rel8.Schema.Kind ( Context )
 
@@ -34,11 +33,6 @@ data Reify context a
 
 instance Interpretation (Reify context) where
   newtype Col (Reify context) spec = Reify (Col context spec)
-
-
-instance Labelable context => Labelable (Reify context) where
-  labeler (Reify a) = Reify (labeler a)
-  unlabeler (Reify a) = Reify (unlabeler a)
 
 
 hreify :: HTable t => t (Col context) -> t (Col (Reify context))

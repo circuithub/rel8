@@ -32,10 +32,6 @@ import Prelude hiding ( undefined )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Label
-  ( Labelable
-  , HLabelable, hlabeler, hunlabeler
-  )
 import Rel8.Schema.Context.Nullify
   ( Nullifiable, ConstrainTag
   , HNullifiable, HConstrainTag
@@ -111,7 +107,7 @@ instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
 
 instance
   ( Table context a, Table context b
-  , Labelable context, Nullifiable context, ConstrainTag context EitherTag
+  , Nullifiable context, ConstrainTag context EitherTag
   ) =>
   Table context (EitherTable a b)
  where
@@ -125,8 +121,8 @@ instance
 
 
 instance
-  ( Nullifiable from, Labelable from, ConstrainTag from EitherTag
-  , Nullifiable to, Labelable to, ConstrainTag to EitherTag
+  ( Nullifiable from, ConstrainTag from EitherTag
+  , Nullifiable to, ConstrainTag to EitherTag
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
@@ -206,7 +202,6 @@ toColumns2 ::
   ( HTable t
   , HTable u
   , HConstrainTag context EitherTag
-  , HLabelable context
   , HNullifiable context
   )
   => (a -> t context)
@@ -215,18 +210,17 @@ toColumns2 ::
   -> HEitherTable t u context
 toColumns2 f g EitherTable {tag, left, right} = HEitherTable
   { htag
-  , hleft = hlabel hlabeler $ hnullify (hnullifier tag isLeft) $ f left
-  , hright = hlabel hlabeler $ hnullify (hnullifier tag isRight) $ g right
+  , hleft = hlabel $ hnullify (hnullifier tag isLeft) $ f left
+  , hright = hlabel $ hnullify (hnullifier tag isRight) $ g right
   }
   where
-    htag = HIdentity (hencodeTag tag)
+    htag = hlabel $ HType $ hencodeTag tag
 
 
 fromColumns2 ::
   ( HTable t
   , HTable u
   , HConstrainTag context EitherTag
-  , HLabelable context
   , HNullifiable context
   )
   => (t context -> a)
@@ -237,12 +231,12 @@ fromColumns2 f g HEitherTable {htag, hleft, hright} = EitherTable
   { tag
   , left = f $ runIdentity $
      hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel hunlabeler
+     hunlabel
      hleft
   , right = g $ runIdentity $
      hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel hunlabeler
+     hunlabel
      hright
   }
   where
-    tag = hdecodeTag $ unHIdentity htag
+    tag = hdecodeTag $ unHIdentity $ hunlabel htag

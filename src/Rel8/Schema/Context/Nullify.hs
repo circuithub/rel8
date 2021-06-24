@@ -51,31 +51,30 @@ class Interpretation context => Nullifiable context where
 
   encodeTag ::
     ( Sql (ConstrainTag context) a
-    , KnownSymbol label
     , Taggable a
     )
     => Tag label a
-    -> Col context ('Spec labels a)
+    -> Col context ('Spec a)
 
   decodeTag ::
     ( Sql (ConstrainTag context) a
     , KnownSymbol label
     , Taggable a
     )
-    => Col context ('Spec labels a)
+    => Col context ('Spec a)
     -> Tag label a
 
   nullifier :: ()
     => Tag label a
     -> (Expr a -> Expr Bool)
-    -> SSpec ('Spec labels x)
-    -> Col context ('Spec labels x)
-    -> Col context ('Spec labels (Nullify x))
+    -> SSpec ('Spec x)
+    -> Col context ('Spec x)
+    -> Col context ('Spec (Nullify x))
 
   unnullifier :: ()
-    => SSpec ('Spec labels x)
-    -> Col context ('Spec labels (Nullify x))
-    -> Col context ('Spec labels x)
+    => SSpec ('Spec x)
+    -> Col context ('Spec (Nullify x))
+    -> Col context ('Spec x)
 
 
 instance Nullifiable Aggregate where
@@ -147,23 +146,23 @@ class HNullifiable context where
 
   hencodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
     => Tag label a
-    -> context ('Spec labels a)
+    -> context ('Spec a)
 
   hdecodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
-    => context ('Spec labels a)
+    => context ('Spec a)
     -> Tag label a
 
   hnullifier :: ()
     => Tag label a
     -> (Expr a -> Expr Bool)
-    -> SSpec ('Spec labels x)
-    -> context ('Spec labels x)
-    -> context ('Spec labels (Nullify x))
+    -> SSpec ('Spec x)
+    -> context ('Spec x)
+    -> context ('Spec (Nullify x))
 
   hunnullifier :: ()
-    => SSpec ('Spec labels x)
-    -> context ('Spec labels (Nullify x))
-    -> context ('Spec labels x)
+    => SSpec ('Spec x)
+    -> context ('Spec (Nullify x))
+    -> context ('Spec x)
 
 
 instance Nullifiable context => HNullifiable (Col context) where

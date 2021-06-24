@@ -32,7 +32,6 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- rel8
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable
@@ -78,7 +77,7 @@ newtype HVectorize list table context = HVectorize (HMapTable (Vectorize list) t
 data Vectorize :: (Type -> Type) -> Spec -> Exp Spec
 
 
-type instance Eval (Vectorize list ('Spec labels a)) = 'Spec labels (list a)
+type instance Eval (Vectorize list ('Spec a)) = 'Spec (list a)
 
 
 instance Vector list => MapSpec (Vectorize list) where
@@ -92,10 +91,10 @@ instance Vector list => MapSpec (Vectorize list) where
 
 
 hvectorize :: (HTable t, Unzip f, Vector list)
-  => (forall labels a. ()
-    => SSpec ('Spec labels a)
-    -> f (context ('Spec labels a))
-    -> context' ('Spec labels (list a)))
+  => (forall a. ()
+    => SSpec ('Spec a)
+    -> f (context ('Spec a))
+    -> context' ('Spec (list a)))
   -> f (t context)
   -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
@@ -105,10 +104,10 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 
 
 hunvectorize :: (HTable t, Zip f, Vector list)
-  => (forall labels a. ()
-    => SSpec ('Spec labels a)
-    -> context ('Spec labels (list a))
-    -> f (context' ('Spec labels a)))
+  => (forall a. ()
+    => SSpec ('Spec a)
+    -> context ('Spec (list a))
+    -> f (context' ('Spec a)))
   -> HVectorize list t context
   -> f (t context')
 hunvectorize unvectorizer (HVectorize table) =
@@ -119,12 +118,12 @@ hunvectorize unvectorizer (HVectorize table) =
 
 
 happend :: (HTable t, Vector list) =>
-  ( forall labels a. ()
+  ( forall a. ()
     => Nullity a
     -> TypeInformation (Unnullify a)
-    -> context ('Spec labels (list a))
-    -> context ('Spec labels (list a))
-    -> context ('Spec labels (list a))
+    -> context ('Spec (list a))
+    -> context ('Spec (list a))
+    -> context ('Spec (list a))
   )
   -> HVectorize list t context
   -> HVectorize list t context
@@ -136,16 +135,11 @@ happend append (HVectorize as) (HVectorize bs) = HVectorize $
 
 
 hempty :: HTable t =>
-  ( forall labels a. ()
+  ( forall a. ()
     => Nullity a
     -> TypeInformation (Unnullify a)
-    -> context ('Spec labels [a])
+    -> context ('Spec [a])
   )
   -> HVectorize [] t context
 hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
   SSpec {nullity, info} -> empty nullity info
-
-
-instance HLabelable g => HLabelable (Precompose (Vectorize list) g) where
-  hlabeler = Precompose . hlabeler . precomposed
-  hunlabeler = Precompose . hunlabeler . precomposed

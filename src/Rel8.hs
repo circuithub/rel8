@@ -270,7 +270,6 @@ module Rel8
   , evaluate
 
     -- * Implementation details
-  , Labelable
   , HKDT(..)
   ) where
 
@@ -317,7 +316,6 @@ import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
-import Rel8.Schema.Context.Label
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )

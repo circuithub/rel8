@@ -39,7 +39,6 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context ( Interpretation, Col )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Reify ( notReify )
@@ -128,7 +127,7 @@ instance Sql DBFloating a => Floating (Expr a) where
 
 instance Interpretation Expr where
   data Col Expr _spec where
-    E :: {unE :: !(Expr a)} -> Col Expr ('Spec labels a)
+    E :: {unE :: !(Expr a)} -> Col Expr ('Spec a)
 
 
 instance Sql DBType a => Table Expr (Expr a) where
@@ -148,8 +147,3 @@ instance Sql DBType a => Recontextualize Expr Result (Expr a) (Identity a)
 
 
 instance Sql DBType a => Recontextualize Result Expr (Identity a) (Expr a)
-
-
-instance Labelable Expr where
-  labeler (E a) = E a
-  unlabeler (E a) = E a

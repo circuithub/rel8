@@ -17,7 +17,8 @@ where
 -- base
 import Data.Foldable ( fold )
 import Data.Functor.Const ( Const( Const ), getConst )
-import Data.List.NonEmpty ( NonEmpty, intersperse )
+import Data.List.NonEmpty ( NonEmpty, intersperse, nonEmpty )
+import Data.Maybe ( fromMaybe )
 import Prelude
 
 -- opaleye
@@ -26,7 +27,6 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr, Col( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
-import Rel8.Kind.Labels ( renderLabels )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Name ( Name( Name ), Col( N ) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -82,3 +82,7 @@ showNames :: forall a. Table Name a => a -> [String]
 showNames (toColumns -> names) = getConst $
   htabulateA @(Columns a) $ \field -> case hfield names field of
     N (Name name) -> Const [name]
+
+
+renderLabels :: [String] -> NonEmpty String
+renderLabels labels = fromMaybe (pure "anon") (nonEmpty labels )
