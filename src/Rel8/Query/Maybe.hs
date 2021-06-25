@@ -32,16 +32,18 @@ import Rel8.Table.Tag ( Tag(..), fromExpr )
 -- JOIN@s.
 optional :: Query a -> Query (MaybeTable a)
 optional = mapOpaleye $ \query -> Opaleye.QueryArr $ \i -> case i of
-  (_, left, tag) -> (ma', join, tag'')
+  (_, tag) -> (ma', join, tag'')
     where
       (ma, right, tag') = Opaleye.runSimpleQueryArr (pure <$> query) ((), tag)
       MaybeTable Tag {expr = just} a = ma
       (just', bindings) = Opaleye.run $ do
         traversePrimExpr (Opaleye.extractAttr "isJust" tag') just
       tag'' = Opaleye.next tag'
-      join = Opaleye.Join Opaleye.LeftJoin on [] bindings left right
+      join lateral left = Opaleye.Join Opaleye.LeftJoin on left' right'
         where
           on = toPrimExpr true
+          left' = (Opaleye.NonLateral, left)
+          right' = (lateral, Opaleye.Rebind True bindings right)
       ma' = MaybeTable (fromExpr just') a
 
 
