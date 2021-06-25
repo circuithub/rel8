@@ -55,13 +55,13 @@ laterally a = Query $ \bindings -> pure $ (Any True,) $
 -- variable in the SQL. The @a@ returned consists only of these
 -- variables. It's essentially a @let@ binding for Postgres expressions.
 rebind :: Table Expr a => a -> Query a
-rebind a = Query $ \_ -> Opaleye.QueryArr $ \(_, query, tag) ->
+rebind a = Query $ \_ -> Opaleye.QueryArr $ \(_, tag) ->
   let
     tag' = Opaleye.next tag
     (a', bindings) = Opaleye.run $
       Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag') a
   in
-    ((mempty, a'), Opaleye.Rebind True bindings query, tag')
+    ((mempty, a'), \_ -> Opaleye.Rebind True bindings, tag')
 
 
 foldl1' :: (a -> a -> a) -> NonEmpty a -> a
