@@ -1,13 +1,23 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
+{-# language DisambiguateRecordFields #-}
+{-# language NamedFieldPuns #-}
 
 module Rel8.Schema.Table
   ( TableSchema(..)
+  , ppTable
   )
 where
 
 -- base
 import Prelude
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+
+-- pretty
+import Text.PrettyPrint ( Doc )
 
 
 -- | The schema for a table. This is used to specify the name and schema that a
@@ -27,3 +37,10 @@ data TableSchema names = TableSchema
     -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
   }
   deriving stock Functor
+
+
+ppTable :: TableSchema a -> Doc
+ppTable TableSchema {name, schema} = Opaleye.ppTable Opaleye.SqlTable
+  { sqlTableSchemaName = schema
+  , sqlTableName = name
+  }

@@ -21,9 +21,16 @@ using ``delete``. ``Delete`` takes:
 ``from``
   The ``TableSchema`` for the table to delete rows from.
 
+``using``
+  This is a simple ``Query`` that forms the ``USING`` clause of the ``DELETE``
+  statement. This can be used to join against other tables, and the results
+  can be referenced in the ``deleteWhere`` parameter. For simple ``DELETE``\s
+  where you don't need to do this, you can set ``using = pure ()``.
+
 ``deleteWhere``
   The ``WHERE`` clause of the ``DELETE`` statement. This is a function that
-  takes a single ``Expr`` table as input.
+  takes two inputs: the result of the ``using`` query, and the current value
+  of the row.
 
 ``returning``
   What to return - see :ref:`returning`.
@@ -37,16 +44,23 @@ using ``update``. ``Update`` takes:
 ``target``
   The ``TableSchema`` for the table to update rows in.
 
-``updateWhere``
-  The ``WHERE`` clause of the ``UPDATE`` statement. This is a function that
-  takes a single ``Expr`` table as input.
+``from``
+  This is a simple ``Query`` that forms the ``FROM`` clause of the ``UPDATE``
+  statement. This can be used to join against other tables, and the results
+  can be referenced in the ``set`` and ``updateWhere`` parameters. For simple
+  ``UPDATE``\s where you don't need to do this, you can set ``from = pure ()``.
 
 ``set``
   A row to row transformation function, indicating how to update selected rows.
   This function takes rows of the same shape as ``target`` but in the ``Expr``
   context. One way to write this function is to use record update syntax::
 
-    set = \row -> row { rowName = "new name" }
+    set = \from row -> row { rowName = "new name" }
+
+``updateWhere``
+  The ``WHERE`` clause of the ``UPDATE`` statement. This is a function that
+  takes two inputs: the result of the ``from`` query, and the current value of
+  the row.
 
 ``returning``
   What to return - see :ref:`returning`.
@@ -64,11 +78,11 @@ using ``insert``. ``Insert`` takes:
   The rows to insert. These are the same as ``into``, but in the ``Expr``
   context. You can construct rows from their individual fields::
 
-    rows = [ MyTable { myTableA = lit "A", myTableB = lit 42 }
+    rows = values [ MyTable { myTableA = lit "A", myTableB = lit 42 }
 
   or you can use ``lit`` on a table value in the ``Result`` context::
 
-    rows = [ lit MyTable { myTableA = "A", myTableB = 42 }
+    rows = values [ lit MyTable { myTableA = "A", myTableB = 42 }
 
 ``onConflict``
   What should happen if an insert clashes with rows that already exist. This
@@ -79,6 +93,10 @@ using ``insert``. ``Insert`` takes:
 
   ``DoNothing``
     PostgreSQL should not insert the duplicate rows.
+
+  ``DoUpdate``
+    PostgreSQL should instead try to update any existing rows that conflict
+    with rows proposed for insertion.
 
 ``returning``
   What to return - see :ref:`returning`.
@@ -99,9 +117,18 @@ For example, if we are inserting orders, we might want the order ids returned::
 
   insert Insert
     { into = orderSchema
-    , rows = [ order ]
+    , rows = values [ order ]
     , onConflict = Abort
     , returning = Projection orderId
+    }
+
+If we don't want to return anything, we can use ``pure ()``::
+
+  insert Insert
+    { into = orderSchema
+    , rows = values [ order ]
+    , onConflict = Abort
+    , returning = pure ()
     }
 
 Default values
@@ -119,7 +146,7 @@ construct the ``DEFAULT`` expression::
 
   insert Insert
     { into = orderSchema
-    , rows = [ Order { orderId = unsafeDefault, ... } ]
+    , rows = values [ Order { orderId = unsafeDefault, ... } ]
     , onConflict = Abort
     , returning = Projection orderId
     }
@@ -148,7 +175,7 @@ them in Rel8, rather than in your database schema.
 
      insert Insert
        { into = orderSchema
-       , rows = [ Order { orderId = nextval "order_id_seq", ... } ]
+       , rows = values [ Order { orderId = nextval "order_id_seq", ... } ]
        , onConflict = Abort
        , returning = Projection orderId
        }

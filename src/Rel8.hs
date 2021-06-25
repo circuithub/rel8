@@ -258,16 +258,22 @@ module Rel8
     -- ** @INSERT@
   , Insert(..)
   , OnConflict(..)
+  , Upsert(..)
   , insert
   , unsafeDefault
+  , showInsert
 
     -- ** @DELETE@
   , Delete(..)
   , delete
+  , showDelete
 
     -- ** @UPDATE@
   , Update(..)
+  , Set
+  , Where
   , update
+  , showUpdate
 
     -- ** @.. RETURNING@
   , Returning(..)
@@ -332,10 +338,14 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
+import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
 import Rel8.Statement.Select
+import Rel8.Statement.Set
+import Rel8.Statement.SQL
 import Rel8.Statement.Update
 import Rel8.Statement.View
+import Rel8.Statement.Where
 import Rel8.Table
 import Rel8.Table.ADT
 import Rel8.Table.Aggregate

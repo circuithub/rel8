@@ -1,53 +1,53 @@
 {-# language DuplicateRecordFields #-}
+{-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
+{-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
+{-# language StrictData #-}
 
 module Rel8.Statement.Insert
   ( Insert(..)
-  , OnConflict(..)
   , insert
+  , ppInsert
+  , ppInto
   )
 where
 
 -- base
 import Control.Exception ( throwIO )
-import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Prelude
 
 -- hasql
 import Hasql.Connection ( Connection )
-import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- opaleye
-import qualified Opaleye.Internal.Manipulation as Opaleye
-import qualified Opaleye.Manipulation as Opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+
+-- pretty
+import Text.PrettyPrint ( Doc, (<+>), ($$), parens, text )
 
 -- rel8
-import Rel8.Schema.Name ( Selects )
-import Rel8.Schema.Table ( TableSchema )
-import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
-import Rel8.Table.Cols ( fromCols, toCols )
-import Rel8.Table.Opaleye ( castTable, table, unpackspec )
-import Rel8.Table.Serialize ( Serializable, parse )
+import Rel8.Query ( Query )
+import Rel8.Schema.Name ( Name, Selects, ppColumn )
+import Rel8.Schema.Table ( TableSchema(..), ppTable )
+import Rel8.Statement.OnConflict ( OnConflict, ppOnConflict )
+import Rel8.Statement.Returning
+  ( Returning
+  , decodeReturning, emptyReturning, ppReturning
+  )
+import Rel8.Statement.Select ( ppSelect )
+import Rel8.Table ( Table )
+import Rel8.Table.Name ( showNames )
 
 -- text
 import qualified Data.Text as Text ( pack )
 import Data.Text.Encoding ( encodeUtf8 )
-
-
--- | @OnConflict@ allows you to add an @ON CONFLICT@ clause to an @INSERT@
--- statement.
-type OnConflict :: Type
-data OnConflict
-  = Abort     -- ^ @ON CONFLICT ABORT@
-  | DoNothing -- ^ @ON CONFLICT DO NOTHING@
 
 
 -- | The constituent parts of a SQL @INSERT@ statement.
@@ -56,9 +56,10 @@ data Insert a where
   Insert :: Selects names exprs =>
     { into :: TableSchema names
       -- ^ Which table to insert into.
-    , rows :: [exprs]
-      -- ^ The rows to insert.
-    , onConflict :: OnConflict
+    , rows :: Query exprs
+      -- ^ The rows to insert. This can be an arbitrary query — use
+      -- 'Rel8.values' insert a static list of rows.
+    , onConflict :: OnConflict names
       -- ^ What to do if the inserted rows conflict with data already in the
       -- table.
     , returning :: Returning names a
@@ -67,52 +68,32 @@ data Insert a where
     -> Insert a
 
 
--- | Run an @INSERT@ statement
+ppInsert :: Insert a -> Maybe Doc
+ppInsert Insert {..} = do
+  rows' <- ppSelect rows
+  pure $ text "INSERT INTO" <+> ppInto into
+    $$ rows'
+    $$ ppOnConflict into onConflict
+    $$ ppReturning into returning
+
+
+ppInto :: Table Name a => TableSchema a -> Doc
+ppInto table@TableSchema {columns} =
+  ppTable table <+>
+  parens (Opaleye.commaV ppColumn (toList (showNames columns)))
+
+
+-- | Run an 'Insert' statement.
 insert :: Connection -> Insert a -> IO a
-insert c Insert {into, rows, onConflict, returning} =
-  case (rows, returning) of
-    ([], NumberOfRowsAffected) -> pure 0
-    ([], Projection _) -> pure []
-
-    (x:xs, NumberOfRowsAffected) -> Hasql.run session c >>= either throwIO pure
+insert connection i@Insert {returning} =
+  case show <$> ppInsert i of
+    Nothing -> pure (emptyReturning returning)
+    Just sql ->
+      Hasql.run session connection >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
         bytes = encodeUtf8 $ Text.pack sql
         params = Hasql.noParams
-        decode = Hasql.rowsAffected
+        decode = decodeReturning returning
         prepare = False
-        sql = Opaleye.arrangeInsertManySql into' rows' onConflict'
-          where
-            into' = table $ toCols <$> into
-            rows' = toCols <$> x :| xs
-
-    (x:xs, Projection project) -> Hasql.run session c >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decoder project
-        prepare = False
-        sql =
-          Opaleye.arrangeInsertManyReturningSql
-            unpackspec
-            into'
-            rows'
-            project'
-            onConflict'
-          where
-            into' = table $ toCols <$> into
-            rows' = toCols <$> x :| xs
-            project' = castTable . toCols . project . fromCols
-
-  where
-    onConflict' =
-      case onConflict of
-        DoNothing -> Just Opaleye.DoNothing
-        Abort     -> Nothing
-
-    decoder :: forall exprs projection a. Serializable projection a
-      => (exprs -> projection) -> Hasql.Result [a]
-    decoder _ = Hasql.rowList (parse @projection @a)
