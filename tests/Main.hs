@@ -189,7 +189,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
       liftIO $ Rel8.insert connection
         Rel8.Insert
           { into = testTableSchema
-          , rows = map Rel8.lit rows
+          , rows = Rel8.values $ map Rel8.lit rows
           , onConflict = Rel8.DoNothing
           , returning = Rel8.NumberOfRowsAffected
           }
@@ -602,7 +602,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
     void $ liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit $ Map.keys rows
+        , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }
@@ -624,7 +624,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
               )
               r
               updates
-        , updateWhere = \_ -> Rel8.lit True
+        , updateWhere = \_ -> Rel8.where_ $ Rel8.lit True
         , returning = Rel8.NumberOfRowsAffected
         }
 
@@ -646,7 +646,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
     void $ liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit rows
+        , rows = Rel8.values $ map Rel8.lit rows
         , onConflict = Rel8.DoNothing
         , returning = Rel8.NumberOfRowsAffected
         }
@@ -655,7 +655,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       liftIO $ Rel8.delete connection
         Rel8.Delete
           { from = testTableSchema
-          , deleteWhere = testTableColumn2
+          , deleteWhere = Rel8.where_ <$> testTableColumn2
           , returning = Rel8.Projection id
           }
 
