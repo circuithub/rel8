@@ -64,11 +64,11 @@ using ``insert``. ``Insert`` takes:
   The rows to insert. These are the same as ``into``, but in the ``Expr``
   context. You can construct rows from their individual fields::
 
-    rows = [ MyTable { myTableA = lit "A", myTableB = lit 42 }
+    rows = values [ MyTable { myTableA = lit "A", myTableB = lit 42 }
 
   or you can use ``lit`` on a table value in the ``Result`` context::
 
-    rows = [ lit MyTable { myTableA = "A", myTableB = 42 }
+    rows = values [ lit MyTable { myTableA = "A", myTableB = 42 }
 
 ``onConflict``
   What should happen if an insert clashes with rows that already exist. This
@@ -99,7 +99,7 @@ For example, if we are inserting orders, we might want the order ids returned::
 
   insert Insert
     { into = orderSchema
-    , rows = [ order ]
+    , rows = values [ order ]
     , onConflict = Abort
     , returning = Projection orderId
     }
@@ -119,7 +119,7 @@ construct the ``DEFAULT`` expression::
 
   insert Insert
     { into = orderSchema
-    , rows = [ Order { orderId = unsafeDefault, ... } ]
+    , rows = values [ Order { orderId = unsafeDefault, ... } ]
     , onConflict = Abort
     , returning = Projection orderId
     }
@@ -148,7 +148,7 @@ them in Rel8, rather than in your database schema.
 
      insert Insert
        { into = orderSchema
-       , rows = [ Order { orderId = nextval "order_id_seq", ... } ]
+       , rows = values [ Order { orderId = nextval "order_id_seq", ... } ]
        , onConflict = Abort
        , returning = Projection orderId
        }

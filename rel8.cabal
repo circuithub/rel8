@@ -27,6 +27,7 @@ library
     , contravariant
     , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.3.0
+    , pretty
     , profunctors
     , scientific
     , semialign
@@ -140,8 +141,10 @@ library
     Rel8.Statement.Insert
     Rel8.Statement.Returning
     Rel8.Statement.Select
+    Rel8.Statement.SQL
     Rel8.Statement.Update
     Rel8.Statement.View
+    Rel8.Statement.Where
 
     Rel8.Table
     Rel8.Table.ADT

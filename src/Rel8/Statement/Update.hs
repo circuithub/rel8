@@ -1,5 +1,7 @@
+{-# language DuplicateRecordFields #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -7,13 +9,24 @@
 module Rel8.Statement.Update
   ( Update(..)
   , update
+  , Set
+  , ppUpdate
+  , ppSet
   )
 where
 
 -- base
 import Control.Exception ( throwIO )
+import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Prelude
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+import qualified Opaleye.Internal.Sql as Opaleye
+
+-- pretty
+import Text.PrettyPrint ( Doc, (<+>), ($$), equals, text )
 
 -- hasql
 import Hasql.Connection ( Connection )
@@ -22,17 +35,12 @@ import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
--- opaleye
-import qualified Opaleye.Internal.Manipulation as Opaleye
-
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
-import Rel8.Schema.Name ( Selects )
-import Rel8.Schema.Table ( TableSchema )
-import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
-import Rel8.Table.Cols ( fromCols, toCols )
-import Rel8.Table.Opaleye ( castTable, table, unpackspec )
+import Rel8.Schema.Name ( Selects, ppColumn )
+import Rel8.Schema.Table ( TableSchema(..), ppTable )
+import Rel8.Statement.Returning ( Returning(..), ppReturning )
+import Rel8.Statement.Where ( Where, ppWhere )
+import Rel8.Table.Opaleye ( exprsWithNames, view )
 import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
@@ -46,9 +54,9 @@ data Update a where
   Update :: Selects names exprs =>
     { target :: TableSchema names
       -- ^ Which table to update.
-    , set :: exprs -> exprs
+    , set :: Set exprs
       -- ^ How to update each selected row.
-    , updateWhere :: exprs -> Expr Bool
+    , updateWhere :: Where exprs
       -- ^ Which rows to select for update.
     , returning :: Returning names a
       -- ^ What to return from the @UPDATE@ statement.
@@ -56,11 +64,38 @@ data Update a where
     -> Update a
 
 
+-- | The @SET@ part of an @UPDATE@ (or @ON CONFLICT DO UPDATE@) statement.
+type Set expr = expr -> expr
+
+
+ppUpdate :: Update a -> Maybe Doc
+ppUpdate Update {..} = do
+  condition <- ppWhere target updateWhere
+  pure $
+    text "UPDATE" <+>
+    ppTable target $$
+    ppSet target set $$
+    condition $$ ppReturning target returning
+
+
+ppSet :: Selects names exprs => TableSchema names -> Set exprs -> Doc
+ppSet TableSchema {columns} f =
+  text "SET" <+> Opaleye.commaV ppAssign (toList assigns)
+  where
+    assigns =
+      fmap Opaleye.sqlExpr <$> exprsWithNames columns (f (view columns))
+    ppAssign (column, expr) =
+      ppColumn column <+> equals <+> Opaleye.ppSqlExpr expr
+
+
 -- | Run an @UPDATE@ statement.
 update :: Connection -> Update a -> IO a
-update c Update {target, set, updateWhere, returning} =
-  case returning of
-    NumberOfRowsAffected -> Hasql.run session c >>= either throwIO pure
+update c u@Update {returning} =
+  case (show <$> ppUpdate u, returning) of
+    (Nothing, NumberOfRowsAffected) -> pure 0
+    (Nothing, Projection _) -> pure []
+    (Just sql, NumberOfRowsAffected) ->
+      Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
@@ -68,13 +103,9 @@ update c Update {target, set, updateWhere, returning} =
         params = Hasql.noParams
         decode = Hasql.rowsAffected
         prepare = False
-        sql = Opaleye.arrangeUpdateSql target' set' where'
-          where
-            target' = table $ toCols <$> target
-            set' = toCols . set . fromCols
-            where' = toColumn . toPrimExpr . updateWhere . fromCols
 
-    Projection project -> Hasql.run session c >>= either throwIO pure
+    (Just sql, Projection project) ->
+      Hasql.run session c >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
@@ -82,19 +113,6 @@ update c Update {target, set, updateWhere, returning} =
         params = Hasql.noParams
         decode = decoder project
         prepare = False
-        sql =
-          Opaleye.arrangeUpdateReturningSql
-            unpackspec
-            target'
-            set'
-            where'
-            project'
-          where
-            target' = table $ toCols <$> target
-            set' = toCols . set . fromCols
-            where' = toColumn . toPrimExpr . updateWhere . fromCols
-            project' = castTable . toCols . project . fromCols
-
   where
     decoder :: forall exprs projection a. Serializable projection a
       => (exprs -> projection) -> Hasql.Result [a]
