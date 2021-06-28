@@ -1,18 +1,19 @@
-{-# language DuplicateRecordFields #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 
 module Rel8.Statement.Insert
-  ( Insert(..)
+  ( Insert
   , insert
-  , OnConflict(..)
-  , Upsert(..)
+  , rows
+  , onConflict
+  , OnConflict
+  , doNothing
+  , doUpdate
   , ppInsert
   , ppInto
   )
@@ -21,12 +22,17 @@ where
 -- base
 import Control.Exception ( throwIO )
 import Data.Foldable ( toList )
+import Data.Function ( on )
+import Data.Functor.Compose ( Compose( Compose ) )
 import Data.Kind ( Type )
+import Data.List.NonEmpty ( nonEmpty )
 import Prelude
+
+-- free
+import Control.Applicative.Free ( Ap, liftAp )
 
 -- hasql
 import Hasql.Connection ( Connection )
-import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
@@ -38,38 +44,48 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
 import Text.PrettyPrint ( Doc, (<+>), ($$), parens, text )
 
 -- rel8
-import Rel8.Category.Projection ( Projection, project )
+import Rel8.Category.Projection ( Projection( Projection ) )
 import Rel8.Query ( Query )
+import Rel8.Query.Set ( unionAll )
 import Rel8.Schema.Name ( Name, Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
-import Rel8.Statement.Returning ( Returning(..), ppReturning )
+import Rel8.Statement.Returning
+  ( Returning
+  , ReturningF(..), decodeReturning, emptyReturning, ppReturning
+  )
+import qualified Rel8.Statement.Returning
 import Rel8.Statement.Select ( ppSelect )
-import Rel8.Statement.Update ( Set, ppSet )
-import Rel8.Statement.Where ( Where, ppWhere )
-import Rel8.Table ( Table )
+import Rel8.Statement.Update ( Update( Update ), UpdateF(..), ppSet )
+import Rel8.Statement.Where ( ppWhere )
+import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Name ( showNames )
 import Rel8.Table.Opaleye ( attributes )
-import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
 import qualified Data.Text as Text ( pack )
 import Data.Text.Encoding ( encodeUtf8 )
 
 
--- | @OnConflict@ allows you to add an @ON CONFLICT@ clause to an @INSERT@
--- statement.
+-- | The @ON CONFLICT@ clause of an @INSERT@ statement.
 type OnConflict :: Type -> Type
-data OnConflict names
-  = Abort
-  -- ^ @ON CONFLICT DO ABORT@
-  | DoNothing
-  -- ^ @ON CONFLICT DO NOTHING@
-  | DoUpdate (Upsert names)
-  -- ^ @ON CONFLICT DO UPDATE@
+data OnConflict exprs where
+  DoNothing :: OnConflict exprs
+  DoUpdate :: (Selects names exprs, Table Name conflicts)
+    => Projection names conflicts
+    -> (exprs -> UpdateF exprs)
+    -> OnConflict exprs
 
 
--- | The @ON CONFLICT (...) DO UPDATE@ clause of an @INSERT@ statement, also
--- known as \"upsert\".
+instance Semigroup (OnConflict exprs) where
+  (<>) = const
+
+
+-- | @ON CONFLICT DO NOTHING@
+doNothing :: OnConflict exprs
+doNothing = DoNothing
+
+
+-- | @ON CONFLICT (...) DO UPDATE@, also known as \"upsert\".
 --
 -- For upsert, Postgres requires an explicit set of \"conflict targets\" —
 -- the set of columns composing the @UNIQUE@ index from conflicts with which
@@ -79,40 +95,76 @@ data OnConflict names
 -- an upsert can reference not only the existing row in the database, but also
 -- the row that we tried to insert which conflicted with the existing row
 -- (what Postgres calls the @excluded@ row).
-type Upsert :: Type -> Type
-data Upsert names where
-  Upsert :: (Selects names exprs, Table Name conflicts) =>
-    { conflicts :: Projection names conflicts
-      -- ^ The set of conflict targets, projected from the set of columns for
-      -- the whole table
-    , set :: exprs -> Set exprs
-      -- ^ How to update each selected row. The first @exprs@ argument is the
-      -- @excluded@ row.
-    , updateWhere :: exprs -> Where exprs
-      -- ^ Which rows to select for update. The first @exprs@ argument is the
-      -- @excluded@ row.
+doUpdate :: (Selects names exprs, Table Name conflicts)
+  => Projection names conflicts
+  -- ^ The set of conflict targets, projected from the set of columns for the
+  -- whole table
+  -> (exprs -> Update exprs a)
+  -- ^ Given the @excluded@ row we tried to insert, return the @UPDATE@
+  -- statement to run instead
+  -> OnConflict exprs
+doUpdate conflicts f =
+  DoUpdate conflicts ((\(Update (update, _)) -> update) <$> f)
+
+
+type InsertF :: Type -> Type
+data InsertF exprs = InsertF
+  { rows_ :: [Query exprs]
+  , onConflict_ :: Maybe (OnConflict exprs)
+  }
+
+
+instance Semigroup (InsertF exprs) where
+  a <> b = InsertF
+    { rows_ = ((<>) `on` rows_) b a
+    , onConflict_ = ((<>) `on` onConflict_) a b
     }
-    -> Upsert names
 
 
-ppOnConflict :: TableSchema names -> OnConflict names -> Doc
-ppOnConflict schema = \case
-  Abort -> mempty
+instance Monoid (InsertF exprs) where
+  mempty = InsertF
+    { rows_ = []
+    , onConflict_ = Nothing
+    }
+
+
+-- | An 'Applicative' that builds an @INSERT@ stataement.
+type Insert :: Type -> Type -> Type
+newtype Insert exprs a = Insert (InsertF exprs, Ap (ReturningF exprs) a)
+  deriving (Functor, Applicative) via
+    Compose ((,) (InsertF exprs)) (Ap (ReturningF exprs))
+
+
+instance Returning Insert where
+  numberOfRowsAffected = Insert (pure (liftAp NumberOfRowsAffected))
+  returning projection = Insert (pure (liftAp (Returning projection)))
+
+
+-- | Add the given rows to the 'Insert' statement. This can be an arbitrary
+-- query — use 'Rel8.values' to insert a static list of rows.
+rows :: Query exprs -> Insert exprs ()
+rows query = Insert (InsertF [query] Nothing, pure ())
+
+
+-- | 'onConflict' allows you to add an @ON CONFLICT@ clause to an 'Insert'
+-- statement.
+onConflict :: OnConflict exprs -> Insert exprs ()
+onConflict oc = Insert (InsertF [] (Just oc), pure ())
+
+
+ppOnConflict :: Selects names exprs
+  => TableSchema names -> OnConflict exprs -> Doc
+ppOnConflict schema@TableSchema {columns} = \case
   DoNothing -> text "ON CONFLICT DO NOTHING"
-  DoUpdate upsert -> case ppUpsert schema upsert of
-    Nothing -> text "ON CONFLICT DO NOTHING"
-    Just doc -> doc
-
-
-ppUpsert :: TableSchema names -> Upsert names -> Maybe Doc
-ppUpsert schema@TableSchema {columns} Upsert {..} = do
-  condition <- ppWhere schema (updateWhere excluded)
-  pure $
-    text "ON CONFLICT" <+>
-    ppConflicts schema conflicts <+>
-    text "DO UPDATE" $$
-    ppSet schema (set excluded) $$
-    condition
+  DoUpdate conflicts f -> case f excluded of
+    UpdateF {..} -> case ppWhere schema where_ of
+      Nothing -> text "ON CONFLICT DO NOTHING"
+      Just condition ->
+        text "ON CONFLICT" <+>
+        ppConflicts schema conflicts <+>
+        text "DO UPDATE" $$
+        ppSet schema set_ $$
+        condition
   where
     excluded = attributes TableSchema
       { schema = Nothing
@@ -121,36 +173,22 @@ ppUpsert schema@TableSchema {columns} Upsert {..} = do
       }
 
 
-ppConflicts :: (Table Name names, Table Name conflicts)
-  => TableSchema names -> Projection names conflicts -> Doc
-ppConflicts TableSchema {columns} conflicts =
-  Opaleye.commaV ppColumn $ toList $ showNames $ project conflicts columns
+ppConflicts ::
+  ( Selects names exprs, Selects names' exprs
+  , Table Name conflicts
+  )
+  => TableSchema names -> Projection names' conflicts -> Doc
+ppConflicts TableSchema {columns} (Projection conflicts) =
+  Opaleye.commaV ppColumn $ toList $ showNames $ conflicts (toColumns columns)
 
 
--- | The constituent parts of a SQL @INSERT@ statement.
-type Insert :: Type -> Type
-data Insert a where
-  Insert :: Selects names exprs =>
-    { into :: TableSchema names
-      -- ^ Which table to insert into.
-    , rows :: Query exprs
-      -- ^ The rows to insert. This can be an arbitrary query — use
-      -- 'Rel8.values' insert a static list of rows.
-    , onConflict :: OnConflict names
-      -- ^ What to do if the inserted rows conflict with data already in the
-      -- table.
-    , returning :: Returning names a
-      -- ^ What information to return on completion.
-    }
-    -> Insert a
-
-
-ppInsert :: Insert a -> Maybe Doc
-ppInsert Insert {..} = do
-  rows' <- ppSelect rows
+ppInsert :: Selects names exprs
+  => TableSchema names -> Insert exprs a -> Maybe Doc
+ppInsert into (Insert (InsertF {..}, returning)) = do
+  rows' <- nonEmpty rows_ >>= ppSelect . foldl1 unionAll
   pure $ text "INSERT INTO" <+> ppInto into
     $$ rows'
-    $$ ppOnConflict into onConflict
+    $$ foldMap (ppOnConflict into) onConflict_
     $$ ppReturning into returning
 
 
@@ -160,32 +198,18 @@ ppInto table@TableSchema {columns} =
   parens (Opaleye.commaV ppColumn (toList (showNames columns)))
 
 
--- | Run an @INSERT@ statement
-insert :: Connection -> Insert a -> IO a
-insert c i@Insert {returning} =
-  case (show <$> ppInsert i, returning) of
-    (Nothing, NumberOfRowsAffected) -> pure 0
-    (Nothing, Projection _) -> pure []
-
-    (Just sql, NumberOfRowsAffected) -> Hasql.run session c >>= either throwIO pure
+-- | Run an 'Insert' statement.
+insert :: Selects names exprs
+  => Connection -> TableSchema names -> Insert exprs a -> IO a
+insert connection into i@(Insert (_, returning)) =
+  case show <$> ppInsert into i of
+    Nothing -> pure (emptyReturning returning)
+    Just sql ->
+      Hasql.run session connection >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
         bytes = encodeUtf8 $ Text.pack sql
         params = Hasql.noParams
-        decode = Hasql.rowsAffected
+        decode = decodeReturning returning
         prepare = False
-
-    (Just sql, Projection f) -> Hasql.run session c >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decoder f
-        prepare = False
-
-  where
-    decoder :: forall exprs projection a. Serializable projection a
-      => (exprs -> projection) -> Hasql.Result [a]
-    decoder _ = Hasql.rowList (parse @projection @a)

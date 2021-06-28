@@ -25,6 +25,7 @@ library
     , case-insensitive
     , categories
     , contravariant
+    , free
     , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.3.0
     , pretty

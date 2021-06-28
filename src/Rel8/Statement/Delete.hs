@@ -1,26 +1,28 @@
-{-# language DuplicateRecordFields #-}
-{-# language GADTs #-}
-{-# language NamedFieldPuns #-}
+{-# language DerivingVia #-}
+{-# language MonoLocalBinds #-}
 {-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 
 module Rel8.Statement.Delete
-  ( Delete(..)
+  ( Delete
   , delete
   , ppDelete
   )
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Control.Exception ( throwIO )
+import Data.Functor.Compose ( Compose( Compose ) )
+import Data.Function ( on )
 import Data.Kind ( Type )
 import Prelude
 
+-- free
+import Control.Applicative.Free ( Ap, liftAp )
+
 -- hasql
 import Hasql.Connection ( Connection )
-import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
@@ -31,64 +33,73 @@ import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 -- rel8
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema, ppTable )
-import Rel8.Statement.Returning ( Returning(..), ppReturning )
-import Rel8.Statement.Where ( Where, ppWhere )
-import Rel8.Table.Serialize ( Serializable, parse )
+import Rel8.Statement.Returning
+  ( Returning
+  , ReturningF(..), decodeReturning, emptyReturning, ppReturning
+  )
+import qualified Rel8.Statement.Returning
+import Rel8.Statement.Where ( Restrict, restrict, Where, ppWhere )
 
 -- text
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
--- | The constituent parts of a @DELETE@ statement.
-type Delete :: Type -> Type
-data Delete a where
-  Delete :: Selects names exprs =>
-    { from :: TableSchema names
-      -- ^ Which table to delete from.
-    , deleteWhere :: Where exprs
-      -- ^ Which rows should be selected for deletion.
-    , returning :: Returning names a
-      -- ^ What to return from the @DELETE@ statement.
+type DeleteF :: Type -> Type
+data DeleteF exprs = DeleteF
+  { where_ :: Where exprs
+  }
+
+
+instance Semigroup (DeleteF exprs) where
+  a <> b = DeleteF
+    { where_ = (liftA2 (*>) `on` where_) a b
     }
-    -> Delete a
 
 
-ppDelete :: Delete a -> Maybe Doc
-ppDelete Delete {..} = do
-  condition <- ppWhere from deleteWhere
+instance Monoid (DeleteF exprs) where
+  mempty = DeleteF
+    { where_ = \_ -> pure ()
+    }
+
+
+-- | An 'Applicative' that builds a @DELETE@ statement.
+type Delete :: Type -> Type -> Type
+newtype Delete exprs a = Delete (DeleteF exprs, Ap (ReturningF exprs) a)
+  deriving (Functor, Applicative) via
+    Compose ((,) (DeleteF exprs)) (Ap (ReturningF exprs))
+
+
+instance Returning Delete where
+  numberOfRowsAffected = Delete (pure (liftAp NumberOfRowsAffected))
+  returning projection = Delete (pure (liftAp (Returning projection)))
+
+
+instance Restrict Delete where
+  restrict condition = Delete (DeleteF condition, pure ())
+
+
+ppDelete :: Selects names exprs
+  => TableSchema names -> Delete exprs a -> Maybe Doc
+ppDelete from (Delete (DeleteF {..}, returning)) = do
+  condition <- ppWhere from where_
   pure $ text "DELETE FROM" <+> ppTable from
     $$ condition
     $$ ppReturning from returning
 
 
--- | Run a @DELETE@ statement.
-delete :: Connection -> Delete a -> IO a
-delete c d@Delete {returning} =
-  case (show <$> ppDelete d, returning) of
-    (Nothing, NumberOfRowsAffected) -> pure 0
-    (Nothing, Projection _) -> pure []
-    (Just sql, NumberOfRowsAffected) ->
-      Hasql.run session c >>= either throwIO pure
+-- | Run a 'Delete' statement.
+delete :: Selects names exprs
+  => Connection -> TableSchema names -> Delete exprs a -> IO a
+delete connection from d@(Delete (_, returning)) =
+  case show <$> ppDelete from d of
+    Nothing -> pure (emptyReturning returning)
+    Just sql ->
+      Hasql.run session connection >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
         bytes = encodeUtf8 $ Text.pack sql
         params = Hasql.noParams
-        decode = Hasql.rowsAffected
+        decode = decodeReturning returning
         prepare = False
-
-    (Just sql, Projection project) ->
-      Hasql.run session c >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decoder project
-        prepare = False
-
-  where
-    decoder :: forall exprs projection a. Serializable projection a
-      => (exprs -> projection) -> Hasql.Result [a]
-    decoder _ = Hasql.rowList (parse @projection @a)

@@ -1,3 +1,5 @@
+{-# language MonoLocalBinds #-}
+
 module Rel8.Statement.SQL
   ( showDelete
   , showInsert
@@ -9,21 +11,23 @@ where
 import Prelude
 
 -- rel8
+import Rel8.Schema.Name ( Selects )
+import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Delete ( Delete, ppDelete )
 import Rel8.Statement.Insert ( Insert, ppInsert )
 import Rel8.Statement.Update ( Update, ppUpdate )
 
 
 -- | Convert a 'Delete' to a 'String' containing a @DELETE@ statement.
-showDelete :: Delete a -> String
-showDelete = foldMap show . ppDelete
+showDelete :: Selects names exprs => TableSchema names -> Delete exprs a -> String
+showDelete schema = foldMap show . ppDelete schema
 
 
 -- | Convert an 'Insert' to a 'String' containing an @INSERT@ statement.
-showInsert :: Insert a -> String
-showInsert = foldMap show . ppInsert
+showInsert :: Selects names exprs => TableSchema names -> Insert exprs a -> String
+showInsert schema = foldMap show . ppInsert schema
 
 
 -- | Convert an 'Update' to a 'String' containing an @UPDATE@ statement.
-showUpdate :: Update a -> String
-showUpdate = foldMap show . ppUpdate
+showUpdate :: Selects names exprs => TableSchema names -> Update exprs a -> String
+showUpdate schema = foldMap show . ppUpdate schema

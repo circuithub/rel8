@@ -1,25 +1,31 @@
-{-# language DuplicateRecordFields #-}
-{-# language GADTs #-}
+{-# language DerivingVia #-}
+{-# language MonoLocalBinds #-}
 {-# language NamedFieldPuns #-}
 {-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 
 module Rel8.Statement.Update
   ( Update(..)
   , update
   , Set
+  , set
+  , UpdateF(..)
   , ppUpdate
   , ppSet
   )
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Control.Exception ( throwIO )
 import Data.Foldable ( toList )
+import Data.Function ( on )
+import Data.Functor.Compose ( Compose( Compose ) )
 import Data.Kind ( Type )
 import Prelude
+
+-- free
+import Control.Applicative.Free ( Ap, liftAp )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
@@ -30,7 +36,6 @@ import Text.PrettyPrint ( Doc, (<+>), ($$), equals, text )
 
 -- hasql
 import Hasql.Connection ( Connection )
-import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
@@ -38,44 +43,22 @@ import qualified Hasql.Statement as Hasql
 -- rel8
 import Rel8.Schema.Name ( Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
-import Rel8.Statement.Returning ( Returning(..), ppReturning )
-import Rel8.Statement.Where ( Where, ppWhere )
+import Rel8.Statement.Returning
+  ( Returning
+  , ReturningF(..), decodeReturning, emptyReturning, ppReturning
+  )
+import qualified Rel8.Statement.Returning
+import Rel8.Statement.Where ( Restrict, restrict, Where, ppWhere )
 import Rel8.Table.Opaleye ( exprsWithNames, view )
-import Rel8.Table.Serialize ( Serializable, parse )
 
 -- text
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
 
--- | The constituent parts of an @UPDATE@ statement.
-type Update :: Type -> Type
-data Update a where
-  Update :: Selects names exprs =>
-    { target :: TableSchema names
-      -- ^ Which table to update.
-    , set :: Set exprs
-      -- ^ How to update each selected row.
-    , updateWhere :: Where exprs
-      -- ^ Which rows to select for update.
-    , returning :: Returning names a
-      -- ^ What to return from the @UPDATE@ statement.
-    }
-    -> Update a
-
-
 -- | The @SET@ part of an @UPDATE@ (or @ON CONFLICT DO UPDATE@) statement.
+type Set :: Type -> Type
 type Set expr = expr -> expr
-
-
-ppUpdate :: Update a -> Maybe Doc
-ppUpdate Update {..} = do
-  condition <- ppWhere target updateWhere
-  pure $
-    text "UPDATE" <+>
-    ppTable target $$
-    ppSet target set $$
-    condition $$ ppReturning target returning
 
 
 ppSet :: Selects names exprs => TableSchema names -> Set exprs -> Doc
@@ -88,33 +71,70 @@ ppSet TableSchema {columns} f =
       ppColumn column <+> equals <+> Opaleye.ppSqlExpr expr
 
 
--- | Run an @UPDATE@ statement.
-update :: Connection -> Update a -> IO a
-update c u@Update {returning} =
-  case (show <$> ppUpdate u, returning) of
-    (Nothing, NumberOfRowsAffected) -> pure 0
-    (Nothing, Projection _) -> pure []
-    (Just sql, NumberOfRowsAffected) ->
-      Hasql.run session c >>= either throwIO pure
+type UpdateF :: Type -> Type
+data UpdateF exprs = UpdateF
+  { set_ :: Set exprs
+  , where_ :: Where exprs
+  }
+
+
+instance Semigroup (UpdateF exprs) where
+  a <> b = UpdateF
+    { set_ = ((.) `on` set_) b a
+    , where_ = (liftA2 (*>) `on` where_) a b
+    }
+
+
+instance Monoid (UpdateF exprs) where
+  mempty = UpdateF
+    { set_ = id
+    , where_ = \_ ->  pure ()
+    }
+
+
+-- | An 'Applicative' that builds an @UPDATE@ statement.
+type Update :: Type -> Type -> Type
+newtype Update exprs a = Update (UpdateF exprs, Ap (ReturningF exprs) a)
+  deriving (Functor, Applicative) via
+    Compose ((,) (UpdateF exprs)) (Ap (ReturningF exprs))
+
+
+instance Returning Update where
+  numberOfRowsAffected = Update (pure (liftAp NumberOfRowsAffected))
+  returning projection = Update (pure (liftAp (Returning projection)))
+
+
+instance Restrict Update where
+  restrict condition = Update (UpdateF id condition, pure ())
+
+
+set :: Set exprs -> Update exprs ()
+set f = Update (UpdateF f (const (pure ())), pure ())
+
+
+ppUpdate :: Selects names exprs
+  => TableSchema names -> Update exprs a -> Maybe Doc
+ppUpdate target (Update (UpdateF {..}, returning)) = do
+  condition <- ppWhere target where_
+  pure $
+    text "UPDATE" <+>
+    ppTable target $$
+    ppSet target set_ $$
+    condition $$ ppReturning target returning
+
+
+-- | Run an 'Update' statement.
+update :: Selects names exprs
+  => Connection -> TableSchema names -> Update exprs a -> IO a
+update connection target u@(Update (_, returning)) =
+  case show <$> ppUpdate target u of
+    Nothing -> pure (emptyReturning returning)
+    Just sql ->
+      Hasql.run session connection >>= either throwIO pure
       where
         session = Hasql.statement () statement
         statement = Hasql.Statement bytes params decode prepare
         bytes = encodeUtf8 $ Text.pack sql
         params = Hasql.noParams
-        decode = Hasql.rowsAffected
+        decode = decodeReturning returning
         prepare = False
-
-    (Just sql, Projection project) ->
-      Hasql.run session c >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decoder project
-        prepare = False
-
-  where
-    decoder :: forall exprs projection a. Serializable projection a
-      => (exprs -> projection) -> Hasql.Result [a]
-    decoder _ = Hasql.rowList (parse @projection @a)

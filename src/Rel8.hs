@@ -1,5 +1,3 @@
-{-# language DuplicateRecordFields #-}
-
 module Rel8
   ( -- * Database types
     -- ** @DBType@
@@ -254,27 +252,39 @@ module Rel8
   , select
 
     -- ** @INSERT@
-  , Insert(..)
-  , OnConflict(..)
-  , Upsert(..)
+  , Insert
   , insert
+  , rows
+
+  , OnConflict
+  , onConflict
+  , doNothing
+  , doUpdate
+
   , unsafeDefault
   , showInsert
 
     -- ** @DELETE@
-  , Delete(..)
+  , Delete
   , delete
   , showDelete
 
     -- ** @UPDATE@
-  , Update(..)
+  , Update
   , Set
-  , Where
   , update
+  , set
   , showUpdate
 
+    -- ** @.. WHERE@
+  , Where
+  , Restrict
+  , restrict
+
     -- ** @.. RETURNING@
-  , Returning(..)
+  , Returning
+  , numberOfRowsAffected
+  , returning
 
     -- ** @CREATE VIEW@
   , createView
@@ -343,7 +353,7 @@ import Rel8.Statement.Insert
 import Rel8.Statement.Returning
 import Rel8.Statement.Select
 import Rel8.Statement.SQL
-import Rel8.Statement.Update
+import Rel8.Statement.Update ( Update, Set, update, set )
 import Rel8.Statement.View
 import Rel8.Statement.Where
 import Rel8.Table
@@ -383,5 +393,5 @@ import Rel8.Type.Sum
 -- $running
 -- To run queries and otherwise interact with a PostgreSQL database, Rel8
 -- provides 'select', 'insert', 'update' and 'delete' functions. Note that
--- 'insert', 'update' and 'delete' will generally need the
--- `DuplicateRecordFields` language extension enabled.
+-- you'll need the @AppliactiveDo@ language extension enabled if you want to
+-- use @do@-notation to construct 'Insert', 'Update' and 'Delete' statements.

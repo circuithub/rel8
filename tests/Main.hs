@@ -1,20 +1,15 @@
+{-# language ApplicativeDo #-}
 {-# language BlockArguments #-}
-{-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
-{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language GADTs #-}
-{-# language NamedFieldPuns #-}
+{-# language MonoLocalBinds #-}
 {-# language OverloadedStrings #-}
 {-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
-
-{-# options_ghc -fno-warn-redundant-constraints #-}
 
 module Main
   ( main
@@ -25,7 +20,6 @@ where
 import Control.Applicative ( liftA2, liftA3 )
 import Control.Monad (void)
 import Control.Monad.IO.Class ( MonadIO, liftIO )
-import Data.Bifunctor ( bimap )
 import Data.Foldable ( for_ )
 import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
@@ -185,14 +179,10 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    void do
-      liftIO $ Rel8.insert connection
-        Rel8.Insert
-          { into = testTableSchema
-          , rows = Rel8.values $ map Rel8.lit rows
-          , onConflict = Rel8.DoNothing
-          , returning = Rel8.NumberOfRowsAffected
-          }
+    liftIO $ Rel8.insert connection testTableSchema $ do
+      Rel8.rows $ Rel8.values $ map Rel8.lit rows
+      Rel8.onConflict Rel8.doNothing
+      pure ()
 
     selected <- liftIO $ Rel8.select connection do
       Rel8.each testTableSchema
@@ -412,7 +402,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
       , databasePropertyTest ("Maybe " <> name) (t (==) (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Show a, Rel8.Sql Rel8.DBType a)
+    t :: (Show a, Rel8.Sql Rel8.DBType a)
       => (a -> a -> Bool)
       -> Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO b)
@@ -462,7 +452,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a. (Eq a, Show a, Rel8.Sql Rel8.DBEq a)
+    t :: (Eq a, Show a, Rel8.Sql Rel8.DBEq a)
       => Gen a
       -> ((Connection -> TestT IO ()) -> PropertyT IO ())
       -> PropertyT IO ()
@@ -599,34 +589,29 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
   rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ Rel8.insert connection
-      Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsAffected
-        }
+    liftIO $ Rel8.insert connection testTableSchema $ do
+      Rel8.rows $ Rel8.values $ map Rel8.lit $ Map.keys rows
+      Rel8.onConflict Rel8.doNothing
+      pure ()
 
-    void $ liftIO $ Rel8.update connection
-      Rel8.Update
-        { target = testTableSchema
-        , set = \r ->
-            let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
-            in
-            foldl
-              ( \e (x, y) ->
-                  Rel8.bool
-                    e
-                    y
-                    ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
-                      testTableColumn2 r Rel8.==. testTableColumn2 x
-                    )
-              )
-              r
-              updates
-        , updateWhere = \_ -> Rel8.where_ $ Rel8.lit True
-        , returning = Rel8.NumberOfRowsAffected
-        }
+    liftIO $ Rel8.update connection testTableSchema $ do
+      Rel8.set $ \r ->
+        let
+          updates = Rel8.lit <$> Map.toList rows
+        in
+        foldl
+          ( \e (x, y) ->
+              Rel8.bool
+                e
+                y
+                ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
+                  testTableColumn2 r Rel8.==. testTableColumn2 x
+                )
+          )
+          r
+          updates
+      Rel8.restrict $ \_ -> Rel8.where_ $ Rel8.lit True
+      pure ()
 
     selected <- liftIO $ Rel8.select connection do
       Rel8.each testTableSchema
@@ -643,21 +628,16 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ Rel8.insert connection
-      Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsAffected
-        }
+    liftIO $ Rel8.insert connection testTableSchema $ do
+      Rel8.rows $ Rel8.values $ map Rel8.lit rows
+      Rel8.onConflict Rel8.doNothing
+      pure ()
 
     deleted <-
-      liftIO $ Rel8.delete connection
-        Rel8.Delete
-          { from = testTableSchema
-          , deleteWhere = Rel8.where_ <$> testTableColumn2
-          , returning = Rel8.Projection id
-          }
+      liftIO $ Rel8.delete connection testTableSchema $ do
+        Rel8.restrict $ Rel8.where_ <$> testTableColumn2
+        deleted <- Rel8.returning id
+        pure deleted
 
     selected <- liftIO $ Rel8.select connection do
       Rel8.each testTableSchema
