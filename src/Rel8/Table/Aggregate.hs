@@ -66,7 +66,7 @@ hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
+listAgg :: Aggregates aggregates exprs => exprs -> ListTable Aggregate aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)

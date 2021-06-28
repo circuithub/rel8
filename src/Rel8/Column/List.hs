@@ -30,7 +30,7 @@ import Rel8.Table
   ( Table, Columns, Congruent, Context, fromColumns, toColumns
   , Unreify, reify, unreify
   )
-import Rel8.Table.List ( ListTable( ListTable ) )
+import Rel8.Table.List ( ListTable(..) )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
@@ -38,12 +38,12 @@ import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 -- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
-type family HList context where
-  HList (Reify context) = AHList context
-  HList Aggregate = ListTable
-  HList Expr = ListTable
-  HList Name = ListTable
-  HList Result = []
+type family HList context a where
+  HList (Reify context) a = AHList context a
+  HList Aggregate a = ListTable Aggregate a
+  HList Expr a = ListTable Expr a
+  HList Name a = ListTable Name a
+  HList Result a = [a]
 
 
 type AHList :: K.Context -> Type -> Type
@@ -76,17 +76,24 @@ instance
     (AHList context' a')
 
 
-smapList :: Congruent a b
+smapList :: (Congruent a b)
   => SContext context
   -> (a -> b)
   -> (HListTable (Columns a) (Col (Context a)) -> HListTable (Columns b) (Col (Context b)))
   -> AHList context a
   -> AHList context b
 smapList = \case
-  SAggregate -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
-  SExpr -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
+  SAggregate -> \f _ -> \case
+    AHList (ListTable g a) -> AHList (ListTable (f . g) a)
+
+  SExpr -> \f _ -> \case
+    AHList (ListTable g a) -> AHList (ListTable (f . g) a)
+
   SResult -> \f _ (AHList as) -> AHList (fmap f as)
-  SName -> \_ f (AHList (ListTable a)) -> AHList (ListTable (f a))
+
+  SName -> \f _ -> \case
+    AHList (ListTable g a) -> AHList (ListTable (f . g) a)
+
   SReify context -> \f g (AHList as) -> AHList (smapList context f g as)
 
 
@@ -95,10 +102,10 @@ sfromColumnsList :: Table (Reify context) a
   -> HListTable (Columns a) (Col (Reify context))
   -> AHList context a
 sfromColumnsList = \case
-  SAggregate -> AHList . ListTable
-  SExpr -> AHList . ListTable
+  SAggregate -> AHList . ListTable (fromColumns . hreify) . hunreify
+  SExpr -> AHList . ListTable (fromColumns . hreify) . hunreify
   SResult -> AHList . fmap (fromColumns . hreify) . fromColumns . hunreify
-  SName -> AHList . ListTable
+  SName -> AHList . ListTable (fromColumns . hreify) . hunreify
   SReify context ->
     AHList .
     smapList context (fromColumns . hreify) hreify .
@@ -111,11 +118,18 @@ stoColumnsList :: Table (Reify context) a
   -> AHList context a
   -> HListTable (Columns a) (Col (Reify context))
 stoColumnsList = \case
-  SAggregate -> \(AHList (ListTable a)) -> a
-  SExpr -> \(AHList (ListTable a)) -> a
+  SAggregate ->
+    hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
+
+  SExpr ->
+    hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
+
   SResult ->
     hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
-  SName -> \(AHList (ListTable a)) -> a
+
+  SName ->
+    hreify . toColumns . fmap (hunreify . toColumns) . (\(AHList a) -> a)
+
   SReify context ->
     hreify .
     stoColumnsList context .
