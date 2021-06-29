@@ -38,12 +38,12 @@ import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 -- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
-type family HList context a where
-  HList (Reify context) a = AHList context a
-  HList Aggregate a = ListTable Aggregate a
-  HList Expr a = ListTable Expr a
-  HList Name a = ListTable Name a
-  HList Result a = [a]
+type family HList context where
+  HList (Reify context) a = AHList context
+  HList Aggregate a = ListTable Aggregate
+  HList Expr a = ListTable Expr
+  HList Name a = ListTable Name
+  HList Result = []
 
 
 type AHList :: K.Context -> Type -> Type
