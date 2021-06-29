@@ -202,7 +202,7 @@ instance (context ~ Expr, Table Expr a) => Monoid (ListTable context a) where
 
 
 -- | Construct a @ListTable@ from a list of expressions.
-listTable :: forall a. Table Expr a => [a] -> ListTable Expr a
+listTable :: Table Expr a => [a] -> ListTable Expr a
 listTable =
   ListTable fromColumns .
   hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
@@ -213,7 +213,7 @@ listTable =
 -- have a 'ListTable' that you are storing in a table and need to construct a
 -- 'TableSchema'.
 nameListTable
-  :: forall a. Table Name a
+  :: Table Name a
   => a -- ^ The names of the columns of elements of the list.
   -> ListTable Name a
 nameListTable =
