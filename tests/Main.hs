@@ -473,9 +473,6 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
         [res] <- liftIO $ Rel8.select connection $ pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
 
-        cover 1 "Equal" $ x == y
-        cover 1 "Not Equal" $ x /= y
-
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
 testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
@@ -486,9 +483,6 @@ testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
        pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
      eq === (x == y)
-
-     cover 1 "Equal" $ x == y
-     cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
