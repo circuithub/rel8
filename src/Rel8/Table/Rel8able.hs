@@ -25,7 +25,7 @@ import qualified Rel8.Kind.Algebra as K
 import Rel8.Kind.Context
   ( SContext( SReify )
   , Reifiable, contextSing
-  , sLabelable, sReifiable
+  , sReifiable
   )
 import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
@@ -33,7 +33,6 @@ import Rel8.Generic.Rel8able
   , greify, gunreify
   )
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Label ( Labelable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HConstrainTable, hdicts )
@@ -54,7 +53,7 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Labelable context, Reifiable context) =>
+instance (Rel8able t, Reifiable context) =>
   Table context (t context)
  where
   type Columns (t context) = GColumns t
@@ -65,20 +64,18 @@ instance (Rel8able t, Labelable context, Reifiable context) =>
   toColumns = hunreify . gtoColumns . greify
 
   reify Refl = case contextSing @context of
-    SReify context -> case sLabelable context of
-      Dict -> case sReifiable context of
-        Dict -> greify
+    SReify context -> case sReifiable context of
+      Dict -> greify
 
   unreify Refl = case contextSing @context of
-    SReify context -> case sLabelable context of
-      Dict -> case sReifiable context of
-        Dict -> gunreify
+    SReify context -> case sReifiable context of
+      Dict -> gunreify
 
 
 instance
   ( Rel8able t
-  , Labelable from, Reifiable from
-  , Labelable to, Reifiable to
+  , Reifiable from
+  , Reifiable to
   , Congruent (t from) (t to)
   )
   => Recontextualize from to (t from) (t to)

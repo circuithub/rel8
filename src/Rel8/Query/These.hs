@@ -46,7 +46,7 @@ alignBy :: ()
   => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable a b)
 alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> case i of
-  (_, input, tag) -> (tab, join', tag''')
+  (_, tag) -> (tab, join', tag''')
     where
       (ma, left', tag') = Opaleye.runSimpleQueryArr (pure <$> left) ((), tag)
       (mb, right', tag'') = Opaleye.runSimpleQueryArr (pure <$> right) ((), tag')
@@ -57,13 +57,15 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> cas
       (hasThere', rbindings) = Opaleye.run $ do
         traversePrimExpr (Opaleye.extractAttr "hasThere" tag'') hasThere
       tag''' = Opaleye.next tag''
-      join = Opaleye.Join Opaleye.FullJoin on lbindings rbindings left' right'
+      join lateral = Opaleye.Join Opaleye.FullJoin on left'' right''
         where
           on = toPrimExpr $ condition a b
+          left'' = (lateral, Opaleye.Rebind True lbindings left')
+          right'' = (lateral, Opaleye.Rebind True rbindings right')
       ma' = MaybeTable (fromExpr hasHere') a
       mb' = MaybeTable (fromExpr hasThere') b
       tab = TheseTable {here = ma', there = mb'}
-      join' = Opaleye.times input join
+      join' lateral input = Opaleye.times lateral input (join lateral)
 
 
 -- | Filter 'TheseTable's, keeping only 'thisTable's and 'thoseTable's.

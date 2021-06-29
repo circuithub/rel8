@@ -26,7 +26,7 @@ import qualified Opaleye.Internal.Order as Opaleye
 -- instances.
 --
 -- A common pattern is to use '<>' to combine multiple orderings in sequence,
--- and '>$<' (from 'Contravariant') to select individual columns.
+-- and 'Data.Functor.Contravariant.>$<' to select individual columns.
 type Order :: Type -> Type
 newtype Order a = Order (Opaleye.Order a)
   deriving newtype (Contravariant, Divisible, Decidable, Semigroup, Monoid)

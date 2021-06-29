@@ -40,23 +40,23 @@ zipOpaleyeWith f (Query a) (Query b) = Query $ liftA2 (zipping f) a b
 mapping :: ()
   => (Opaleye.Select a -> Opaleye.Select b)
   -> Opaleye.Select (m, a) -> Opaleye.Select (m, b)
-mapping f q@(Opaleye.QueryArr qa) = Opaleye.QueryArr $ \(_, query, tag) ->
+mapping f q@(Opaleye.QueryArr qa) = Opaleye.QueryArr $ \(_, tag) ->
   let
-    ((m, _), _, _) = qa ((), query, tag)
+    ((m, _), _, _) = qa ((), tag)
     Opaleye.QueryArr qa' = (m,) <$> f (snd <$> q)
   in
-    qa' ((), query, tag)
+    qa' ((), tag)
 
 
 zipping :: Semigroup m
   => (Opaleye.Select a -> Opaleye.Select b -> Opaleye.Select c)
   -> Opaleye.Select (m, a) -> Opaleye.Select (m, b) -> Opaleye.Select (m, c)
 zipping f q@(Opaleye.QueryArr qa) q'@(Opaleye.QueryArr qa') =
-  Opaleye.QueryArr $ \(_, query, tag) ->
+  Opaleye.QueryArr $ \(_, tag) ->
     let
-      ((m, _), _, _) = qa ((), query, tag)
-      ((m', _), _, _) = qa' ((), query, tag)
+      ((m, _), _, _) = qa ((), tag)
+      ((m', _), _, _) = qa' ((), tag)
       m'' = m <> m'
       Opaleye.QueryArr qa'' = (m'',) <$> f (snd <$> q) (snd <$> q')
     in
-      qa'' ((), query, tag)
+      qa'' ((), tag)

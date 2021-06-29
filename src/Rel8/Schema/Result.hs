@@ -6,7 +6,6 @@
 
 module Rel8.Schema.Result
   ( Col( R, unR ), Result
-  , relabel
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
@@ -17,7 +16,6 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.Schema.Context ( Interpretation( Col ) )
-import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
@@ -33,32 +31,26 @@ data Result a
 
 instance Interpretation Result where
   data Col Result _spec where
-    R :: {unR :: !a} -> Col Result ('Spec labels a)
+    R :: {unR :: !a} -> Col Result ('Spec a)
 
 
-relabel :: ()
-  => HIdentity ('Spec labels a) (Col Result)
-  -> HIdentity ('Spec relabels a) (Col Result)
-relabel (HIdentity (R a)) = HIdentity (R a)
-
-
-null :: Col Result ('Spec labels (Maybe a))
+null :: Col Result ('Spec (Maybe a))
 null = R Nothing
 
 
 nullifier :: ()
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels a)
-  -> Col Result ('Spec labels (Nullify a))
+  => SSpec ('Spec a)
+  -> Col Result ('Spec a)
+  -> Col Result ('Spec (Nullify a))
 nullifier SSpec {nullity} (R a) = R $ case nullity of
   Null -> a
   NotNull -> Just a
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels (Nullify a))
-  -> Maybe (Col Result ('Spec labels a))
+  => SSpec ('Spec a)
+  -> Col Result ('Spec (Nullify a))
+  -> Maybe (Col Result ('Spec a))
 unnullifier SSpec {nullity} (R a) =
   case nullity of
     Null -> pure $ R a
@@ -66,14 +58,14 @@ unnullifier SSpec {nullity} (R a) =
 
 
 vectorizer :: Functor f
-  => SSpec ('Spec labels a)
-  -> f (Col Result ('Spec labels a))
-  -> Col Result ('Spec labels (f a))
+  => SSpec ('Spec a)
+  -> f (Col Result ('Spec a))
+  -> Col Result ('Spec (f a))
 vectorizer _ = R . fmap unR
 
 
 unvectorizer :: Functor f
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels (f a))
-  -> f (Col Result ('Spec labels a))
+  => SSpec ('Spec a)
+  -> Col Result ('Spec (f a))
+  -> f (Col Result ('Spec a))
 unvectorizer _ (R results) = R <$> results

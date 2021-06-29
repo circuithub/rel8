@@ -41,11 +41,10 @@ import Rel8.Generic.Table
   )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Generic.Reify ( ARep )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
-import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
+import Rel8.Schema.HTable.Label ( hlabel, hrelabel, hunlabel )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
@@ -61,7 +60,6 @@ import Rel8.Schema.Reify
   )
 import Rel8.Schema.Result
   ( Col( R ), Result
-  , relabel
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
@@ -247,20 +245,20 @@ instance (Table Result a, Table Result b) => Table Result (Either a b) where
 
   toColumns = \case
     Left table -> HEitherTable
-      { htag = HIdentity (R IsLeft)
-      , hleft = hlabel labeler (hnullify nullifier (toColumns table))
-      , hright = hlabel labeler (hnulls (const null))
+      { htag = hlabel (HType (R IsLeft))
+      , hleft = hlabel (hnullify nullifier (toColumns table))
+      , hright = hlabel (hnulls (const null))
       }
     Right table -> HEitherTable
-      { htag = HIdentity (R IsRight)
-      , hleft = hlabel labeler (hnulls (const null))
-      , hright = hlabel labeler (hnullify nullifier (toColumns table))
+      { htag = hlabel (HType (R IsRight))
+      , hleft = hlabel (hnulls (const null))
+      , hright = hlabel (hnullify nullifier (toColumns table))
       }
 
-  fromColumns HEitherTable {htag, hleft, hright} = case htag of
-    HIdentity (R tag) -> case tag of
-      IsLeft -> maybe err (Left . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hleft)
-      IsRight -> maybe err (Right . fromColumns) $ hunnullify unnullifier (hunlabel unlabeler hright)
+  fromColumns HEitherTable {htag, hleft, hright} = case hunlabel htag of
+    HType (R tag) -> case tag of
+      IsLeft -> maybe err (Left . fromColumns) $ hunnullify unnullifier (hunlabel hleft)
+      IsRight -> maybe err (Right . fromColumns) $ hunnullify unnullifier (hunlabel hright)
     where
       err = error "Either.fromColumns: mismatch between tag and data"
 
@@ -279,17 +277,17 @@ instance Table Result a => Table Result (Maybe a) where
 
   toColumns = \case
     Nothing -> HMaybeTable
-      { htag = HIdentity (R Nothing)
-      , hjust = hlabel labeler (hnulls (const null))
+      { htag = hlabel (HIdentity (R Nothing))
+      , hjust = hlabel (hnulls (const null))
       }
     Just table -> HMaybeTable
-      { htag = HIdentity (R (Just IsJust))
-      , hjust = hlabel labeler (hnullify nullifier (toColumns table))
+      { htag = hlabel (HIdentity (R (Just IsJust)))
+      , hjust = hlabel (hnullify nullifier (toColumns table))
       }
 
-  fromColumns HMaybeTable {htag, hjust} = case htag of
-    HIdentity (R tag) -> tag $>
-      case hunnullify unnullifier (hunlabel unlabeler hjust) of
+  fromColumns HMaybeTable {htag, hjust} = case hunlabel htag of
+    HType (R tag) -> tag $>
+      case hunnullify unnullifier (hunlabel hjust) of
         Nothing -> error "Maybe.fromColumns: mismatch between tag and data"
         Just just -> fromColumns just
 
@@ -307,10 +305,10 @@ instance (Table Result a, Table Result b) => Table Result (These a b) where
   type Context (These a b) = Result
 
   toColumns tables = HTheseTable
-    { hhereTag = relabel hhereTag
-    , hhere = hlabel labeler (hunlabel unlabeler (toColumns hhere))
-    , hthereTag = relabel hthereTag
-    , hthere = hlabel labeler (hunlabel unlabeler (toColumns hthere))
+    { hhereTag = hrelabel hhereTag
+    , hhere = hrelabel (toColumns hhere)
+    , hthereTag = hrelabel hthereTag
+    , hthere = hrelabel (toColumns hthere)
     }
     where
       HMaybeTable
@@ -330,29 +328,27 @@ instance (Table Result a, Table Result b) => Table Result (These a b) where
       _ -> error "These.fromColumns: mismatch between tags and data"
     where
       mhere = HMaybeTable
-        { htag = relabel hhereTag
-        , hjust = hlabel labeler (hunlabel unlabeler hhere)
+        { htag = hrelabel hhereTag
+        , hjust = hrelabel hhere
         }
       mthere = HMaybeTable
-        { htag = relabel hthereTag
-        , hjust = hlabel labeler (hunlabel unlabeler hthere)
+        { htag = hrelabel hthereTag
+        , hjust = hrelabel hthere
         }
 
 
-instance (Table context a, Table context b, Labelable context)
+instance (Table context a, Table context b)
   => Table context (a, b)
 
 
 instance
   ( Table context a, Table context b, Table context c
-  , Labelable context
   )
   => Table context (a, b, c)
 
 
 instance
   ( Table context a, Table context b, Table context c, Table context d
-  , Labelable context
   )
   => Table context (a, b, c, d)
 
@@ -360,7 +356,6 @@ instance
 instance
   ( Table context a, Table context b, Table context c, Table context d
   , Table context e
-  , Labelable context
   )
   => Table context (a, b, c, d, e)
 
@@ -368,7 +363,6 @@ instance
 instance
   ( Table context a, Table context b, Table context c, Table context d
   , Table context e, Table context f
-  , Labelable context
   )
   => Table context (a, b, c, d, e, f)
 
@@ -376,7 +370,6 @@ instance
 instance
   ( Table context a, Table context b, Table context c, Table context d
   , Table context e, Table context f, Table context g
-  , Labelable context
   )
   => Table context (a, b, c, d, e, f, g)
 

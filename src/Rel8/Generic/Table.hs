@@ -148,10 +148,10 @@ ggtable :: forall algebra _Table _Columns rep context.
   , Eval (GGTable algebra _Table _Columns context rep)
   )
   => (forall a proxy. Eval (_Table a) => proxy a -> Eval (_Columns a) context)
-  -> (forall a labels. ()
-      => SSpec ('Spec labels a)
-      -> context ('Spec labels a)
-      -> context ('Spec labels (Nullify a)))
+  -> (forall a. ()
+      => SSpec ('Spec a)
+      -> context ('Spec a)
+      -> context ('Spec (Nullify a)))
   -> Eval (GGColumns algebra _Columns rep) context
 ggtable = case algebraSing @algebra of
   SProduct -> \table _ -> gtable @_Table @_Columns @_ @rep table
