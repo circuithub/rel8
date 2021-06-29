@@ -76,7 +76,7 @@ instance
     (AHList context' a')
 
 
-smapList :: (Congruent a b)
+smapList :: Congruent a b
   => SContext context
   -> (a -> b)
   -> (HListTable (Columns a) (Col (Context a)) -> HListTable (Columns b) (Col (Context b)))
