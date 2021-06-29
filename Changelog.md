@@ -6,6 +6,8 @@
 
 * Rename `whereExists` and `whereNotExists` to `present` and `absent` respectively.
 
+* Require Opaleye 0.7.3.0. This version has better support for lateral queries, which can improve query plans, especially in `optional`/`LEFT JOIN` (https://github.com/circuithub/rel8/issues/72)
+
 # 1.0.0.1 (2021-06-21)
 
 This release contains various fixes for documentation.
