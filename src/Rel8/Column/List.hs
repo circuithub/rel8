@@ -39,10 +39,10 @@ import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
 type family HList context where
-  HList (Reify context) a = AHList context
-  HList Aggregate a = ListTable Aggregate
-  HList Expr a = ListTable Expr
-  HList Name a = ListTable Name
+  HList (Reify context) = AHList context
+  HList Aggregate = ListTable Aggregate
+  HList Expr = ListTable Expr
+  HList Name = ListTable Name
   HList Result = []
 
 
