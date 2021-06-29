@@ -250,14 +250,15 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
+  , unsafeDefault
 
     -- ** @DELETE@
   , Delete(..)
   , delete
 
     -- ** @UPDATE@
-  , update
   , Update(..)
+  , update
 
     -- ** @.. RETURNING@
   , Returning(..)
@@ -289,6 +290,7 @@ import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
 import Rel8.Expr.Bool
+import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null

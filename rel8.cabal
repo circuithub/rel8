@@ -66,6 +66,7 @@ library
     Rel8.Expr.Aggregate
     Rel8.Expr.Array
     Rel8.Expr.Bool
+    Rel8.Expr.Default
     Rel8.Expr.Eq
     Rel8.Expr.Function
     Rel8.Expr.Null
