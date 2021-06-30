@@ -110,16 +110,16 @@ Default values
 It is fairly common to define tables with default values. While Rel8 does not
 have specific functionality for ``DEFAULT``, there are a few options:
 
-``unsafeLiteral "DEFAULT"``
+``unsafeDefault``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Rel8 does not have any special support for ``DEFAULT``. If you need to use
-default column values in inserts, you can use ``unsafeLiteral "DEFAULT"`` to
+default column values in inserts, you can use ``unsafeDefault`` to
 construct the ``DEFAULT`` expression::
 
   insert Insert
     { into = orderSchema
-    , rows = [ Order { orderId = unsafeLiteral "DEFAULT", ... } ]
+    , rows = [ Order { orderId = unsafeDefault, ... } ]
     , onConflict = Abort
     , returning = Projection orderId
     }
@@ -131,7 +131,7 @@ construct the ``DEFAULT`` expression::
    special in SQL, and cannot be combined like other expressions. For example,
    the innocuous expression::
 
-      unsafeLiteral "DEFAULT" + 1
+      unsafeDefault + 1
 
    will lead to a runtime crash.
 
