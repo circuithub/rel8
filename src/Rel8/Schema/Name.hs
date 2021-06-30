@@ -52,7 +52,7 @@ data Name a where
 deriving stock instance Show (Name a)
 
 
-instance k ~ Type => IsString (Name (a :: k)) where
+instance IsString (Name a) where
   fromString = Name
 
 
