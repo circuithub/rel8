@@ -17,6 +17,6 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 
 type role Expr representational
-type Expr :: k -> Type
+type Expr :: Type -> Type
 data Expr a where
-  Expr :: k ~ Type => !Opaleye.PrimExpr -> Expr (a :: k)
+  Expr :: !Opaleye.PrimExpr -> Expr a

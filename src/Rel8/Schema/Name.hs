@@ -44,9 +44,9 @@ import Rel8.Type ( DBType )
 -- schema definition. You can construct names by using the @OverloadedStrings@
 -- extension and writing string literals. This is typically done when providing
 -- a 'TableSchema' value.
-type Name :: k -> Type
+type Name :: Type -> Type
 data Name a where
-  Name :: k ~ Type => !String -> Name (a :: k)
+  Name :: !String -> Name a
 
 
 deriving stock instance Show (Name a)
