@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -25,8 +26,11 @@ import Prelude
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.FieldName ( Col( FN ), fieldNames )
+import Rel8.Schema.HTable ( hfield, htabulate )
+import Rel8.Schema.HTable.MapTable ( HMapTable(..) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hvectorize )
+import Rel8.Schema.HTable.Vectorize ( HVectorize(..), happend, hvectorize )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Reify ( hreify, hunreify )
@@ -41,6 +45,7 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.TableFunctor
 import Rel8.Table.Unreify ( Unreifies )
 
 
@@ -129,3 +134,11 @@ nameNonEmptyTable =
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
   pure .
   toColumns
+
+
+instance TableFunctor NonEmptyTable where
+  tmap f (NonEmptyTable (HVectorize (HMapTable cols))) = NonEmptyTable $ HVectorize $ HMapTable $ htabulate \i ->
+    case hfield selected i of
+      FN j -> hfield cols j
+    where
+      selected = toColumns $ f fieldNames

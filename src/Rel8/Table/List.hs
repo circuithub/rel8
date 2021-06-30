@@ -1,3 +1,4 @@
+{-# language BlockArguments #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -24,8 +25,11 @@ import Prelude
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.FieldName ( Col( FN ), fieldNames )
+import Rel8.Schema.HTable ( hfield, htabulate )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
+import Rel8.Schema.HTable.MapTable ( HMapTable(..) )
+import Rel8.Schema.HTable.Vectorize ( HVectorize(..), happend, hempty, hvectorize )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -43,6 +47,7 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.TableFunctor
 import Rel8.Table.Unreify ( Unreifies )
 
 
@@ -137,3 +142,11 @@ nameListTable =
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
   pure .
   toColumns
+
+
+instance TableFunctor ListTable where
+  tmap f (ListTable (HVectorize (HMapTable cols))) = ListTable $ HVectorize $ HMapTable $ htabulate \i ->
+    case hfield selected i of
+      FN j -> hfield cols j
+    where
+      selected = toColumns $ f fieldNames

@@ -20,7 +20,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Schema.HTable.Vectorize
-  ( HVectorize
+  ( HVectorize(..)
   , hvectorize, hunvectorize
   , happend, hempty
   )
