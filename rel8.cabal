@@ -88,7 +88,6 @@ library
     Rel8.Generic.Record
     Rel8.Generic.Reify
     Rel8.Generic.Rel8able
-    Rel8.Generic.Rel8able.Test
     Rel8.Generic.Table
     Rel8.Generic.Table.ADT
     Rel8.Generic.Table.Record
@@ -204,6 +203,9 @@ test-suite tests
     , time
     , tmp-postgres      ^>=1.34.1.0
     , uuid
+
+  other-modules:
+    Rel8.Generic.Rel8able.Test
 
   main-is:          Main.hs
   hs-source-dirs:   tests

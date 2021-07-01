@@ -121,7 +121,7 @@ deriving via HKDT HKDSum
 data HKDTest f = HKDTest
   { s3Object :: Lift f S3Object
   , hkdSum :: Lift f HKDSum
-  } 
+  }
   deriving stock Generic
   deriving anyclass Rel8able
 
