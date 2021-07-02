@@ -41,6 +41,7 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
   hdicts = HLabel (hdicts @table)
   hspecs = HLabel $ htabulate $ \field -> case hfield (hspecs @table) field of
     SSpec {..} -> SSpec {labels = symbolVal (Proxy @label) : labels, ..}
+  {-# INLINABLE hspecs #-}
 
 
 hlabel :: forall label t context. t context -> HLabel label t context
