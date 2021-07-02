@@ -1,15 +1,15 @@
-let 
+let
   haskellNix = import (import ./nix/sources.nix)."haskell.nix" {};
 
   nixpkgsSrc = haskellNix.sources.nixpkgs-2009;
 
   nixpkgsArgs = haskellNix.nixpkgsArgs;
 
-  compiler-nix-name = "ghc8104";
+  compiler-nix-name = "ghc901";
 
   pkgs = import nixpkgsSrc nixpkgsArgs;
 
-in 
+in
 pkgs.haskell-nix.project {
   inherit compiler-nix-name;
 
@@ -20,7 +20,7 @@ pkgs.haskell-nix.project {
     src = ./.;
   };
 
-  modules = [ 
+  modules = [
     { packages.rel8 = {
         preCheck = ''
           export PATH="${pkgs.postgresql}/bin:${"$PATH"}"

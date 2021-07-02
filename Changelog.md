@@ -14,6 +14,8 @@
 
 * Require Opaleye 0.7.3.0. This version has better support for lateral queries, which can improve query plans, especially in `optional`/`LEFT JOIN` ([#72](https://github.com/circuithub/rel8/pull/72))
 
+* Rel8 now compiles with GHC 9. ([#97](https://github.com/circuithub/rel8/pull/97))
+
 ## Other changes
 
 * `exists` is now implemented in terms of the SQL `EXISTS` keyword. ([#69](https://github.com/circuithub/rel8/pull/69))

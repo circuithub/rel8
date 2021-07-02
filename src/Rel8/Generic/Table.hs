@@ -124,9 +124,9 @@ ggfromColumns :: forall algebra _Table _Columns rep context x.
   -> (forall a. Eval (_Table a) => Eval (_Columns a) context -> a)
   -> Eval (GGColumns algebra _Columns rep) context
   -> rep x
-ggfromColumns = case algebraSing @algebra of
-  SProduct -> \_ _ -> gfromColumns @_Table @_Columns
-  SSum -> gfromColumnsADT @_Table @_Columns
+ggfromColumns f g h x = case algebraSing @algebra of
+  SProduct -> gfromColumns @_Table @_Columns h x
+  SSum -> gfromColumnsADT @_Table @_Columns f g h x
 
 
 ggtoColumns :: forall algebra _Table _Columns rep context x.
@@ -138,9 +138,9 @@ ggtoColumns :: forall algebra _Table _Columns rep context x.
   -> (forall a. Eval (_Table a) => a -> Eval (_Columns a) context)
   -> rep x
   -> Eval (GGColumns algebra _Columns rep) context
-ggtoColumns = case algebraSing @algebra of
-  SProduct -> \_ _ -> gtoColumns @_Table @_Columns
-  SSum -> gtoColumnsADT @_Table @_Columns
+ggtoColumns f g h x = case algebraSing @algebra of
+  SProduct -> gtoColumns @_Table @_Columns h x
+  SSum -> gtoColumnsADT @_Table @_Columns f g h x
 
 
 ggtable :: forall algebra _Table _Columns rep context.
@@ -168,9 +168,9 @@ ggfromResult :: forall algebra _ToExprs _Columns exprs rep x.
       -> a)
   -> Eval (GGColumns algebra _Columns exprs) (Col Result)
   -> rep x
-ggfromResult = case algebraSing @algebra of
-  SProduct -> gfromResult @_ToExprs @_Columns @exprs
-  SSum -> gfromResultADT @_ToExprs @_Columns @exprs
+ggfromResult f x = case algebraSing @algebra of
+  SProduct -> gfromResult @_ToExprs @_Columns @exprs f x
+  SSum -> gfromResultADT @_ToExprs @_Columns @exprs f x
 
 
 ggtoResult :: forall algebra _ToExprs _Columns exprs rep x.
@@ -183,6 +183,6 @@ ggtoResult :: forall algebra _ToExprs _Columns exprs rep x.
       -> Eval (_Columns expr) (Col Result))
   -> rep x
   -> Eval (GGColumns algebra _Columns exprs) (Col Result)
-ggtoResult = case algebraSing @algebra of
-  SProduct -> gtoResult @_ToExprs @_Columns @exprs
-  SSum -> gtoResultADT @_ToExprs @_Columns @exprs
+ggtoResult f x = case algebraSing @algebra of
+  SProduct -> gtoResult @_ToExprs @_Columns @exprs f x
+  SSum -> gtoResultADT @_ToExprs @_Columns @exprs f x
