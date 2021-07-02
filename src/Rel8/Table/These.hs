@@ -37,12 +37,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable, ConstrainTag
-  , HNullifiable, HConstrainTag
-  , hencodeTag, hdecodeTag
-  , hnullifier, hunnullifier
+  ( Nullifiable
+  , encodeTag, decodeTag
+  , nullifier, unnullifier
   )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
@@ -132,33 +131,82 @@ instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
 
 instance
   ( Table context a, Table context b
-  , Nullifiable context, ConstrainTag context MaybeTag
-  ) => Table context (TheseTable a b)
+  , Nullifiable context
+  )
+  => Table context (TheseTable a b)
  where
   type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
   type Context (TheseTable a b) = Context a
 
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
+  toColumns TheseTable {here, there} = HTheseTable
+    { hhereTag = hlabel $ HType $ encodeTag (toHereTag (tag here))
+    , hhere =
+        hlabel $ hnullify (nullifier (tag here) isNonNull) $ toColumns $
+        just here
+    , hthereTag = hlabel $ HType $ encodeTag (toThereTag (tag there))
+    , hthere =
+        hlabel $ hnullify (nullifier (tag there) isNonNull) $ toColumns $
+        just there
+    }
+
+  fromColumns HTheseTable {hhereTag, hhere, hthereTag, hthere} = TheseTable
+    { here =
+        let
+          tag = decodeTag $ unHIdentity $ hunlabel hhereTag
+        in
+          MaybeTable
+            { tag
+            , just =
+                fromColumns $
+                runIdentity $
+                hunnullify (\a -> pure . unnullifier a) $
+                hunlabel
+                hhere
+            }
+    , there =
+        let
+          tag = decodeTag $ unHIdentity $ hunlabel hthereTag
+        in
+          MaybeTable
+            { tag
+            , just =
+                fromColumns $
+                runIdentity $
+                hunnullify (\a -> pure . unnullifier a) $
+                hunlabel
+                hthere
+            }
+    }
+
+
   reify = liftA2 bimap reify reify
   unreify = liftA2 bimap unreify unreify
 
 
 instance
-  ( Nullifiable from, ConstrainTag from MaybeTag
-  , Nullifiable to, ConstrainTag to MaybeTag
+  ( Nullifiable from, Nullifiable to
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
-  ) =>
-  Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
+  )
+  => Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
 
 
 instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
-  eqTable = toColumns2 id id (thoseTable (eqTable @a) (eqTable @b))
+  eqTable = HTheseTable
+    { hhereTag = hlabel (HType Dict)
+    , hhere = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
+    , hthereTag = hlabel (HType Dict)
+    , hthere = hlabel (hnullify (\_ Dict -> Dict) (eqTable @b))
+    }
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
-  ordTable = toColumns2 id id (thoseTable (ordTable @a) (ordTable @b))
+  ordTable = HTheseTable
+    { hhereTag = hlabel (HType Dict)
+    , hhere = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
+    , hthereTag = hlabel (HType Dict)
+    , hthere = hlabel (hnullify (\_ Dict -> Dict) (ordTable @b))
+    }
 
 
 type instance FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
@@ -275,61 +323,3 @@ nameTheseTable here there a b =
     { here = nameMaybeTable here a
     , there = nameMaybeTable there b
     }
-
-
-toColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context MaybeTag
-  , HNullifiable context
-  )
-  => (a -> t context)
-  -> (b -> u context)
-  -> TheseTable a b
-  -> HTheseTable t u context
-toColumns2 f g TheseTable {here, there} = HTheseTable
-  { hhereTag = hlabel $ HType $ hencodeTag (toHereTag (tag here))
-  , hhere =
-      hlabel $ hnullify (hnullifier (tag here) isNonNull) $ f (just here)
-  , hthereTag = hlabel $ HType $ hencodeTag (toThereTag (tag there))
-  , hthere =
-      hlabel $ hnullify (hnullifier (tag there) isNonNull) $ g (just there)
-  }
-
-
-fromColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context MaybeTag
-  , HNullifiable context
-  )
-  => (t context -> a)
-  -> (u context -> b)
-  -> HTheseTable t u context
-  -> TheseTable a b
-fromColumns2 f g HTheseTable {hhereTag, hhere, hthereTag, hthere} = TheseTable
-  { here =
-      let
-        tag = hdecodeTag $ unHIdentity $ hunlabel hhereTag
-      in
-        MaybeTable
-          { tag
-          , just = f $
-              runIdentity $
-              hunnullify (\a -> pure . hunnullifier a) $
-              hunlabel
-              hhere
-          }
-  , there =
-      let
-        tag = hdecodeTag $ unHIdentity $ hunlabel hthereTag
-      in
-        MaybeTable
-          { tag
-          , just = g $
-              runIdentity $
-              hunnullify (\a -> pure . hunnullifier a) $
-              hunlabel
-              hthere
-          }
-  }

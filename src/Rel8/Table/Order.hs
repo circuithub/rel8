@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -21,10 +22,9 @@ import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hspecs)
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( SSpec( SSpec ) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
+import Rel8.Schema.Spec ( SSpec( SSpec, nullity ) )
 import Rel8.Table ( Columns, toColumns )
-import Rel8.Table.Ord
+import Rel8.Table.Ord ( OrdTable, ordTable )
 
 
 -- | Construct an 'Order' for a 'Table' by sorting all columns into ascending
@@ -32,12 +32,11 @@ import Rel8.Table.Ord
 ascTable :: forall a. OrdTable a => Order a
 ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield (ordTable @a) field of
-      dict@Dict -> case dbTypeDict dict of
-        Dict -> Const $ unE . (`hfield` field) >$<
-          case dbTypeNullity dict of
-            Null -> nullsFirst asc
-            NotNull -> asc
+    SSpec {nullity} -> case hfield (ordTable @a) field of
+      Dict -> Const $ unE . (`hfield` field) >$<
+        case nullity of
+          Null -> nullsFirst asc
+          NotNull -> asc
 
 
 -- | Construct an 'Order' for a 'Table' by sorting all columns into descending
@@ -45,9 +44,8 @@ ascTable = contramap toColumns $ getConst $
 descTable :: forall a. OrdTable a => Order a
 descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {} -> case hfield (ordTable @a) field of
-      dict@Dict -> case dbTypeDict dict of
-        Dict -> Const $ unE . (`hfield` field) >$<
-          case dbTypeNullity dict of
-            Null -> nullsLast desc
-            NotNull -> desc
+    SSpec {nullity} -> case hfield (ordTable @a) field of
+      Dict -> Const $ unE . (`hfield` field) >$<
+        case nullity of
+          Null -> nullsLast desc
+          NotNull -> desc

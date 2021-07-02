@@ -9,14 +9,13 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Context.Nullify
-  ( Nullifiable( ConstrainTag, encodeTag, decodeTag, nullifier, unnullifier )
-  , HNullifiable( HConstrainTag, hencodeTag, hdecodeTag, hnullifier, hunnullifier )
+  ( Nullifiable( encodeTag, decodeTag, nullifier, unnullifier )
   , runTag, unnull
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Constraint )
 import GHC.TypeLits ( KnownSymbol )
 import Prelude hiding ( null )
 
@@ -36,31 +35,18 @@ import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Schema.Context ( Interpretation )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ), Col( N ) )
-import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
-import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
-import qualified Rel8.Schema.Spec.ConstrainDBType as ConstrainDBType
 import Rel8.Table.Tag ( Tag(..), Taggable, fromAggregate, fromExpr, fromName )
 
 
 type Nullifiable :: K.Context -> Constraint
 class Interpretation context => Nullifiable context where
-  type ConstrainTag context :: Type -> Constraint
-  type ConstrainTag _context = DefaultConstrainTag
-
-  encodeTag ::
-    ( Sql (ConstrainTag context) a
-    , Taggable a
-    )
+  encodeTag :: Taggable a
     => Tag label a
     -> Col context ('Spec a)
 
-  decodeTag ::
-    ( Sql (ConstrainTag context) a
-    , KnownSymbol label
-    , Taggable a
-    )
+  decodeTag :: (KnownSymbol label, Taggable a)
     => Col context ('Spec a)
     -> Tag label a
 
@@ -137,51 +123,3 @@ unnull :: Nullity a -> Expr (Nullify a) -> Expr a
 unnull nullity a = case nullity of
   Null -> a
   NotNull -> unsafeUnnullify a
-
-
-type HNullifiable :: K.HContext -> Constraint
-class HNullifiable context where
-  type HConstrainTag context :: Type -> Constraint
-  type HConstrainTag _context = DefaultConstrainTag
-
-  hencodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
-    => Tag label a
-    -> context ('Spec a)
-
-  hdecodeTag :: (Sql (HConstrainTag context) a, KnownSymbol label, Taggable a)
-    => context ('Spec a)
-    -> Tag label a
-
-  hnullifier :: ()
-    => Tag label a
-    -> (Expr a -> Expr Bool)
-    -> SSpec ('Spec x)
-    -> context ('Spec x)
-    -> context ('Spec (Nullify x))
-
-  hunnullifier :: ()
-    => SSpec ('Spec x)
-    -> context ('Spec (Nullify x))
-    -> context ('Spec x)
-
-
-instance Nullifiable context => HNullifiable (Col context) where
-  type HConstrainTag (Col context) = ConstrainTag context
-  hencodeTag = encodeTag
-  hdecodeTag = decodeTag
-  hnullifier = nullifier
-  hunnullifier = unnullifier
-
-
-instance HNullifiable (Dict (ConstrainDBType constraint)) where
-  type HConstrainTag (Dict (ConstrainDBType constraint)) = constraint
-
-  hencodeTag _ = Dict
-  hdecodeTag = mempty
-  hnullifier _ _ = ConstrainDBType.nullifier
-  hunnullifier = ConstrainDBType.unnullifier
-
-
-type DefaultConstrainTag :: Type -> Constraint
-class DefaultConstrainTag a
-instance DefaultConstrainTag a

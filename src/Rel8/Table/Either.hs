@@ -33,12 +33,11 @@ import Prelude hiding ( undefined )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable, ConstrainTag
-  , HNullifiable, HConstrainTag
-  , hencodeTag, hdecodeTag
-  , hnullifier, hunnullifier
+  ( Nullifiable
+  , encodeTag, decodeTag
+  , nullifier, unnullifier
   )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
@@ -107,22 +106,45 @@ instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
 
 instance
   ( Table context a, Table context b
-  , Nullifiable context, ConstrainTag context EitherTag
-  ) =>
-  Table context (EitherTable a b)
+  , Nullifiable context
+  )
+  => Table context (EitherTable a b)
  where
   type Columns (EitherTable a b) = HEitherTable (Columns a) (Columns b)
   type Context (EitherTable a b) = Context a
 
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
+  toColumns EitherTable {tag, left, right} = HEitherTable
+    { htag
+    , hleft = hlabel $ hnullify (nullifier tag isLeft) $ toColumns left
+    , hright = hlabel $ hnullify (nullifier tag isRight) $ toColumns right
+    }
+    where
+      htag = hlabel $ HType $ encodeTag tag
+
+  fromColumns HEitherTable {htag, hleft, hright} = EitherTable
+    { tag
+    , left =
+        fromColumns $
+        runIdentity $
+        hunnullify (\a -> pure . unnullifier a) $
+        hunlabel
+        hleft
+    , right =
+        fromColumns $
+        runIdentity $
+        hunnullify (\a -> pure . unnullifier a) $
+        hunlabel
+        hright
+    }
+    where
+      tag = decodeTag $ unHIdentity $ hunlabel htag
+
   reify = liftA2 bimap reify reify
   unreify = liftA2 bimap unreify unreify
 
 
 instance
-  ( Nullifiable from, ConstrainTag from EitherTag
-  , Nullifiable to, ConstrainTag to EitherTag
+  ( Nullifiable from, Nullifiable to
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
@@ -130,11 +152,19 @@ instance
 
 
 instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
-  eqTable = toColumns2 id id (rightTableWith (eqTable @a) (eqTable @b))
+  eqTable = HEitherTable
+    { htag = hlabel (HType Dict)
+    , hleft = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
+    , hright = hlabel (hnullify (\_ Dict -> Dict) (eqTable @b))
+    }
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (EitherTable a b) where
-  ordTable = toColumns2 id id (rightTableWith (ordTable @a) (ordTable @b))
+  ordTable = HEitherTable
+    { htag = hlabel (HType Dict)
+    , hleft = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
+    , hright = hlabel (hnullify (\_ Dict -> Dict) (ordTable @b))
+    }
 
 
 type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
@@ -196,47 +226,3 @@ nameEitherTable
      -- ^ Names of the columns in the @b@ table.
   -> EitherTable a b
 nameEitherTable = EitherTable . fromName
-
-
-toColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context EitherTag
-  , HNullifiable context
-  )
-  => (a -> t context)
-  -> (b -> u context)
-  -> EitherTable a b
-  -> HEitherTable t u context
-toColumns2 f g EitherTable {tag, left, right} = HEitherTable
-  { htag
-  , hleft = hlabel $ hnullify (hnullifier tag isLeft) $ f left
-  , hright = hlabel $ hnullify (hnullifier tag isRight) $ g right
-  }
-  where
-    htag = hlabel $ HType $ hencodeTag tag
-
-
-fromColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context EitherTag
-  , HNullifiable context
-  )
-  => (t context -> a)
-  -> (u context -> b)
-  -> HEitherTable t u context
-  -> EitherTable a b
-fromColumns2 f g HEitherTable {htag, hleft, hright} = EitherTable
-  { tag
-  , left = f $ runIdentity $
-     hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel
-     hleft
-  , right = g $ runIdentity $
-     hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel
-     hright
-  }
-  where
-    tag = hdecodeTag $ unHIdentity $ hunlabel htag
