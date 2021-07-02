@@ -134,7 +134,7 @@ library
     Rel8.Schema.Reify
     Rel8.Schema.Result
     Rel8.Schema.Spec
-    Rel8.Schema.Spec.ConstrainDBType
+    Rel8.Schema.Spec.Constrain
     Rel8.Schema.Table
 
     Rel8.Statement.Delete

@@ -31,12 +31,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiable, ConstrainTag
-  , HNullifiable, HConstrainTag
-  , hencodeTag, hdecodeTag
-  , hnullifier, hunnullifier
+  ( Nullifiable
+  , encodeTag, decodeTag
+  , nullifier, unnullifier
   )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
@@ -129,32 +128,51 @@ instance (Table Expr a, Semigroup a) => Monoid (MaybeTable a) where
 instance
   ( Table context a
   , Nullifiable context
-  , ConstrainTag context MaybeTag
-  ) => Table context (MaybeTable a)
+  )
+  => Table context (MaybeTable a)
  where
   type Columns (MaybeTable a) = HMaybeTable (Columns a)
   type Context (MaybeTable a) = Context a
 
-  toColumns = toColumns1 toColumns
-  fromColumns = fromColumns1 fromColumns
+  toColumns MaybeTable {tag, just} = HMaybeTable
+    { htag
+    , hjust = hlabel $ hnullify (nullifier tag isNonNull) $ toColumns just
+    }
+    where
+      htag = hlabel (HType (encodeTag tag))
+
+  fromColumns HMaybeTable {htag, hjust} = MaybeTable
+    { tag
+    , just = fromColumns $ runIdentity $
+        hunnullify (\a -> pure . unnullifier a) (hunlabel hjust)
+    }
+    where
+      tag = decodeTag (unHIdentity (hunlabel htag))
+
   reify = fmap fmap reify
   unreify = fmap fmap unreify
 
 
 instance
-  ( Nullifiable from, ConstrainTag from MaybeTag
-  , Nullifiable to, ConstrainTag to MaybeTag
+  ( Nullifiable from
+  , Nullifiable to
   , Recontextualize from to a b
   )
   => Recontextualize from to (MaybeTable a) (MaybeTable b)
 
 
 instance EqTable a => EqTable (MaybeTable a) where
-  eqTable = toColumns1 id (justTable (eqTable @a))
+  eqTable = HMaybeTable
+    { htag = hlabel (HType Dict)
+    , hjust = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
+    }
 
 
 instance OrdTable a => OrdTable (MaybeTable a) where
-  ordTable = toColumns1 id (justTable (ordTable @a))
+  ordTable = HMaybeTable
+    { htag = hlabel (HType Dict)
+    , hjust = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
+    }
 
 
 type instance FromExprs (MaybeTable a) = Maybe (FromExprs a)
@@ -214,36 +232,3 @@ nameMaybeTable
      -- ^ Names of the columns in @a@.
   -> MaybeTable a
 nameMaybeTable = MaybeTable . fromName
-
-
-toColumns1 ::
-  ( HTable t
-  , HConstrainTag context MaybeTag
-  , HNullifiable context
-  )
-  => (a -> t context)
-  -> MaybeTable a
-  -> HMaybeTable t context
-toColumns1 f MaybeTable {tag, just} = HMaybeTable
-  { htag
-  , hjust = hlabel $ hnullify (hnullifier tag isNonNull) $ f just
-  }
-  where
-    htag = hlabel (HType (hencodeTag tag))
-
-
-fromColumns1 ::
-  ( HTable t
-  , HConstrainTag context MaybeTag
-  , HNullifiable context
-  )
-  => (t context -> a)
-  -> HMaybeTable t context
-  -> MaybeTable a
-fromColumns1 f HMaybeTable {htag, hjust} = MaybeTable
-  { tag
-  , just = f $ runIdentity $
-      hunnullify (\a -> pure . hunnullifier a) (hunlabel hjust)
-  }
-  where
-    tag = hdecodeTag (unHIdentity (hunlabel htag))

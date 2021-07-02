@@ -29,7 +29,6 @@ import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
 import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
@@ -75,20 +74,18 @@ instance
 instance EqTable a => EqTable (ListTable a) where
   eqTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (eqTable @a))
 
 
 instance OrdTable a => OrdTable (ListTable a) where
   ordTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (ordTable @a))
 
 
