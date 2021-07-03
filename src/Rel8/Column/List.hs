@@ -3,7 +3,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.List
@@ -38,11 +38,11 @@ import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 -- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
-type family HList context where
+type family HList context = list | list -> context where
   HList (Reify context) = AHList context
-  HList Aggregate = ListTable
-  HList Expr = ListTable
-  HList Name = ListTable
+  HList Aggregate = ListTable Aggregate
+  HList Expr = ListTable Expr
+  HList Name = ListTable Name
   HList Result = []
 
 
