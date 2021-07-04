@@ -10,6 +10,9 @@ where
 -- base
 import Prelude
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
@@ -27,14 +30,14 @@ import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 keepLeftTable :: EitherTable Expr a b -> Query a
 keepLeftTable e@(EitherTable _ a _) = do
   where_ $ isLeftTable e
-  pure a
+  pure (extract a)
 
 
 -- | Filter 'EitherTable's, keeping only 'rightTable's.
 keepRightTable :: EitherTable Expr a b -> Query b
 keepRightTable e@(EitherTable _ _ b) = do
   where_ $ isRightTable e
-  pure b
+  pure (extract b)
 
 
 -- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and

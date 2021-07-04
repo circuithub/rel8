@@ -1,17 +1,23 @@
 {-# language DataKinds #-}
+{-# language EmptyCase #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Context.Nullify
-  ( Nullifiable, nullifier, unnullifier
-  , guardExpr, snullify
+  ( Nullifiability(..), NonNullifiability(..), nullifiableOrNot, absurd
+  , Nullifiable, nullifiability
+  , guarder, nullifier, unnullifier
+  , sguard, snullify
   )
 where
 
 -- base
-import Data.Kind ( Constraint )
+import Data.Bifunctor ( bimap )
+import Data.Bool ( bool )
+import Data.Kind ( Constraint, Type )
 import Data.Monoid ( getFirst )
 import Prelude hiding ( null )
 
@@ -20,73 +26,129 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Aggregate
-  ( Aggregate( Aggregate ), Col( A )
+  ( Col( A ), Aggregate( Aggregate )
   , foldInputs, mapInputs
   )
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
+import Rel8.Kind.Context ( SContext(..) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( Name ), Col( N ) )
-import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql )
-import Rel8.Schema.Reify ( Reify, Col( Reify ) )
+import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
+import Rel8.Schema.Reify ( Col( Reify ), Reify )
+import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
-import Rel8.Type ( DBType )
+
+
+type Nullifiability :: K.Context -> Type
+data Nullifiability context where
+  NAggregate :: Nullifiability Aggregate
+  NExpr :: Nullifiability Expr
+  NName :: Nullifiability Name
+  NReify :: Nullifiability context -> Nullifiability (Reify context)
 
 
 type Nullifiable :: K.Context -> Constraint
 class Nullifiable context where
-  nullifier :: Sql DBType tag
-    => Col context ('Spec tag)
-    -> (Expr tag -> Expr Bool)
-    -> SSpec ('Spec a)
-    -> Col context ('Spec a)
-    -> Col context ('Spec (Nullify a))
-
-  unnullifier :: ()
-    => SSpec ('Spec a)
-    -> Col context ('Spec (Nullify a))
-    -> Col context ('Spec a)
+  nullifiability :: Nullifiability context
 
 
 instance Nullifiable Aggregate where
-  nullifier (A tag) isNonNull SSpec {nullity} (A (Aggregate a)) =
-    A $
-    mapInputs (toPrimExpr . run . fromPrimExpr) $
-    Aggregate $
-    run <$> a
-    where
-      mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
-      run = maybe id (guardExpr . isNonNull) (getFirst mtag) . snullify nullity
-
-  unnullifier SSpec {nullity} (A (Aggregate a)) =
-    A $ Aggregate $ sunnullify nullity <$> a
+  nullifiability = NAggregate
 
 
 instance Nullifiable Expr where
-  nullifier (E tag) isNonNull SSpec {nullity} (E a) =
-    E $ guardExpr condition (snullify nullity a)
-    where
-      condition = isNonNull tag
-
-  unnullifier SSpec {nullity} (E a) = E $ sunnullify nullity a
+  nullifiability = NExpr
 
 
 instance Nullifiable Name where
-  nullifier _ _ _ (N (Name a)) = N $ Name a
-  unnullifier _ (N (Name a)) = N $ Name a
+  nullifiability = NName
 
 
 instance Nullifiable context => Nullifiable (Reify context) where
-  nullifier (Reify tag) isNonNull spec (Reify a) =
-    Reify $ nullifier tag isNonNull spec a
-
-  unnullifier spec (Reify a) = Reify (unnullifier spec a)
+  nullifiability = NReify nullifiability
 
 
-guardExpr :: Expr Bool -> Expr (Maybe a) -> Expr (Maybe a)
-guardExpr condition a = boolExpr null a condition
+type NonNullifiability :: K.Context -> Type
+data NonNullifiability context where
+  NNResult :: NonNullifiability Result
+  NNReify :: NonNullifiability context -> NonNullifiability (Reify context)
+
+
+nullifiableOrNot :: ()
+  => SContext context
+  -> Either (NonNullifiability context) (Nullifiability context)
+nullifiableOrNot = \case
+  SAggregate -> Right NAggregate
+  SExpr -> Right NExpr
+  SName -> Right NName
+  SResult -> Left NNResult
+  SReify context -> bimap NNReify NReify $ nullifiableOrNot context
+
+
+absurd :: Nullifiability context -> NonNullifiability context -> a
+absurd = \case
+  NAggregate -> \case
+  NExpr -> \case
+  NName -> \case
+  NReify context -> \case
+    NNReify context' -> absurd context context'
+
+
+guarder :: ()
+  => SContext context
+  -> Col context ('Spec tag)
+  -> (tag -> Bool)
+  -> (Expr tag -> Expr Bool)
+  -> Col context ('Spec (Maybe a))
+  -> Col context ('Spec (Maybe a))
+guarder SAggregate (A tag) _ isNonNull (A (Aggregate a)) =
+  A $
+  mapInputs (toPrimExpr . run . fromPrimExpr) $
+  Aggregate $
+  run <$> a
+  where
+    mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
+    run = maybe id (sguard . isNonNull) (getFirst mtag)
+guarder SExpr (E tag) _ isNonNull (E a) = E $ sguard condition a
+  where
+    condition = isNonNull tag
+guarder SName _ _ _ name = name
+guarder SResult (R tag) isNonNull _ (R a) = R (bool Nothing a condition)
+  where
+    condition = isNonNull tag
+guarder (SReify context) (Reify tag) isNonNull isNonNullExpr (Reify a) =
+  Reify $ guarder context tag isNonNull isNonNullExpr a
+
+
+nullifier :: ()
+  => Nullifiability context
+  -> SSpec ('Spec a)
+  -> Col context ('Spec a)
+  -> Col context ('Spec (Nullify a))
+nullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
+  A $ Aggregate $ snullify nullity <$> a
+nullifier NExpr SSpec {nullity} (E a) = E $ snullify nullity a
+nullifier NName _ (N (Name a)) = N $ Name a
+nullifier (NReify context) spec (Reify a) = Reify $ nullifier context spec a
+
+
+unnullifier :: ()
+  => Nullifiability context
+  -> SSpec ('Spec a)
+  -> Col context ('Spec (Nullify a))
+  -> Col context ('Spec a)
+unnullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
+  A $ Aggregate $ sunnullify nullity <$> a
+unnullifier NExpr SSpec {nullity} (E a) = E $ sunnullify nullity a
+unnullifier NName _ (N (Name a)) = N $ Name a
+unnullifier (NReify context) spec (Reify a) = Reify (unnullifier context spec a)
+
+
+sguard :: Expr Bool -> Expr (Maybe a) -> Expr (Maybe a)
+sguard condition a = boolExpr null a condition
   where
     null = fromPrimExpr $ Opaleye.ConstExpr Opaleye.NullLit
 

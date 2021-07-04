@@ -1,4 +1,5 @@
 {-# language GADTs #-}
+{-# language NamedFieldPuns #-}
 
 module Rel8.Query.Maybe
   ( optional
@@ -10,6 +11,9 @@ where
 -- base
 import Prelude
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- opaleye
 import qualified Opaleye.Internal.MaybeFields as Opaleye
 
@@ -20,7 +24,7 @@ import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
+import Rel8.Table.Maybe ( MaybeTable(..), isJustTable )
 
 
 -- | Convert a query that might return zero rows to a query that always returns
@@ -29,10 +33,10 @@ import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 -- To speak in more concrete terms, 'optional' is most useful to write @LEFT
 -- JOIN@s.
 optional :: Query a -> Query (MaybeTable Expr a)
-optional =
-  mapOpaleye $
-    Opaleye.optionalInternal $
-      MaybeTable . E . fromPrimExpr . fromColumn
+optional = mapOpaleye $ Opaleye.optionalInternal $ \tag a -> MaybeTable
+  { tag = E $ fromPrimExpr $ fromColumn tag
+  , just = pure a
+  }
 
 
 -- | Filter out 'MaybeTable's, returning only the tables that are not-null.
@@ -43,7 +47,7 @@ optional =
 catMaybeTable :: MaybeTable Expr a -> Query a
 catMaybeTable ma@(MaybeTable _ a) = do
   where_ $ isJustTable ma
-  pure a
+  pure (extract a)
 
 
 -- | Extend an optional query with another query.  This is useful if you want
