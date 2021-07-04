@@ -15,6 +15,7 @@ import Prelude ()
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
+import Rel8.Schema.Field ( Field )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
@@ -24,6 +25,7 @@ type SContext :: Context -> Type
 data SContext context where
   SAggregate :: SContext Aggregate
   SExpr :: SContext Expr
+  SField :: SContext (Field table)
   SName :: SContext Name
   SResult :: SContext Result
 
@@ -39,6 +41,10 @@ instance Reifiable Aggregate where
 
 instance Reifiable Expr where
   contextSing = SExpr
+
+
+instance Reifiable (Field table) where
+  contextSing = SField
 
 
 instance Reifiable Result where

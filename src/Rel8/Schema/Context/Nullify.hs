@@ -33,6 +33,7 @@ import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Context ( SContext(..) )
+import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
@@ -66,7 +67,8 @@ instance Nullifiable Name where
 
 type NonNullifiability :: K.Context -> Type
 data NonNullifiability context where
-  NNResult :: NonNullifiability Result
+  NField :: NonNullifiability (Field table)
+  NResult :: NonNullifiability Result
 
 
 nullifiableOrNot :: ()
@@ -75,8 +77,9 @@ nullifiableOrNot :: ()
 nullifiableOrNot = \case
   SAggregate -> Right NAggregate
   SExpr -> Right NExpr
+  SField -> Left NField
   SName -> Right NName
-  SResult -> Left NNResult
+  SResult -> Left NResult
 
 
 absurd :: Nullifiability context -> NonNullifiability context -> a
@@ -104,6 +107,7 @@ guarder SAggregate (A tag) _ isNonNull (A (Aggregate a)) =
 guarder SExpr (E tag) _ isNonNull (E a) = E $ sguard condition a
   where
     condition = isNonNull tag
+guarder SField _ _ _ field = field
 guarder SName _ _ _ name = name
 guarder SResult (R tag) isNonNull _ (R a) = R (bool Nothing a condition)
   where

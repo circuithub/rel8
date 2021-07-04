@@ -13,10 +13,7 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude ()
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 
@@ -26,7 +23,5 @@ import Rel8.Table.NonEmpty ( NonEmptyTable )
 -- 'Result' context.
 type HNonEmpty :: K.Context -> Type -> Type
 type family HNonEmpty context = nonEmpty | nonEmpty -> context where
-  HNonEmpty Aggregate = NonEmptyTable Aggregate
-  HNonEmpty Expr = NonEmptyTable Expr
-  HNonEmpty Name = NonEmptyTable Name
   HNonEmpty Result = NonEmpty
+  HNonEmpty context = NonEmptyTable context

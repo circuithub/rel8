@@ -1,20 +1,24 @@
 {-# language DataKinds #-}
-{-# language MultiParamTypeClasses #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
+{-# language UndecidableSuperClasses #-}
 
 module Rel8.Category.Projection
   ( Projection( Projection )
+  , Projectable, projection
   , project
   )
 where
 
 -- base
 import Control.Category ( Category, (.), id )
-import Data.Kind ( Type )
+import Data.Kind ( Constraint, Type )
 import GHC.TypeLits ( ErrorMessage( (:$$:), Text ), TypeError )
 import Prelude hiding ( Functor, (.), fmap, fst, id, product, snd )
 
@@ -31,10 +35,13 @@ import Control.Category.Cartesian ( Cartesian, Product, (&&&), diag, fst, snd )
 import Control.Category.Monoidal ( Monoidal, Id, idl, idr, coidl, coidr )
 
 -- rel8
+import Rel8.Schema.Field ( Field( F, Field ), fields )
+import Rel8.Schema.HTable ( hfield, htabulate )
 import Rel8.Schema.HTable.Label ( hlabel, hrelabel, hunlabel )
 import qualified Rel8.Schema.HTable.Label as Label ( hproject )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
-import Rel8.Table ( Table, Columns, fromColumns, toColumns )
+import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Table.Recontextualize ( Recontextualize )
 
 -- semigroupoids
 import Data.Semigroupoid ( Semigroupoid, o )
@@ -327,10 +334,34 @@ instance Functor ((,,,,,,) x y z w v u) Projection Projection where
 instance Endofunctor ((,,,,,,) x y z w v u) Projection
 
 
+-- | In the constraint @'Projectable' a' b' a b@, @a'@ and @b'@ are versions
+-- of @a@ and @b@ that have been rewritten to be in a special 'Field' context.
+type Projectable :: Type -> Type -> Type -> Type -> Constraint
+class
+  ( Recontextualize (Context a) (Field a) a a'
+  , Recontextualize (Context a) (Field a) b b'
+  )
+  => Projectable a' b' a b | a -> a', a b -> b', a' b -> a, a b' -> b
+instance
+  ( Recontextualize (Context a) (Field a) a a'
+  , Recontextualize (Context a) (Field a) b b'
+  )
+  => Projectable a' b' a b
+
+
 -- | Turn a @'Projection' a b@ into a function @a -> b@.
 project :: forall a b context. (Table context a, Table context b)
   => Projection a b -> a -> b
 project (Projection f) = fromColumns . f . toColumns
+
+
+-- | Construct a @'Projection' a b@ from a normal Haskell function. Note that
+-- @a'@ and @b'@ have the same structure as @a@ and @b@, so you can use normal
+-- pattern matching and record construction in the given function.
+projection :: Projectable a' b' a b => (a' -> b') -> Projection a b
+projection f = Projection $ \a -> case toColumns (f fields) of
+  bs -> htabulate $ \field -> case hfield bs field of
+    F (Field field') -> hfield a field'
 
 
 -- | NOTE: Projection is not actually 'Monoidal', but categories got rid of

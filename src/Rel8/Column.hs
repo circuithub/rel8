@@ -16,6 +16,7 @@ import Prelude ()
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
+import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..) )
 import Rel8.Schema.Result ( Result )
@@ -28,6 +29,7 @@ type Column :: K.Context -> Type -> Type
 type family Column context a where
   Column Aggregate       a = Aggregate a
   Column Expr            a = Expr a
+  Column (Field table)   a = Field table a
   Column Name            a = Name a
   Column Result          a = a
 

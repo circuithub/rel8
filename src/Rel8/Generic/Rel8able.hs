@@ -3,7 +3,10 @@
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -34,6 +37,7 @@ import Rel8.Generic.Table ( GAlgebra )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
 import Rel8.Schema.Context.Virtual ( Abstract(..) )
+import Rel8.Schema.Field ( Field )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -108,23 +112,27 @@ class HTable (GColumns t) => Rel8able t where
   default gfromColumns :: forall context.
     ( VRel8able t Aggregate
     , VRel8able t Expr
+    , forall table. VRel8able t (Field table)
     , VRel8able t Name
     )
     => Abstract context -> GColumns t context -> t context
   gfromColumns = \case
     VAggregate -> vfromColumns
     VExpr -> vfromColumns
+    VField -> vfromColumns
     VName -> vfromColumns
 
   default gtoColumns :: forall context.
     ( VRel8able t Aggregate
     , VRel8able t Expr
+    , forall table. VRel8able t (Field table)
     , VRel8able t Name
     )
     => Abstract context -> t context -> GColumns t context
   gtoColumns = \case
     VAggregate -> vtoColumns
     VExpr -> vtoColumns
+    VField -> vtoColumns
     VName -> vtoColumns
 
   default gfromResult ::
@@ -173,11 +181,18 @@ type GRep t context = Rep (Record (t context))
 
 
 type VRel8able :: K.Rel8able -> K.Context -> Constraint
-type VRel8able t context =
+class
   ( Generic (Record (t context))
   , G.GTable (TTable context) TColumns TFromExprs (GRep t context)
   , G.GColumns TColumns (GRep t context) ~ GColumns t
   )
+  => VRel8able t context
+instance
+  ( Generic (Record (t context))
+  , G.GTable (TTable context) TColumns TFromExprs (GRep t context)
+  , G.GColumns TColumns (GRep t context) ~ GColumns t
+  )
+  => VRel8able t context
 
 
 vfromColumns :: forall t context. VRel8able t context

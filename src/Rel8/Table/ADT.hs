@@ -54,7 +54,6 @@ import Rel8.Generic.Rel8able
   )
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Schema.Context.Virtual
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -73,13 +72,8 @@ instance ADTable t => Rel8able (ADT t) where
   type GColumns (ADT t) = GColumnsADT t
   type GFromExprs (ADT t) = t Result
 
-  gfromColumns VAggregate = ADT
-  gfromColumns VExpr = ADT
-  gfromColumns VName = ADT
-
-  gtoColumns VAggregate (ADT a) = a
-  gtoColumns VExpr (ADT a) = a
-  gtoColumns VName (ADT a) = a
+  gfromColumns _ = ADT
+  gtoColumns _ (ADT a) = a
 
   gfromResult =
     unrecord .

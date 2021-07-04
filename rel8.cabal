@@ -121,6 +121,7 @@ library
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict
+    Rel8.Schema.Field
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity

@@ -19,6 +19,7 @@ import Prelude
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..) )
+import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
@@ -37,6 +38,10 @@ instance Virtual Expr where
   virtual = VExpr
 
 
+instance Virtual (Field table) where
+  virtual = VField
+
+
 instance Virtual Name where
   virtual = VName
 
@@ -45,6 +50,7 @@ type Abstract :: K.Context -> Type
 data Abstract context where
   VAggregate :: Abstract Aggregate
   VExpr :: Abstract Expr
+  VField :: Abstract (Field table)
   VName :: Abstract Name
 
 
@@ -59,6 +65,7 @@ abstractOrConcrete :: ()
 abstractOrConcrete = \case
   SAggregate -> Right VAggregate
   SExpr -> Right VExpr
+  SField -> Right VField
   SName -> Right VName
   SResult -> Left VResult
 
@@ -67,4 +74,5 @@ absurd :: Abstract context -> Concrete context -> a
 absurd = \case
   VAggregate -> \case
   VExpr -> \case
+  VField -> \case
   VName -> \case
