@@ -2,7 +2,9 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Column
@@ -13,6 +15,7 @@ where
 
 -- base
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -25,11 +28,11 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..), Col( N ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( Reify, Col(..) )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Col( R ), Result, absurd )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -63,11 +66,22 @@ instance (Reifiable context, Sql DBType a) =>
   reify _ = AColumn
   unreify _ (AColumn a) = a
 
+  coherence Refl = case contextSing @context of
+    SAggregate -> const Refl
+    SExpr -> const Refl
+    SName -> const Refl
+    SResult -> absurd
+    SReify _ -> const Refl
 
-instance
-  ( Reifiable context, Reifiable context'
-  , Sql DBType a
-  ) =>
+  congruence Refl = case contextSing @context of
+    SAggregate -> const Refl
+    SExpr -> const Refl
+    SName -> const Refl
+    SResult -> absurd
+    SReify _ -> const Refl
+
+
+instance (Reifiable context, Reifiable context',  Sql DBType a) =>
   Recontextualize
     (Reify context)
     (Reify context')

@@ -22,9 +22,11 @@ module Rel8.Table.Maybe
 where
 
 -- base
+import Control.Category ( id )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Prelude hiding ( null, undefined )
+import Data.Type.Equality ( apply )
+import Prelude hiding ( id, null, undefined )
 
 -- rel8
 import Rel8.Aggregate ( Col( A ), Aggregate )
@@ -44,7 +46,7 @@ import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify
+  , coherence, congruence, reify, unreify
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -141,6 +143,9 @@ instance (Table context a, Nullifiable context, context ~ context') =>
 
   reify = fmap fmap reify
   unreify = fmap fmap unreify
+
+  coherence = coherence @context @a
+  congruence proof abstract = id `apply` congruence @context @a proof abstract
 
 
 instance

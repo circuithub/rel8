@@ -2,7 +2,10 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language RankNTypes #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
@@ -12,27 +15,28 @@ module Rel8.Column.List
 where
 
 -- base
+import Control.Category ( id )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Abstract ( exclusivity, virtualOrResult )
 import Rel8.Schema.HTable.List ( HListTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Congruent, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
 -- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
@@ -50,7 +54,7 @@ type AHList :: K.Context -> Type -> Type
 newtype AHList context a = AHList (HList context a)
 
 
-instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
+instance (Reifiable context, Table (Reify context) a) =>
   Table (Reify context) (AHList context a)
  where
   type Context (AHList context a) = Reify context
@@ -60,13 +64,26 @@ instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
   fromColumns = sfromColumnsList contextSing
   toColumns = stoColumnsList contextSing
 
-  reify _ = sreifyList (unreifiability contextSing)
-  unreify _ = sunreifyList (unreifiability contextSing)
+  reify _ = sreifyList contextSing
+  unreify _ = sunreifyList contextSing
+
+  coherence = case contextSing @context of
+    SAggregate -> coherence @(Reify context) @a
+    SExpr -> coherence @(Reify context) @a
+    SName -> coherence @(Reify context) @a
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence proof@Refl abstract = case contextSing @context of
+    SAggregate -> id `apply` congruence @(Reify context) @a proof abstract
+    SExpr -> id `apply` congruence @(Reify context) @a proof abstract
+    SName -> id `apply` congruence @(Reify context) @a proof abstract
+    SResult -> absurd abstract
+    SReify _ -> id `apply` congruence @(Reify context) @a proof abstract
 
 
 instance
   ( Reifiable context, Reifiable context'
-  , Unreifiable a, Unreifiable a'
   , Recontextualize (Reify context) (Reify context') a a'
   )
   => Recontextualize
@@ -123,23 +140,33 @@ stoColumnsList = \case
     (\(AHList a) -> a)
 
 
-sreifyList :: Table (Reify context) a
-  => Unreifiability context a
+sreifyList :: forall context a. Table (Reify context) a
+  => SContext context
   -> HList context (Unreify a)
   -> AHList context a
-sreifyList = \case
-  UResult -> AHList . fmap (reify Refl)
-  Unreifiability context ->
-    smapList context (reify Refl) hreify .
-    AHList
+sreifyList context = case virtualOrResult context of
+  Left Refl -> AHList . fmap (reify Refl)
+  Right virtual ->
+    case coherence @(Reify context) @a Refl abstract of
+      Refl -> case congruence @(Reify context) @a Refl abstract of
+        Refl ->
+          smapList context (reify Refl) hreify .
+          AHList
+    where
+      abstract = exclusivity virtual
 
 
-sunreifyList :: Table (Reify context) a
-  => Unreifiability context a
+sunreifyList :: forall context a. Table (Reify context) a
+  => SContext context
   -> AHList context a
   -> HList context (Unreify a)
-sunreifyList = \case
-  UResult -> fmap (unreify Refl) . (\(AHList a) -> a)
-  Unreifiability context ->
-    (\(AHList a) -> a) .
-    smapList context (unreify Refl) hunreify
+sunreifyList context = case virtualOrResult context of
+  Left Refl -> fmap (unreify Refl) . (\(AHList a) -> a)
+  Right virtual ->
+    case coherence @(Reify context) @a Refl abstract of
+      Refl -> case congruence @(Reify context) @a Refl abstract of
+        Refl ->
+          (\(AHList a) -> a) .
+          smapList context (unreify Refl) hunreify
+    where
+      abstract = exclusivity virtual

@@ -14,7 +14,8 @@ where
 -- base
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Prelude ()
+import Data.List.NonEmpty ( NonEmpty)
+import Prelude
 
 -- rel8
 import Rel8.Schema.Context ( Col )
@@ -25,6 +26,9 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Table ( Table, Congruent )
 import Rel8.Type ( DBType )
+
+-- these
+import Data.These ( These)
 
 
 -- | @Recontextualize from to a b@ is evidence that the types @a@ and @b@ are
@@ -52,6 +56,34 @@ instance KnownSpec spec => Recontextualize from to (Col from spec) (Col to spec)
 
 
 instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , from ~ Result, to ~ Result
+  )
+  => Recontextualize from to (Either a1 a2) (Either b1 b2)
+
+
+instance (Recontextualize from to a b, from ~ Result, to ~ Result) =>
+  Recontextualize from to [a] [b]
+
+
+instance (Recontextualize from to a b, from ~ Result, to ~ Result) =>
+  Recontextualize from to (Maybe a) (Maybe b)
+
+
+instance (Recontextualize from to a b, from ~ Result, to ~ Result) =>
+  Recontextualize from to (NonEmpty a) (NonEmpty b)
+
+
+instance
+  ( Recontextualize from to a1 b1
+  , Recontextualize from to a2 b2
+  , from ~ Result, to ~ Result
+  )
+  => Recontextualize from to (These a1 a2) (These b1 b2)
 
 
 instance

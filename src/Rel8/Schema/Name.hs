@@ -34,7 +34,8 @@ import Rel8.Schema.Reify ( notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns, reify, unreify
+  ( Table, Columns, Context, fromColumns, toColumns
+  , reify, unreify, coherence, congruence
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -64,6 +65,8 @@ instance Sql DBType a => Table Name (Name a) where
   fromColumns (HType (N a)) = a
   reify = notReify
   unreify = notReify
+  coherence = notReify
+  congruence = notReify
 
 
 instance Sql DBType a => Recontextualize Expr Name (Expr a) (Name a)

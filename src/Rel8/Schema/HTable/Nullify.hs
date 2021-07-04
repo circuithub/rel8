@@ -8,7 +8,6 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language QuantifiedConstraints #-}
 {-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}

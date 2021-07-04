@@ -27,10 +27,12 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Prelude hiding ( undefined )
+import Data.Type.Equality ( apply )
+import Prelude hiding ( id, undefined )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
@@ -47,7 +49,7 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify
+  , coherence, congruence, reify, unreify
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
@@ -177,6 +179,12 @@ instance
 
   reify = liftA2 bimap reify reify
   unreify = liftA2 bimap unreify unreify
+
+  coherence = coherence @context @a
+  congruence proof abstract =
+    id `apply`
+    congruence @context @a proof abstract `apply`
+    congruence @context @b proof abstract
 
 
 instance
