@@ -15,6 +15,9 @@ where
 -- base
 import Prelude
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
@@ -59,7 +62,7 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> cas
       tag''' = Opaleye.next tag''
       join lateral = Opaleye.Join Opaleye.FullJoin on left'' right''
         where
-          on = toPrimExpr $ condition a b
+          on = toPrimExpr $ condition (extract a) (extract b)
           left'' = (lateral, Opaleye.Rebind True lbindings left')
           right'' = (lateral, Opaleye.Rebind True rbindings right')
       ma' = MaybeTable (E hasHere') a
@@ -87,31 +90,31 @@ loseThereTable = keepThisTable
 keepThisTable :: TheseTable Expr a b -> Query a
 keepThisTable t@(TheseTable (MaybeTable _ a) _) = do
   where_ $ isThisTable t
-  pure a
+  pure (extract a)
 
 
 loseThisTable :: TheseTable Expr a b -> Query (MaybeTable Expr a, b)
 loseThisTable t@(TheseTable ma (MaybeTable _ b)) = do
   where_ $ not_ $ isThisTable t
-  pure (ma, b)
+  pure (ma, extract b)
 
 
 keepThatTable :: TheseTable Expr a b -> Query b
 keepThatTable t@(TheseTable _ (MaybeTable _ b)) = do
   where_ $ isThatTable t
-  pure b
+  pure (extract b)
 
 
 loseThatTable :: TheseTable Expr a b -> Query (a, MaybeTable Expr b)
 loseThatTable t@(TheseTable (MaybeTable _ a) mb) = do
   where_ $ not_ $ isThatTable t
-  pure (a, mb)
+  pure (extract a, mb)
 
 
 keepThoseTable :: TheseTable Expr a b -> Query (a, b)
 keepThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where_ $ isThoseTable t
-  pure (a, b)
+  pure (extract a, extract b)
 
 
 loseThoseTable :: TheseTable Expr a b -> Query (EitherTable Expr a b)

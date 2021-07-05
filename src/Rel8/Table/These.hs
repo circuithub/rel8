@@ -26,11 +26,10 @@ module Rel8.Table.These
 where
 
 -- base
-import Control.Applicative ( liftA2 )
 import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
-import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
+import Data.Maybe ( isJust )
 import Data.Type.Equality ( apply )
 import Prelude hiding ( id, undefined )
 
@@ -39,11 +38,12 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Schema.Context.Nullify ( Nullifiable, nullifier, unnullifier )
+import Rel8.Kind.Context ( Reifiable )
+import Rel8.Schema.Context.Abstract ( Abstract )
+import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
-import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -59,6 +59,7 @@ import Rel8.Table.Maybe
   , aggregateMaybeTable
   , nameMaybeTable
   )
+import Rel8.Table.Nullify ( Nullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
@@ -88,7 +89,7 @@ data TheseTable context a b = TheseTable
   deriving stock Functor
 
 
-instance Bifunctor (TheseTable context) where
+instance Nullifiable context => Bifunctor (TheseTable context) where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
 
 
@@ -138,7 +139,7 @@ instance (context ~ Expr, Table Expr a, Table Expr b, Semigroup a, Semigroup b) 
 
 instance
   ( Table context a, Table context b
-  , Nullifiable context, context ~ context'
+  , Reifiable context, Abstract context, context ~ context'
   )
   => Table context' (TheseTable context a b)
  where
@@ -146,39 +147,33 @@ instance
   type Context (TheseTable context a b) = Context a
 
   toColumns TheseTable {here, there} = HTheseTable
-    { hhereTag = hlabel (HIdentity (tag here))
+    { hhereTag = hlabel $ HIdentity $ tag here
     , hhere =
-        hlabel $ hnullify (nullifier (tag here) isNonNull) $ toColumns $
-        just here
-    , hthereTag = hlabel (HIdentity (tag there))
+        hlabel $ guard (tag here) isJust isNonNull $ toColumns $ just here
+    , hthereTag = hlabel $ HIdentity $ tag there
     , hthere =
-        hlabel $ hnullify (nullifier (tag there) isNonNull) $ toColumns $
-        just there
+        hlabel $ guard (tag there) isJust isNonNull $ toColumns $ just there
     }
 
   fromColumns HTheseTable {hhereTag, hhere, hthereTag, hthere} = TheseTable
     { here = MaybeTable
         { tag = unHIdentity $ hunlabel hhereTag
-        , just =
-            fromColumns $
-            runIdentity $
-            hunnullify (\a -> pure . unnullifier a) $
-            hunlabel
-            hhere
+        , just = fromColumns $ hunlabel hhere
         }
     , there = MaybeTable
         { tag = unHIdentity $ hunlabel hthereTag
-        , just =
-            fromColumns $
-            runIdentity $
-            hunnullify (\a -> pure . unnullifier a) $
-            hunlabel
-            hthere
+        , just = fromColumns $ hunlabel hthere
         }
     }
 
-  reify = liftA2 bimap reify reify
-  unreify = liftA2 bimap unreify unreify
+  reify proof TheseTable {here, there} = TheseTable
+    { here = reify proof here
+    , there = reify proof there
+    }
+  unreify proof TheseTable {here, there} = TheseTable
+    { here = unreify proof here
+    , there = unreify proof there
+    }
 
   coherence = coherence @context @a
   congruence proof abstract =
@@ -188,8 +183,8 @@ instance
 
 
 instance
-  ( Nullifiable from, from ~ from'
-  , Nullifiable to, to ~ to'
+  ( Reifiable from, Abstract from, from ~ from'
+  , Reifiable to, Abstract to, to ~ to'
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
@@ -201,9 +196,9 @@ instance (EqTable a, EqTable b, context ~ Expr) =>
  where
   eqTable = HTheseTable
     { hhereTag = hlabel (HType Dict)
-    , hhere = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
+    , hhere = hlabel (eqTable @(Nullify context a))
     , hthereTag = hlabel (HType Dict)
-    , hthere = hlabel (hnullify (\_ Dict -> Dict) (eqTable @b))
+    , hthere = hlabel (eqTable @(Nullify context b))
     }
 
 
@@ -212,9 +207,9 @@ instance (OrdTable a, OrdTable b, context ~ Expr) =>
  where
   ordTable = HTheseTable
     { hhereTag = hlabel (HType Dict)
-    , hhere = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
+    , hhere = hlabel (ordTable @(Nullify context a))
     , hthereTag = hlabel (HType Dict)
-    , hthere = hlabel (hnullify (\_ Dict -> Dict) (ordTable @b))
+    , hthere = hlabel (ordTable @(Nullify context b))
     }
 
 

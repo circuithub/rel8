@@ -23,10 +23,13 @@ where
 
 -- base
 import Control.Category ( id )
-import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
+import Data.Maybe ( isJust )
 import Data.Type.Equality ( apply )
 import Prelude hiding ( id, null, undefined )
+
+-- comonad
+import Control.Comonad ( extract )
 
 -- rel8
 import Rel8.Aggregate ( Col( A ), Aggregate )
@@ -34,15 +37,16 @@ import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
-import Rel8.Schema.Context.Nullify ( Nullifiable, nullifier, unnullifier )
+import Rel8.Kind.Context ( Reifiable )
+import Rel8.Schema.Context.Abstract ( Abstract )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
-import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.Name ( Col( N ), Name )
-import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ), Sql, nullable )
+import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
+import qualified Rel8.Schema.Null as N
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -55,6 +59,7 @@ import Rel8.Table.Alternative
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Rel8.Table.Undefined ( undefined )
@@ -77,14 +82,14 @@ import Data.Functor.Bind ( Bind, (>>-) )
 type MaybeTable :: K.Context -> Type -> Type
 data MaybeTable context a = MaybeTable
   { tag :: Col context ('Spec (Maybe MaybeTag))
-  , just :: a
+  , just :: Nullify context a
   }
   deriving stock Functor
 
 
 instance context ~ Expr => Apply (MaybeTable context) where
   MaybeTable (E tag) f <.> MaybeTable (E tag') a =
-    MaybeTable (E (tag <> tag')) (f a)
+    MaybeTable (E (tag <> tag')) (f <.> a)
 
 
 -- | Has the same behavior as the @Applicative@ instance for @Maybe@. See also:
@@ -95,7 +100,7 @@ instance context ~ Expr => Applicative (MaybeTable context) where
 
 
 instance context ~ Expr => Bind (MaybeTable context) where
-  MaybeTable (E tag) a >>- f = case f a of
+  MaybeTable (E tag) a >>- f = case f (extract a) of
     MaybeTable (E tag') b -> MaybeTable (E (tag <> tag')) b
 
 
@@ -124,34 +129,35 @@ instance (context ~ Expr, Table Expr a, Semigroup a) =>
   mempty = nothingTable
 
 
-instance (Table context a, Nullifiable context, context ~ context') =>
-  Table context' (MaybeTable context a)
+instance
+  ( Table context a
+  , Reifiable context, Abstract context, context ~ context'
+  )
+  => Table context' (MaybeTable context a)
  where
   type Columns (MaybeTable context a) = HMaybeTable (Columns a)
   type Context (MaybeTable context a) = Context a
 
   toColumns MaybeTable {tag, just} = HMaybeTable
-    { htag = hlabel (HIdentity tag)
-    , hjust = hlabel $ hnullify (nullifier tag isNonNull) $ toColumns just
+    { htag = hlabel $ HIdentity tag
+    , hjust = hlabel $ guard tag isJust isNonNull $ toColumns just
     }
 
   fromColumns HMaybeTable {htag, hjust} = MaybeTable
-    { tag = unHIdentity (hunlabel htag)
-    , just = fromColumns $ runIdentity $
-        hunnullify ((pure .) . unnullifier) (hunlabel hjust)
+    { tag = unHIdentity $ hunlabel htag
+    , just = fromColumns $ hunlabel hjust
     }
 
-  reify = fmap fmap reify
-  unreify = fmap fmap unreify
-
+  reify proof (MaybeTable tag a) = MaybeTable tag (reify proof a)
+  unreify proof (MaybeTable tag a) = MaybeTable tag (unreify proof a)
   coherence = coherence @context @a
   congruence proof abstract = id `apply` congruence @context @a proof abstract
 
 
 instance
-  ( Nullifiable from, from ~ from'
-  , Nullifiable to, to ~ to'
-  , Recontextualize from to a b
+  ( Recontextualize from to a b
+  , Reifiable from, Abstract from, from ~ from'
+  , Reifiable to, Abstract to, to ~ to'
   )
   => Recontextualize from to (MaybeTable from' a) (MaybeTable to' b)
 
@@ -159,14 +165,14 @@ instance
 instance (EqTable a, context ~ Expr) => EqTable (MaybeTable context a) where
   eqTable = HMaybeTable
     { htag = hlabel (HType Dict)
-    , hjust = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
+    , hjust = hlabel (eqTable @(Nullify context a))
     }
 
 
 instance (OrdTable a, context ~ Expr) => OrdTable (MaybeTable context a) where
   ordTable = HMaybeTable
     { htag = hlabel (HType Dict)
-    , hjust = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
+    , hjust = hlabel (ordTable @(Nullify context a))
     }
 
 
@@ -192,29 +198,29 @@ isJustTable (MaybeTable (E tag) _) = isNonNull tag
 
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
 maybeTable :: Table Expr b => b -> (a -> b) -> MaybeTable Expr a -> b
-maybeTable b f ma@(MaybeTable _ a) = bool (f a) b (isNothingTable ma)
+maybeTable b f ma@(MaybeTable _ a) = bool (f (extract a)) b (isNothingTable ma)
 {-# INLINABLE maybeTable #-}
 
 
 -- | The null table. Like 'Nothing'.
 nothingTable :: Table Expr a => MaybeTable Expr a
-nothingTable = MaybeTable (E null) undefined
+nothingTable = MaybeTable (E null) (pure undefined)
 
 
 -- | Lift any table into 'MaybeTable'. Like 'Just'. Note you can also use
 -- 'pure'.
 justTable :: a -> MaybeTable Expr a
-justTable = MaybeTable (E mempty)
+justTable = MaybeTable (E mempty) . pure
 
 
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
 -- operator like the '$' operator, but it also has the ability to return
 -- @null@.
 ($?) :: forall a b. Sql DBType b
-  => (a -> Expr b) -> MaybeTable Expr a -> Expr (Nullify b)
+  => (a -> Expr b) -> MaybeTable Expr a -> Expr (N.Nullify b)
 f $? ma@(MaybeTable _ a) = case nullable @b of
-  Null -> boolExpr (f a) null (isNothingTable ma)
-  NotNull -> boolExpr (nullify (f a)) null (isNothingTable ma)
+  Null -> boolExpr (f (extract a)) null (isNothingTable ma)
+  NotNull -> boolExpr (nullify (f (extract a))) null (isNothingTable ma)
 infixl 4 $?
 
 
@@ -225,7 +231,7 @@ aggregateMaybeTable :: ()
   -> MaybeTable Expr exprs
   -> MaybeTable Aggregate aggregates
 aggregateMaybeTable f (MaybeTable (E tag) a) =
-  MaybeTable (A (groupByExpr tag)) (f a)
+  MaybeTable (A (groupByExpr tag)) (aggregateNullify f a)
 
 
 -- | Construct a 'MaybeTable' in the 'Name' context. This can be useful if you
@@ -238,4 +244,4 @@ nameMaybeTable
   -> a
      -- ^ Names of the columns in @a@.
   -> MaybeTable Name a
-nameMaybeTable = MaybeTable . N
+nameMaybeTable tag = MaybeTable (N tag) . pure

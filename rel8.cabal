@@ -23,6 +23,7 @@ library
     , base ^>= 4.14 || ^>=4.15
     , bytestring
     , case-insensitive
+    , comonad
     , contravariant
     , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.3.0
@@ -158,6 +159,7 @@ library
     Rel8.Table.Maybe
     Rel8.Table.Name
     Rel8.Table.NonEmpty
+    Rel8.Table.Nullify
     Rel8.Table.Opaleye
     Rel8.Table.Ord
     Rel8.Table.Order
