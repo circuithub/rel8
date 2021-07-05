@@ -46,7 +46,7 @@ import Rel8.Type.Information ( TypeInformation )
 --
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
-many :: Table Expr a => Query a -> Query (ListTable a)
+many :: Table Expr a => Query a -> Query (ListTable Expr a)
 many =
   fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
   optional .
@@ -62,7 +62,7 @@ many =
 --
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
-some :: Table Expr a => Query a -> Query (NonEmptyTable a)
+some :: Table Expr a => Query a -> Query (NonEmptyTable Expr a)
 some =
   fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
   aggregate .
@@ -83,7 +83,7 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 -- element of the given @ListTable@.
 --
 -- @catListTable@ is an inverse to 'many'.
-catListTable :: Table Expr a => ListTable a -> Query a
+catListTable :: Table Expr a => ListTable Expr a -> Query a
 catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
@@ -92,7 +92,7 @@ catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
 -- element of the given @NonEmptyTable@.
 --
 -- @catNonEmptyTable@ is an inverse to 'some'.
-catNonEmptyTable :: Table Expr a => NonEmptyTable a -> Query a
+catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
 catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 

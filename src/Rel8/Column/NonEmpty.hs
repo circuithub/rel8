@@ -3,7 +3,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.NonEmpty
@@ -40,11 +40,11 @@ import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 -- 'NonEmptyTable' @a@ in the 'Expr' context, and a 'NonEmpty' @a@ in the
 -- 'Result' context.
 type HNonEmpty :: K.Context -> Type -> Type
-type family HNonEmpty context where
+type family HNonEmpty context = nonEmpty | nonEmpty -> context where
   HNonEmpty (Reify context) = AHNonEmpty context
-  HNonEmpty Aggregate = NonEmptyTable
-  HNonEmpty Expr = NonEmptyTable
-  HNonEmpty Name = NonEmptyTable
+  HNonEmpty Aggregate = NonEmptyTable Aggregate
+  HNonEmpty Expr = NonEmptyTable Expr
+  HNonEmpty Name = NonEmptyTable Name
   HNonEmpty Result = NonEmpty
 
 

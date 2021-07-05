@@ -4,7 +4,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.These
@@ -43,11 +43,11 @@ import Data.These ( These )
 -- 'TheseTable' @a b@ in the 'Expr' context, and a 'These' @a b@ in the
 -- 'Result' context.
 type HThese :: K.Context -> Type -> Type -> Type
-type family HThese context where
+type family HThese context = these | these -> context where
   HThese (Reify context) = AHThese context
-  HThese Aggregate = TheseTable
-  HThese Expr = TheseTable
-  HThese Name = TheseTable
+  HThese Aggregate = TheseTable Aggregate
+  HThese Expr = TheseTable Expr
+  HThese Name = TheseTable Name
   HThese Result = These
 
 

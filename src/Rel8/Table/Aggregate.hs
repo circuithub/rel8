@@ -61,13 +61,13 @@ hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
 -- items:
 --
 -- @
--- ordersWithItems :: Query (Order Expr, ListTable (Item Expr))
+-- ordersWithItems :: Query (Order Expr, ListTable Expr (Item Expr))
 -- ordersWithItems = do
 --   order <- each orderSchema
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
 --   return (order, items)
 -- @
-listAgg :: Aggregates aggregates exprs => exprs -> ListTable aggregates
+listAgg :: Aggregates aggregates exprs => exprs -> ListTable Aggregate aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)
@@ -75,7 +75,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
+nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable Aggregate aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)

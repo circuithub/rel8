@@ -5,7 +5,6 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TupleSections #-}
@@ -21,6 +20,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
+  , aggregateTheseTable
   , nameTheseTable
   )
 where
@@ -33,19 +33,17 @@ import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
 -- rel8
+import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiable
-  , encodeTag, decodeTag
-  , nullifier, unnullifier
-  )
+import Rel8.Schema.Context.Nullify ( Nullifiable, nullifier, unnullifier )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -56,12 +54,12 @@ import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
+  , aggregateMaybeTable
   , nameMaybeTable
   )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
-import Rel8.Table.Tag ( Tag(..) )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
 
@@ -80,32 +78,37 @@ import Data.These ( These )
 --
 -- @TheseTable@ is operationally the same as Haskell's 'These' type, but
 -- adapted to work with Rel8.
-type TheseTable :: Type -> Type -> Type
-data TheseTable a b = TheseTable
-  { here :: MaybeTable a
-  , there :: MaybeTable b
+type TheseTable :: K.Context -> Type -> Type -> Type
+data TheseTable context a b = TheseTable
+  { here :: MaybeTable context a
+  , there :: MaybeTable context b
   }
   deriving stock Functor
 
 
-instance Bifunctor TheseTable where
+instance Bifunctor (TheseTable context) where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
 
 
-instance (Table Expr a, Semigroup a) => Apply (TheseTable a) where
+instance (context ~ Expr, Table Expr a, Semigroup a) =>
+  Apply (TheseTable context a)
+ where
   fs <.> as = TheseTable
     { here = here fs <> here as
     , there = there fs <.> there as
     }
 
 
-instance (Table Expr a, Semigroup a) => Applicative (TheseTable a)
+instance (context ~ Expr, Table Expr a, Semigroup a) =>
+  Applicative (TheseTable context a)
  where
   pure = thatTable
   (<*>) = (<.>)
 
 
-instance (Table Expr a, Semigroup a) => Bind (TheseTable a) where
+instance (context ~ Expr, Table Expr a, Semigroup a) =>
+  Bind (TheseTable context a)
+ where
   TheseTable here1 ma >>- f = case ma >>- f' of
     mtb -> TheseTable
       { here = maybeTable here1 ((here1 <>) . fst) mtb
@@ -116,12 +119,14 @@ instance (Table Expr a, Semigroup a) => Bind (TheseTable a) where
         TheseTable here2 mb -> (here2,) <$> mb
 
 
-instance (Table Expr a, Semigroup a) => Monad (TheseTable a) where
+instance (context ~ Expr, Table Expr a, Semigroup a) =>
+  Monad (TheseTable context a)
+ where
   (>>=) = (>>-)
 
 
-instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
-  Semigroup (TheseTable a b)
+instance (context ~ Expr, Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
+  Semigroup (TheseTable context a b)
  where
   a <> b = TheseTable
     { here = here a <> here b
@@ -131,67 +136,61 @@ instance (Table Expr a, Table Expr b, Semigroup a, Semigroup b) =>
 
 instance
   ( Table context a, Table context b
-  , Nullifiable context
+  , Nullifiable context, context ~ context'
   )
-  => Table context (TheseTable a b)
+  => Table context' (TheseTable context a b)
  where
-  type Columns (TheseTable a b) = HTheseTable (Columns a) (Columns b)
-  type Context (TheseTable a b) = Context a
+  type Columns (TheseTable context a b) = HTheseTable (Columns a) (Columns b)
+  type Context (TheseTable context a b) = Context a
 
   toColumns TheseTable {here, there} = HTheseTable
-    { hhereTag = hlabel $ HType $ encodeTag (toHereTag (tag here))
+    { hhereTag = hlabel (HIdentity (tag here))
     , hhere =
         hlabel $ hnullify (nullifier (tag here) isNonNull) $ toColumns $
         just here
-    , hthereTag = hlabel $ HType $ encodeTag (toThereTag (tag there))
+    , hthereTag = hlabel (HIdentity (tag there))
     , hthere =
         hlabel $ hnullify (nullifier (tag there) isNonNull) $ toColumns $
         just there
     }
 
   fromColumns HTheseTable {hhereTag, hhere, hthereTag, hthere} = TheseTable
-    { here =
-        let
-          tag = decodeTag $ unHIdentity $ hunlabel hhereTag
-        in
-          MaybeTable
-            { tag
-            , just =
-                fromColumns $
-                runIdentity $
-                hunnullify (\a -> pure . unnullifier a) $
-                hunlabel
-                hhere
-            }
-    , there =
-        let
-          tag = decodeTag $ unHIdentity $ hunlabel hthereTag
-        in
-          MaybeTable
-            { tag
-            , just =
-                fromColumns $
-                runIdentity $
-                hunnullify (\a -> pure . unnullifier a) $
-                hunlabel
-                hthere
-            }
+    { here = MaybeTable
+        { tag = unHIdentity $ hunlabel hhereTag
+        , just =
+            fromColumns $
+            runIdentity $
+            hunnullify (\a -> pure . unnullifier a) $
+            hunlabel
+            hhere
+        }
+    , there = MaybeTable
+        { tag = unHIdentity $ hunlabel hthereTag
+        , just =
+            fromColumns $
+            runIdentity $
+            hunnullify (\a -> pure . unnullifier a) $
+            hunlabel
+            hthere
+        }
     }
-
 
   reify = liftA2 bimap reify reify
   unreify = liftA2 bimap unreify unreify
 
 
 instance
-  ( Nullifiable from, Nullifiable to
+  ( Nullifiable from, from ~ from'
+  , Nullifiable to, to ~ to'
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
-  => Recontextualize from to (TheseTable a1 a2) (TheseTable b1 b2)
+  => Recontextualize from to (TheseTable from' a1 a2) (TheseTable to' b1 b2)
 
 
-instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
+instance (EqTable a, EqTable b, context ~ Expr) =>
+  EqTable (TheseTable context a b)
+ where
   eqTable = HTheseTable
     { hhereTag = hlabel (HType Dict)
     , hhere = hlabel (hnullify (\_ Dict -> Dict) (eqTable @a))
@@ -200,7 +199,9 @@ instance (EqTable a, EqTable b) => EqTable (TheseTable a b) where
     }
 
 
-instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
+instance (OrdTable a, OrdTable b, context ~ Expr) =>
+  OrdTable (TheseTable context a b)
+ where
   ordTable = HTheseTable
     { hhereTag = hlabel (HType Dict)
     , hhere = hlabel (hnullify (\_ Dict -> Dict) (ordTable @a))
@@ -209,10 +210,11 @@ instance (OrdTable a, OrdTable b) => OrdTable (TheseTable a b) where
     }
 
 
-type instance FromExprs (TheseTable a b) = These (FromExprs a) (FromExprs b)
+type instance FromExprs (TheseTable _context a b) =
+  These (FromExprs a) (FromExprs b)
 
 
-instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable exprs1 exprs2) =>
+instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable Expr exprs1 exprs2) =>
   ToExprs x (These a b)
  where
   fromResult =
@@ -223,86 +225,91 @@ instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable exprs1 exprs2) =>
     bimap (toResult @exprs1) (toResult @exprs2)
 
 
-toHereTag :: Tag "isJust" a -> Tag "hasHere" a
-toHereTag Tag {..} = Tag {..}
-
-
-toThereTag :: Tag "isJust" a -> Tag "hasThere" a
-toThereTag Tag {..} = Tag {..}
-
-
 -- | Test if a 'TheseTable' was constructed with 'thisTable'.
 --
 -- Corresponds to 'Data.These.Combinators.isThis'.
-isThisTable :: TheseTable a b -> Expr Bool
+isThisTable :: TheseTable Expr a b -> Expr Bool
 isThisTable a = hasHereTable a &&. not_ (hasThereTable a)
 
 
 -- | Test if a 'TheseTable' was constructed with 'thatTable'.
 --
 -- Corresponds to 'Data.These.Combinators.isThat'.
-isThatTable :: TheseTable a b -> Expr Bool
+isThatTable :: TheseTable Expr a b -> Expr Bool
 isThatTable a = not_ (hasHereTable a) &&. hasThereTable a
 
 
 -- | Test if a 'TheseTable' was constructed with 'thoseTable'.
 --
 -- Corresponds to 'Data.These.Combinators.isThese'.
-isThoseTable :: TheseTable a b -> Expr Bool
+isThoseTable :: TheseTable Expr a b -> Expr Bool
 isThoseTable a = hasHereTable a &&. hasThereTable a
 
 
 -- | Test if the @a@ side of @TheseTable a b@ is present.
 --
 -- Corresponds to 'Data.These.Combinators.hasHere'.
-hasHereTable :: TheseTable a b -> Expr Bool
+hasHereTable :: TheseTable Expr a b -> Expr Bool
 hasHereTable TheseTable {here} = isJustTable here
 
 
 -- | Test if the @b@ table of @TheseTable a b@ is present.
 --
 -- Corresponds to 'Data.These.Combinators.hasThere'.
-hasThereTable :: TheseTable a b -> Expr Bool
+hasThereTable :: TheseTable Expr a b -> Expr Bool
 hasThereTable TheseTable {there} = isJustTable there
 
 
 -- | Attempt to project out the @a@ table of a @TheseTable a b@.
 --
 -- Corresponds to 'Data.These.Combinators.justHere'.
-justHereTable :: TheseTable a b -> MaybeTable a
+justHereTable :: TheseTable context a b -> MaybeTable context a
 justHereTable = here
 
 
 -- | Attempt to project out the @b@ table of a @TheseTable a b@.
 --
 -- Corresponds to 'Data.These.Combinators.justThere'.
-justThereTable :: TheseTable a b -> MaybeTable b
+justThereTable :: TheseTable context a b -> MaybeTable context b
 justThereTable = there
 
 
 -- | Construct a @TheseTable@. Corresponds to 'This'.
-thisTable :: Table Expr b => a -> TheseTable a b
+thisTable :: Table Expr b => a -> TheseTable Expr a b
 thisTable a = TheseTable (justTable a) nothingTable
 
 
 -- | Construct a @TheseTable@. Corresponds to 'That'.
-thatTable :: Table Expr a => b -> TheseTable a b
+thatTable :: Table Expr a => b -> TheseTable Expr a b
 thatTable b = TheseTable nothingTable (justTable b)
 
 
 -- | Construct a @TheseTable@. Corresponds to 'These'.
-thoseTable :: a -> b -> TheseTable a b
+thoseTable :: a -> b -> TheseTable Expr a b
 thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
 -- | Pattern match on a 'TheseTable'. Corresponds to 'these'.
 theseTable :: Table Expr c
-  => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable a b -> c
+  => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable Expr a b -> c
 theseTable f g h TheseTable {here, there} =
   maybeTable
     (maybeTable undefined f here)
     (\b -> maybeTable (g b) (`h` b) here)
     there
+
+
+-- | Lift a pair of aggregating functions to operate on an 'TheseTable'.
+-- @thisTable@s, @thatTable@s and @thoseTable@s are grouped separately.
+aggregateTheseTable :: ()
+  => (exprs -> aggregates)
+  -> (exprs' -> aggregates')
+  -> TheseTable Expr exprs exprs'
+  -> TheseTable Aggregate aggregates aggregates'
+aggregateTheseTable f g (TheseTable here there) = TheseTable
+  { here = aggregateMaybeTable f here
+  , there = aggregateMaybeTable g there
+  }
 
 
 -- | Construct a 'TheseTable' in the 'Name' context. This can be useful if you
@@ -317,7 +324,7 @@ nameTheseTable :: ()
      -- ^ Names of the columns in the @a@ table.
   -> b
      -- ^ Names of the columns in the @b@ table.
-  -> TheseTable a b
+  -> TheseTable Name a b
 nameTheseTable here there a b =
   TheseTable
     { here = nameMaybeTable here a

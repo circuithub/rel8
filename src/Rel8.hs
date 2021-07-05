@@ -59,6 +59,7 @@ module Rel8
   , optional
   , catMaybeTable
   , traverseMaybeTable
+  , aggregateMaybeTable
   , nameMaybeTable
 
     -- ** @EitherTable@
@@ -68,6 +69,7 @@ module Rel8
   , keepLeftTable
   , keepRightTable
   , bitraverseEitherTable
+  , aggregateEitherTable
   , nameEitherTable
 
     -- ** @TheseTable@
@@ -83,6 +85,7 @@ module Rel8
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
   , bitraverseTheseTable
+  , aggregateTheseTable
   , nameTheseTable
 
     -- ** @ListTable@

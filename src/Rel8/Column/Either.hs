@@ -3,7 +3,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.Either
@@ -39,11 +39,11 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 -- 'EitherTable' @a b@ in the 'Expr' context, and a 'Either' @a b@ in the
 -- 'Result' context.
 type HEither :: K.Context -> Type -> Type -> Type
-type family HEither context where
+type family HEither context = either | either -> context where
   HEither (Reify context) = AHEither context
-  HEither Aggregate = EitherTable
-  HEither Expr = EitherTable
-  HEither Name = EitherTable
+  HEither Aggregate = EitherTable Aggregate
+  HEither Expr = EitherTable Expr
+  HEither Name = EitherTable Name
   HEither Result = Either
 
 

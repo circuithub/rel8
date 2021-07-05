@@ -4,7 +4,7 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.Maybe
@@ -38,11 +38,11 @@ import Rel8.Table.Recontextualize ( Recontextualize )
 -- 'MaybeTable' @a@ in the 'Expr' context, and a 'Maybe' @a@ in the 'Result'
 -- context.
 type HMaybe :: K.Context -> Type -> Type
-type family HMaybe context where
+type family HMaybe context = maybe | maybe -> context where
   HMaybe (Reify context) = AHMaybe context
-  HMaybe Aggregate = MaybeTable
-  HMaybe Expr = MaybeTable
-  HMaybe Name = MaybeTable
+  HMaybe Aggregate = MaybeTable Aggregate
+  HMaybe Expr = MaybeTable Expr
+  HMaybe Name = MaybeTable Name
   HMaybe Result = Maybe
 
 
@@ -70,8 +70,8 @@ instance (Reifiable context, Table (Reify context) a) =>
 instance
   ( Reifiable context, Reifiable context'
   , Recontextualize (Reify context) (Reify context') a a'
-  ) =>
-  Recontextualize
+  )
+  => Recontextualize
     (Reify context)
     (Reify context')
     (AHMaybe context a)

@@ -59,7 +59,7 @@ import Rel8.Kind.Algebra
   , KnownAlgebra, algebraSing
   )
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Schema.Context.Nullify ( runTag )
+import Rel8.Schema.Context.Nullify ( guardExpr, snullify )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import qualified Rel8.Schema.Kind as K
@@ -349,7 +349,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @(Eval (rep (Reify Aggregate)))
       (\(_ :: proxy x) -> toColumns . reify @_ @x Refl)
       (\tag' SSpec {nullity} (Reify (A (Aggregate a))) ->
-        Reify $ A $ Aggregate $ runTag nullity (tag ==. litExpr tag') <$> a)
+        Reify $ A $ Aggregate $ guardExpr (tag ==. litExpr tag') . snullify nullity <$> a)
       (HType (Reify (A (groupByExpr tag))))
     where
       f =
