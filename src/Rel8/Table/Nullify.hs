@@ -17,11 +17,9 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
-import Control.Category ( id )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ), apply )
-import Prelude hiding ( id )
+import Prelude
 
 -- comonad
 import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
@@ -31,10 +29,9 @@ import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( Reifiable, contextSing )
 import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Context.Abstract ( Abstract, exclusivity, virtual )
 import Rel8.Schema.Context.Nullify
   ( Nullifiability( NAggregate, NExpr )
-  , NonNullifiability( NNReify )
+  , NonNullifiability
   , Nullifiable, nullifiability
   , nullifiableOrNot, absurd
   , guarder
@@ -43,13 +40,13 @@ import Rel8.Schema.Context.Nullify
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Nullify ( HNullify, hnullify, hunnullify, hguard )
+import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify, hguard )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Reify ( hreify, hunreify )
+import qualified Rel8.Schema.Result as R
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, toColumns, fromColumns
-  , reify, unreify, coherence, congruence
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
@@ -124,14 +121,12 @@ instance Nullifiable context => ComonadApply (Nullify context) where
   (<@>) = (<.>)
 
 
-instance
-  ( Table context a
-  , Reifiable context, Abstract context, context ~ context'
-  )
-  => Table context' (Nullify context a)
+instance (Table context a, Reifiable context, context ~ context') =>
+  Table context' (Nullify context a)
  where
   type Columns (Nullify context a) = HNullify (Columns a)
   type Context (Nullify context a) = Context a
+  type FromExprs (Nullify context a) = Maybe (FromExprs a)
 
   fromColumns = case nullifiableOrNot contextSing of
     Left notNullifiable -> Fields notNullifiable
@@ -145,34 +140,17 @@ instance
     Table nullifiable a -> hnullify (nullifier nullifiable) (toColumns a)
     Fields _ a -> a
 
-  reify proof@Refl = \case
-    Table nullifiable a -> Table nullifiable (reify proof a)
-    Fields notNullifiable a -> case notNullifiable of
-      NNReify (_ :: NonNullifiability ctx) ->
-        case coherence @context @a proof abstract of
-          Refl -> case congruence @context @a proof abstract of
-            Refl -> Fields notNullifiable (hreify a)
-        where
-          abstract = exclusivity (virtual @ctx)
+  fromResult = fmap (fromResult @_ @a) . hunnullify R.unnullifier
 
-  unreify proof@Refl = \case
-    Table nullifiable a -> Table nullifiable (unreify proof a)
-    Fields notNullifiable a -> case notNullifiable of
-      NNReify (_ :: NonNullifiability ctx) ->
-        case coherence @context @a proof abstract of
-          Refl -> case congruence @context @a proof abstract of
-            Refl -> Fields notNullifiable (hunreify a)
-        where
-          abstract = exclusivity (virtual @ctx)
-
-  coherence = coherence @context @a
-  congruence proof abstract = id `apply` congruence @context @a proof abstract
+  toResult =
+    maybe (hnulls (const R.null)) (hnullify R.nullifier) .
+    fmap (toResult @_ @a)
 
 
 instance
   ( Recontextualize from to a b
-  , Reifiable from, Abstract from, from ~ from'
-  , Reifiable to, Abstract to, to ~ to'
+  , Reifiable from, from ~ from'
+  , Reifiable to, to ~ to'
   )
   => Recontextualize from' to' (Nullify from a) (Nullify to b)
 

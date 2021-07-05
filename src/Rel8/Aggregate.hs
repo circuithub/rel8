@@ -1,5 +1,4 @@
 {-# language DataKinds #-}
-{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
@@ -21,7 +20,6 @@ where
 
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Prelude
 
@@ -36,12 +34,11 @@ import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Reify ( notReify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Col( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify, coherence, congruence
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -67,14 +64,12 @@ instance Interpretation Aggregate where
 instance Sql DBType a => Table Aggregate (Aggregate a) where
   type Columns (Aggregate a) = HType a
   type Context (Aggregate a) = Aggregate
+  type FromExprs (Aggregate a) = a
 
   toColumns = HIdentity . A
   fromColumns (HIdentity (A a)) = a
-
-  reify = notReify
-  unreify = notReify
-  coherence = notReify
-  congruence = notReify
+  toResult = HIdentity . R
+  fromResult (HIdentity (R a)) = a
 
 
 instance Sql DBType a =>
@@ -86,19 +81,11 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Result (Aggregate a) (Identity a)
-
-
-instance Sql DBType a =>
   Recontextualize Aggregate Name (Aggregate a) (Name a)
 
 
 instance Sql DBType a =>
   Recontextualize Expr Aggregate (Expr a) (Aggregate a)
-
-
-instance Sql DBType a =>
-  Recontextualize Result Aggregate (Identity a) (Aggregate a)
 
 
 instance Sql DBType a =>

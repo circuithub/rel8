@@ -3,6 +3,7 @@
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
@@ -23,11 +24,9 @@ module Rel8.Table.Either
 where
 
 -- base
-import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
-import Data.Type.Equality ( apply )
-import Prelude hiding ( id, undefined )
+import Prelude hiding ( undefined )
 
 -- comonad
 import Control.Comonad ( extract )
@@ -38,7 +37,6 @@ import Rel8.Expr ( Col( E ), Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Context ( Reifiable )
-import Rel8.Schema.Context.Abstract ( Abstract )
 import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
@@ -46,17 +44,18 @@ import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name )
+import Rel8.Schema.Result ( Col( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify, coherence, congruence
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
@@ -112,12 +111,13 @@ instance (context ~ Expr, Table Expr a, Table Expr b) =>
 
 instance
   ( Table context a, Table context b
-  , Reifiable context, Abstract context, context ~ context'
+  , Reifiable context, context ~ context'
   )
   => Table context' (EitherTable context a b)
  where
   type Columns (EitherTable context a b) = HEitherTable (Columns a) (Columns b)
   type Context (EitherTable context a b) = Context a
+  type FromExprs (EitherTable context a b) = Either (FromExprs a) (FromExprs b)
 
   toColumns EitherTable {tag, left, right} = HEitherTable
     { htag = hlabel $ HType tag
@@ -131,28 +131,29 @@ instance
     , right = fromColumns $ hunlabel hright
     }
 
-  reify proof EitherTable {tag, left, right} = EitherTable
-    { tag
-    , left = reify proof left
-    , right = reify proof right
-    }
+  toResult = \case
+    Left table -> HEitherTable
+      { htag = hlabel (HType (R IsLeft))
+      , hleft = hlabel (toResult @_ @(Nullify context a) (Just table))
+      , hright = hlabel (toResult @_ @(Nullify context b) Nothing)
+      }
+    Right table -> HEitherTable
+      { htag = hlabel (HType (R IsRight))
+      , hleft = hlabel (toResult @_ @(Nullify context a) Nothing)
+      , hright = hlabel (toResult @_ @(Nullify context b) (Just table))
+      }
 
-  unreify proof EitherTable {tag, left, right} = EitherTable
-    { tag
-    , left = unreify proof left
-    , right = unreify proof right
-    }
-
-  coherence = coherence @context @a
-  congruence proof abstract =
-    id `apply`
-    congruence @context @a proof abstract `apply`
-    congruence @context @b proof abstract
+  fromResult HEitherTable {htag, hleft, hright} = case hunlabel htag of
+    HType (R tag) -> case tag of
+      IsLeft -> maybe err Left $ fromResult @_ @(Nullify context a) (hunlabel hleft)
+      IsRight -> maybe err Right $ fromResult @_ @(Nullify context b) (hunlabel hright)
+    where
+      err = error "Either.fromColumns: mismatch between tag and data"
 
 
 instance
-  ( Reifiable from, Abstract from, from ~ from'
-  , Reifiable to, Abstract to, to ~ to'
+  ( Reifiable from, from ~ from'
+  , Reifiable to, to ~ to'
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
@@ -179,19 +180,8 @@ instance (OrdTable a, OrdTable b, context ~ Expr) =>
     }
 
 
-type instance FromExprs (EitherTable _context a b) =
-  Either (FromExprs a) (FromExprs b)
-
-
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable Expr exprs1 exprs2) =>
   ToExprs x (Either a b)
- where
-  fromResult =
-    bimap (fromResult @exprs1) (fromResult @exprs2) .
-    fromColumns
-  toResult =
-    toColumns .
-    bimap (toResult @exprs1) (toResult @exprs2)
 
 
 -- | Test if an 'EitherTable' is a 'leftTable'.

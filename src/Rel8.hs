@@ -239,8 +239,7 @@ module Rel8
 
     -- * IO
   , Serializable
-  , ToExprs(..)
-  , FromExprs
+  , ToExprs
   , Result
 
     -- * Running statements
@@ -272,9 +271,6 @@ module Rel8
     -- ** Sequences
   , nextval
   , evaluate
-
-    -- * Implementation details
-  , HKDT(..)
   ) where
 
 -- base

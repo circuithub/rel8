@@ -33,11 +33,7 @@ import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
-import Rel8.Generic.Table
-  ( GGTable, GGColumns, ggtable
-  , GAlgebra
-  )
-import Rel8.Kind.Algebra ( KnownAlgebra )
+import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
   ( HTable, HConstrainTable
@@ -46,7 +42,7 @@ import Rel8.Schema.HTable
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
-import Rel8.Table ( Table, Columns, toColumns, TColumns )
+import Rel8.Table ( Table, Columns, toColumns, TColumns, TFromExprs )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -58,19 +54,17 @@ class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (ConstrainSpec (Sql DBEq)))
 
   default eqTable ::
-    ( KnownAlgebra (GAlgebra (Rep (Record a)))
-    , Eval (GGTable (GAlgebra (Rep (Record a))) TEqTable TColumns (Dict (ConstrainSpec (Sql DBEq))) (Rep (Record a)))
-    , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
+    ( GTable TEqTable TColumns TFromExprs (Rep (Record a))
+    , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a (Dict (ConstrainSpec (Sql DBEq)))
   eqTable =
-    ggtable
-      @(GAlgebra (Rep (Record a)))
+    gtable
       @TEqTable
       @TColumns
+      @TFromExprs
       @(Rep (Record a))
       table
-      (\_ Dict -> Dict)
     where
       table (_ :: proxy x) = eqTable @x
 
