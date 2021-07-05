@@ -3,8 +3,10 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.These
@@ -14,9 +16,11 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
@@ -27,10 +31,10 @@ import Rel8.Schema.HTable.These ( HTheseTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.These ( TheseTable )
@@ -43,11 +47,11 @@ import Data.These ( These )
 -- 'TheseTable' @a b@ in the 'Expr' context, and a 'These' @a b@ in the
 -- 'Result' context.
 type HThese :: K.Context -> Type -> Type -> Type
-type family HThese context where
+type family HThese context = these | these -> context where
   HThese (Reify context) = AHThese context
-  HThese Aggregate = TheseTable
-  HThese Expr = TheseTable
-  HThese Name = TheseTable
+  HThese Aggregate = TheseTable Aggregate
+  HThese Expr = TheseTable Expr
+  HThese Name = TheseTable Name
   HThese Result = These
 
 
@@ -74,6 +78,32 @@ instance (Reifiable context, Table (Reify context) a, Table (Reify context) b)
   toColumns = stoColumnsThese contextSing
   reify proof = liftA2 bimap reify reify proof . AHThese
   unreify proof = (\(AHThese a) -> a) . liftA2 bimap unreify unreify proof
+
+  coherence = case contextSing @context of
+    SAggregate -> coherence @(Reify context) @a
+    SExpr -> coherence @(Reify context) @a
+    SName -> coherence @(Reify context) @a
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence proof@Refl abstract = case contextSing @context of
+    SAggregate ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SExpr ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SName ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SResult -> absurd abstract
+    SReify _ ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
 
 
 instance

@@ -23,6 +23,7 @@ library
     , base ^>= 4.14 || ^>=4.15
     , bytestring
     , case-insensitive
+    , comonad
     , contravariant
     , hasql ^>= 1.4.5.1
     , opaleye ^>= 0.7.3.0
@@ -81,6 +82,7 @@ library
     Rel8.Kind.Algebra
     Rel8.Kind.Context
 
+    Rel8.Generic.Coherence
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
     Rel8.Generic.Construction.Record
@@ -88,7 +90,6 @@ library
     Rel8.Generic.Record
     Rel8.Generic.Reify
     Rel8.Generic.Rel8able
-    Rel8.Generic.Rel8able.Test
     Rel8.Generic.Table
     Rel8.Generic.Table.ADT
     Rel8.Generic.Table.Record
@@ -115,6 +116,7 @@ library
     Rel8.Query.Values
 
     Rel8.Schema.Context
+    Rel8.Schema.Context.Abstract
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
     Rel8.Schema.HTable
@@ -135,7 +137,7 @@ library
     Rel8.Schema.Reify
     Rel8.Schema.Result
     Rel8.Schema.Spec
-    Rel8.Schema.Spec.ConstrainDBType
+    Rel8.Schema.Spec.Constrain
     Rel8.Schema.Table
 
     Rel8.Statement.Delete
@@ -157,16 +159,15 @@ library
     Rel8.Table.Maybe
     Rel8.Table.Name
     Rel8.Table.NonEmpty
+    Rel8.Table.Nullify
     Rel8.Table.Opaleye
     Rel8.Table.Ord
     Rel8.Table.Order
     Rel8.Table.Recontextualize
     Rel8.Table.Rel8able
     Rel8.Table.Serialize
-    Rel8.Table.Tag
     Rel8.Table.These
     Rel8.Table.Undefined
-    Rel8.Table.Unreify
 
     Rel8.Type
     Rel8.Type.Array
@@ -204,6 +205,9 @@ test-suite tests
     , time
     , tmp-postgres      ^>=1.34.1.0
     , uuid
+
+  other-modules:
+    Rel8.Generic.Rel8able.Test
 
   main-is:          Main.hs
   hs-source-dirs:   tests

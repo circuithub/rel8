@@ -15,7 +15,10 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Table
-  ( Table (Columns, Context, Unreify, toColumns, fromColumns, reify, unreify)
+  ( Table
+      ( Columns, Context, toColumns, fromColumns
+      , Unreify, reify, unreify, coherence, congruence
+      )
   , Congruent
   , TTable, TColumns, TContext, TUnreify
   )
@@ -33,7 +36,11 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Kind.Algebra ( KnownAlgebra )
+import Rel8.Kind.Algebra
+  ( SAlgebra( SSum, SProduct )
+  , KnownAlgebra, algebraSing
+  )
+import Rel8.Generic.Coherence ( GCoherent, gcoherence, gcongruence )
 import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
 import Rel8.Generic.Table
   ( GGTable, GGColumns, GGContext, ggfromColumns, ggtoColumns
@@ -60,6 +67,7 @@ import Rel8.Schema.Reify
   )
 import Rel8.Schema.Result
   ( Col( R ), Result
+  , NotResult
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
@@ -98,6 +106,9 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
 
   reify :: context :~: Reify ctx -> Unreify a -> a
   unreify :: context :~: Reify ctx -> a -> Unreify a
+  coherence :: context :~: Reify ctx -> NotResult ctx -> Context (Unreify a) :~: ctx
+  congruence :: context :~: Reify ctx -> NotResult ctx -> Columns a :~: Columns (Unreify a)
+
 
   type Columns a = Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
   type Context a = Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
@@ -169,6 +180,43 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
     from .
     Record
 
+  default coherence ::
+    ( KnownAlgebra (GAlgebra (Rep (Record a)))
+    , GCoherent (TTable context) (Rep (Record a))
+    , Context a ~ Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
+    , Context (Unreify a) ~ Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record (Unreify a))))
+    , Rep (Record (Unreify a)) ~ GMap TUnreify (Rep (Record a))
+    )
+    => context :~: Reify ctx -> NotResult ctx -> Context (Unreify a) :~: ctx
+  coherence = case algebraSing @(GAlgebra (Rep (Record a))) of
+    SSum -> notReify
+    SProduct -> \proof abstract ->
+      gcoherence
+        @(TTable context)
+        @(Rep (Record a))
+        (Proxy @TContext)
+        (Proxy @TUnreify)
+        (\(_ :: _proxy x) -> coherence @context @x proof abstract)
+
+  default congruence ::
+    ( KnownAlgebra (GAlgebra (Rep (Record a)))
+    , GCoherent (TTable context) (Rep (Record a))
+    , Context a ~ Eval (GGContext (GAlgebra (Rep (Record a))) TContext (Rep (Record a)))
+    , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
+    , Columns (Unreify a) ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record (Unreify a))))
+    , Rep (Record (Unreify a)) ~ GMap TUnreify (Rep (Record a))
+    )
+    => context :~: Reify ctx -> NotResult ctx -> Columns a :~: Columns (Unreify a)
+  congruence = case algebraSing @(GAlgebra (Rep (Record a))) of
+    SSum -> notReify
+    SProduct -> \proof abstract ->
+      gcongruence
+        @(TTable context)
+        @(Rep (Record a))
+        (Proxy @TColumns)
+        (Proxy @TUnreify)
+        (\(_ :: _proxy x) -> congruence @context @x proof abstract)
+
 
 data TTable :: K.Context -> Type -> Exp Constraint
 type instance Eval (TTable context a) = Table context a
@@ -213,6 +261,8 @@ instance HTable t => Table context (t (Col context)) where
 
   reify Refl = hreify
   unreify Refl = hunreify
+  coherence Refl _ = Refl
+  congruence Refl _ = Refl
 
 
 -- | Any context is trivially a table.
@@ -226,6 +276,8 @@ instance KnownSpec spec => Table context (Col context spec) where
 
   reify Refl = Reify
   unreify Refl (Reify a) = a
+  coherence Refl _ = Refl
+  congruence Refl _ = Refl
 
 
 instance Sql DBType a => Table Result (Identity a) where
@@ -237,11 +289,15 @@ instance Sql DBType a => Table Result (Identity a) where
 
   reify = notReify
   unreify = notReify
+  coherence = notReify
+  congruence = notReify
 
 
-instance (Table Result a, Table Result b) => Table Result (Either a b) where
+instance (context ~ Result, Table context a, Table context b) =>
+  Table context (Either a b)
+ where
   type Columns (Either a b) = HEitherTable (Columns a) (Columns b)
-  type Context (Either a b) = Result
+  type Context (Either a b) = Context a
 
   toColumns = \case
     Left table -> HEitherTable
@@ -262,18 +318,24 @@ instance (Table Result a, Table Result b) => Table Result (Either a b) where
     where
       err = error "Either.fromColumns: mismatch between tag and data"
 
+  coherence = notReify
+  congruence = notReify
 
-instance Table Result a => Table Result [a] where
+
+instance (context ~ Result, Table context a) => Table context [a] where
   type Columns [a] = HListTable (Columns a)
-  type Context [a] = Result
+  type Context [a] = Context a
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
 
+  coherence = notReify
+  congruence = notReify
 
-instance Table Result a => Table Result (Maybe a) where
+
+instance (context ~ Result, Table context a) => Table context (Maybe a) where
   type Columns (Maybe a) = HMaybeTable (Columns a)
-  type Context (Maybe a) = Result
+  type Context (Maybe a) = Context a
 
   toColumns = \case
     Nothing -> HMaybeTable
@@ -291,18 +353,27 @@ instance Table Result a => Table Result (Maybe a) where
         Nothing -> error "Maybe.fromColumns: mismatch between tag and data"
         Just just -> fromColumns just
 
+  coherence = notReify
+  congruence = notReify
 
-instance Table Result a => Table Result (NonEmpty a) where
+
+instance (context ~ Result, Table context a) => Table context (NonEmpty a)
+ where
   type Columns (NonEmpty a) = HNonEmptyTable (Columns a)
-  type Context (NonEmpty a) = Result
+  type Context (NonEmpty a) = Context a
 
   toColumns = hvectorize vectorizer . fmap toColumns
   fromColumns = fmap fromColumns . hunvectorize unvectorizer
 
+  coherence = notReify
+  congruence = notReify
 
-instance (Table Result a, Table Result b) => Table Result (These a b) where
+
+instance (context ~ Result, Table context a, Table context b) =>
+  Table context (These a b)
+ where
   type Columns (These a b) = HTheseTable (Columns a) (Columns b)
-  type Context (These a b) = Result
+  type Context (These a b) = Context a
 
   toColumns tables = HTheseTable
     { hhereTag = hrelabel hhereTag
@@ -336,9 +407,11 @@ instance (Table Result a, Table Result b) => Table Result (These a b) where
         , hjust = hrelabel hthere
         }
 
+  coherence = notReify
+  congruence = notReify
 
-instance (Table context a, Table context b)
-  => Table context (a, b)
+
+instance (Table context a, Table context b) => Table context (a, b)
 
 
 instance

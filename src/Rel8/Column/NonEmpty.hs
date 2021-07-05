@@ -2,8 +2,10 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Column.NonEmpty
@@ -12,39 +14,40 @@ module Rel8.Column.NonEmpty
 where
 
 -- base
+import Control.Category ( id )
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( SContext(..), Reifiable( contextSing ) )
 import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Abstract ( exclusivity, virtualOrResult )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Congruent, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Unreify ( Unreifiability(..), Unreifiable, unreifiability )
 
 
 -- | Nest a 'NonEmpty' list within a 'Rel8able'. @HNonEmpty f a@ will produce a
 -- 'NonEmptyTable' @a@ in the 'Expr' context, and a 'NonEmpty' @a@ in the
 -- 'Result' context.
 type HNonEmpty :: K.Context -> Type -> Type
-type family HNonEmpty context where
+type family HNonEmpty context = nonEmpty | nonEmpty -> context where
   HNonEmpty (Reify context) = AHNonEmpty context
-  HNonEmpty Aggregate = NonEmptyTable
-  HNonEmpty Expr = NonEmptyTable
-  HNonEmpty Name = NonEmptyTable
+  HNonEmpty Aggregate = NonEmptyTable Aggregate
+  HNonEmpty Expr = NonEmptyTable Expr
+  HNonEmpty Name = NonEmptyTable Name
   HNonEmpty Result = NonEmpty
 
 
@@ -52,7 +55,7 @@ type AHNonEmpty :: K.Context -> Type -> Type
 newtype AHNonEmpty context a = AHNonEmpty (HNonEmpty context a)
 
 
-instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
+instance (Reifiable context, Table (Reify context) a) =>
   Table (Reify context) (AHNonEmpty context a)
  where
   type Context (AHNonEmpty context a) = Reify context
@@ -62,13 +65,26 @@ instance (Reifiable context, Unreifiable a, Table (Reify context) a) =>
   fromColumns = sfromColumnsNonEmpty contextSing
   toColumns = stoColumnsNonEmpty contextSing
 
-  reify _ = sreifyNonEmpty (unreifiability contextSing)
-  unreify _ = sunreifyNonEmpty (unreifiability contextSing)
+  reify _ = sreifyNonEmpty contextSing
+  unreify _ = sunreifyNonEmpty contextSing
+
+  coherence = case contextSing @context of
+    SAggregate -> coherence @(Reify context) @a
+    SExpr -> coherence @(Reify context) @a
+    SName -> coherence @(Reify context) @a
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence proof@Refl abstract = case contextSing @context of
+    SAggregate -> id `apply` congruence @(Reify context) @a proof abstract
+    SExpr -> id `apply` congruence @(Reify context) @a proof abstract
+    SName -> id `apply` congruence @(Reify context) @a proof abstract
+    SResult -> absurd abstract
+    SReify _ -> id `apply` congruence @(Reify context) @a proof abstract
 
 
 instance
   ( Reifiable context, Reifiable context'
-  , Unreifiable a, Unreifiable a'
   , Recontextualize (Reify context) (Reify context') a a'
   )
   => Recontextualize
@@ -126,23 +142,33 @@ stoColumnsNonEmpty = \case
     (\(AHNonEmpty a) -> a)
 
 
-sreifyNonEmpty :: Table (Reify context) a
-  => Unreifiability context a
+sreifyNonEmpty :: forall context a. Table (Reify context) a
+  => SContext context
   -> HNonEmpty context (Unreify a)
   -> AHNonEmpty context a
-sreifyNonEmpty = \case
-  UResult -> AHNonEmpty . fmap (reify Refl)
-  Unreifiability context ->
-    smapNonEmpty context (reify Refl) hreify .
-    AHNonEmpty
+sreifyNonEmpty context = case virtualOrResult context of
+  Left Refl -> AHNonEmpty . fmap (reify Refl)
+  Right virtual ->
+    case coherence @(Reify context) @a Refl abstract of
+      Refl -> case congruence @(Reify context) @a Refl abstract of
+        Refl ->
+          smapNonEmpty context (reify Refl) hreify .
+          AHNonEmpty
+    where
+      abstract = exclusivity virtual
 
 
-sunreifyNonEmpty :: Table (Reify context) a
-  => Unreifiability context a
+sunreifyNonEmpty :: forall context a. Table (Reify context) a
+  => SContext context
   -> AHNonEmpty context a
   -> HNonEmpty context (Unreify a)
-sunreifyNonEmpty = \case
-  UResult -> fmap (unreify Refl) . (\(AHNonEmpty a) -> a)
-  Unreifiability context ->
-    (\(AHNonEmpty a) -> a) .
-    smapNonEmpty context (unreify Refl) hunreify
+sunreifyNonEmpty context = case virtualOrResult context of
+  Left Refl -> fmap (unreify Refl) . (\(AHNonEmpty a) -> a)
+  Right virtual ->
+    case coherence @(Reify context) @a Refl abstract of
+      Refl -> case congruence @(Reify context) @a Refl abstract of
+        Refl ->
+          (\(AHNonEmpty a) -> a) .
+          smapNonEmpty context (unreify Refl) hunreify
+    where
+      abstract = exclusivity virtual

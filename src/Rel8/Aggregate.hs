@@ -41,7 +41,7 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify
+  , reify, unreify, coherence, congruence
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -73,6 +73,8 @@ instance Sql DBType a => Table Aggregate (Aggregate a) where
 
   reify = notReify
   unreify = notReify
+  coherence = notReify
+  congruence = notReify
 
 
 instance Sql DBType a =>

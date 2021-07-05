@@ -1,7 +1,9 @@
 {-# language DataKinds #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -12,6 +14,7 @@ where
 
 -- base
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -20,12 +23,13 @@ import Rel8.Kind.Context ( SContext(..), Reifiable, contextSing )
 import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
+import Rel8.Table.Rel8able ()
 import Rel8.Table.Recontextualize ( Recontextualize )
 
 
@@ -51,6 +55,20 @@ instance (ADTable t, Reifiable context) =>
   toColumns = stoColumnsADT contextSing
   reify _ = AHADT
   unreify _ (AHADT a) = a
+
+  coherence = case contextSing @context of
+    SAggregate -> \Refl _ -> Refl
+    SExpr -> \Refl _ -> Refl
+    SName -> \Refl _ -> Refl
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence = case contextSing @context of
+    SAggregate -> \_ _ -> Refl
+    SExpr -> \_ _ -> Refl
+    SName -> \_ _ -> Refl
+    SResult -> \Refl -> absurd
+    SReify _ -> \_ _ -> Refl
 
 
 instance

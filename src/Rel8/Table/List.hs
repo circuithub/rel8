@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -15,25 +16,27 @@ module Rel8.Table.List
 where
 
 -- base
+import Control.Category ( id )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
+import Rel8.Schema.Context.Abstract ( Abstract, exclusivity, virtual )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
 import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
-  , reify, unreify
+  , reify, unreify, coherence, congruence
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -43,82 +46,101 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
-import Rel8.Table.Unreify ( Unreifies )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
 -- @ListTable@s with 'Rel8.many' or 'Rel8.listAgg'.
-type ListTable :: Type -> Type
-newtype ListTable a = ListTable (HListTable (Columns a) (Col (Context a)))
+type ListTable :: K.Context -> Type -> Type
+newtype ListTable context a =
+  ListTable (HListTable (Columns a) (Col (Context a)))
 
 
-instance (Table context a, Unreifies context a) =>
-  Table context (ListTable a)
+instance (Table context a, Abstract context, context ~ context') =>
+  Table context' (ListTable context a)
  where
-  type Columns (ListTable a) = HListTable (Columns a)
-  type Context (ListTable a) = Context a
+  type Columns (ListTable context a) = HListTable (Columns a)
+  type Context (ListTable context a) = Context a
 
   fromColumns = ListTable
   toColumns (ListTable a) = a
 
-  reify Refl (ListTable a) = ListTable (hreify a)
-  unreify Refl (ListTable a) = ListTable (hunreify a)
+  reify proof@Refl (ListTable a) =
+    case coherence @context @a proof abstract of
+      Refl -> case congruence @context @a proof abstract of
+        Refl -> ListTable (hreify a)
+    where
+      abstract = exclusivity virtual
+
+  unreify proof@Refl (ListTable a) =
+    case coherence @context @a proof abstract of
+      Refl -> case congruence @context @a proof abstract of
+        Refl -> ListTable (hunreify a)
+    where
+      abstract = exclusivity virtual
+
+  coherence = coherence @context @a
+  congruence proof abstract = id `apply` congruence @context @a proof abstract
 
 
 instance
-  ( Unreifies from a, Unreifies to b
-  , Recontextualize from to a b
+  ( Recontextualize from to a b
+  , Abstract from, from ~ from'
+  , Abstract to, to ~ to'
   )
-  => Recontextualize from to (ListTable a) (ListTable b)
+  => Recontextualize from to (ListTable from' a) (ListTable to' b)
 
 
-instance EqTable a => EqTable (ListTable a) where
+instance (EqTable a, context ~ Expr) => EqTable (ListTable context a) where
   eqTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (eqTable @a))
 
 
-instance OrdTable a => OrdTable (ListTable a) where
+instance (OrdTable a, context ~ Expr) => OrdTable (ListTable context a) where
   ordTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (ordTable @a))
 
 
-type instance FromExprs (ListTable a) = [FromExprs a]
+type instance FromExprs (ListTable _context a) = [FromExprs a]
 
 
-instance ToExprs exprs a => ToExprs (ListTable exprs) [a] where
+instance (ToExprs exprs a, context ~ Expr) =>
+  ToExprs (ListTable context exprs) [a]
+ where
   fromResult = fmap (fromResult @exprs) . fromColumns
   toResult = toColumns . fmap (toResult @exprs)
 
 
-instance AltTable ListTable where
+instance context ~ Expr => AltTable (ListTable context) where
   (<|>:) = (<>)
 
 
-instance AlternativeTable ListTable where
+instance context ~ Expr => AlternativeTable (ListTable context) where
   emptyTable = mempty
 
 
-instance Table Expr a => Semigroup (ListTable a) where
+instance (context ~ Expr, Table Expr a) =>
+  Semigroup (ListTable context a)
+ where
   ListTable as <> ListTable bs = ListTable $
     happend (\_ _ (E a) (E b) -> E (sappend a b)) as bs
 
 
-instance Table Expr a => Monoid (ListTable a) where
+instance (context ~ Expr, Table Expr a) =>
+  Monoid (ListTable context a)
+ where
   mempty = ListTable $ hempty $ \_ -> E . sempty
 
 
 -- | Construct a @ListTable@ from a list of expressions.
-listTable :: Table Expr a => [a] -> ListTable a
+listTable :: Table Expr a => [a] -> ListTable Expr a
 listTable =
   ListTable .
   hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
@@ -131,7 +153,7 @@ listTable =
 nameListTable
   :: Table Name a
   => a -- ^ The names of the columns of elements of the list.
-  -> ListTable a
+  -> ListTable Name a
 nameListTable =
   ListTable .
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .

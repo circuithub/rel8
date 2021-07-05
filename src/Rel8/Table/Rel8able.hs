@@ -36,13 +36,14 @@ import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HConstrainTable, hdicts )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Reify ( hreify, hunreify, UnwrapReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
   ( Table, Columns, Context, Congruent, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
+import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.HKD ( HKD )
@@ -71,6 +72,9 @@ instance (Rel8able t, Reifiable context) =>
     SReify context -> case sReifiable context of
       Dict -> gunreify
 
+  coherence Refl _ = Refl
+  congruence Refl _ = Refl
+
 
 instance
   ( Rel8able t
@@ -84,22 +88,22 @@ instance
 instance
   ( context ~ Expr
   , Rel8able t
-  , HConstrainTable (Columns (t context)) (ConstrainDBType DBEq)
+  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBEq))
   )
   => EqTable (t context)
  where
-  eqTable = hdicts @(Columns (t context)) @(ConstrainDBType DBEq)
+  eqTable = hdicts @(Columns (t context)) @(ConstrainSpec (Sql DBEq))
 
 
 instance
   ( context ~ Expr
   , Rel8able t
-  , HConstrainTable (Columns (t context)) (ConstrainDBType DBEq)
-  , HConstrainTable (Columns (t context)) (ConstrainDBType DBOrd)
+  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBEq))
+  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBOrd))
   )
   => OrdTable (t context)
  where
-  ordTable = hdicts @(Columns (t context)) @(ConstrainDBType DBOrd)
+  ordTable = hdicts @(Columns (t context)) @(ConstrainSpec (Sql DBOrd))
 
 
 type instance FromExprs (t Expr) = FromExprs' t

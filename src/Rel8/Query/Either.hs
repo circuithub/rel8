@@ -10,7 +10,11 @@ where
 -- base
 import Prelude
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
@@ -23,17 +27,17 @@ import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
 
 
 -- | Filter 'EitherTable's, keeping only 'leftTable's.
-keepLeftTable :: EitherTable a b -> Query a
+keepLeftTable :: EitherTable Expr a b -> Query a
 keepLeftTable e@(EitherTable _ a _) = do
   where_ $ isLeftTable e
-  pure a
+  pure (extract a)
 
 
 -- | Filter 'EitherTable's, keeping only 'rightTable's.
-keepRightTable :: EitherTable a b -> Query b
+keepRightTable :: EitherTable Expr a b -> Query b
 keepRightTable e@(EitherTable _ _ b) = do
   where_ $ isRightTable e
-  pure b
+  pure (extract b)
 
 
 -- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and
@@ -55,8 +59,8 @@ keepRightTable e@(EitherTable _ _ b) = do
 bitraverseEitherTable :: ()
   => (a -> Query c)
   -> (b -> Query d)
-  -> EitherTable a b
-  -> Query (EitherTable c d)
+  -> EitherTable Expr a b
+  -> Query (EitherTable Expr c d)
 bitraverseEitherTable f g e@(EitherTable tag _ _) = do
   mc@(MaybeTable _ c) <- optional (f =<< keepLeftTable e)
   md@(MaybeTable _ d) <- optional (g =<< keepRightTable e)

@@ -45,7 +45,7 @@ import Rel8.Schema.HTable
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType, nullifier )
+import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( Table, Columns, toColumns, TColumns )
 import Rel8.Type.Eq ( DBEq )
 
@@ -55,14 +55,14 @@ import Rel8.Type.Eq ( DBEq )
 -- means "all columns in a 'Table' have an instance of 'DBEq'".
 type EqTable :: Type -> Constraint
 class Table Expr a => EqTable a where
-  eqTable :: Columns a (Dict (ConstrainDBType DBEq))
+  eqTable :: Columns a (Dict (ConstrainSpec (Sql DBEq)))
 
   default eqTable ::
     ( KnownAlgebra (GAlgebra (Rep (Record a)))
-    , Eval (GGTable (GAlgebra (Rep (Record a))) TEqTable TColumns (Dict (ConstrainDBType DBEq)) (Rep (Record a)))
+    , Eval (GGTable (GAlgebra (Rep (Record a))) TEqTable TColumns (Dict (ConstrainSpec (Sql DBEq))) (Rep (Record a)))
     , Columns a ~ Eval (GGColumns (GAlgebra (Rep (Record a))) TColumns (Rep (Record a)))
     )
-    => Columns a (Dict (ConstrainDBType DBEq))
+    => Columns a (Dict (ConstrainSpec (Sql DBEq)))
   eqTable =
     ggtable
       @(GAlgebra (Rep (Record a)))
@@ -70,7 +70,7 @@ class Table Expr a => EqTable a where
       @TColumns
       @(Rep (Record a))
       table
-      nullifier
+      (\_ Dict -> Dict)
     where
       table (_ :: proxy x) = eqTable @x
 
@@ -82,11 +82,11 @@ type instance Eval (TEqTable a) = EqTable a
 instance
   ( HTable t
   , f ~ Col Expr
-  , HConstrainTable t (ConstrainDBType DBEq)
+  , HConstrainTable t (ConstrainSpec (Sql DBEq))
   )
   => EqTable (t f)
  where
-  eqTable = hdicts @(Columns (t f)) @(ConstrainDBType DBEq)
+  eqTable = hdicts @(Columns (t f)) @(ConstrainSpec (Sql DBEq))
 
 
 instance Sql DBEq a => EqTable (Expr a) where
