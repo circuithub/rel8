@@ -41,7 +41,7 @@ import Rel8.Schema.Reify ( hreify, hunreify, UnwrapReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
   ( Table, Columns, Context, Congruent, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
@@ -71,6 +71,9 @@ instance (Rel8able t, Reifiable context) =>
   unreify Refl = case contextSing @context of
     SReify context -> case sReifiable context of
       Dict -> gunreify
+
+  coherence Refl _ = Refl
+  congruence Refl _ = Refl
 
 
 instance

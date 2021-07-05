@@ -16,14 +16,16 @@ module Rel8.Table.List
 where
 
 -- base
+import Control.Category ( id )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
+import Rel8.Schema.Context.Abstract ( Abstract, exclusivity, virtual )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
@@ -34,7 +36,7 @@ import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
-  , reify, unreify
+  , reify, unreify, coherence, congruence
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -44,7 +46,6 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
-import Rel8.Table.Unreify ( Unreifies )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
@@ -54,7 +55,7 @@ newtype ListTable context a =
   ListTable (HListTable (Columns a) (Col (Context a)))
 
 
-instance (Table context a, Unreifies context a, context ~ context') =>
+instance (Table context a, Abstract context, context ~ context') =>
   Table context' (ListTable context a)
  where
   type Columns (ListTable context a) = HListTable (Columns a)
@@ -63,14 +64,28 @@ instance (Table context a, Unreifies context a, context ~ context') =>
   fromColumns = ListTable
   toColumns (ListTable a) = a
 
-  reify Refl (ListTable a) = ListTable (hreify a)
-  unreify Refl (ListTable a) = ListTable (hunreify a)
+  reify proof@Refl (ListTable a) =
+    case coherence @context @a proof abstract of
+      Refl -> case congruence @context @a proof abstract of
+        Refl -> ListTable (hreify a)
+    where
+      abstract = exclusivity virtual
+
+  unreify proof@Refl (ListTable a) =
+    case coherence @context @a proof abstract of
+      Refl -> case congruence @context @a proof abstract of
+        Refl -> ListTable (hunreify a)
+    where
+      abstract = exclusivity virtual
+
+  coherence = coherence @context @a
+  congruence proof abstract = id `apply` congruence @context @a proof abstract
 
 
 instance
-  ( Unreifies from a, from ~ from'
-  , Unreifies to b, to ~ to'
-  , Recontextualize from to a b
+  ( Recontextualize from to a b
+  , Abstract from, from ~ from'
+  , Abstract to, to ~ to'
   )
   => Recontextualize from to (ListTable from' a) (ListTable to' b)
 

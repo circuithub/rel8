@@ -81,6 +81,7 @@ library
     Rel8.Kind.Algebra
     Rel8.Kind.Context
 
+    Rel8.Generic.Coherence
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
     Rel8.Generic.Construction.Record
@@ -114,6 +115,7 @@ library
     Rel8.Query.Values
 
     Rel8.Schema.Context
+    Rel8.Schema.Context.Abstract
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
     Rel8.Schema.HTable
@@ -164,7 +166,6 @@ library
     Rel8.Table.Serialize
     Rel8.Table.These
     Rel8.Table.Undefined
-    Rel8.Table.Unreify
 
     Rel8.Type
     Rel8.Type.Array

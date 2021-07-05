@@ -3,7 +3,9 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
@@ -13,8 +15,10 @@ module Rel8.Column.Maybe
 where
 
 -- base
+import Control.Category ( id )
 import Data.Kind ( Type )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
@@ -25,10 +29,10 @@ import Rel8.Schema.HTable.Maybe ( HMaybeTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.Maybe ( MaybeTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -65,6 +69,20 @@ instance (Reifiable context, Table (Reify context) a) =>
   toColumns = stoColumnsMaybe contextSing
   reify proof = fmap fmap reify proof . AHMaybe
   unreify proof = (\(AHMaybe a) -> a) . fmap fmap unreify proof
+
+  coherence = case contextSing @context of
+    SAggregate -> coherence @(Reify context) @a
+    SExpr -> coherence @(Reify context) @a
+    SName -> coherence @(Reify context) @a
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence proof@Refl abstract = case contextSing @context of
+    SAggregate -> id `apply` congruence @(Reify context) @a proof abstract
+    SExpr -> id `apply` congruence @(Reify context) @a proof abstract
+    SName -> id `apply` congruence @(Reify context) @a proof abstract
+    SResult -> absurd abstract
+    SReify _ -> id `apply` congruence @(Reify context) @a proof abstract
 
 
 instance

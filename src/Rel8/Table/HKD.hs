@@ -68,8 +68,8 @@ import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify, notReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( Table, Columns, Context, Unreify
-  , fromColumns, toColumns, reify, unreify
+  ( Table, Columns, Context, fromColumns, toColumns
+  , Unreify, reify, unreify, coherence, congruence
   , TTable, TColumns, TUnreify
   )
 import Rel8.Table.Serialize ( ToExprs, fromResult, toResult )
@@ -150,6 +150,8 @@ instance HKDable a => Table Result (HKDT a) where
   toColumns = (\(HKD a) -> a) . toHKD . (\(HKDT a) -> a)
   reify = notReify
   unreify = notReify
+  coherence = notReify
+  congruence = notReify
 
 
 instance

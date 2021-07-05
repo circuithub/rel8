@@ -1,7 +1,9 @@
 {-# language DataKinds #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Column.Lift
@@ -11,6 +13,7 @@ where
 
 -- base
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -19,10 +22,10 @@ import Rel8.Kind.Context ( Reifiable(..), SContext(..) )
 import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.Rel8able ()
 import Rel8.Table.HKD ( HKD( HKD ), HKDable, fromHKD, toHKD )
@@ -53,6 +56,20 @@ instance (Reifiable context, HKDable a) =>
   toColumns = stoColumnsLift contextSing
   reify _ = ALift
   unreify _ (ALift a) = a
+
+  coherence = case contextSing @context of
+    SAggregate -> \Refl _ -> Refl
+    SExpr -> \Refl _ -> Refl
+    SName -> \Refl _ -> Refl
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence = case contextSing @context of
+    SAggregate -> \_ _ -> Refl
+    SExpr -> \_ _ -> Refl
+    SName -> \_ _ -> Refl
+    SResult -> \Refl -> absurd
+    SReify _ -> \_ _ -> Refl
 
 
 instance (Reifiable context, Reifiable context', HKDable a) =>

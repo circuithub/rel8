@@ -2,7 +2,9 @@
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 
@@ -13,9 +15,11 @@ where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
-import Prelude
+import Data.Type.Equality ( (:~:)( Refl ), apply )
+import Prelude hiding ( id )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
@@ -26,10 +30,10 @@ import Rel8.Schema.HTable.Either ( HEitherTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name(..) )
 import Rel8.Schema.Reify ( Reify, hreify, hunreify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result, absurd )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , Unreify, reify, unreify
+  , Unreify, reify, unreify, coherence, congruence
   )
 import Rel8.Table.Either ( EitherTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -70,6 +74,32 @@ instance (Reifiable context, Table (Reify context) a, Table (Reify context) b)
   toColumns = stoColumnsEither contextSing
   reify proof = liftA2 bimap reify reify proof . AHEither
   unreify proof = (\(AHEither a) -> a) . liftA2 bimap unreify unreify proof
+
+  coherence = case contextSing @context of
+    SAggregate -> coherence @(Reify context) @a
+    SExpr -> coherence @(Reify context) @a
+    SName -> coherence @(Reify context) @a
+    SResult -> \Refl -> absurd
+    SReify _ -> \Refl _ -> Refl
+
+  congruence proof@Refl abstract = case contextSing @context of
+    SAggregate ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SExpr ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SName ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
+    SResult -> absurd abstract
+    SReify _ ->
+      id `apply`
+      congruence @(Reify context) @a proof abstract `apply`
+      congruence @(Reify context) @b proof abstract
 
 
 instance
