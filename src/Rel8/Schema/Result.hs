@@ -20,7 +20,7 @@ import Data.Kind ( Type )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Kind ( HContext )
+import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
@@ -34,13 +34,13 @@ data Result a where
   R :: { unR :: !a } -> Result ('Spec a)
 
 
-type IsResult :: HContext -> Bool
+type IsResult :: Context -> Bool
 type family IsResult context where
   IsResult Result = 'True
   IsResult _ = 'False
 
 
-type NotResult :: HContext -> Type
+type NotResult :: Context -> Type
 data NotResult context where
   NotResult :: IsResult context ~ 'False => NotResult context
 

@@ -177,7 +177,7 @@ aggregateADT f =
     (f @(ADT t Aggregate))
 
 
-data ADTRep :: K.Rel8able -> K.HContext -> Exp (Type -> Type)
+data ADTRep :: K.Rel8able -> K.Context -> Exp (Type -> Type)
 type instance Eval (ADTRep t context) = GRep t context
 
 

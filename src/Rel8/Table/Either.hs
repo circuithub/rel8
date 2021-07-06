@@ -70,7 +70,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 --
 -- An @EitherTable@ is operationally the same as Haskell's 'Either' type, but
 -- adapted to work with Rel8.
-type EitherTable :: K.HContext -> Type -> Type -> Type
+type EitherTable :: K.Context -> Type -> Type -> Type
 data EitherTable context a b = EitherTable
   { tag :: context ('Spec EitherTag)
   , left :: Nullify context a

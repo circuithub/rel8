@@ -23,7 +23,7 @@ import Rel8.Table.Maybe ( MaybeTable )
 -- | Nest a 'Maybe' value within a 'Rel8able'. @HMaybe f a@ will produce a
 -- 'MaybeTable' @a@ in the 'Expr' context, and a 'Maybe' @a@ in the 'Result'
 -- context.
-type HMaybe :: K.HContext -> Type -> Type
+type HMaybe :: K.Context -> Type -> Type
 type family HMaybe context = maybe | maybe -> context where
   HMaybe Aggregate = MaybeTable Aggregate
   HMaybe Expr = MaybeTable Expr

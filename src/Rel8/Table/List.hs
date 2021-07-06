@@ -47,7 +47,7 @@ import Rel8.Table.Serialize ( ToExprs )
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
 -- @ListTable@s with 'Rel8.many' or 'Rel8.listAgg'.
-type ListTable :: K.HContext -> Type -> Type
+type ListTable :: K.Context -> Type -> Type
 newtype ListTable context a =
   ListTable (HListTable (Columns a) (Context a))
 

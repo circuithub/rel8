@@ -9,6 +9,7 @@ module Rel8.Table.AsRel8able ( AsRel8able(..) ) where
 
 -- base
 import Data.Kind ( Type )
+import Prelude
 
 -- rel8
 import qualified Rel8.Schema.Kind as K
@@ -18,7 +19,7 @@ import Rel8.Table ( Table(..) )
 import Rel8.Table.Recontextualize
 
 
-type AsRel8able :: K.HContext -> K.HTable -> Type
+type AsRel8able :: K.Context -> K.HTable -> Type
 newtype AsRel8able f htable = AsRel8able { toHTable :: htable f }
 
 

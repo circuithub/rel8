@@ -22,7 +22,6 @@ where
 -- base
 import Data.Foldable ( fold )
 import Data.Functor.Const ( Const( Const ), getConst )
-import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty, intersperse, nonEmpty )
 import Data.Maybe ( fromMaybe )
 import Prelude
@@ -33,10 +32,9 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
-import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
+import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Name ( Name( N, Name ) )
-import Rel8.Schema.Result ( Result )
-import Rel8.Schema.Spec ( Spec, SSpec(..) )
+import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table(..) )
 import Rel8.Table.AsRel8able ( AsRel8able(..) )
 

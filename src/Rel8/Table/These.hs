@@ -80,7 +80,7 @@ import Data.These.Combinators ( justHere, justThere )
 --
 -- @TheseTable@ is operationally the same as Haskell's 'These' type, but
 -- adapted to work with Rel8.
-type TheseTable :: K.HContext -> Type -> Type -> Type
+type TheseTable :: K.Context -> Type -> Type -> Type
 data TheseTable context a b = TheseTable
   { here :: MaybeTable context a
   , there :: MaybeTable context b

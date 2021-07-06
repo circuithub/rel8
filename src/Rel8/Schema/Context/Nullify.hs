@@ -40,14 +40,14 @@ import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 
-type Nullifiability :: K.HContext -> Type
+type Nullifiability :: K.Context -> Type
 data Nullifiability context where
   NAggregate :: Nullifiability Aggregate
   NExpr :: Nullifiability Expr
   NName :: Nullifiability Name
 
 
-type Nullifiable :: K.HContext -> Constraint
+type Nullifiable :: K.Context -> Constraint
 class Nullifiable context where
   nullifiability :: Nullifiability context
 
@@ -64,7 +64,7 @@ instance Nullifiable Name where
   nullifiability = NName
 
 
-type NonNullifiability :: K.HContext -> Type
+type NonNullifiability :: K.Context -> Type
 data NonNullifiability context where
   NNResult :: NonNullifiability Result
 

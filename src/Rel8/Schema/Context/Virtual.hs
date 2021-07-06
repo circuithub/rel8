@@ -24,7 +24,7 @@ import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 
 
-type Virtual :: K.HContext -> Constraint
+type Virtual :: K.Context -> Constraint
 class Virtual context where
   virtual :: Abstract context
 
@@ -41,14 +41,14 @@ instance Virtual Name where
   virtual = VName
 
 
-type Abstract :: K.HContext -> Type
+type Abstract :: K.Context -> Type
 data Abstract context where
   VAggregate :: Abstract Aggregate
   VExpr :: Abstract Expr
   VName :: Abstract Name
 
 
-type Concrete :: K.HContext -> Type
+type Concrete :: K.Context -> Type
 data Concrete context where
   VResult :: Concrete Result
 

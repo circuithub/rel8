@@ -16,7 +16,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Table ( Table, Congruent )
@@ -25,7 +24,7 @@ import Rel8.Table ( Table, Congruent )
 -- | @Recontextualize from to a b@ is evidence that the types @a@ and @b@ are
 -- related, and that @b@ is the same type as @a@, but after changing the
 -- context from the initial context @from@, to the new context @to@.
-type Recontextualize :: K.HContext -> K.HContext -> Type -> Type -> Constraint
+type Recontextualize :: K.Context -> K.Context -> Type -> Type -> Constraint
 class
   ( Table from a
   , Table to b

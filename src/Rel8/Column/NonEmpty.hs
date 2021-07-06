@@ -24,7 +24,7 @@ import Rel8.Table.NonEmpty ( NonEmptyTable )
 -- | Nest a 'NonEmpty' list within a 'Rel8able'. @HNonEmpty f a@ will produce a
 -- 'NonEmptyTable' @a@ in the 'Expr' context, and a 'NonEmpty' @a@ in the
 -- 'Result' context.
-type HNonEmpty :: K.HContext -> Type -> Type
+type HNonEmpty :: K.Context -> Type -> Type
 type family HNonEmpty context = nonEmpty | nonEmpty -> context where
   HNonEmpty Aggregate = NonEmptyTable Aggregate
   HNonEmpty Expr = NonEmptyTable Expr

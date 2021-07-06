@@ -36,8 +36,7 @@ import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
-  ( HTable, HConstrainTable
-  , htabulateA, hfield, hdicts
+  ( htabulateA, hfield
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )

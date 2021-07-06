@@ -57,7 +57,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 import Data.Functor.Extend ( Extend, duplicated )
 
 
-type Nullify :: K.HContext -> Type -> Type
+type Nullify :: K.Context -> Type -> Type
 data Nullify context a
   = Table (Nullifiability context) a
   | Fields (NonNullifiability context) (HNullify (Columns a) (Context a))

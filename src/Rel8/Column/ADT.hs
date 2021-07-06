@@ -17,7 +17,7 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Table.ADT ( ADT )
 
 
-type HADT :: K.HContext -> K.Rel8able -> Type
+type HADT :: K.Context -> K.Rel8able -> Type
 type family HADT context t where
   HADT Result t = t Result
   HADT context t = ADT t context

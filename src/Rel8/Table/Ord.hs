@@ -34,8 +34,7 @@ import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable
-  ( HTable, HConstrainTable
-  , htabulateA, hfield, hdicts
+  ( htabulateA, hfield
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null (Sql)
@@ -43,7 +42,6 @@ import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( Columns, toColumns, TColumns, TFromExprs )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
-import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 

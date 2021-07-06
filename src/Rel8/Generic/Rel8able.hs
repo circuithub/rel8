@@ -168,11 +168,11 @@ type Algebra :: K.Rel8able -> K.Algebra
 type Algebra t = GAlgebra (GRep t Expr)
 
 
-type GRep :: K.Rel8able -> K.HContext -> Type -> Type
+type GRep :: K.Rel8able -> K.Context -> Type -> Type
 type GRep t context = Rep (Record (t context))
 
 
-type VRel8able :: K.Rel8able -> K.HContext -> Constraint
+type VRel8able :: K.Rel8able -> K.Context -> Constraint
 type VRel8able t context =
   ( Generic (Record (t context))
   , G.GTable (TTable context) TColumns TFromExprs (GRep t context)

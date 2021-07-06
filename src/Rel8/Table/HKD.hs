@@ -228,6 +228,6 @@ aggregateHKD f =
     (f @(HKD a Aggregate))
 
 
-data HKDRep :: Type -> K.HContext -> Exp (Type -> Type)
+data HKDRep :: Type -> K.Context -> Exp (Type -> Type)
 type instance Eval (HKDRep a context) =
   GRecord (GMap (TColumn context) (Rep a))

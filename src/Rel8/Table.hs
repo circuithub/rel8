@@ -51,13 +51,13 @@ import Rel8.Schema.Spec ( KnownSpec )
 -- In typical usage of Rel8 you don't need to derive instances of 'Table'
 -- yourself, as anything that's an instance of 'Rel8.Rel8able' is always a
 -- 'Table'.
-type Table :: K.HContext -> Type -> Constraint
+type Table :: K.Context -> Type -> Constraint
 class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
   -- | The 'HTable' functor that describes the schema of this table.
   type Columns a :: K.HTable
 
   -- | The common context that all columns use as an interpretation.
-  type Context a :: K.HContext
+  type Context a :: K.Context
 
   -- | The @FromExprs@ type family maps a type in the @Expr@ context to the
   -- corresponding Haskell type.
@@ -155,7 +155,7 @@ type family DefaultFromExprs a where
   DefaultFromExprs (t a) = t (FromExprs a)
 
 
-data TTable :: K.HContext -> Type -> Exp Constraint
+data TTable :: K.Context -> Type -> Exp Constraint
 type instance Eval (TTable context a) = Table context a
 
 
@@ -163,7 +163,7 @@ data TColumns :: Type -> Exp K.HTable
 type instance Eval (TColumns a) = Columns a
 
 
-data TContext :: Type -> Exp K.HContext
+data TContext :: Type -> Exp K.Context
 type instance Eval (TContext a) = Context a
 
 

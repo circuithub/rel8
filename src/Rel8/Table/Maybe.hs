@@ -78,7 +78,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 -- entirely of nulls, you can't distinguish if you matched an all null row, or
 -- if the match failed.  For this reason @MaybeTable@ contains an extra field -
 -- a "nullTag" - to track whether or not the outer join produced any rows.
-type MaybeTable :: K.HContext -> Type -> Type
+type MaybeTable :: K.Context -> Type -> Type
 data MaybeTable context a = MaybeTable
   { tag :: context ('Spec (Maybe MaybeTag))
   , just :: Nullify context a

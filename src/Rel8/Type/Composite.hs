@@ -38,7 +38,6 @@ import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table ( fromColumns, toColumns, fromResult, toResult )
-import Rel8.Table.AsRel8able
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.HKD ( HKD, HKDable )
 import Rel8.Table.Ord ( OrdTable )

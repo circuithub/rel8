@@ -45,7 +45,7 @@ import Rel8.Table.Serialize ( ToExprs )
 
 -- | A @NonEmptyTable@ value contains one or more instances of @a@. You
 -- construct @NonEmptyTable@s with 'Rel8.some' or 'nonEmptyAgg'.
-type NonEmptyTable :: K.HContext -> Type -> Type
+type NonEmptyTable :: K.Context -> Type -> Type
 newtype NonEmptyTable context a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Context a))
 
