@@ -29,8 +29,8 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Col( A ), Aggregate( Aggregate ) )
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Aggregate ( Aggregate( A, Aggregate ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
@@ -59,7 +59,7 @@ import Rel8.Schema.Context.Nullify ( sguard, snullify )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table
@@ -86,11 +86,11 @@ type family GGBuildable' algebra name rep where
   GGBuildable' 'K.Product name rep =
     ( name ~ GConstructor (Eval (rep Expr))
     , Representable Id (Eval (rep Expr))
-    , GConstructable (TTable Expr) TColumns Id (Col Expr) (Eval (rep Expr))
+    , GConstructable (TTable Expr) TColumns Id Expr (Eval (rep Expr))
     )
   GGBuildable' 'K.Sum name rep =
     ( Representable Id (GConstructorADT name (Eval (rep Expr)))
-    , GMakeableADT (TTable Expr) TColumns Id (Col Expr) name (Eval (rep Expr))
+    , GMakeableADT (TTable Expr) TColumns Id Expr name (Eval (rep Expr))
     )
 
 
@@ -103,7 +103,7 @@ type family GGBuild algebra name rep r where
 
 
 ggbuild :: forall algebra name rep a. GGBuildable algebra name rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Expr) -> a)
+  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) Expr -> a)
   -> GGBuild algebra name rep a
 ggbuild gfromColumns = case algebraSing @algebra of
   SProduct ->
@@ -113,7 +113,7 @@ ggbuild gfromColumns = case algebraSing @algebra of
       @(TTable Expr)
       @TColumns
       @Id
-      @(Col Expr)
+      @Expr
       @(Eval (rep Expr))
       (const toColumns)
   SSum ->
@@ -123,7 +123,7 @@ ggbuild gfromColumns = case algebraSing @algebra of
       @(TTable Expr)
       @TColumns
       @Id
-      @(Col Expr)
+      @Expr
       @name
       @(Eval (rep Expr))
       (const toColumns)
@@ -151,9 +151,9 @@ type family GGConstructable' algebra rep where
     ( Representable Id (Eval (rep Aggregate))
     , Representable Id (Eval (rep Expr))
     , Representable Id (Eval (rep Name))
-    , GConstructable (TTable Aggregate) TColumns Id (Col Aggregate) (Eval (rep Aggregate))
-    , GConstructable (TTable Expr) TColumns Id (Col Expr) (Eval (rep Expr))
-    , GConstructable (TTable Name) TColumns Id (Col Name) (Eval (rep Name))
+    , GConstructable (TTable Aggregate) TColumns Id Aggregate (Eval (rep Aggregate))
+    , GConstructable (TTable Expr) TColumns Id Expr (Eval (rep Expr))
+    , GConstructable (TTable Name) TColumns Id Name (Eval (rep Name))
     )
   GGConstructable' 'K.Sum rep =
     ( RepresentableConstructors Id (Eval (rep Expr))
@@ -161,9 +161,9 @@ type family GGConstructable' algebra rep where
     , RepresentableFields Id (Eval (rep Expr))
     , RepresentableFields Id (Eval (rep Name))
     , Functor (GConstructors Id (Eval (rep Expr)))
-    , GConstructableADT (TTable Aggregate) TColumns Id (Col Aggregate) (Eval (rep Aggregate))
-    , GConstructableADT (TTable Expr) TColumns Id (Col Expr) (Eval (rep Expr))
-    , GConstructableADT (TTable Name) TColumns Id (Col Name) (Eval (rep Name))
+    , GConstructableADT (TTable Aggregate) TColumns Id Aggregate (Eval (rep Aggregate))
+    , GConstructableADT (TTable Expr) TColumns Id Expr (Eval (rep Expr))
+    , GConstructableADT (TTable Name) TColumns Id Name (Eval (rep Name))
     )
 
 
@@ -174,7 +174,7 @@ type family GGConstruct algebra rep r where
 
 
 ggconstruct :: forall algebra rep a. GGConstructable algebra rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Expr) -> a)
+  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) Expr -> a)
   -> GGConstruct algebra rep a -> a
 ggconstruct gfromColumns f = case algebraSing @algebra of
   SProduct ->
@@ -185,7 +185,7 @@ ggconstruct gfromColumns f = case algebraSing @algebra of
       @(TTable Expr)
       @TColumns
       @Id
-      @(Col Expr)
+      @Expr
       @(Eval (rep Expr))
       (const toColumns)
   SSum ->
@@ -195,7 +195,7 @@ ggconstruct gfromColumns f = case algebraSing @algebra of
       @(TTable Expr)
       @TColumns
       @Id
-      @(Col Expr)
+      @Expr
       @(Eval (rep Expr))
       (const toColumns)
       (\SSpec {info} -> E (snull info))
@@ -214,7 +214,7 @@ type family GGDeconstruct algebra rep a r where
 
 
 ggdeconstruct :: forall algebra rep a r. (GGConstructable algebra rep, Table Expr r)
-  => (a -> Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Expr))
+  => (a -> Eval (GGColumns algebra TColumns (Eval (rep Expr))) Expr)
   -> GGDeconstruct algebra rep a r
 ggdeconstruct gtoColumns = case algebraSing @algebra of
   SProduct -> \build ->
@@ -223,7 +223,7 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
       @(TTable Expr)
       @TColumns
       @Id
-      @(Col Expr)
+      @Expr
       @(Eval (rep Expr))
       (const fromColumns) .
     gtoColumns
@@ -235,7 +235,7 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
             @(TTable Expr)
             @TColumns
             @Id
-            @(Col Expr)
+            @Expr
             @(Eval (rep Expr))
             (const fromColumns)
             (\SSpec {nullity} -> case nullity of
@@ -256,7 +256,7 @@ type family GGName algebra rep a where
 
 
 ggname :: forall algebra rep a. GGConstructable algebra rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Name) -> a)
+  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) Name -> a)
   -> GGName algebra rep a
 ggname gfromColumns = case algebraSing @algebra of
   SProduct ->
@@ -266,7 +266,7 @@ ggname gfromColumns = case algebraSing @algebra of
       @(TTable Name)
       @TColumns
       @Id
-      @(Col Name)
+      @Name
       @(Eval (rep Name))
       (const toColumns)
   SSum -> \tag ->
@@ -276,7 +276,7 @@ ggname gfromColumns = case algebraSing @algebra of
       @(TTable Name)
       @TColumns
       @Id
-      @(Col Name)
+      @Name
       @(Eval (rep Name))
       (const toColumns)
       (\_ _ (N (Name a)) -> N (Name a))
@@ -294,8 +294,8 @@ type family GGAggregate algebra rep r where
 
 
 ggaggregate :: forall algebra rep exprs agg. GGConstructable algebra rep
-  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Aggregate) -> agg)
-  -> (exprs -> Eval (GGColumns algebra TColumns (Eval (rep Expr))) (Col Expr))
+  => (Eval (GGColumns algebra TColumns (Eval (rep Expr))) Aggregate -> agg)
+  -> (exprs -> Eval (GGColumns algebra TColumns (Eval (rep Expr))) Expr)
   -> GGAggregate algebra rep agg -> exprs -> agg
 ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
   SProduct -> flip f exprs $
@@ -304,7 +304,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @(TTable Aggregate)
       @TColumns
       @Id
-      @(Col Aggregate)
+      @Aggregate
       @(Eval (rep Aggregate))
       (const toColumns)
     where
@@ -317,7 +317,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
           @(TTable Expr)
           @TColumns
           @Id
-          @(Col Expr)
+          @Expr
           @(Eval (rep Expr))
           (const fromColumns) $
         gtoColumns es
@@ -327,7 +327,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @(TTable Aggregate)
       @TColumns
       @Id
-      @(Col Aggregate)
+      @Aggregate
       @(Eval (rep Aggregate))
       (const toColumns)
       (\tag' SSpec {nullity} (A (Aggregate a)) ->
@@ -343,7 +343,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
           @(TTable Expr)
           @TColumns
           @Id
-          @(Col Expr)
+          @Expr
           @(Eval (rep Expr))
           (const fromColumns)
           (\SSpec {nullity} -> case nullity of

@@ -44,10 +44,10 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Virtual context) => Table context (t context) where
-  type Columns (t context) = GColumns t
-  type Context (t context) = context
-  type FromExprs (t context) = GFromExprs t
+instance (Rel8able t, Virtual f, f ~ g) => Table f (t g) where
+  type Columns (t g) = GColumns t
+  type Context (t g) = g
+  type FromExprs (t g) = GFromExprs t
 
   fromColumns = gfromColumns virtual
   toColumns = gtoColumns virtual
@@ -60,8 +60,10 @@ instance
   , Virtual from
   , Virtual to
   , Congruent (t from) (t to)
+  , from ~ from'
+  , to ~ to'
   )
-  => Recontextualize from to (t from) (t to)
+  => Recontextualize from' to' (t from) (t to)
 
 
 instance

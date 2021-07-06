@@ -10,7 +10,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
-  ( Serializable, lit, parse
+  ( Serializable, lit, litHTable, parse
   , ToExprs
   )
 where
@@ -24,11 +24,11 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
 import Rel8.Table ( Table, fromColumns, FromExprs, fromResult, toResult )
 import Rel8.Type ( DBType )
@@ -115,12 +115,8 @@ instance
   => ToExprs x (a, b, c, d, e, f, g)
 
 
-instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>
-  ToExprs x (t result)
-
-
-instance (KnownSpec spec, x ~ Col Expr spec) =>
-  ToExprs x (Col Result spec)
+instance (KnownSpec spec, x ~ Expr spec) =>
+  ToExprs x (Result spec)
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
@@ -142,14 +138,14 @@ parse :: forall exprs a. Serializable exprs a => Hasql.Row a
 parse = fromResult @_ @exprs <$> parseHTable
 
 
-litHTable :: HTable t => t (Col Result) -> t (Col Expr)
+litHTable :: HTable t => t Result -> t Expr
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> case hfield as field of
       R value -> E (slitExpr nullity info value)
 
 
-parseHTable :: HTable t => Hasql.Row (t (Col Result))
+parseHTable :: HTable t => Hasql.Row (t Result)
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
     SSpec {nullity, info} -> R <$> sparseValue nullity info

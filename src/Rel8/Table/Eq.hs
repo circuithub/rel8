@@ -28,17 +28,14 @@ import GHC.Generics ( Rep )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable
-  ( HTable, HConstrainTable
-  , htabulateA, hfield, hdicts
-  )
+import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
@@ -71,16 +68,6 @@ class Table Expr a => EqTable a where
 
 data TEqTable :: Type -> Exp Constraint
 type instance Eval (TEqTable a) = EqTable a
-
-
-instance
-  ( HTable t
-  , f ~ Col Expr
-  , HConstrainTable t (ConstrainSpec (Sql DBEq))
-  )
-  => EqTable (t f)
- where
-  eqTable = hdicts @(Columns (t f)) @(ConstrainSpec (Sql DBEq))
 
 
 instance Sql DBEq a => EqTable (Expr a) where

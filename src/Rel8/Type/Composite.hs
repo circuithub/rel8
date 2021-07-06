@@ -30,19 +30,19 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table ( fromColumns, toColumns, fromResult, toResult )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.HKD ( HKD, HKDable )
 import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Rel8able ()
-import Rel8.Table.Serialize ( lit )
+import Rel8.Table.Serialize ( litHTable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
@@ -68,7 +68,7 @@ newtype Composite a = Composite
 instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
     { decode = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
-    , encode = encoder . lit . toResult @_ @(HKD a Expr) . unComposite
+    , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
     , typeName = compositeTypeName @a
     }
 
@@ -118,7 +118,7 @@ decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
     names = toColumns (compositeFields @a)
 
 
-decoder :: HTable t => Hasql.Composite (t (Col Result))
+decoder :: HTable t => Hasql.Composite (t Result)
 decoder = unwrapApplicative $ htabulateA \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> WrapApplicative $ R <$>
@@ -127,7 +127,7 @@ decoder = unwrapApplicative $ htabulateA \field ->
         NotNull -> Hasql.field $ Hasql.nonNullable $ decode info
 
 
-encoder :: HTable t => t (Col Expr) -> Opaleye.PrimExpr
+encoder :: HTable t => t Expr -> Opaleye.PrimExpr
 encoder a = Opaleye.FunExpr "ROW" exprs
   where
     exprs = getConst $ htabulateA \field -> case hfield a field of

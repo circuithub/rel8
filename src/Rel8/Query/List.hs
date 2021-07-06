@@ -19,7 +19,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E, unE ), Expr )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
@@ -29,7 +29,8 @@ import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table ( Table, fromColumns )
+import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( maybeTable )
@@ -51,7 +52,7 @@ many =
   fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
   optional .
   aggregate .
-  fmap (listAgg . toColumns)
+  fmap (listAgg . toCols)
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -66,7 +67,7 @@ some :: Table Expr a => Query a -> Query (NonEmptyTable Expr a)
 some =
   fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
   aggregate .
-  fmap (nonEmptyAgg . toColumns)
+  fmap (nonEmptyAgg . toCols)
 
 
 -- | A version of 'many' specialised to single expressions.

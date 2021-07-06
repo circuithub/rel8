@@ -5,6 +5,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language PolyKinds #-}
+{-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -14,7 +15,6 @@ module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
-  , Col( A, unA )
   )
 where
 
@@ -30,11 +30,10 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context ( Interpretation(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Result ( Col( R ) )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -51,14 +50,8 @@ import Rel8.Type ( DBType )
 -- combine @Aggregate@s using the @<.>@ combinator.
 type Aggregate :: k -> Type
 data Aggregate a where
-  Aggregate :: !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
-
-
-instance Interpretation Aggregate where
-  data Col Aggregate _spec where
-    A :: ()
-      => { unA :: !(Aggregate a) }
-      -> Col Aggregate ('Spec a)
+  Aggregate :: forall (a :: Type). !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
+  A :: { unA :: !(Aggregate a) } -> Aggregate ('Spec a)
 
 
 instance Sql DBType a => Table Aggregate (Aggregate a) where
@@ -99,7 +92,7 @@ class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates e
 instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 
 
-foldInputs :: Monoid b
+foldInputs :: forall (a :: Type) (b :: Type). Monoid b
   => (Maybe Aggregator -> Opaleye.PrimExpr -> b) -> Aggregate a -> b
 foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
   getConst $ flip agg () $ \(aggregator, a) ->
@@ -109,7 +102,7 @@ foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
       Aggregator {operation, ordering, distinction}
 
 
-mapInputs :: ()
+mapInputs :: forall (a :: Type). ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Aggregate a -> Aggregate a
 mapInputs transform (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
   Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ agg . \f input ->
@@ -124,7 +117,7 @@ data Aggregator = Aggregator
   }
 
 
-unsafeMakeAggregate :: ()
+unsafeMakeAggregate :: forall (input :: Type) (output :: Type). ()
   => (Expr input -> Opaleye.PrimExpr)
   -> (Opaleye.PrimExpr -> Expr output)
   -> Maybe Aggregator

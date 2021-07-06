@@ -31,8 +31,8 @@ import Prelude hiding ( null, undefined )
 import Control.Comonad ( extract )
 
 -- rel8
-import Rel8.Aggregate ( Col( A ), Aggregate )
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Aggregate ( Aggregate( A ) )
+import Rel8.Expr ( Expr(E ) )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
@@ -42,10 +42,10 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
-import Rel8.Schema.Name ( Col( N ), Name )
+import Rel8.Schema.Name ( Name( N ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import qualified Rel8.Schema.Null as N
-import Rel8.Schema.Result ( Col( R ) )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -80,7 +80,7 @@ import Data.Functor.Bind ( Bind, (>>-) )
 -- a "nullTag" - to track whether or not the outer join produced any rows.
 type MaybeTable :: K.Context -> Type -> Type
 data MaybeTable context a = MaybeTable
-  { tag :: Col context ('Spec (Maybe MaybeTag))
+  { tag :: context ('Spec (Maybe MaybeTag))
   , just :: Nullify context a
   }
   deriving stock Functor

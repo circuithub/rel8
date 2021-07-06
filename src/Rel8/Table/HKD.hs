@@ -61,7 +61,6 @@ import Rel8.Generic.Table
   )
 import Rel8.Generic.Table.Record ( GTable, GContext )
 import qualified Rel8.Generic.Table.Record as G
-import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Name ( Name )
@@ -77,7 +76,7 @@ type GColumnsHKD a =
 
 
 type HKD :: Type -> K.Rel8able
-newtype HKD a f = HKD (GColumnsHKD a (Col f))
+newtype HKD a f = HKD (GColumnsHKD a f)
 
 
 instance HKDable a => Rel8able (HKD a) where
