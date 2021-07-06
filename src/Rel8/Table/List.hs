@@ -21,13 +21,13 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E, unE ) )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( vectorizer, unvectorizer )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -47,9 +47,9 @@ import Rel8.Table.Serialize ( ToExprs )
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
 -- @ListTable@s with 'Rel8.many' or 'Rel8.listAgg'.
-type ListTable :: K.Context -> Type -> Type
+type ListTable :: K.HContext -> Type -> Type
 newtype ListTable context a =
-  ListTable (HListTable (Columns a) (Col (Context a)))
+  ListTable (HListTable (Columns a) (Context a))
 
 
 instance (Table context a, context ~ context') =>

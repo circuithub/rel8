@@ -22,13 +22,13 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E, unE ) )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( vectorizer, unvectorizer )
 import Rel8.Schema.Spec ( SSpec(..) )
@@ -45,9 +45,9 @@ import Rel8.Table.Serialize ( ToExprs )
 
 -- | A @NonEmptyTable@ value contains one or more instances of @a@. You
 -- construct @NonEmptyTable@s with 'Rel8.some' or 'nonEmptyAgg'.
-type NonEmptyTable :: K.Context -> Type -> Type
+type NonEmptyTable :: K.HContext -> Type -> Type
 newtype NonEmptyTable context a =
-  NonEmptyTable (HNonEmptyTable (Columns a) (Col (Context a)))
+  NonEmptyTable (HNonEmptyTable (Columns a) (Context a))
 
 
 instance (Table context a, context ~ context') =>

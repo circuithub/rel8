@@ -8,6 +8,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
@@ -22,6 +23,7 @@ module Rel8.Table.ADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
   , ADTRep
+  , Raise
   )
 where
 
@@ -50,10 +52,11 @@ import Rel8.Generic.Rel8able
   ( Rel8able
   , GRep, GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
+  , Lower
   )
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Virtual
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -64,16 +67,28 @@ import Rel8.Table
   )
 
 
+type Raise :: K.Context -> K.HContext
+type family Raise f = g | g -> f where
+  Raise Aggregate = Aggregate
+  Raise Expr = Expr
+  Raise Name = Name
+
+
 type ADT :: K.Rel8able -> K.Rel8able
-newtype ADT t context = ADT (GColumnsADT t (Col context))
+newtype ADT t context = ADT (GColumnsADT t (Raise context))
 
 
 instance ADTable t => Rel8able (ADT t) where
   type GColumns (ADT t) = GColumnsADT t
   type GFromExprs (ADT t) = t Result
 
-  gfromColumns _ = ADT
-  gtoColumns _ (ADT a) = a
+  gfromColumns VAggregate = ADT
+  gfromColumns VExpr = ADT
+  gfromColumns VName = ADT
+
+  gtoColumns VAggregate (ADT a) = a
+  gtoColumns VExpr (ADT a) = a
+  gtoColumns VName (ADT a) = a
 
   gfromResult =
     unrecord .
@@ -171,8 +186,8 @@ aggregateADT f =
     (f @(ADT t Aggregate))
 
 
-data ADTRep :: K.Rel8able -> K.Context -> Exp (Type -> Type)
-type instance Eval (ADTRep t context) = GRep t context
+data ADTRep :: K.Rel8able -> K.HContext -> Exp (Type -> Type)
+type instance Eval (ADTRep t context) = GRep t (Lower context)
 
 
 type GColumnsADT :: K.Rel8able -> K.HTable

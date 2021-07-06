@@ -55,13 +55,14 @@ import Rel8.Generic.Rel8able
   ( Rel8able
   , GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
+  , Lower
   )
 import Rel8.Generic.Table
   ( GGTable, GGColumns, GAlgebra, ggfromResult, ggtoResult
   )
 import Rel8.Generic.Table.Record ( GTable, GContext )
 import qualified Rel8.Generic.Table.Record as G
-import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Virtual
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Name ( Name )
@@ -69,6 +70,7 @@ import Rel8.Table
   ( Table, fromColumns, toColumns, fromResult, toResult
   , TTable, TColumns, TContext, TFromExprs
   )
+import Rel8.Table.ADT ( Raise )
 
 
 type GColumnsHKD :: Type -> K.HTable
@@ -77,15 +79,20 @@ type GColumnsHKD a =
 
 
 type HKD :: Type -> K.Rel8able
-newtype HKD a f = HKD (GColumnsHKD a (Col f))
+newtype HKD a f = HKD (GColumnsHKD a (Raise f))
 
 
 instance HKDable a => Rel8able (HKD a) where
   type GColumns (HKD a) = GColumnsHKD a
   type GFromExprs (HKD a) = a
 
-  gfromColumns _ = HKD
-  gtoColumns _ (HKD a) = a
+  gfromColumns VAggregate = HKD
+  gfromColumns VExpr = HKD
+  gfromColumns VName = HKD
+
+  gtoColumns VAggregate (HKD a) = a
+  gtoColumns VExpr (HKD a) = a
+  gtoColumns VName (HKD a) = a
 
   gfromResult =
     unrecord .
@@ -111,9 +118,9 @@ instance HKDable a => Rel8able (HKD a) where
 
 
 instance
-  ( GTable (TTable f) TColumns TFromExprs (GRecord (GMap (TColumn f) (Rep a)))
+  ( GTable (TTable (Raise f)) TColumns TFromExprs (GRecord (GMap (TColumn f) (Rep a)))
   , G.GColumns TColumns (GRecord (GMap (TColumn f) (Rep a))) ~ GColumnsHKD a
-  , GContext TContext (GRecord (GMap (TColumn f) (Rep a))) ~ f
+  , GContext TContext (GRecord (GMap (TColumn f) (Rep a))) ~ Raise f
   , GRecordable (GMap (TColumn f) (Rep a))
   )
   => Generic (HKD a f)
@@ -123,7 +130,7 @@ instance
   from =
     gunrecord @(GMap (TColumn f) (Rep a)) .
     G.gfromColumns
-      @(TTable f)
+      @(TTable (Raise f))
       @TColumns
       @TFromExprs
       fromColumns .
@@ -132,7 +139,7 @@ instance
   to =
     HKD .
     G.gtoColumns
-      @(TTable f)
+      @(TTable (Raise f))
       @TColumns
       @TFromExprs
       toColumns .
@@ -223,6 +230,6 @@ aggregateHKD f =
     (f @(HKD a Aggregate))
 
 
-data HKDRep :: Type -> K.Context -> Exp (Type -> Type)
+data HKDRep :: Type -> K.HContext -> Exp (Type -> Type)
 type instance Eval (HKDRep a context) =
-  GRecord (GMap (TColumn context) (Rep a))
+  GRecord (GMap (TColumn (Lower context)) (Rep a))

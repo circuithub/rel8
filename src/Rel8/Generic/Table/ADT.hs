@@ -39,7 +39,7 @@ import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Result
-  ( Col( R ), Result
+  ( Result( R )
   , null, nullifier, unnullifier
   )
 import Rel8.Type.Tag ( Tag( Tag ) )
@@ -75,15 +75,15 @@ type GTableADT
 class GTableADT _Table _Columns _FromExprs rep where
   gfromResultADT :: ()
     => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_Columns a) (Col Result) -> Eval (_FromExprs a))
-    -> GColumnsADT _Columns rep (Col Result)
+        => proxy a -> Eval (_Columns a) Result -> Eval (_FromExprs a))
+    -> GColumnsADT _Columns rep Result
     -> GMap _FromExprs rep x
 
   gtoResultADT :: ()
     => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) (Col Result))
+        => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) Result)
     -> GMap _FromExprs rep x
-    -> GColumnsADT _Columns rep (Col Result)
+    -> GColumnsADT _Columns rep Result
 
 
 instance
@@ -113,17 +113,17 @@ type GTableADT'
   -> (Type -> Exp Type)
   -> K.HTable -> (Type -> Type) -> Constraint
 class GTableADT' _Table _Columns _FromExprs htable rep where
-  gfromResultADT' :: context ~ Col Result
+  gfromResultADT' :: context ~ Result
     => (forall a proxy. Eval (_Table a)
         => proxy a -> Eval (_Columns a) context -> Eval (_FromExprs a))
-    -> (htable (Col Result) -> Tag)
+    -> (htable Result -> Tag)
     -> GColumnsADT' _Columns htable rep context
     -> Maybe (GMap _FromExprs rep x)
 
-  gtoResultADT' :: context ~ Col Result
+  gtoResultADT' :: context ~ Result
     => (forall a proxy. Eval (_Table a)
         => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) context)
-    -> (Tag -> htable (Col Result))
+    -> (Tag -> htable Result)
     -> Maybe (GMap _FromExprs rep x)
     -> GColumnsADT' _Columns htable rep context
 

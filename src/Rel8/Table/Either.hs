@@ -32,8 +32,8 @@ import Prelude hiding ( undefined )
 import Control.Comonad ( extract )
 
 -- rel8
-import Rel8.Aggregate ( Col( A ), Aggregate )
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Aggregate ( Aggregate( A ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Context ( Reifiable )
@@ -43,8 +43,8 @@ import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( N ), Name )
-import Rel8.Schema.Result ( Col( R ) )
+import Rel8.Schema.Name ( Name( N ) )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -70,9 +70,9 @@ import Data.Functor.Bind ( Bind, (>>-) )
 --
 -- An @EitherTable@ is operationally the same as Haskell's 'Either' type, but
 -- adapted to work with Rel8.
-type EitherTable :: K.Context -> Type -> Type -> Type
+type EitherTable :: K.HContext -> Type -> Type -> Type
 data EitherTable context a b = EitherTable
-  { tag :: Col context ('Spec EitherTag)
+  { tag :: context ('Spec EitherTag)
   , left :: Nullify context a
   , right :: Nullify context b
   }

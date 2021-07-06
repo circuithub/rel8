@@ -25,29 +25,29 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Aggregate
-  ( Col( A ), Aggregate( Aggregate )
+  ( Aggregate( A, Aggregate )
   , foldInputs, mapInputs
   )
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Context ( SContext(..) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 
-type Nullifiability :: K.Context -> Type
+type Nullifiability :: K.HContext -> Type
 data Nullifiability context where
   NAggregate :: Nullifiability Aggregate
   NExpr :: Nullifiability Expr
   NName :: Nullifiability Name
 
 
-type Nullifiable :: K.Context -> Constraint
+type Nullifiable :: K.HContext -> Constraint
 class Nullifiable context where
   nullifiability :: Nullifiability context
 
@@ -64,7 +64,7 @@ instance Nullifiable Name where
   nullifiability = NName
 
 
-type NonNullifiability :: K.Context -> Type
+type NonNullifiability :: K.HContext -> Type
 data NonNullifiability context where
   NNResult :: NonNullifiability Result
 
@@ -88,11 +88,11 @@ absurd = \case
 
 guarder :: ()
   => SContext context
-  -> Col context ('Spec tag)
+  -> context ('Spec tag)
   -> (tag -> Bool)
   -> (Expr tag -> Expr Bool)
-  -> Col context ('Spec (Maybe a))
-  -> Col context ('Spec (Maybe a))
+  -> context ('Spec (Maybe a))
+  -> context ('Spec (Maybe a))
 guarder SAggregate (A tag) _ isNonNull (A (Aggregate a)) =
   A $
   mapInputs (toPrimExpr . run . fromPrimExpr) $
@@ -113,8 +113,8 @@ guarder SResult (R tag) isNonNull _ (R a) = R (bool Nothing a condition)
 nullifier :: ()
   => Nullifiability context
   -> SSpec ('Spec a)
-  -> Col context ('Spec a)
-  -> Col context ('Spec (Nullify a))
+  -> context ('Spec a)
+  -> context ('Spec (Nullify a))
 nullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
   A $ Aggregate $ snullify nullity <$> a
 nullifier NExpr SSpec {nullity} (E a) = E $ snullify nullity a
@@ -124,8 +124,8 @@ nullifier NName _ (N (Name a)) = N $ Name a
 unnullifier :: ()
   => Nullifiability context
   -> SSpec ('Spec a)
-  -> Col context ('Spec (Nullify a))
-  -> Col context ('Spec a)
+  -> context ('Spec (Nullify a))
+  -> context ('Spec a)
 unnullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
   A $ Aggregate $ sunnullify nullity <$> a
 unnullifier NExpr SSpec {nullity} (E a) = E $ sunnullify nullity a

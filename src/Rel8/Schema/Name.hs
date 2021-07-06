@@ -14,7 +14,6 @@
 
 module Rel8.Schema.Name
   ( Name(..)
-  , Col( N, unN )
   , Selects
   )
 where
@@ -26,10 +25,9 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Result ( Col( R ) )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -45,7 +43,8 @@ import Rel8.Type ( DBType )
 -- a 'TableSchema' value.
 type Name :: k -> Type
 data Name a where
-  Name :: k ~ Type => !String -> Name (a :: k)
+  Name :: forall (a :: Type). !String -> Name a
+  N :: { unN :: !(Name a) } -> Name ('Spec a)
 
 
 deriving stock instance Show (Name a)
@@ -73,11 +72,6 @@ instance Sql DBType a => Recontextualize Name Expr (Name a) (Expr a)
 
 
 instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
-
-
-instance Interpretation Name where
-  data Col Name _spec where
-    N :: {unN :: !(Name a)} -> Col Name ('Spec a)
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

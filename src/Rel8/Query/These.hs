@@ -25,7 +25,7 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Bool ( boolExpr, not_ )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( toPrimExpr, traversePrimExpr )

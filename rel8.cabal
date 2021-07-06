@@ -114,7 +114,6 @@ library
     Rel8.Query.These
     Rel8.Query.Values
 
-    Rel8.Schema.Context
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict

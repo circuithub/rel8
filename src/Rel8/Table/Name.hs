@@ -25,10 +25,10 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.Name ( Name( Name ), Col( N ) )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
 

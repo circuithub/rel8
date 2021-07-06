@@ -46,7 +46,7 @@ type family GColumns _Columns rep where
     HLabel label (Eval (_Columns a))
 
 
-type GContext :: (Type -> Exp K.Context) -> (Type -> Type) -> K.Context
+type GContext :: (Type -> Exp K.HContext) -> (Type -> Type) -> K.HContext
 type family GContext _Context rep where
   GContext _Context (M1 _ _ rep) = GContext _Context rep
   GContext _Context (rep1 :*: _rep2) = GContext _Context rep1

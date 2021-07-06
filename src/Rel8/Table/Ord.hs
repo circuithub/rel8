@@ -25,7 +25,7 @@ import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
@@ -76,7 +76,7 @@ type instance Eval (TOrdTable a) = OrdTable a
 
 instance
   ( HTable t
-  , f ~ Col Expr
+  , f ~ Expr
   , HConstrainTable t (ConstrainSpec (Sql DBEq))
   , HConstrainTable t (ConstrainSpec (Sql DBOrd))
   )

@@ -1,10 +1,6 @@
 {-# language StandaloneKindSignatures #-}
 
-module Rel8.Schema.Kind
-  ( Context, Rel8able
-  , HContext, HTable
-  )
-where
+module Rel8.Schema.Kind ( Rel8able, Context, HContext, HTable ) where
 
 -- base
 import Data.Kind ( Type )
@@ -14,19 +10,19 @@ import Prelude ()
 import Rel8.Schema.Spec ( Spec )
 
 
+type Context :: Type
+type Context = X -> Type
+
+
+data X
+
+
 type HContext :: Type
 type HContext = Spec -> Type
 
 
 type HTable :: Type
 type HTable = HContext -> Type
-
-
-data X
-
-
-type Context :: Type
-type Context = X -> Type
 
 
 type Rel8able :: Type

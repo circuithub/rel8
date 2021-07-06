@@ -28,7 +28,7 @@ import GHC.Generics ( Rep )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
 import Rel8.FCF ( Eval, Exp )
@@ -75,7 +75,7 @@ type instance Eval (TEqTable a) = EqTable a
 
 instance
   ( HTable t
-  , f ~ Col Expr
+  , f ~ Expr
   , HConstrainTable t (ConstrainSpec (Sql DBEq))
   )
   => EqTable (t f)

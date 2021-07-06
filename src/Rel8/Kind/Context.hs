@@ -15,12 +15,12 @@ import Prelude ()
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Kind ( Context )
+import Rel8.Schema.Kind ( HContext )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 
 
-type SContext :: Context -> Type
+type SContext :: HContext -> Type
 data SContext context where
   SAggregate :: SContext Aggregate
   SExpr :: SContext Expr
@@ -28,7 +28,7 @@ data SContext context where
   SResult :: SContext Result
 
 
-type Reifiable :: Context -> Constraint
+type Reifiable :: HContext -> Constraint
 class Reifiable context where
   contextSing :: SContext context
 

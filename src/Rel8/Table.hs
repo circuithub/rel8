@@ -33,7 +33,6 @@ import Rel8.Generic.Table.Record
   , gfromColumns, gtoColumns, gfromResult, gtoResult
   )
 import Rel8.Generic.Record ( Record(..) )
-import Rel8.Schema.Context ( Col, UnCol )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import qualified Rel8.Schema.Kind as K
@@ -52,23 +51,23 @@ import Rel8.Schema.Spec ( KnownSpec )
 -- In typical usage of Rel8 you don't need to derive instances of 'Table'
 -- yourself, as anything that's an instance of 'Rel8.Rel8able' is always a
 -- 'Table'.
-type Table :: K.Context -> Type -> Constraint
+type Table :: K.HContext -> Type -> Constraint
 class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
   -- | The 'HTable' functor that describes the schema of this table.
   type Columns a :: K.HTable
 
   -- | The common context that all columns use as an interpretation.
-  type Context a :: K.Context
+  type Context a :: K.HContext
 
   -- | The @FromExprs@ type family maps a type in the @Expr@ context to the
   -- corresponding Haskell type.
   type FromExprs a :: Type
 
-  toColumns :: a -> Columns a (Col context)
-  fromColumns :: Columns a (Col context) -> a
+  toColumns :: a -> Columns a context
+  fromColumns :: Columns a context -> a
 
-  fromResult :: Columns a (Col Result) -> FromExprs a
-  toResult :: FromExprs a -> Columns a (Col Result)
+  fromResult :: Columns a Result -> FromExprs a
+  toResult :: FromExprs a -> Columns a Result
 
   type Columns a = GColumns TColumns (Rep (Record a))
   type Context a = GContext TContext (Rep (Record a))
@@ -79,7 +78,7 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
     , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
-    => a -> Columns a (Col context)
+    => a -> Columns a context
   toColumns =
     gtoColumns
       @(TTable context)
@@ -94,7 +93,7 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
     , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
-    => Columns a (Col context) -> a
+    => Columns a context -> a
   fromColumns =
     unrecord .
     to .
@@ -110,7 +109,7 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
     , Columns a ~ GColumns TColumns (Rep (Record a))
     , Rep (Record (FromExprs a)) ~ GMap TFromExprs (Rep (Record a))
     )
-    => FromExprs a -> Columns a (Col Result)
+    => FromExprs a -> Columns a Result
   toResult =
     gtoResult
       @(TTable context)
@@ -127,7 +126,7 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
     , Columns a ~ GColumns TColumns (Rep (Record a))
     , Rep (Record (FromExprs a)) ~ GMap TFromExprs (Rep (Record a))
     )
-    => Columns a (Col Result) -> FromExprs a
+    => Columns a Result -> FromExprs a
   fromResult =
     unrecord .
     to .
@@ -156,7 +155,7 @@ type family DefaultFromExprs a where
   DefaultFromExprs (t a) = t (FromExprs a)
 
 
-data TTable :: K.Context -> Type -> Exp Constraint
+data TTable :: K.HContext -> Type -> Exp Constraint
 type instance Eval (TTable context a) = Table context a
 
 
@@ -164,7 +163,7 @@ data TColumns :: Type -> Exp K.HTable
 type instance Eval (TColumns a) = Columns a
 
 
-data TContext :: Type -> Exp K.Context
+data TContext :: Type -> Exp K.HContext
 type instance Eval (TContext a) = Context a
 
 
@@ -173,12 +172,12 @@ type instance Eval (TFromExprs a) = FromExprs a
 
 
 -- | Any 'HTable' is also a 'Table'.
-instance (context ~ UnCol hcontext, hcontext ~ Col context, HTable t) =>
+instance (hcontext ~ context, HTable t) =>
   Table context (t hcontext)
  where
   type Columns (t hcontext) = t
-  type Context (t hcontext) = UnCol hcontext
-  type FromExprs (t hcontext) = t (Col Result)
+  type Context (t hcontext) = hcontext
+  type FromExprs (t hcontext) = t Result
 
   toColumns = id
   fromColumns = id
@@ -187,10 +186,10 @@ instance (context ~ UnCol hcontext, hcontext ~ Col context, HTable t) =>
 
 
 -- | Any context is trivially a table.
-instance KnownSpec spec => Table context (Col context spec) where
-  type Columns (Col context spec) = HIdentity spec
-  type Context (Col context spec) = context
-  type FromExprs (Col context spec) = Col Result spec
+instance KnownSpec spec => Table context (context spec) where
+  type Columns (context spec) = HIdentity spec
+  type Context (context spec) = context
+  type FromExprs (context spec) = Result spec
 
   toColumns = HIdentity
   fromColumns = unHIdentity

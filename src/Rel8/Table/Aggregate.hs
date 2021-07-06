@@ -16,8 +16,8 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregates, Col( A ) )
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Aggregate ( Aggregate( A ), Aggregates )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , slistAggExpr
@@ -44,7 +44,7 @@ groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
 
 
 hgroupBy :: HTable t
-  => t (Dict (ConstrainSpec (Sql DBEq))) -> t (Col Expr) -> t (Col Aggregate)
+  => t (Dict (ConstrainSpec (Sql DBEq))) -> t Expr -> t Aggregate
 hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
   case hfield eqs field of
     Dict -> case hfield exprs field of

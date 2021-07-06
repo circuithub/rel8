@@ -34,7 +34,6 @@ import Rel8.Kind.Algebra
   , SAlgebra( SProduct, SSum )
   , KnownAlgebra, algebraSing
   )
-import Rel8.Schema.Context ( Col )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Result ( Result )
 
@@ -84,8 +83,8 @@ ggfromResult :: forall algebra _Table _Columns _FromExprs rep x.
   , Eval (GGTable algebra _Table _Columns _FromExprs rep)
   )
   => (forall a proxy. Eval (_Table a)
-      => proxy a -> Eval (_Columns a) (Col Result) -> Eval (_FromExprs a))
-  -> Eval (GGColumns algebra _Columns rep) (Col Result)
+      => proxy a -> Eval (_Columns a) Result -> Eval (_FromExprs a))
+  -> Eval (GGColumns algebra _Columns rep) Result
   -> GMap _FromExprs rep x
 ggfromResult f x = case algebraSing @algebra of
   SProduct -> gfromResult @_Table @_Columns @_FromExprs @rep f x
@@ -97,9 +96,9 @@ ggtoResult :: forall algebra _Table _Columns _FromExprs rep x.
   , Eval (GGTable algebra _Table _Columns _FromExprs rep)
   )
   => (forall a proxy. Eval (_Table a)
-      => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) (Col Result))
+      => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) Result)
   -> GMap _FromExprs rep x
-  -> Eval (GGColumns algebra _Columns rep) (Col Result)
+  -> Eval (GGColumns algebra _Columns rep) Result
 ggtoResult f x = case algebraSing @algebra of
   SProduct -> gtoResult @_Table @_Columns @_FromExprs @rep f x
   SSum -> gtoResultADT @_Table @_Columns @_FromExprs @rep f x

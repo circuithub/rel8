@@ -19,7 +19,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E, unE ), Expr )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
