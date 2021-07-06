@@ -29,10 +29,10 @@ import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Table ( Table, fromColumns )
+import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
-import Rel8.Table.List ( ListTable( ListTable ) )
+import Rel8.Table.List ( ListTable )
 import Rel8.Table.Maybe ( maybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Type ( DBType, typeInformation )
@@ -49,7 +49,7 @@ import Rel8.Type.Information ( TypeInformation )
 -- @Control.Applicative@.
 many :: Table Expr a => Query a -> Query (ListTable Expr a)
 many =
-  fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
+  fmap (maybeTable mempty (fromColumns . toColumns)) .
   optional .
   aggregate .
   fmap (listAgg . toCols)
@@ -85,8 +85,8 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 --
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
-catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
-  hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
+catListTable as = rebind $ fromColumns $ runIdentity $
+  hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) (toColumns as)
 
 
 -- | Expand a 'NonEmptyTable' into a 'Query', where each row in the query is an
