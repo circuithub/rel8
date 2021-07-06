@@ -61,7 +61,6 @@ import Rel8.Generic.Table
   )
 import Rel8.Generic.Table.Record ( GTable, GContext )
 import qualified Rel8.Generic.Table.Record as G
-import Rel8.Schema.Context.Virtual
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Name ( Name )
@@ -84,13 +83,8 @@ instance HKDable a => Rel8able (HKD a) where
   type GColumns (HKD a) = GColumnsHKD a
   type GFromExprs (HKD a) = a
 
-  gfromColumns VAggregate = HKD
-  gfromColumns VExpr = HKD
-  gfromColumns VName = HKD
-
-  gtoColumns VAggregate (HKD a) = a
-  gtoColumns VExpr (HKD a) = a
-  gtoColumns VName (HKD a) = a
+  gfromColumns _ = HKD
+  gtoColumns _ (HKD a) = a
 
   gfromResult =
     unrecord .

@@ -88,8 +88,6 @@ class GTableADT _Table _Columns _FromExprs rep where
 
 instance
   ( htable ~ HLabel "tag" (HType Tag)
-  , Eval (_Table (htable context))
-  , Eval (_Columns (htable context)) ~ htable
   , GTableADT' _Table _Columns _FromExprs htable rep
   )
   => GTableADT _Table _Columns _FromExprs (M1 D meta rep)
