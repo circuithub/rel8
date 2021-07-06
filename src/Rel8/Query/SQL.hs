@@ -30,7 +30,7 @@ import Rel8.Query.Opaleye ( toOpaleye )
 import Rel8.Schema.Name ( Name( N, Name ), Selects )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Table ( Table, toColumns )
-import Rel8.Table.AsRel8able
+import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Name ( namesFromLabels )
 import Rel8.Table.Opaleye ( castTable )
 

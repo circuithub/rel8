@@ -31,7 +31,7 @@ import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
-import Rel8.Table.AsRel8able
+import Rel8.Table.Cols ( fromCols, toCols )
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 

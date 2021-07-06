@@ -17,7 +17,7 @@ import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
-import Rel8.Table.AsRel8able ( toCols, fromCols )
+import Rel8.Table.Cols ( fromCols, toCols )
 import Rel8.Table.Opaleye ( table, unpackspec )
 
 

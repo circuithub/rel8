@@ -35,9 +35,7 @@ import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable
-  ( htabulateA, hfield
-  )
+import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )

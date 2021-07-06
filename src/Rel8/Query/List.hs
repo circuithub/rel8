@@ -30,7 +30,7 @@ import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
 import Rel8.Table ( Table, fromColumns )
-import Rel8.Table.AsRel8able
+import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( maybeTable )

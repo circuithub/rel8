@@ -4,7 +4,6 @@
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -36,7 +35,7 @@ import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table ( Table(..) )
-import Rel8.Table.AsRel8able ( AsRel8able(..) )
+import Rel8.Table.Cols ( Cols( Cols ) )
 
 
 -- | Construct a table in the 'Name' context containing the names of all
@@ -73,7 +72,7 @@ namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
 
 showExprs :: Table Expr a => a -> [(String, Opaleye.PrimExpr)]
 showExprs as = case (namesFromLabels, toColumns as) of
-  (AsRel8able names, exprs) -> getConst $ htabulateA $ \field ->
+  (Cols names, exprs) -> getConst $ htabulateA $ \field ->
     case (hfield names field, hfield exprs field) of
       (N (Name name), E expr) -> Const [(name, toPrimExpr expr)]
 
