@@ -11,7 +11,7 @@ where
 import Prelude hiding ( undefined )
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Null ( snull, unsafeUnnullify )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )

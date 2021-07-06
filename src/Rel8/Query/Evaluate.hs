@@ -1,20 +1,18 @@
-{-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language NamedFieldPuns #-}
-{-# language StandaloneKindSignatures #-}
+{-# language TupleSections #-}
 
 module Rel8.Query.Evaluate
-  ( Evaluate
-  , eval
-  , evaluate
+  ( evaluate
+  , rebind
   )
 where
 
 -- base
-import Data.Kind ( Type )
-import Data.Monoid ( Endo ( Endo ), appEndo )
-import Prelude
+import Control.Monad ( (>=>) )
+import Data.Foldable ( foldl' )
+import Data.List.NonEmpty ( NonEmpty( (:|) ), nonEmpty )
+import Data.Monoid ( Any( Any ) )
+import Prelude hiding ( undefined )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -26,57 +24,45 @@ import qualified Opaleye.Internal.Unpackspec as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Bool ( (&&.) )
+import Rel8.Expr.Opaleye ( fromPrimExpr )
 import Rel8.Query ( Query( Query ) )
 import Rel8.Table ( Table )
+import Rel8.Table.Bool ( case_ )
 import Rel8.Table.Opaleye ( unpackspec )
-
--- semigroupoids
-import Data.Functor.Apply ( Apply )
-import Data.Functor.Bind ( Bind, (>>-) )
-
--- transformers
-import Control.Monad.Trans.State.Strict ( State, get, put, runState )
+import Rel8.Table.Undefined
 
 
-type Evaluations :: Type
-data Evaluations = Evaluations
-  { tag :: !Opaleye.Tag
-  , bindings :: !(Endo (Opaleye.Bindings Opaleye.PrimExpr))
-  }
+-- | 'evaluate' takes expressions that could potentially have side effects and
+-- \"runs\" them in the 'Query' monad. The returned expressions have no side
+-- effects and can safely be reused.
+evaluate :: Table Expr a => a -> Query a
+evaluate = laterally >=> rebind
 
 
--- | Some PostgreSQL functions, such as 'Rel8.nextval', have side effects,
--- breaking the referential transparency we would otherwise enjoy.
---
--- To try to recover our ability to reason about such expressions, 'Evaluate'
--- allows us to control the evaluation order of side-effects by sequencing
--- them monadically.
-type Evaluate :: Type -> Type
-newtype Evaluate a = Evaluate (State Evaluations a)
-  deriving newtype (Functor, Apply, Applicative, Monad)
+laterally :: Table Expr a => a -> Query a
+laterally a = Query $ \bindings -> pure $ (Any True,) $
+  case nonEmpty bindings of
+    Nothing -> a
+    Just bindings' -> case_ [(condition, a)] undefined
+      where
+        condition = foldl1' (&&.) (fmap go bindings')
+          where
+            go = fromPrimExpr . Opaleye.UnExpr Opaleye.OpIsNotNull
 
 
-instance Bind Evaluate where
-  (>>-) = (>>=)
-
-
--- | 'eval' takes expressions that could potentially have side effects and
--- \"runs\" them in the 'Evaluate' monad. The returned expressions have no
--- side effetcs and can safely be reused.
-eval :: Table Expr a => a -> Evaluate a
-eval a = Evaluate $ do
-  Evaluations {tag, bindings} <- get
+-- | 'rebind' takes some expressions, and binds each of them to a new
+-- variable in the SQL. The @a@ returned consists only of these
+-- variables. It's essentially a @let@ binding for Postgres expressions.
+rebind :: Table Expr a => a -> Query a
+rebind a = Query $ \_ -> Opaleye.QueryArr $ \(_, tag) ->
   let
     tag' = Opaleye.next tag
-    (a', bindings') = Opaleye.run $
+    (a', bindings) = Opaleye.run $
       Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag') a
-  put Evaluations {tag = tag', bindings = bindings <> Endo (bindings' ++)}
-  pure a'
+  in
+    ((mempty, a'), \_ -> Opaleye.Rebind True bindings, tag')
 
 
--- | 'evaluate' runs an 'Evaluate' inside the 'Query' monad.
-evaluate :: Evaluate a -> Query a
-evaluate (Evaluate m) = Query $ Opaleye.QueryArr $ \(_, query, tag) ->
-  case runState m (Evaluations tag mempty) of
-    (a, Evaluations {tag = tag', bindings}) ->
-      (a, Opaleye.Rebind True (appEndo bindings mempty) query, tag')
+foldl1' :: (a -> a -> a) -> NonEmpty a -> a
+foldl1' f (a :| as) = foldl' f a as

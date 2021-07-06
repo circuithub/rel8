@@ -1,11 +1,11 @@
 {-# language DataKinds #-}
-{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language PolyKinds #-}
+{-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -15,13 +15,11 @@ module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
-  , Col( A, unA )
   )
 where
 
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Prelude
 
@@ -32,17 +30,14 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context ( Interpretation(..) )
-import Rel8.Schema.Context.Label ( Labelable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Reify ( notReify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -55,25 +50,19 @@ import Rel8.Type ( DBType )
 -- combine @Aggregate@s using the @<.>@ combinator.
 type Aggregate :: k -> Type
 data Aggregate a where
-  Aggregate :: !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
-
-
-instance Interpretation Aggregate where
-  data Col Aggregate _spec where
-    A :: ()
-      => { unA :: !(Aggregate a) }
-      -> Col Aggregate ('Spec labels a)
+  Aggregate :: forall (a :: Type). !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
+  A :: { unA :: !(Aggregate a) } -> Aggregate ('Spec a)
 
 
 instance Sql DBType a => Table Aggregate (Aggregate a) where
   type Columns (Aggregate a) = HType a
   type Context (Aggregate a) = Aggregate
+  type FromExprs (Aggregate a) = a
 
   toColumns = HIdentity . A
   fromColumns (HIdentity (A a)) = a
-
-  reify = notReify
-  unreify = notReify
+  toResult = HIdentity . R
+  fromResult (HIdentity (R a)) = a
 
 
 instance Sql DBType a =>
@@ -85,10 +74,6 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Aggregate Result (Aggregate a) (Identity a)
-
-
-instance Sql DBType a =>
   Recontextualize Aggregate Name (Aggregate a) (Name a)
 
 
@@ -97,16 +82,7 @@ instance Sql DBType a =>
 
 
 instance Sql DBType a =>
-  Recontextualize Result Aggregate (Identity a) (Aggregate a)
-
-
-instance Sql DBType a =>
   Recontextualize Name Aggregate (Name a) (Aggregate a)
-
-
-instance Labelable Aggregate where
-  labeler (A aggregate) = A aggregate
-  unlabeler (A aggregate) = A aggregate
 
 
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
@@ -116,7 +92,7 @@ class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates e
 instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 
 
-foldInputs :: Monoid b
+foldInputs :: forall (a :: Type) (b :: Type). Monoid b
   => (Maybe Aggregator -> Opaleye.PrimExpr -> b) -> Aggregate a -> b
 foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
   getConst $ flip agg () $ \(aggregator, a) ->
@@ -126,7 +102,7 @@ foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
       Aggregator {operation, ordering, distinction}
 
 
-mapInputs :: ()
+mapInputs :: forall (a :: Type). ()
   => (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Aggregate a -> Aggregate a
 mapInputs transform (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
   Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ agg . \f input ->
@@ -141,7 +117,7 @@ data Aggregator = Aggregator
   }
 
 
-unsafeMakeAggregate :: ()
+unsafeMakeAggregate :: forall (input :: Type) (output :: Type). ()
   => (Expr input -> Opaleye.PrimExpr)
   -> (Opaleye.PrimExpr -> Expr output)
   -> Maybe Aggregator

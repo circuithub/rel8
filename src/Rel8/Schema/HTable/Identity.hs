@@ -25,10 +25,10 @@ import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec, specSing )
 
 
 type HType :: Type -> K.HTable
-type HType a = HIdentity ('Spec '[] a)
+type HType a = HIdentity ('Spec a)
 
 
-pattern HType :: context ('Spec '[] a) -> HType a context
+pattern HType :: context ('Spec a) -> HType a context
 pattern HType a = HIdentity a
 {-# COMPLETE HType #-}
 

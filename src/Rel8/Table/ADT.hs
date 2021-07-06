@@ -8,12 +8,13 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
 module Rel8.Table.ADT
   ( ADT( ADT )
-  , ADTable, fromADT, toADT
+  , ADTable
   , BuildableADT
   , BuildADT, buildADT
   , ConstructableADT
@@ -27,8 +28,6 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.Proxy ( Proxy( Proxy ) )
-import Data.Type.Equality ( (:~:)( Refl ) )
 import GHC.Generics ( Generic, Rep, from, to )
 import GHC.TypeLits ( Symbol )
 import Prelude
@@ -46,95 +45,76 @@ import Rel8.Generic.Construction
   , GGName, ggname
   , GGAggregate, ggaggregate
   )
-import Rel8.Generic.Map ( GMappable, GMap, gmap, gunmap )
-import Rel8.Generic.Record ( GRecordable, GRecord, grecord, gunrecord )
+import Rel8.Generic.Map ( GMap )
+import Rel8.Generic.Record ( Record( Record ), unrecord )
 import Rel8.Generic.Rel8able
   ( Rel8able
   , GRep, GColumns, gfromColumns, gtoColumns
-  , greify, gunreify
+  , GFromExprs, gfromResult, gtoResult
   )
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Virtual
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Reify ( Col( Reify ), Reify, hreify, hunreify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( Table
-  , fromColumns, toColumns, reify, unreify
-  , TTable, TColumns, TUnreify
+  ( Table, fromResult, toResult
+  , TTable, TColumns, TFromExprs
   )
 
 
 type ADT :: K.Rel8able -> K.Rel8able
-newtype ADT t context = ADT (GColumnsADT t (Col context))
+newtype ADT t context = ADT (GColumnsADT t context)
 
 
 instance ADTable t => Rel8able (ADT t) where
   type GColumns (ADT t) = GColumnsADT t
+  type GFromExprs (ADT t) = t Result
 
-  gfromColumns = ADT
-  gtoColumns (ADT a) = a
+  gfromColumns VAggregate = ADT
+  gfromColumns VExpr = ADT
+  gfromColumns VName = ADT
 
-  greify (ADT a) = ADT (hreify a)
-  gunreify (ADT a) = ADT (hunreify a)
+  gtoColumns VAggregate (ADT a) = a
+  gtoColumns VExpr (ADT a) = a
+  gtoColumns VName (ADT a) = a
 
-
-instance (ADTable t, context ~ Result) => Generic (ADT t context) where
-  type Rep (ADT t context) = Rep (t context)
-
-  from =
-    gmap @(TTable (Reify Result)) (Proxy @TUnreify) (unreify Refl) .
-    gunrecord @(Rep (t (Reify Result))) .
-    G.gfromColumnsADT
-      @(TTable (Reify Result))
+  gfromResult =
+    unrecord .
+    to .
+    G.gfromResultADT
+      @(TTable Expr)
       @TColumns
-      (\(Reify a) -> a)
-      Reify
-      fromColumns .
-    hreify .
-    (\(ADT a) -> a)
+      @TFromExprs
+      @(Eval (ADTRep t Expr))
+      (\(_ :: proxy x) -> fromResult @_ @x)
 
-  to =
-    ADT .
-    hunreify .
-    G.gtoColumnsADT
-      @(TTable (Reify Result))
+  gtoResult =
+    G.gtoResultADT
+      @(TTable Expr)
       @TColumns
-      (\(Reify a) -> a)
-      Reify
-      toColumns .
-    grecord @(Rep (t (Reify Result))) .
-    gunmap @(TTable (Reify Result)) (Proxy @TUnreify) (reify Refl)
-
-
-fromADT :: ADTable t => ADT t Result -> t Result
-fromADT = to . from
-
-
-toADT :: ADTable t => t Result -> ADT t Result
-toADT = to . from
+      @TFromExprs
+      @(Eval (ADTRep t Expr))
+      (\(_ :: proxy x) -> toResult @_ @x) .
+    from .
+    Record
 
 
 type ADTable :: K.Rel8able -> Constraint
 class
-  ( Generic (t Result)
+  ( Generic (Record (t Result))
   , HTable (GColumnsADT t)
-  , G.GTableADT (TTable (Reify Result)) TColumns (Col (Reify Result)) (GRecord (Rep (t (Reify Result))))
-  , GRecordable (Rep (t (Reify Result)))
-  , GMappable (TTable (Reify Result)) (Rep (t (Reify Result)))
-  , GMap TUnreify (Rep (t (Reify Result))) ~ Rep (t Result)
+  , G.GTableADT (TTable Expr) TColumns TFromExprs (Eval (ADTRep t Expr))
+  , GMap TFromExprs (Rep (Record (t Expr))) ~ Rep (Record (t Result))
   )
   => ADTable t
 instance
-  ( Generic (t Result)
+  ( Generic (Record (t Result))
   , HTable (GColumnsADT t)
-  , G.GTableADT (TTable (Reify Result)) TColumns (Col (Reify Result)) (GRecord (Rep (t (Reify Result))))
-  , GRecordable (Rep (t (Reify Result)))
-  , GMappable (TTable (Reify Result)) (Rep (t (Reify Result)))
-  , GMap TUnreify (Rep (t (Reify Result))) ~ Rep (t Result)
+  , G.GTableADT (TTable Expr) TColumns TFromExprs (Eval (ADTRep t Expr))
+  , GMap TFromExprs (Rep (Record (t Expr))) ~ Rep (Record (t Result))
   )
   => ADTable t
 
@@ -202,4 +182,4 @@ type instance Eval (ADTRep t context) = GRep t context
 
 
 type GColumnsADT :: K.Rel8able -> K.HTable
-type GColumnsADT t = G.GColumnsADT TColumns (GRep t (Reify Result))
+type GColumnsADT t = G.GColumnsADT TColumns (GRep t Expr)

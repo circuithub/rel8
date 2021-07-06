@@ -121,6 +121,7 @@ tests =
     , testSelectNestedPairs getTestDatabase
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
+    , testEvaluate getTestDatabase
     ]
 
   where
@@ -132,6 +133,7 @@ tests =
         flip run conn do
           sql "CREATE EXTENSION citext"
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
+          sql "CREATE SEQUENCE test_seq"
 
       return db
 
@@ -471,9 +473,6 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
         [res] <- liftIO $ Rel8.select connection $ pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
 
-        cover 1 "Equal" $ x == y
-        cover 1 "Not Equal" $ x /= y
-
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
 testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
@@ -484,9 +483,6 @@ testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
        pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
      eq === (x == y)
-
-     cover 1 "Equal" $ x == y
-     cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
@@ -699,10 +695,14 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
 
     selected === [foldMap pure rows]
 
-    selected' <- liftIO $ Rel8.select connection $ Rel8.catListTable =<< do
-      Rel8.many $ Rel8.values (map Rel8.lit rows)
+    selected' <- liftIO $ Rel8.select connection $ do
+      a <- Rel8.catListTable =<< do
+        Rel8.many $ Rel8.values (map Rel8.lit rows)
+      b <- Rel8.catListTable =<< do
+        Rel8.many $ Rel8.values (map Rel8.lit rows)
+      pure (a, b)
 
-    selected' === rows
+    selected' === liftA2 (,) rows rows
 
 
 data NestedMaybeTable f = NestedMaybeTable
@@ -728,3 +728,52 @@ testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other ta
       pure $ Rel8.maybeTable (Rel8.lit False) (\_ -> Rel8.lit True) (nmt2 x)
 
     selected === [True]
+
+
+testEvaluate :: IO TmpPostgres.DB -> TestTree
+testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect" \transaction -> do
+
+  transaction \connection -> do
+    selected <- liftIO $ Rel8.select connection do
+      x <- Rel8.values (Rel8.lit <$> ['a', 'b', 'c'])
+      y <- Rel8.evaluate (Rel8.nextval "test_seq")
+      pure (x, (y, y))
+
+    normalize selected ===
+      [ ('a', (0, 0))
+      , ('b', (1, 1))
+      , ('c', (2, 2))
+      ]
+
+    selected' <- liftIO $ Rel8.select connection do
+      x <- Rel8.values (Rel8.lit <$> ['a', 'b', 'c'])
+      y <- Rel8.values (Rel8.lit <$> ['d', 'e', 'f'])
+      z <- Rel8.evaluate (Rel8.nextval "test_seq")
+      pure ((x, y), (z, z))
+
+    normalize selected' ===
+      [ (('a', 'd'), (0, 0))
+      , (('a', 'e'), (1, 1))
+      , (('a', 'f'), (2, 2))
+      , (('b', 'd'), (3, 3))
+      , (('b', 'e'), (4, 4))
+      , (('b', 'f'), (5, 5))
+      , (('c', 'd'), (6, 6))
+      , (('c', 'e'), (7, 7))
+      , (('c', 'f'), (8, 8))
+      ]
+
+  where
+    normalize :: [(x, (Int64, Int64))] -> [(x, (Int64, Int64))]
+    normalize [] = []
+    normalize xs@((_, (i, _)) : _) = map (fmap (\(a, b) -> (a - i, b - i))) xs
+
+{-
+    selected <- liftIO $ Rel8.select connection do
+      x <- Rel8.values (Rel8.lit <$> ['a', 'b', 'c'])
+      x <- Rel8.values (Rel8.lit <$> ['d', 'e', 'f'])
+      y <- Rel8.evaluate (Rel8.nextval "test_seq")
+      pure (x, y, y)
+
+    selected === [('a', 1, 1), ('b', 2, 2), ('c', 3, 3)]
+-}

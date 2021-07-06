@@ -27,15 +27,13 @@ import GHC.Generics
   )
 import GHC.TypeLits
   ( ErrorMessage( (:<>:), Text ), TypeError
-  , Symbol, KnownSymbol
+  , Symbol
   )
 import Prelude
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Table.Record ( GColumns )
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
-import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
@@ -45,7 +43,7 @@ type FromColumns
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext
+  -> K.Context
   -> Type
 type FromColumns _Table _Columns f context = forall proxy x.
   Eval (_Table x) => proxy x -> Eval (_Columns x) context -> Eval (f x)
@@ -55,7 +53,7 @@ type ToColumns
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext
+  -> K.Context
   -> Type
 type ToColumns _Table _Columns f context = forall proxy x.
   Eval (_Table x) => proxy x -> Eval (f x) -> Eval (_Columns x) context
@@ -119,7 +117,7 @@ type GConstructable
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> (Type -> Type) -> Constraint
+  -> K.Context -> (Type -> Type) -> Constraint
 class GConstructable _Table _Columns f context rep where
   gconstruct :: ()
     => ToColumns _Table _Columns f context
@@ -162,12 +160,9 @@ instance
 
 instance
   ( Eval (_Table a)
-  , HTable (Eval (_Columns a))
-  , HLabelable context
-  , KnownSymbol label
   , meta ~ 'MetaSel ('Just label) _su _ss _ds
   )
   => GConstructable _Table _Columns f context (M1 S meta (K1 i a))
  where
-  gconstruct toColumns = hlabel hlabeler . toColumns (Proxy @a)
-  gdeconstruct fromColumns = fromColumns (Proxy @a) . hunlabel hunlabeler
+  gconstruct toColumns = hlabel . toColumns (Proxy @a)
+  gdeconstruct fromColumns = fromColumns (Proxy @a) . hunlabel

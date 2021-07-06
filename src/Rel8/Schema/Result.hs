@@ -1,23 +1,25 @@
 {-# language DataKinds #-}
+{-# language EmptyCase #-}
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language PolyKinds #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Result
-  ( Col( R, unR ), Result
-  , relabel
+  ( Result( R, unR )
+  , NotResult( NotResult ), absurd
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
 where
 
 -- base
+import Data.Kind ( Type )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context ( Interpretation( Col ) )
-import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
@@ -27,38 +29,43 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 --
 -- When a query is executed against a PostgreSQL database, Rel8 parses the
 -- returned rows, decoding each row into the @Result@ context.
-type Result :: Context
-data Result a
+type Result :: k -> Type
+data Result a where
+  R :: { unR :: !a } -> Result ('Spec a)
 
 
-instance Interpretation Result where
-  data Col Result _spec where
-    R :: {unR :: !a} -> Col Result ('Spec labels a)
+type IsResult :: Context -> Bool
+type family IsResult context where
+  IsResult Result = 'True
+  IsResult _ = 'False
 
 
-relabel :: ()
-  => HIdentity ('Spec labels a) (Col Result)
-  -> HIdentity ('Spec relabels a) (Col Result)
-relabel (HIdentity (R a)) = HIdentity (R a)
+type NotResult :: Context -> Type
+data NotResult context where
+  NotResult :: IsResult context ~ 'False => NotResult context
 
 
-null :: Col Result ('Spec labels (Maybe a))
+absurd :: NotResult Result -> a
+absurd = \case
+
+
+null :: Result ('Spec (Maybe a))
 null = R Nothing
 
 
 nullifier :: ()
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels a)
-  -> Col Result ('Spec labels (Nullify a))
+  => SSpec ('Spec a)
+  -> Result ('Spec a)
+  -> Result ('Spec (Nullify a))
 nullifier SSpec {nullity} (R a) = R $ case nullity of
   Null -> a
   NotNull -> Just a
 
 
 unnullifier :: ()
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels (Nullify a))
-  -> Maybe (Col Result ('Spec labels a))
+  => SSpec ('Spec a)
+  -> Result ('Spec (Nullify a))
+  -> Maybe (Result ('Spec a))
 unnullifier SSpec {nullity} (R a) =
   case nullity of
     Null -> pure $ R a
@@ -66,14 +73,14 @@ unnullifier SSpec {nullity} (R a) =
 
 
 vectorizer :: Functor f
-  => SSpec ('Spec labels a)
-  -> f (Col Result ('Spec labels a))
-  -> Col Result ('Spec labels (f a))
+  => SSpec ('Spec a)
+  -> f (Result ('Spec a))
+  -> Result ('Spec (f a))
 vectorizer _ = R . fmap unR
 
 
 unvectorizer :: Functor f
-  => SSpec ('Spec labels a)
-  -> Col Result ('Spec labels (f a))
-  -> f (Col Result ('Spec labels a))
+  => SSpec ('Spec a)
+  -> Result ('Spec (f a))
+  -> f (Result ('Spec a))
 unvectorizer _ (R results) = R <$> results

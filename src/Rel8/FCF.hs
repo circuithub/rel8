@@ -5,7 +5,7 @@
 
 module Rel8.FCF
   ( Exp, Eval
-  , Compose
+  , Id
   )
 where
 
@@ -22,5 +22,5 @@ type Eval :: Exp e -> e
 type family Eval a
 
 
-data Compose :: (Type -> Type) -> (Type -> Exp Type) -> Type -> Exp Type
-type instance Eval (Compose f g a) = f (Eval (g a))
+data Id :: a -> Exp a
+type instance Eval (Id a) = a

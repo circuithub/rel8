@@ -59,6 +59,7 @@ module Rel8
   , optional
   , catMaybeTable
   , traverseMaybeTable
+  , aggregateMaybeTable
   , nameMaybeTable
 
     -- ** @EitherTable@
@@ -68,6 +69,7 @@ module Rel8
   , keepLeftTable
   , keepRightTable
   , bitraverseEitherTable
+  , aggregateEitherTable
   , nameEitherTable
 
     -- ** @TheseTable@
@@ -83,6 +85,7 @@ module Rel8
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
   , bitraverseTheseTable
+  , aggregateTheseTable
   , nameTheseTable
 
     -- ** @ListTable@
@@ -178,8 +181,8 @@ module Rel8
     -- ** Filtering
   , filter
   , where_
-  , whereExists
-  , whereNotExists
+  , present
+  , absent
   , distinct
   , distinctOn
   , distinctOnBy
@@ -236,11 +239,12 @@ module Rel8
 
     -- * IO
   , Serializable
-  , ToExprs(..)
-  , FromExprs
+  , ToExprs
   , Result
 
     -- * Running statements
+    -- $running
+
     -- ** @SELECT@
   , select
 
@@ -248,14 +252,15 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
+  , unsafeDefault
 
     -- ** @DELETE@
   , Delete(..)
   , delete
 
     -- ** @UPDATE@
-  , update
   , Update(..)
+  , update
 
     -- ** @.. RETURNING@
   , Returning(..)
@@ -265,14 +270,7 @@ module Rel8
 
     -- ** Sequences
   , nextval
-
-  , Evaluate
-  , eval
   , evaluate
-
-    -- * Implementation details
-  , Labelable
-  , HKDT(..)
   ) where
 
 -- base
@@ -291,6 +289,7 @@ import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
 import Rel8.Expr.Bool
+import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null
@@ -318,7 +317,6 @@ import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
-import Rel8.Schema.Context.Label
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
@@ -362,3 +360,10 @@ import Rel8.Type.ReadShow
 import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
+
+
+-- $running
+-- To run queries and otherwise interact with a PostgreSQL database, Rel8
+-- provides 'select', 'insert', 'update' and 'delete' functions. Note that
+-- 'insert', 'update' and 'delete' will generally need the
+-- `DuplicateRecordFields` language extension enabled.

@@ -19,16 +19,18 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E, unE ), Expr )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
+import Rel8.Query.Evaluate ( rebind )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table ( Table, fromColumns )
+import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( maybeTable )
@@ -45,12 +47,12 @@ import Rel8.Type.Information ( TypeInformation )
 --
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
-many :: Table Expr a => Query a -> Query (ListTable a)
+many :: Table Expr a => Query a -> Query (ListTable Expr a)
 many =
   fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
   optional .
   aggregate .
-  fmap (listAgg . toColumns)
+  fmap (listAgg . toCols)
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -61,11 +63,11 @@ many =
 --
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
-some :: Table Expr a => Query a -> Query (NonEmptyTable a)
+some :: Table Expr a => Query a -> Query (NonEmptyTable Expr a)
 some =
   fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
   aggregate .
-  fmap (nonEmptyAgg . toColumns)
+  fmap (nonEmptyAgg . toCols)
 
 
 -- | A version of 'many' specialised to single expressions.
@@ -82,8 +84,8 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 -- element of the given @ListTable@.
 --
 -- @catListTable@ is an inverse to 'many'.
-catListTable :: Table Expr a => ListTable a -> Query a
-catListTable (ListTable as) = pure $ fromColumns $ runIdentity $
+catListTable :: Table Expr a => ListTable Expr a -> Query a
+catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
@@ -91,8 +93,8 @@ catListTable (ListTable as) = pure $ fromColumns $ runIdentity $
 -- element of the given @NonEmptyTable@.
 --
 -- @catNonEmptyTable@ is an inverse to 'some'.
-catNonEmptyTable :: Table Expr a => NonEmptyTable a -> Query a
-catNonEmptyTable (NonEmptyTable as) = pure $ fromColumns $ runIdentity $
+catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
+catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
   hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
 
 
@@ -101,7 +103,7 @@ catNonEmptyTable (NonEmptyTable as) = pure $ fromColumns $ runIdentity $
 --
 -- @catList@ is an inverse to 'manyExpr'.
 catList :: Sql DBType a => Expr [a] -> Query (Expr a)
-catList = pure . sunnest typeInformation
+catList = rebind . sunnest typeInformation
 
 
 -- | Expand an expression that contains a non-empty list into a 'Query', where
@@ -109,7 +111,7 @@ catList = pure . sunnest typeInformation
 --
 -- @catNonEmpty@ is an inverse to 'someExpr'.
 catNonEmpty :: Sql DBType a => Expr (NonEmpty a) -> Query (Expr a)
-catNonEmpty = pure . sunnest typeInformation
+catNonEmpty = rebind . sunnest typeInformation
 
 
 sunnest :: TypeInformation (Unnullify a) -> Expr (list a) -> Expr a

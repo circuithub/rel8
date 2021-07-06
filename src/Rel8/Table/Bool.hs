@@ -13,7 +13,7 @@ where
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E, unE ) )
+import Rel8.Expr ( Expr( E, unE ) )
 import Rel8.Expr.Bool ( boolExpr, caseExpr )
 import Rel8.Expr.Null ( isNull, unsafeUnnullify )
 import Rel8.Schema.HTable ( htabulate, hfield )

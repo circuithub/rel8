@@ -22,7 +22,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), false, or_, coalesce )
 import Rel8.Expr.Null ( isNull, unsafeLiftOpNull )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr, zipPrimExprsWith )

@@ -30,6 +30,7 @@ The main objectives of Rel8 are:
    concepts/expr
    concepts/tables
    concepts/queries
+   concepts/insert
 
 .. toctree::
    :caption: Tips and tricks
@@ -49,4 +50,4 @@ More Resources
 
 * If you think you've found a bug, confusing behavior, or have a feature
   request, please raise an issue at `Rel8's issue tracker
-  <https://github.com/circuithub/rel8>`_. 
+  <https://github.com/circuithub/rel8>`_.

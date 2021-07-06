@@ -14,28 +14,24 @@
 
 module Rel8.Schema.Name
   ( Name(..)
-  , Col( N, unN )
   , Selects
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
 import Data.String ( IsString, fromString )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context ( Interpretation, Col )
-import Rel8.Schema.Context.Label ( Labelable, labeler, unlabeler )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Reify ( notReify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns, reify, unreify
+  ( Table, Columns, Context, fromColumns, toColumns
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -47,7 +43,8 @@ import Rel8.Type ( DBType )
 -- a 'TableSchema' value.
 type Name :: k -> Type
 data Name a where
-  Name :: k ~ Type => !String -> Name (a :: k)
+  Name :: forall (a :: Type). !String -> Name a
+  N :: { unN :: !(Name a) } -> Name ('Spec a)
 
 
 deriving stock instance Show (Name a)
@@ -60,36 +57,21 @@ instance k ~ Type => IsString (Name (a :: k)) where
 instance Sql DBType a => Table Name (Name a) where
   type Columns (Name a) = HType a
   type Context (Name a) = Name
+  type FromExprs (Name a) = a
 
   toColumns a = HType (N a)
   fromColumns (HType (N a)) = a
-  reify = notReify
-  unreify = notReify
+  toResult a = HType (R a)
+  fromResult (HType (R a)) = a
 
 
 instance Sql DBType a => Recontextualize Expr Name (Expr a) (Name a)
 
 
-instance Sql DBType a => Recontextualize Result Name (Identity a) (Name a)
-
-
 instance Sql DBType a => Recontextualize Name Expr (Name a) (Expr a)
 
 
-instance Sql DBType a => Recontextualize Name Result (Name a) (Identity a)
-
-
 instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
-
-
-instance Interpretation Name where
-  data Col Name _spec where
-    N :: {unN :: !(Name a)} -> Col Name ('Spec labels a)
-
-
-instance Labelable Name where
-  labeler (N a) = N a
-  unlabeler (N a) = N a
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

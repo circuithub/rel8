@@ -48,7 +48,6 @@ import Rel8.Generic.Construction.Record
   )
 import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
 import Rel8.Generic.Table.Record ( GColumns )
-import Rel8.Schema.Context.Label ( HLabelable, hlabeler, hunlabeler )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HType )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
@@ -63,24 +62,24 @@ import Rel8.Type.Tag ( Tag( Tag ) )
 import Data.Text ( pack )
 
 
-type Null :: K.HContext -> Type
-type Null context = forall labels a. ()
-  => SSpec ('Spec labels a)
-  -> context ('Spec labels (Nullify a))
+type Null :: K.Context -> Type
+type Null context = forall a. ()
+  => SSpec ('Spec a)
+  -> context ('Spec (Nullify a))
 
 
-type Nullifier :: K.HContext -> Type
-type Nullifier context = forall labels a. ()
-  => SSpec ('Spec labels a)
-  -> context ('Spec labels a)
-  -> context ('Spec labels (Nullify a))
+type Nullifier :: K.Context -> Type
+type Nullifier context = forall a. ()
+  => SSpec ('Spec a)
+  -> context ('Spec a)
+  -> context ('Spec (Nullify a))
 
 
-type Unnullifier :: K.HContext -> Type
-type Unnullifier context = forall labels a. ()
-  => SSpec ('Spec labels a)
-  -> context ('Spec labels (Nullify a))
-  -> context ('Spec labels a)
+type Unnullifier :: K.Context -> Type
+type Unnullifier context = forall a. ()
+  => SSpec ('Spec a)
+  -> context ('Spec (Nullify a))
+  -> context ('Spec a)
 
 
 type NoConstructor :: Symbol -> Symbol -> ErrorMessage
@@ -189,7 +188,7 @@ type GConstructableADT
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> (Type -> Type) -> Constraint
+  -> K.Context -> (Type -> Type) -> Constraint
 class GConstructableADT _Table _Columns f context rep where
   gbuildADT :: ()
     => ToColumns _Table _Columns f context
@@ -222,24 +221,23 @@ class GConstructableADT _Table _Columns f context rep where
 instance
   ( htable ~ HLabel "tag" (HType Tag)
   , GConstructableADT' _Table _Columns f context htable rep
-  , HLabelable context
   )
   => GConstructableADT _Table _Columns f context (M1 D meta rep)
  where
   gbuildADT toColumns nullifier =
     gbuildADT' @_Table @_Columns @f @context @htable @rep toColumns nullifier .
-    hlabel hlabeler
+    hlabel
 
   gunbuildADT fromColumns unnullifier =
-    first (hunlabel hunlabeler) .
+    first hunlabel .
     gunbuildADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier
 
   gconstructADT toColumns null nullifier mk =
     gconstructADT' @_Table @_Columns @f @context @htable @rep toColumns null nullifier
-      (hlabel hlabeler . mk)
+      (hlabel . mk)
 
   gdeconstructADT fromColumns unnullifier cases =
-    first (hunlabel hunlabeler) .
+    first hunlabel .
     gdeconstructADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier cases
 
 
@@ -247,7 +245,7 @@ type GConstructableADT'
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> K.HTable -> (Type -> Type) -> Constraint
+  -> K.Context -> K.HTable -> (Type -> Type) -> Constraint
 class GConstructableADT' _Table _Columns f context htable rep where
   gbuildADT' :: ()
     => ToColumns _Table _Columns f context
@@ -334,7 +332,6 @@ instance {-# OVERLAPPABLE #-}
   ( HTable (GColumns _Columns rep)
   , KnownSymbol label
   , meta ~ 'MetaCons label _fixity _isRecord
-  , HLabelable context
   , GConstructable _Table _Columns f context rep
   , GColumnsADT' _Columns htable (M1 C meta rep) ~
       HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
@@ -343,7 +340,7 @@ instance {-# OVERLAPPABLE #-}
  where
   gbuildADT' toColumns nullifier htable =
     HProduct htable .
-    hlabel hlabeler .
+    hlabel .
     hnullify (nullifier tag) .
     gconstruct @_Table @_Columns @f @context @rep toColumns
     where
@@ -354,13 +351,13 @@ instance {-# OVERLAPPABLE #-}
     , gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
         runIdentity $
         hunnullify (\spec -> pure . unnullifier spec) $
-        hunlabel hunlabeler
+        hunlabel
         a
     )
 
   gconstructADT' toColumns _ nullifier mk =
     HProduct htable .
-    hlabel hlabeler .
+    hlabel .
     hnullify nullifier .
     gconstruct @_Table @_Columns @f @context @rep toColumns
     where
@@ -375,18 +372,18 @@ instance {-# OVERLAPPABLE #-}
       a = gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
         runIdentity $
         hunnullify (\spec -> pure . unnullifier spec) $
-        hunlabel hunlabeler
+        hunlabel
         columns
       tag = Tag $ pack $ symbolVal (Proxy @label)
 
-  gfill null htable = HProduct htable (hlabel hlabeler (hnulls null))
+  gfill null htable = HProduct htable (hlabel (hnulls null))
 
 
 type GMakeableADT
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> Symbol -> (Type -> Type) -> Constraint
+  -> K.Context -> Symbol -> (Type -> Type) -> Constraint
 class GMakeableADT _Table _Columns f context name rep where
   gmakeADT :: ()
     => ToColumns _Table _Columns f context
@@ -403,7 +400,6 @@ instance
   , fallback ~ TypeError (NoConstructor datatype name)
   , fields ~ GFields f (GConstructorADT' name rep fallback)
   , GMakeableADT' _Table _Columns f context htable name rep fields
-  , HLabelable context
   , KnownSymbol name
   )
   => GMakeableADT _Table _Columns f context name (M1 D meta rep)
@@ -414,14 +410,14 @@ instance
       toColumns null nullifier htable
     where
       tag = Tag $ pack $ symbolVal (Proxy @name)
-      htable = hlabel hlabeler (wrap tag)
+      htable = hlabel (wrap tag)
 
 
 type GMakeableADT'
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
+  -> K.Context -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
 class GMakeableADT' _Table _Columns f context htable name rep fields where
   gmakeADT' :: ()
     => ToColumns _Table _Columns f context
@@ -462,8 +458,6 @@ instance {-# OVERLAPS #-}
 
 instance {-# OVERLAPS #-}
   ( HTable (GColumns _Columns rep)
-  , KnownSymbol name
-  , HLabelable context
   , GConstructable _Table _Columns f context rep
   , fields ~ GFields f rep
   , GColumnsADT' _Columns htable (M1 C ('MetaCons name _fixity _isRecord) rep) ~
@@ -473,15 +467,13 @@ instance {-# OVERLAPS #-}
  where
   gmakeADT' toColumns _ nullifier htable =
     HProduct htable .
-    hlabel hlabeler .
+    hlabel .
     hnullify nullifier .
     gconstruct @_Table @_Columns @f @context @rep toColumns
 
 
 instance {-# OVERLAPPABLE #-}
   ( HTable (GColumns _Columns rep)
-  , KnownSymbol label
-  , HLabelable context
   , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep) ~
       HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
   )
@@ -489,5 +481,5 @@ instance {-# OVERLAPPABLE #-}
  where
   gmakeADT' _ null _ htable _ =
     HProduct htable $
-    hlabel hlabeler $
+    hlabel $
     hnulls null

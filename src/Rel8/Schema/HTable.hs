@@ -129,7 +129,7 @@ type GHField :: K.HTable -> Spec -> Type
 newtype GHField t spec = GHField (HField (GHColumns (Rep (t Proxy))) spec)
 
 
-type GHTable :: K.HContext -> (Type -> Type) -> Constraint
+type GHTable :: K.Context -> (Type -> Type) -> Constraint
 class HTable (GHColumns rep) => GHTable context rep | rep -> context where
   type GHColumns rep :: K.HTable
   toGHColumns :: rep x -> GHColumns rep context
