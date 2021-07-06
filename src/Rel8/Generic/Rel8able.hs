@@ -1,9 +1,9 @@
 {-# language AllowAmbiguousTypes #-}
+{-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
+{-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -15,34 +15,32 @@ module Rel8.Generic.Rel8able
   , Algebra
   , GRep
   , GColumns, gfromColumns, gtoColumns
-  , greify, gunreify
-  , TUnreifyContext
+  , GFromExprs, gfromResult, gtoResult
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Data.Proxy ( Proxy( Proxy ) )
-import Data.Type.Equality ( (:~:)( Refl ) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- rel8
-import Rel8.Kind.Context ( Reifiable )
-import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Map ( GMap, GMappable, gmap, gunmap )
+import Rel8.Aggregate ( Aggregate )
+import Rel8.Expr ( Expr )
+import Rel8.Generic.Map ( GMap )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Generic.Table ( GAlgebra )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
 import Rel8.Schema.Context ( Col )
+import Rel8.Schema.Context.Virtual ( Abstract(..) )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Reify ( Reify, UnwrapReify )
+import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( fromColumns, toColumns, reify, unreify
-  , TTable, TColumns, TContext, TUnreify
+  ( fromColumns, toColumns, fromResult, toResult
+  , TTable, TColumns, TFromExprs
   )
 
 
@@ -96,79 +94,103 @@ type KRel8able = K.Rel8able
 type Rel8able :: K.Rel8able -> Constraint
 class HTable (GColumns t) => Rel8able t where
   type GColumns t :: K.HTable
+  type GFromExprs t :: Type
 
-  gfromColumns :: Reifiable context
-    => GColumns t (Col (Reify context)) -> t (Reify context)
+  gfromColumns :: Abstract context -> GColumns t (Col context) -> t context
+  gtoColumns :: Abstract context -> t context -> GColumns t (Col context)
 
-  gtoColumns :: Reifiable context
-    => t (Reify context) -> GColumns t (Col (Reify context))
+  gfromResult :: GColumns t (Col Result) -> GFromExprs t
+  gtoResult :: GFromExprs t -> GColumns t (Col Result)
 
-  greify :: Reifiable context
-    => t context -> t (Reify context)
-
-  gunreify :: Reifiable context
-    => t (Reify context) -> t context
-
-  type GColumns t = G.GColumns TColumns (GRep t (Reify Result))
+  type GColumns t = G.GColumns TColumns (GRep t Expr)
+  type GFromExprs t = t Result
 
   default gfromColumns :: forall context.
-    ( Generic (Record (t (Reify context)))
-    , G.GTable (TTable (Reify context)) TColumns (Col (Reify context)) (GRep t (Reify context))
-    , G.GColumns TColumns (GRep t (Reify context)) ~ GColumns t
+    ( VRel8able t Aggregate
+    , VRel8able t Expr
+    , VRel8able t Name
     )
-    => GColumns t (Col (Reify context)) -> t (Reify context)
-  gfromColumns =
-    unrecord .
-    to .
-    G.gfromColumns @(TTable (Reify context)) @TColumns fromColumns
+    => Abstract context -> GColumns t (Col context) -> t context
+  gfromColumns = \case
+    VAggregate -> vfromColumns
+    VExpr -> vfromColumns
+    VName -> vfromColumns
 
   default gtoColumns :: forall context.
-    ( Generic (Record (t (Reify context)))
-    , G.GTable (TTable (Reify context)) TColumns (Col (Reify context)) (GRep t (Reify context))
-    , G.GColumns TColumns (GRep t (Reify context)) ~ GColumns t
+    ( VRel8able t Aggregate
+    , VRel8able t Expr
+    , VRel8able t Name
     )
-    => t (Reify context) -> GColumns t (Col (Reify context))
-  gtoColumns =
-    G.gtoColumns @(TTable (Reify context)) @TColumns toColumns .
-    from .
-    Record
+    => Abstract context -> t context -> GColumns t (Col context)
+  gtoColumns = \case
+    VAggregate -> vtoColumns
+    VExpr -> vtoColumns
+    VName -> vtoColumns
 
-  default greify :: forall context.
-    ( Generic (Record (t context))
-    , Generic (Record (t (Reify context)))
-    , GMappable (TTable (Reify context)) (GRep t (Reify context))
-    , GRep t context ~ GMap TUnreify (GRep t (Reify context))
+  default gfromResult ::
+    ( Generic (Record (t Result))
+    , G.GTable (TTable Expr) TColumns TFromExprs (GRep t Expr)
+    , G.GColumns TColumns (GRep t Expr) ~ GColumns t
+    , Rep (Record (t Result)) ~ GMap TFromExprs (GRep t Expr)
+    , GFromExprs t ~ t Result
     )
-    => t context -> t (Reify context)
-  greify =
+    => GColumns t (Col Result) -> GFromExprs t
+  gfromResult =
     unrecord .
     to .
-    gunmap @(TTable (Reify context)) (Proxy @TUnreify) (reify Refl) .
-    from .
-    Record
+    G.gfromResult
+      @(TTable Expr)
+      @TColumns
+      @TFromExprs
+      @(GRep t Expr)
+      (\(_ :: proxy x) -> fromResult @Expr @x)
 
-  default gunreify :: forall context.
-    ( Generic (Record (t context))
-    , Generic (Record (t (Reify context)))
-    , GMappable (TTable (Reify context)) (GRep t (Reify context))
-    , GRep t context ~ GMap TUnreify (GRep t (Reify context))
+  default gtoResult ::
+    ( Generic (Record (t Result))
+    , G.GTable (TTable Expr) TColumns TFromExprs (GRep t Expr)
+    , G.GColumns TColumns (GRep t Expr) ~ GColumns t
+    , Rep (Record (t Result)) ~ GMap TFromExprs (GRep t Expr)
+    , GFromExprs t ~ t Result
     )
-    => t (Reify context) -> t context
-  gunreify =
-    unrecord .
-    to .
-    gmap @(TTable (Reify context)) (Proxy @TUnreify) (unreify Refl) .
+    => GFromExprs t -> GColumns t (Col Result)
+  gtoResult =
+    G.gtoResult
+      @(TTable Expr)
+      @TColumns
+      @TFromExprs
+      @(GRep t Expr)
+      (\(_ :: proxy x) -> toResult @Expr @x) .
     from .
     Record
 
 
 type Algebra :: K.Rel8able -> K.Algebra
-type Algebra t = GAlgebra (GRep t (Reify Result))
+type Algebra t = GAlgebra (GRep t Expr)
 
 
 type GRep :: K.Rel8able -> K.Context -> Type -> Type
 type GRep t context = Rep (Record (t context))
 
 
-data TUnreifyContext :: Type -> Exp K.Context
-type instance Eval (TUnreifyContext a) = UnwrapReify (Eval (TContext a))
+type VRel8able :: K.Rel8able -> K.Context -> Constraint
+type VRel8able t context =
+  ( Generic (Record (t context))
+  , G.GTable (TTable context) TColumns TFromExprs (GRep t context)
+  , G.GColumns TColumns (GRep t context) ~ GColumns t
+  )
+
+
+vfromColumns :: forall t context. VRel8able t context
+  => GColumns t (Col context) -> t context
+vfromColumns =
+  unrecord .
+  to .
+  G.gfromColumns @(TTable context) @TColumns @TFromExprs fromColumns
+
+
+vtoColumns :: forall t context. VRel8able t context
+  => t context -> GColumns t (Col context)
+vtoColumns =
+  G.gtoColumns @(TTable context) @TColumns @TFromExprs toColumns .
+  from .
+  Record

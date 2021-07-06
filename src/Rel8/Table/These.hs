@@ -26,12 +26,10 @@ module Rel8.Table.These
 where
 
 -- base
-import Control.Category ( id )
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
 import Data.Maybe ( isJust )
-import Data.Type.Equality ( apply )
-import Prelude hiding ( id, undefined )
+import Prelude hiding ( undefined )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
@@ -39,17 +37,17 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), not_ )
 import Rel8.Expr.Null ( isNonNull )
 import Rel8.Kind.Context ( Reifiable )
-import Rel8.Schema.Context.Abstract ( Abstract )
 import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
+import Rel8.Schema.HTable.Label ( hlabel, hrelabel, hunlabel )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.HTable.These ( HTheseTable(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , coherence, congruence, reify, unreify
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
@@ -62,7 +60,7 @@ import Rel8.Table.Maybe
 import Rel8.Table.Nullify ( Nullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
 
@@ -71,7 +69,8 @@ import Data.Functor.Apply ( Apply, (<.>) )
 import Data.Functor.Bind ( Bind, (>>-) )
 
 -- these
-import Data.These ( These )
+import Data.These ( These( This, That, These ) )
+import Data.These.Combinators ( justHere, justThere )
 
 
 -- | @TheseTable a b@ is a Rel8 table that contains either the table @a@, the
@@ -139,12 +138,14 @@ instance (context ~ Expr, Table Expr a, Table Expr b, Semigroup a, Semigroup b) 
 
 instance
   ( Table context a, Table context b
-  , Reifiable context, Abstract context, context ~ context'
+  , Reifiable context, context ~ context'
   )
   => Table context' (TheseTable context a b)
  where
   type Columns (TheseTable context a b) = HTheseTable (Columns a) (Columns b)
   type Context (TheseTable context a b) = Context a
+  type FromExprs (TheseTable context a b) =
+    These (FromExprs a) (FromExprs b)
 
   toColumns TheseTable {here, there} = HTheseTable
     { hhereTag = hlabel $ HIdentity $ tag here
@@ -166,27 +167,46 @@ instance
         }
     }
 
-  reify proof TheseTable {here, there} = TheseTable
-    { here = reify proof here
-    , there = reify proof there
+  toResult tables = HTheseTable
+    { hhereTag = hrelabel hhereTag
+    , hhere = hrelabel hhere
+    , hthereTag = hrelabel hthereTag
+    , hthere = hrelabel hthere
     }
-  unreify proof TheseTable {here, there} = TheseTable
-    { here = unreify proof here
-    , there = unreify proof there
-    }
+    where
+      HMaybeTable
+        { htag = hhereTag
+        , hjust = hhere
+        } = toResult @_ @(MaybeTable context a) (justHere tables)
+      HMaybeTable
+        { htag = hthereTag
+        , hjust = hthere
+        } = toResult @_ @(MaybeTable context b) (justThere tables)
 
-  coherence = coherence @context @a
-  congruence proof abstract =
-    id `apply`
-    congruence @context @a proof abstract `apply`
-    congruence @context @b proof abstract
+  fromResult HTheseTable {hhereTag, hhere, hthereTag, hthere} =
+    case (here, there) of
+      (Just a, Nothing) -> This a
+      (Nothing, Just b) -> That b
+      (Just a, Just b) -> These a b
+      _ -> error "These.fromColumns: mismatch between tags and data"
+    where
+      here = fromResult @_ @(MaybeTable context a) mhere
+      there = fromResult @_ @(MaybeTable context b) mthere
+      mhere = HMaybeTable
+        { htag = hrelabel hhereTag
+        , hjust = hrelabel hhere
+        }
+      mthere = HMaybeTable
+        { htag = hrelabel hthereTag
+        , hjust = hrelabel hthere
+        }
 
 
 instance
-  ( Reifiable from, Abstract from, from ~ from'
-  , Reifiable to, Abstract to, to ~ to'
-  , Recontextualize from to a1 b1
+  ( Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
+  , Reifiable from, from ~ from'
+  , Reifiable to, to ~ to'
   )
   => Recontextualize from to (TheseTable from' a1 a2) (TheseTable to' b1 b2)
 
@@ -213,19 +233,8 @@ instance (OrdTable a, OrdTable b, context ~ Expr) =>
     }
 
 
-type instance FromExprs (TheseTable _context a b) =
-  These (FromExprs a) (FromExprs b)
-
-
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ TheseTable Expr exprs1 exprs2) =>
   ToExprs x (These a b)
- where
-  fromResult =
-    bimap (fromResult @exprs1) (fromResult @exprs2) .
-    fromColumns
-  toResult =
-    toColumns .
-    bimap (toResult @exprs1) (toResult @exprs2)
 
 
 -- | Test if a 'TheseTable' was constructed with 'thisTable'.

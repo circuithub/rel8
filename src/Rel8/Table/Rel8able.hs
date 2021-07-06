@@ -1,6 +1,6 @@
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
-{-# language FunctionalDependencies #-}
+{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -15,71 +15,50 @@ module Rel8.Table.Rel8able
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
-import Prelude
+import Prelude ()
 
 -- rel8
 import Rel8.Expr ( Expr )
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Kind.Context
-  ( SContext( SReify )
-  , Reifiable, contextSing
-  , sReifiable
-  )
 import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
   , GColumns, gfromColumns, gtoColumns
-  , greify, gunreify
+  , GFromExprs, gfromResult, gtoResult
   )
-import Rel8.Schema.Context ( Col )
-import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.Context.Virtual ( Virtual, virtual )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HConstrainTable, hdicts )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Reify ( hreify, hunreify, UnwrapReify )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
   ( Table, Columns, Context, Congruent, fromColumns, toColumns
-  , Unreify, reify, unreify, coherence, congruence
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
-import Rel8.Table.ADT ( ADT( ADT ), ADTable, fromADT, toADT )
+import Rel8.Table.ADT ( ADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.HKD ( HKD )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Reifiable context) =>
-  Table context (t context)
- where
+instance (Rel8able t, Virtual context) => Table context (t context) where
   type Columns (t context) = GColumns t
   type Context (t context) = context
-  type Unreify (t context) = t (UnwrapReify context)
+  type FromExprs (t context) = GFromExprs t
 
-  fromColumns = gunreify . gfromColumns . hreify
-  toColumns = hunreify . gtoColumns . greify
-
-  reify Refl = case contextSing @context of
-    SReify context -> case sReifiable context of
-      Dict -> greify
-
-  unreify Refl = case contextSing @context of
-    SReify context -> case sReifiable context of
-      Dict -> gunreify
-
-  coherence Refl _ = Refl
-  congruence Refl _ = Refl
+  fromColumns = gfromColumns virtual
+  toColumns = gtoColumns virtual
+  fromResult = gfromResult @t
+  toResult = gtoResult @t
 
 
 instance
   ( Rel8able t
-  , Reifiable from
-  , Reifiable to
+  , Virtual from
+  , Virtual to
   , Congruent (t from) (t to)
   )
   => Recontextualize from to (t from) (t to)
@@ -106,44 +85,15 @@ instance
   ordTable = hdicts @(Columns (t context)) @(ConstrainSpec (Sql DBOrd))
 
 
-type instance FromExprs (t Expr) = FromExprs' t
-
-
 instance
-  ( x ~ t' Expr
+  ( Rel8able t', t' ~ Choose (Algebra t) t
+  , x ~ t' Expr
   , result ~ Result
-  , ToExprs' (Algebra t) t' t
   )
   => ToExprs x (t result)
- where
-  fromResult = fromResult' @(Algebra t) @t'
-  toResult = toResult' @(Algebra t) @t'
 
 
-type FromExprs' :: K.Rel8able -> Type
-type family FromExprs' t where
-  FromExprs' (ADT t) = t Result
-  FromExprs' (HKD a) = a
-  FromExprs' t = t Result
-
-
-type ToExprs' :: K.Algebra -> K.Rel8able -> K.Rel8able -> Constraint
-class (algebra ~ Algebra t, Rel8able t') =>
-  ToExprs' algebra t' t | algebra t -> t'
- where
-  fromResult' :: GColumns t' (Col Result) -> t Result
-  toResult' :: t Result -> GColumns t' (Col Result)
-
-
-instance (Algebra t ~ 'K.Product, Rel8able t, t ~ t') =>
-  ToExprs' 'K.Product t' t
- where
-  fromResult' = fromColumns
-  toResult' = toColumns
-
-
-instance (Algebra t ~ 'K.Sum, ADTable t, t' ~ ADT t) =>
-  ToExprs' 'K.Sum t' t
- where
-  fromResult' = fromADT . ADT
-  toResult' = (\(ADT a) -> a) . toADT
+type Choose :: K.Algebra -> K.Rel8able -> K.Rel8able
+type family Choose algebra t where
+  Choose 'K.Sum t = ADT t
+  Choose 'K.Product t = t

@@ -16,27 +16,24 @@ module Rel8.Table.List
 where
 
 -- base
-import Control.Category ( id )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ), apply )
-import Prelude hiding ( id )
+import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr, Col( E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
-import Rel8.Schema.Context.Abstract ( Abstract, exclusivity, virtual )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize )
+import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
+import Rel8.Schema.Result ( vectorizer, unvectorizer )
 import Rel8.Schema.Spec ( SSpec(..) )
-import Rel8.Schema.Reify ( hreify, hunreify )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
-  , reify, unreify, coherence, congruence
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -45,7 +42,7 @@ import Rel8.Table.Alternative
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.Serialize ( ToExprs )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
@@ -55,39 +52,21 @@ newtype ListTable context a =
   ListTable (HListTable (Columns a) (Col (Context a)))
 
 
-instance (Table context a, Abstract context, context ~ context') =>
+instance (Table context a, context ~ context') =>
   Table context' (ListTable context a)
  where
   type Columns (ListTable context a) = HListTable (Columns a)
   type Context (ListTable context a) = Context a
+  type FromExprs (ListTable context a) = [FromExprs a]
 
   fromColumns = ListTable
   toColumns (ListTable a) = a
-
-  reify proof@Refl (ListTable a) =
-    case coherence @context @a proof abstract of
-      Refl -> case congruence @context @a proof abstract of
-        Refl -> ListTable (hreify a)
-    where
-      abstract = exclusivity virtual
-
-  unreify proof@Refl (ListTable a) =
-    case coherence @context @a proof abstract of
-      Refl -> case congruence @context @a proof abstract of
-        Refl -> ListTable (hunreify a)
-    where
-      abstract = exclusivity virtual
-
-  coherence = coherence @context @a
-  congruence proof abstract = id `apply` congruence @context @a proof abstract
+  fromResult = fmap (fromResult @_ @a) . hunvectorize unvectorizer
+  toResult = hvectorize vectorizer . fmap (toResult @_ @a)
 
 
-instance
-  ( Recontextualize from to a b
-  , Abstract from, from ~ from'
-  , Abstract to, to ~ to'
-  )
-  => Recontextualize from to (ListTable from' a) (ListTable to' b)
+instance (Recontextualize from to a b, from ~ from', to ~ to') =>
+  Recontextualize from to (ListTable from' a) (ListTable to' b)
 
 
 instance (EqTable a, context ~ Expr) => EqTable (ListTable context a) where
@@ -108,14 +87,8 @@ instance (OrdTable a, context ~ Expr) => OrdTable (ListTable context a) where
       (Identity (ordTable @a))
 
 
-type instance FromExprs (ListTable _context a) = [FromExprs a]
-
-
 instance (ToExprs exprs a, context ~ Expr) =>
   ToExprs (ListTable context exprs) [a]
- where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
 
 
 instance context ~ Expr => AltTable (ListTable context) where

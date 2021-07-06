@@ -15,7 +15,6 @@ module Rel8.Schema.Context.Nullify
 where
 
 -- base
-import Data.Bifunctor ( bimap )
 import Data.Bool ( bool )
 import Data.Kind ( Constraint, Type )
 import Data.Monoid ( getFirst )
@@ -37,7 +36,6 @@ import Rel8.Kind.Context ( SContext(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Col( N ), Name( Name ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
-import Rel8.Schema.Reify ( Col( Reify ), Reify )
 import Rel8.Schema.Result ( Col( R ), Result )
 import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
@@ -47,7 +45,6 @@ data Nullifiability context where
   NAggregate :: Nullifiability Aggregate
   NExpr :: Nullifiability Expr
   NName :: Nullifiability Name
-  NReify :: Nullifiability context -> Nullifiability (Reify context)
 
 
 type Nullifiable :: K.Context -> Constraint
@@ -67,14 +64,9 @@ instance Nullifiable Name where
   nullifiability = NName
 
 
-instance Nullifiable context => Nullifiable (Reify context) where
-  nullifiability = NReify nullifiability
-
-
 type NonNullifiability :: K.Context -> Type
 data NonNullifiability context where
   NNResult :: NonNullifiability Result
-  NNReify :: NonNullifiability context -> NonNullifiability (Reify context)
 
 
 nullifiableOrNot :: ()
@@ -85,7 +77,6 @@ nullifiableOrNot = \case
   SExpr -> Right NExpr
   SName -> Right NName
   SResult -> Left NNResult
-  SReify context -> bimap NNReify NReify $ nullifiableOrNot context
 
 
 absurd :: Nullifiability context -> NonNullifiability context -> a
@@ -93,8 +84,6 @@ absurd = \case
   NAggregate -> \case
   NExpr -> \case
   NName -> \case
-  NReify context -> \case
-    NNReify context' -> absurd context context'
 
 
 guarder :: ()
@@ -119,8 +108,6 @@ guarder SName _ _ _ name = name
 guarder SResult (R tag) isNonNull _ (R a) = R (bool Nothing a condition)
   where
     condition = isNonNull tag
-guarder (SReify context) (Reify tag) isNonNull isNonNullExpr (Reify a) =
-  Reify $ guarder context tag isNonNull isNonNullExpr a
 
 
 nullifier :: ()
@@ -132,7 +119,6 @@ nullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
   A $ Aggregate $ snullify nullity <$> a
 nullifier NExpr SSpec {nullity} (E a) = E $ snullify nullity a
 nullifier NName _ (N (Name a)) = N $ Name a
-nullifier (NReify context) spec (Reify a) = Reify $ nullifier context spec a
 
 
 unnullifier :: ()
@@ -144,7 +130,6 @@ unnullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
   A $ Aggregate $ sunnullify nullity <$> a
 unnullifier NExpr SSpec {nullity} (E a) = E $ sunnullify nullity a
 unnullifier NName _ (N (Name a)) = N $ Name a
-unnullifier (NReify context) spec (Reify a) = Reify (unnullifier context spec a)
 
 
 sguard :: Expr Bool -> Expr (Maybe a) -> Expr (Maybe a)

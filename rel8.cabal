@@ -39,6 +39,7 @@ library
   default-language:
     Haskell2010
   ghc-options:
+    -Werror=missing-methods -Werror=incomplete-patterns -Werror=missing-fields
     -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-monomorphism-restriction
@@ -82,13 +83,11 @@ library
     Rel8.Kind.Algebra
     Rel8.Kind.Context
 
-    Rel8.Generic.Coherence
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
     Rel8.Generic.Construction.Record
     Rel8.Generic.Map
     Rel8.Generic.Record
-    Rel8.Generic.Reify
     Rel8.Generic.Rel8able
     Rel8.Generic.Table
     Rel8.Generic.Table.ADT
@@ -116,8 +115,8 @@ library
     Rel8.Query.Values
 
     Rel8.Schema.Context
-    Rel8.Schema.Context.Abstract
     Rel8.Schema.Context.Nullify
+    Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
@@ -134,7 +133,6 @@ library
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
-    Rel8.Schema.Reify
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Spec.Constrain

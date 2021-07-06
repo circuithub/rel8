@@ -22,11 +22,10 @@ module Rel8.Table.Maybe
 where
 
 -- base
-import Control.Category ( id )
+import Data.Functor ( ($>) )
 import Data.Kind ( Type )
-import Data.Maybe ( isJust )
-import Data.Type.Equality ( apply )
-import Prelude hiding ( id, null, undefined )
+import Data.Maybe ( fromMaybe, isJust )
+import Prelude hiding ( null, undefined )
 
 -- comonad
 import Control.Comonad ( extract )
@@ -38,7 +37,6 @@ import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Kind.Context ( Reifiable )
-import Rel8.Schema.Context.Abstract ( Abstract )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
@@ -47,10 +45,11 @@ import Rel8.Schema.HTable.Maybe ( HMaybeTable(..) )
 import Rel8.Schema.Name ( Col( N ), Name )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import qualified Rel8.Schema.Null as N
+import Rel8.Schema.Result ( Col( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , coherence, congruence, reify, unreify
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -61,10 +60,10 @@ import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
+import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
-import Rel8.Type.Tag ( MaybeTag )
+import Rel8.Type.Tag ( MaybeTag( IsJust ) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
@@ -129,14 +128,12 @@ instance (context ~ Expr, Table Expr a, Semigroup a) =>
   mempty = nothingTable
 
 
-instance
-  ( Table context a
-  , Reifiable context, Abstract context, context ~ context'
-  )
-  => Table context' (MaybeTable context a)
+instance (Table context a, Reifiable context, context ~ context') =>
+  Table context' (MaybeTable context a)
  where
   type Columns (MaybeTable context a) = HMaybeTable (Columns a)
   type Context (MaybeTable context a) = Context a
+  type FromExprs (MaybeTable context a) = Maybe (FromExprs a)
 
   toColumns MaybeTable {tag, just} = HMaybeTable
     { htag = hlabel $ HIdentity tag
@@ -148,16 +145,22 @@ instance
     , just = fromColumns $ hunlabel hjust
     }
 
-  reify proof (MaybeTable tag a) = MaybeTable tag (reify proof a)
-  unreify proof (MaybeTable tag a) = MaybeTable tag (unreify proof a)
-  coherence = coherence @context @a
-  congruence proof abstract = id `apply` congruence @context @a proof abstract
+  toResult ma = HMaybeTable
+    { htag = hlabel (HIdentity (R (IsJust <$ ma)))
+    , hjust = hlabel (toResult @_ @(Nullify context a) ma)
+    }
+
+  fromResult HMaybeTable {htag, hjust} = case hunlabel htag of
+    HType (R tag) -> tag $>
+      fromMaybe err (fromResult @_ @(Nullify context a) (hunlabel hjust))
+    where
+      err = error "Maybe.fromColumns: mismatch between tag and data"
 
 
 instance
   ( Recontextualize from to a b
-  , Reifiable from, Abstract from, from ~ from'
-  , Reifiable to, Abstract to, to ~ to'
+  , Reifiable from, from ~ from'
+  , Reifiable to, to ~ to'
   )
   => Recontextualize from to (MaybeTable from' a) (MaybeTable to' b)
 
@@ -176,14 +179,8 @@ instance (OrdTable a, context ~ Expr) => OrdTable (MaybeTable context a) where
     }
 
 
-type instance FromExprs (MaybeTable _context a) = Maybe (FromExprs a)
-
-
 instance (ToExprs exprs a, context ~ Expr) =>
   ToExprs (MaybeTable context exprs) (Maybe a)
- where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
 
 
 -- | Check if a @MaybeTable@ is absent of any row. Like 'Data.Maybe.isNothing'.

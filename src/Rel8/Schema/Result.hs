@@ -1,21 +1,17 @@
 {-# language DataKinds #-}
-{-# language EmptyCase #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Result
   ( Col( R, unR ), Result
-  , NotResult( NotResult ), absurd
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
 where
 
 -- base
-import Data.Kind ( Type )
 import Prelude hiding ( null )
 
 -- rel8
@@ -36,21 +32,6 @@ data Result a
 instance Interpretation Result where
   data Col Result _spec where
     R :: {unR :: !a} -> Col Result ('Spec a)
-
-
-type IsResult :: Context -> Bool
-type family IsResult context where
-  IsResult Result = 'True
-  IsResult _ = 'False
-
-
-type NotResult :: Context -> Type
-data NotResult context where
-  NotResult :: IsResult context ~ 'False => NotResult context
-
-
-absurd :: NotResult Result -> a
-absurd = \case
 
 
 null :: Col Result ('Spec (Maybe a))
