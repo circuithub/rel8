@@ -43,7 +43,7 @@ showQuery = fold . sqlForQuery
 
 sqlForQuery :: Table Expr a
   => Query a -> Maybe String
-sqlForQuery = sqlForQueryWithNames namesFromLabels . fmap (AsRel8able . toColumns)
+sqlForQuery = sqlForQueryWithNames namesFromLabels . fmap toCols
 
 
 sqlForQueryWithNames :: Selects names exprs

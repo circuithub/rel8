@@ -32,7 +32,6 @@ import Rel8.Expr.Opaleye ( toColumn, toPrimExpr )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( NumberOfRowsAffected, Projection ) )
-import Rel8.Table ( fromColumns, toColumns )
 import Rel8.Table.AsRel8able
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
@@ -70,8 +69,8 @@ delete c Delete {from, deleteWhere, returning} =
         prepare = False
         sql = Opaleye.arrangeDeleteSql from' where'
           where
-            from' = table $ AsRel8able . toColumns <$> from
-            where' = toColumn . toPrimExpr . deleteWhere . fromColumns . toHTable
+            from' = table $ toCols <$> from
+            where' = toColumn . toPrimExpr . deleteWhere . fromCols
 
     Projection project -> Hasql.run session c >>= either throwIO pure
       where
@@ -84,9 +83,9 @@ delete c Delete {from, deleteWhere, returning} =
         sql =
           Opaleye.arrangeDeleteReturningSql unpackspec from' where' project'
           where
-            from' = table $ AsRel8able . toColumns <$> from
-            where' = toColumn . toPrimExpr . deleteWhere . fromColumns . toHTable
-            project' = castTable . AsRel8able . toColumns . project . fromColumns . toHTable
+            from' = table $ toCols <$> from
+            where' = toColumn . toPrimExpr . deleteWhere . fromCols
+            project' = castTable . toCols . project . fromCols
   where
     decoder :: forall exprs projection a. Serializable projection a
       => (exprs -> projection) -> Hasql.Result [a]
