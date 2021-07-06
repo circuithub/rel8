@@ -17,7 +17,6 @@ module Rel8.Generic.Rel8able
   , GRep
   , GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
-  , Lower
   )
 where
 
@@ -48,13 +47,6 @@ import Rel8.Table
 -- | The kind of 'Rel8able' types
 type KRel8able :: Type
 type KRel8able = K.Rel8able
-
-
-type Lower :: K.HContext -> K.Context
-type family Lower f = g | g -> f where
-  Lower Aggregate = Aggregate
-  Lower Expr = Expr
-  Lower Name = Name
 
 
 -- | This type class allows you to define custom 'Table's using higher-kinded
@@ -104,8 +96,8 @@ class HTable (GColumns t) => Rel8able t where
   type GColumns t :: K.HTable
   type GFromExprs t :: Type
 
-  gfromColumns :: Abstract context -> GColumns t context -> t (Lower context)
-  gtoColumns :: Abstract context -> t (Lower context) -> GColumns t context
+  gfromColumns :: Abstract context -> GColumns t context -> t context
+  gtoColumns :: Abstract context -> t context -> GColumns t context
 
   gfromResult :: GColumns t Result -> GFromExprs t
   gtoResult :: GFromExprs t -> GColumns t Result
@@ -118,7 +110,7 @@ class HTable (GColumns t) => Rel8able t where
     , VRel8able t Expr
     , VRel8able t Name
     )
-    => Abstract context -> GColumns t context -> t (Lower context)
+    => Abstract context -> GColumns t context -> t context
   gfromColumns = \case
     VAggregate -> vfromColumns
     VExpr -> vfromColumns
@@ -129,7 +121,7 @@ class HTable (GColumns t) => Rel8able t where
     , VRel8able t Expr
     , VRel8able t Name
     )
-    => Abstract context -> t (Lower context) -> GColumns t context
+    => Abstract context -> t context -> GColumns t context
   gtoColumns = \case
     VAggregate -> vtoColumns
     VExpr -> vtoColumns
@@ -176,20 +168,20 @@ type Algebra :: K.Rel8able -> K.Algebra
 type Algebra t = GAlgebra (GRep t Expr)
 
 
-type GRep :: K.Rel8able -> K.Context -> Type -> Type
+type GRep :: K.Rel8able -> K.HContext -> Type -> Type
 type GRep t context = Rep (Record (t context))
 
 
 type VRel8able :: K.Rel8able -> K.HContext -> Constraint
 type VRel8able t context =
-  ( Generic (Record (t (Lower context)))
-  , G.GTable (TTable context) TColumns TFromExprs (GRep t (Lower context))
-  , G.GColumns TColumns (GRep t (Lower context)) ~ GColumns t
+  ( Generic (Record (t context))
+  , G.GTable (TTable context) TColumns TFromExprs (GRep t context)
+  , G.GColumns TColumns (GRep t context) ~ GColumns t
   )
 
 
 vfromColumns :: forall t context. VRel8able t context
-  => GColumns t context -> t (Lower context)
+  => GColumns t context -> t context
 vfromColumns =
   unrecord .
   to .
@@ -197,7 +189,7 @@ vfromColumns =
 
 
 vtoColumns :: forall t context. VRel8able t context
-  => t (Lower context) -> GColumns t context
+  => t context -> GColumns t context
 vtoColumns =
   G.gtoColumns @(TTable context) @TColumns @TFromExprs toColumns .
   from .

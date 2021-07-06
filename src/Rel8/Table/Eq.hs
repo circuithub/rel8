@@ -73,16 +73,6 @@ data TEqTable :: Type -> Exp Constraint
 type instance Eval (TEqTable a) = EqTable a
 
 
-instance
-  ( HTable t
-  , f ~ Expr
-  , HConstrainTable t (ConstrainSpec (Sql DBEq))
-  )
-  => EqTable (t f)
- where
-  eqTable = hdicts @(Columns (t f)) @(ConstrainSpec (Sql DBEq))
-
-
 instance Sql DBEq a => EqTable (Expr a) where
   eqTable = HType Dict
 

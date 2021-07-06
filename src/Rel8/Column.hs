@@ -24,7 +24,7 @@ import Rel8.Schema.Result ( Result )
 -- | This type family is used to specify columns in 'Rel8able's. In @Column f
 -- a@, @f@ is the context of the column (which should be left polymorphic in
 -- 'Rel8able' definitions), and @a@ is the type of the column.
-type Column :: K.Context -> Type -> Type
+type Column :: K.HContext -> Type -> Type
 type family Column context a where
   Column Aggregate       a = Aggregate a
   Column Expr            a = Expr a
@@ -32,5 +32,5 @@ type family Column context a where
   Column Result          a = a
 
 
-data TColumn :: K.Context -> Type -> Exp Type
+data TColumn :: K.HContext -> Type -> Exp Type
 type instance Eval (TColumn f a) = Column f a

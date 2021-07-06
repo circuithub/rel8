@@ -23,7 +23,7 @@ import Rel8.Table.Either ( EitherTable )
 -- | Nest an 'Either' value within a 'Rel8able'. @HEither f a b@ will produce a
 -- 'EitherTable' @a b@ in the 'Expr' context, and a 'Either' @a b@ in the
 -- 'Result' context.
-type HEither :: K.Context -> Type -> Type -> Type
+type HEither :: K.HContext -> Type -> Type -> Type
 type family HEither context = either | either -> context where
   HEither Aggregate = EitherTable Aggregate
   HEither Expr = EitherTable Expr

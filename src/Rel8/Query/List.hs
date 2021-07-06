@@ -30,6 +30,7 @@ import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
 import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table.AsRel8able
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.Maybe ( maybeTable )
@@ -51,7 +52,7 @@ many =
   fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
   optional .
   aggregate .
-  fmap (listAgg . toColumns)
+  fmap (listAgg . AsRel8able . toColumns)
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -66,7 +67,7 @@ some :: Table Expr a => Query a -> Query (NonEmptyTable Expr a)
 some =
   fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
   aggregate .
-  fmap (nonEmptyAgg . toColumns)
+  fmap (nonEmptyAgg . AsRel8able . toColumns)
 
 
 -- | A version of 'many' specialised to single expressions.

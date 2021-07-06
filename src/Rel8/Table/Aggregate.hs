@@ -30,6 +30,7 @@ import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( toColumns, fromColumns )
+import Rel8.Table.AsRel8able ( AsRel8able(..) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
@@ -45,7 +46,7 @@ groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
 
 hgroupBy :: HTable t
   => t (Dict (ConstrainSpec (Sql DBEq))) -> t Expr -> t Aggregate
-hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
+hgroupBy eqs exprs = htabulate $ \field ->
   case hfield eqs field of
     Dict -> case hfield exprs field of
       E expr -> A $ groupByExpr expr

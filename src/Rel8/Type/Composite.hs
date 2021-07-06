@@ -38,11 +38,12 @@ import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
 import Rel8.Table ( fromColumns, toColumns, fromResult, toResult )
+import Rel8.Table.AsRel8able
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Table.HKD ( HKD, HKDable )
 import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Rel8able ()
-import Rel8.Table.Serialize ( lit )
+import Rel8.Table.Serialize ( litHTable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
@@ -68,7 +69,7 @@ newtype Composite a = Composite
 instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
     { decode = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
-    , encode = encoder . lit . toResult @_ @(HKD a Expr) . unComposite
+    , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
     , typeName = compositeTypeName @a
     }
 

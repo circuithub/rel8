@@ -32,6 +32,7 @@ import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
 import Rel8.Table ( fromColumns, toColumns )
+import Rel8.Table.AsRel8able
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
@@ -70,9 +71,9 @@ update c Update {target, set, updateWhere, returning} =
         prepare = False
         sql = Opaleye.arrangeUpdateSql target' set' where'
           where
-            target' = table $ toColumns <$> target
-            set' = toColumns . set . fromColumns
-            where' = toColumn . toPrimExpr . updateWhere . fromColumns
+            target' = table $ AsRel8able . toColumns <$> target
+            set' = AsRel8able . toColumns . set . fromColumns . toHTable
+            where' = toColumn . toPrimExpr . updateWhere . fromColumns . toHTable
 
     Projection project -> Hasql.run session c >>= either throwIO pure
       where
@@ -90,10 +91,10 @@ update c Update {target, set, updateWhere, returning} =
             where'
             project'
           where
-            target' = table $ toColumns <$> target
-            set' = toColumns . set . fromColumns
-            where' = toColumn . toPrimExpr . updateWhere . fromColumns
-            project' = castTable . toColumns . project . fromColumns
+            target' = table $ AsRel8able . toColumns <$> target
+            set' = AsRel8able . toColumns . set . fromColumns . toHTable
+            where' = toColumn . toPrimExpr . updateWhere . fromColumns . toHTable
+            project' = castTable . AsRel8able . toColumns . project . fromColumns . toHTable
 
   where
     decoder :: forall exprs projection a. Serializable projection a

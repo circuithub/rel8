@@ -148,6 +148,7 @@ library
     Rel8.Table.ADT
     Rel8.Table.Aggregate
     Rel8.Table.Alternative
+    Rel8.Table.AsRel8able
     Rel8.Table.Bool
     Rel8.Table.Either
     Rel8.Table.Eq

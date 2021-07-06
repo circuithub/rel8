@@ -23,7 +23,6 @@ module Rel8.Table.ADT
   , NameADT, nameADT
   , AggregateADT, aggregateADT
   , ADTRep
-  , Raise
   )
 where
 
@@ -52,7 +51,6 @@ import Rel8.Generic.Rel8able
   ( Rel8able
   , GRep, GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
-  , Lower
   )
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
@@ -67,15 +65,8 @@ import Rel8.Table
   )
 
 
-type Raise :: K.Context -> K.HContext
-type family Raise f = g | g -> f where
-  Raise Aggregate = Aggregate
-  Raise Expr = Expr
-  Raise Name = Name
-
-
 type ADT :: K.Rel8able -> K.Rel8able
-newtype ADT t context = ADT (GColumnsADT t (Raise context))
+newtype ADT t context = ADT (GColumnsADT t context)
 
 
 instance ADTable t => Rel8able (ADT t) where
@@ -187,7 +178,7 @@ aggregateADT f =
 
 
 data ADTRep :: K.Rel8able -> K.HContext -> Exp (Type -> Type)
-type instance Eval (ADTRep t context) = GRep t (Lower context)
+type instance Eval (ADTRep t context) = GRep t context
 
 
 type GColumnsADT :: K.Rel8able -> K.HTable

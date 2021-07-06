@@ -26,4 +26,4 @@ type HTable = HContext -> Type
 
 
 type Rel8able :: Type
-type Rel8able = Context -> Type
+type Rel8able = HContext -> Type

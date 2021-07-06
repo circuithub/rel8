@@ -24,7 +24,6 @@ import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
   , GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
-  , Lower
   )
 import Rel8.Schema.Context.Virtual ( Virtual, virtual )
 import qualified Rel8.Schema.Kind as K
@@ -36,7 +35,7 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
-import Rel8.Table.ADT ( ADT, Raise )
+import Rel8.Table.ADT ( ADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
@@ -45,9 +44,9 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Virtual f, f ~ Raise g, g ~ Lower f) => Table f (t g) where
+instance (Rel8able t, Virtual f, f ~ g) => Table f (t g) where
   type Columns (t g) = GColumns t
-  type Context (t g) = Raise g
+  type Context (t g) = g
   type FromExprs (t g) = GFromExprs t
 
   fromColumns = gfromColumns virtual
@@ -58,13 +57,11 @@ instance (Rel8able t, Virtual f, f ~ Raise g, g ~ Lower f) => Table f (t g) wher
 
 instance
   ( Rel8able t
-  , from' ~ Raise from
-  , to' ~ Raise to
-  , Virtual from'
-  , Virtual to'
+  , Virtual from
+  , Virtual to
   , Congruent (t from) (t to)
-  , Lower from' ~ from
-  , Lower to' ~ to
+  , from ~ from'
+  , to ~ to'
   )
   => Recontextualize from' to' (t from) (t to)
 

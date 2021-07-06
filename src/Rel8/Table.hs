@@ -171,20 +171,6 @@ data TFromExprs :: Type -> Exp Type
 type instance Eval (TFromExprs a) = FromExprs a
 
 
--- | Any 'HTable' is also a 'Table'.
-instance (hcontext ~ context, HTable t) =>
-  Table context (t hcontext)
- where
-  type Columns (t hcontext) = t
-  type Context (t hcontext) = hcontext
-  type FromExprs (t hcontext) = t Result
-
-  toColumns = id
-  fromColumns = id
-  toResult = id
-  fromResult = id
-
-
 -- | Any context is trivially a table.
 instance KnownSpec spec => Table context (context spec) where
   type Columns (context spec) = HIdentity spec

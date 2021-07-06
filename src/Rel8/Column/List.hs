@@ -22,7 +22,7 @@ import Rel8.Table.List ( ListTable )
 
 -- | Nest a list within a 'Rel8able'. @HList f a@ will produce a 'ListTable'
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
-type HList :: K.Context -> Type -> Type
+type HList :: K.HContext -> Type -> Type
 type family HList context = list | list -> context where
   HList Aggregate = ListTable Aggregate
   HList Expr = ListTable Expr

@@ -18,6 +18,7 @@ import Rel8.Query.Opaleye ( fromOpaleye )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Table ( fromColumns, toColumns )
+import Rel8.Table.AsRel8able
 import Rel8.Table.Opaleye ( table, unpackspec )
 
 
@@ -25,8 +26,8 @@ import Rel8.Table.Opaleye ( table, unpackspec )
 -- table@.
 each :: Selects names exprs => TableSchema names -> Query exprs
 each =
-  fmap fromColumns .
+  fmap (fromColumns . toHTable) .
   fromOpaleye .
   Opaleye.selectTableExplicit unpackspec .
   table .
-  fmap toColumns
+  fmap (AsRel8able . toColumns)

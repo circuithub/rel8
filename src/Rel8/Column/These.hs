@@ -26,7 +26,7 @@ import Data.These ( These )
 -- | Nest an 'These' value within a 'Rel8able'. @HThese f a b@ will produce a
 -- 'TheseTable' @a b@ in the 'Expr' context, and a 'These' @a b@ in the
 -- 'Result' context.
-type HThese :: K.Context -> Type -> Type -> Type
+type HThese :: K.HContext -> Type -> Type -> Type
 type family HThese context = these | these -> context where
   HThese Aggregate = TheseTable Aggregate
   HThese Expr = TheseTable Expr

@@ -43,9 +43,6 @@ class
 instance KnownSpec spec => Recontextualize from to (from spec) (to spec)
 
 
-instance HTable t => Recontextualize from to (t from) (t to)
-
-
 instance
   ( Recontextualize from to a1 b1
   , Recontextualize from to a2 b2

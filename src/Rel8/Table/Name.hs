@@ -1,8 +1,13 @@
+{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Name
@@ -17,6 +22,7 @@ where
 -- base
 import Data.Foldable ( fold )
 import Data.Functor.Const ( Const( Const ), getConst )
+import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty, intersperse, nonEmpty )
 import Data.Maybe ( fromMaybe )
 import Prelude
@@ -27,10 +33,12 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Opaleye ( toPrimExpr )
-import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
+import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Name ( Name( N, Name ) )
-import Rel8.Schema.Spec ( SSpec(..) )
-import Rel8.Table ( Table, Columns, Context, fromColumns, toColumns )
+import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Spec ( Spec, SSpec(..) )
+import Rel8.Table ( Table(..) )
+import Rel8.Table.AsRel8able ( AsRel8able(..) )
 
 
 -- | Construct a table in the 'Name' context containing the names of all
@@ -67,7 +75,7 @@ namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
 
 showExprs :: Table Expr a => a -> [(String, Opaleye.PrimExpr)]
 showExprs as = case (namesFromLabels, toColumns as) of
-  (names, exprs) -> getConst $ htabulateA $ \field ->
+  (AsRel8able names, exprs) -> getConst $ htabulateA $ \field ->
     case (hfield names field, hfield exprs field) of
       (N (Name name), E expr) -> Const [(name, toPrimExpr expr)]
 

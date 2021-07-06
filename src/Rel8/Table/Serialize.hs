@@ -10,7 +10,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
-  ( Serializable, lit, parse
+  ( Serializable, lit, litHTable, parse
   , ToExprs
   )
 where
@@ -113,10 +113,6 @@ instance
   , x ~ (exprs1, exprs2, exprs3, exprs4, exprs5, exprs6, exprs7)
   )
   => ToExprs x (a, b, c, d, e, f, g)
-
-
-instance (HTable t, result ~ Result, x ~ t Expr) =>
-  ToExprs x (t result)
 
 
 instance (KnownSpec spec, x ~ Expr spec) =>

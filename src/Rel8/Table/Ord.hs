@@ -74,17 +74,6 @@ data TOrdTable :: Type -> Exp Constraint
 type instance Eval (TOrdTable a) = OrdTable a
 
 
-instance
-  ( HTable t
-  , f ~ Expr
-  , HConstrainTable t (ConstrainSpec (Sql DBEq))
-  , HConstrainTable t (ConstrainSpec (Sql DBOrd))
-  )
-  => OrdTable (t f)
- where
-  ordTable = hdicts @(Columns (t f)) @(ConstrainSpec (Sql DBOrd))
-
-
 instance Sql DBOrd a => OrdTable (Expr a) where
   ordTable = HType Dict
 

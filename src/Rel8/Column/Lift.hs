@@ -17,7 +17,7 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Table.HKD ( HKD )
 
 
-type Lift :: K.Context -> Type -> Type
+type Lift :: K.HContext -> Type -> Type
 type family Lift context a where
   Lift Result a = a
   Lift context a = HKD a context
