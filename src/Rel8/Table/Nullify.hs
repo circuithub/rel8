@@ -28,7 +28,6 @@ import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Kind.Context ( Reifiable, contextSing )
-import Rel8.Schema.Context ( Col )
 import Rel8.Schema.Context.Nullify
   ( Nullifiability( NAggregate, NExpr )
   , NonNullifiability
@@ -61,7 +60,7 @@ import Data.Functor.Extend ( Extend, duplicated )
 type Nullify :: K.Context -> Type -> Type
 data Nullify context a
   = Table (Nullifiability context) a
-  | Fields (NonNullifiability context) (HNullify (Columns a) (Col (Context a)))
+  | Fields (NonNullifiability context) (HNullify (Columns a) (Context a))
 
 
 instance Nullifiable context => Functor (Nullify context) where
@@ -173,10 +172,10 @@ aggregateNullify f = \case
 
 
 guard :: (Reifiable context, HTable t)
-  => Col context ('Spec tag)
+  => context ('Spec tag)
   -> (tag -> Bool)
   -> (Expr tag -> Expr Bool)
-  -> HNullify t (Col context)
-  -> HNullify t (Col context)
+  -> HNullify t context
+  -> HNullify t context
 guard tag isNonNull isNonNullExpr =
   hguard (guarder contextSing tag isNonNull isNonNullExpr)

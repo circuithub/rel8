@@ -33,7 +33,7 @@ import qualified Opaleye.Manipulation as Opaleye
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Returning ( Returning( Projection, NumberOfRowsAffected ) )
-import Rel8.Table ( fromColumns, toColumns )
+import Rel8.Table.Cols ( fromCols, toCols )
 import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 import Rel8.Table.Serialize ( Serializable, parse )
 
@@ -84,8 +84,8 @@ insert c Insert {into, rows, onConflict, returning} =
         prepare = False
         sql = Opaleye.arrangeInsertManySql into' rows' onConflict'
           where
-            into' = table $ toColumns <$> into
-            rows' = toColumns <$> x :| xs
+            into' = table $ toCols <$> into
+            rows' = toCols <$> x :| xs
 
     (x:xs, Projection project) -> Hasql.run session c >>= either throwIO pure
       where
@@ -103,9 +103,9 @@ insert c Insert {into, rows, onConflict, returning} =
             project'
             onConflict'
           where
-            into' = table $ toColumns <$> into
-            rows' = toColumns <$> x :| xs
-            project' = castTable . toColumns . project . fromColumns
+            into' = table $ toCols <$> into
+            rows' = toCols <$> x :| xs
+            project' = castTable . toCols . project . fromCols
 
   where
     onConflict' =

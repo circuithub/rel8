@@ -43,7 +43,7 @@ type FromColumns
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext
+  -> K.Context
   -> Type
 type FromColumns _Table _Columns f context = forall proxy x.
   Eval (_Table x) => proxy x -> Eval (_Columns x) context -> Eval (f x)
@@ -53,7 +53,7 @@ type ToColumns
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext
+  -> K.Context
   -> Type
 type ToColumns _Table _Columns f context = forall proxy x.
   Eval (_Table x) => proxy x -> Eval (f x) -> Eval (_Columns x) context
@@ -117,7 +117,7 @@ type GConstructable
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> (Type -> Type) -> Constraint
+  -> K.Context -> (Type -> Type) -> Constraint
 class GConstructable _Table _Columns f context rep where
   gconstruct :: ()
     => ToColumns _Table _Columns f context

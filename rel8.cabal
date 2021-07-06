@@ -114,7 +114,6 @@ library
     Rel8.Query.These
     Rel8.Query.Values
 
-    Rel8.Schema.Context
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict
@@ -150,6 +149,7 @@ library
     Rel8.Table.Aggregate
     Rel8.Table.Alternative
     Rel8.Table.Bool
+    Rel8.Table.Cols
     Rel8.Table.Either
     Rel8.Table.Eq
     Rel8.Table.HKD

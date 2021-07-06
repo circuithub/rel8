@@ -1,4 +1,5 @@
 {-# language GADTs #-}
+{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 
 module Rel8.Query.Maybe
@@ -18,7 +19,7 @@ import Control.Comonad ( extract )
 import qualified Opaleye.Internal.MaybeFields as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr )
 import Rel8.Query ( Query )
@@ -54,13 +55,14 @@ catMaybeTable ma@(MaybeTable _ a) = do
 -- to step through multiple @LEFT JOINs@.
 --
 -- Note that @traverseMaybeTable@ takes a @a -> Query b@ function, which means
--- you also have the ability to "expand" one row into multiple rows.  If the 
+-- you also have the ability to "expand" one row into multiple rows.  If the
 -- @a -> Query b@ function returns no rows, then the resulting query will also
 -- have no rows. However, regardless of the given @a -> Query b@ function, if
 -- the input is @nothingTable@, you will always get exactly one @nothingTable@
 -- back.
 traverseMaybeTable :: (a -> Query b) -> MaybeTable Expr  a -> Query (MaybeTable Expr b)
 traverseMaybeTable query ma@(MaybeTable (E input) _) = do
-  MaybeTable (E output) b <- optional (query =<< catMaybeTable ma)
-  where_ $ output ==. input
-  pure $ MaybeTable (E input) b
+  optional (query =<< catMaybeTable ma) >>= \case
+    MaybeTable (E output) b -> do
+      where_ $ output ==. input
+      pure $ MaybeTable (E input) b

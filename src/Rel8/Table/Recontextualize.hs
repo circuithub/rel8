@@ -16,8 +16,6 @@ import Data.Kind ( Constraint, Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Schema.Context ( Col )
-import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Spec ( KnownSpec )
 import Rel8.Table ( Table, Congruent )
@@ -41,10 +39,7 @@ class
     , b from -> a
 
 
-instance KnownSpec spec => Recontextualize from to (Col from spec) (Col to spec)
-
-
-instance HTable t => Recontextualize from to (t (Col from)) (t (Col to))
+instance KnownSpec spec => Recontextualize from to (from spec) (to spec)
 
 
 instance

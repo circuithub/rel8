@@ -13,11 +13,7 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Expr
-  ( Expr(..)
-  , Col( E, unE )
-  )
-where
+module Rel8.Expr ( Expr(..) ) where
 
 -- base
 import Data.Kind ( Type )
@@ -37,10 +33,9 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Schema.Result ( Col( R ) )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
@@ -54,10 +49,10 @@ import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
 -- | Typed SQL expressions.
-type role Expr representational
 type Expr :: k -> Type
 data Expr a where
-  Expr :: k ~ Type => !Opaleye.PrimExpr -> Expr (a :: k)
+  Expr :: forall (a :: Type). !Opaleye.PrimExpr -> Expr a
+  E :: { unE :: !(Expr a) } -> Expr ('Spec a)
 
 
 deriving stock instance Show (Expr a)
@@ -122,11 +117,6 @@ instance Sql DBFloating a => Floating (Expr a) where
   asinh = function "asinh"
   acosh = function "acosh"
   atanh = function "atanh"
-
-
-instance Interpretation Expr where
-  data Col Expr _spec where
-    E :: {unE :: !(Expr a)} -> Col Expr ('Spec a)
 
 
 instance Sql DBType a => Table Expr (Expr a) where

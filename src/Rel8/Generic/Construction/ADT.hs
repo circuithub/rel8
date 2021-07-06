@@ -62,20 +62,20 @@ import Rel8.Type.Tag ( Tag( Tag ) )
 import Data.Text ( pack )
 
 
-type Null :: K.HContext -> Type
+type Null :: K.Context -> Type
 type Null context = forall a. ()
   => SSpec ('Spec a)
   -> context ('Spec (Nullify a))
 
 
-type Nullifier :: K.HContext -> Type
+type Nullifier :: K.Context -> Type
 type Nullifier context = forall a. ()
   => SSpec ('Spec a)
   -> context ('Spec a)
   -> context ('Spec (Nullify a))
 
 
-type Unnullifier :: K.HContext -> Type
+type Unnullifier :: K.Context -> Type
 type Unnullifier context = forall a. ()
   => SSpec ('Spec a)
   -> context ('Spec (Nullify a))
@@ -188,7 +188,7 @@ type GConstructableADT
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> (Type -> Type) -> Constraint
+  -> K.Context -> (Type -> Type) -> Constraint
 class GConstructableADT _Table _Columns f context rep where
   gbuildADT :: ()
     => ToColumns _Table _Columns f context
@@ -245,7 +245,7 @@ type GConstructableADT'
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> K.HTable -> (Type -> Type) -> Constraint
+  -> K.Context -> K.HTable -> (Type -> Type) -> Constraint
 class GConstructableADT' _Table _Columns f context htable rep where
   gbuildADT' :: ()
     => ToColumns _Table _Columns f context
@@ -383,7 +383,7 @@ type GMakeableADT
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> Symbol -> (Type -> Type) -> Constraint
+  -> K.Context -> Symbol -> (Type -> Type) -> Constraint
 class GMakeableADT _Table _Columns f context name rep where
   gmakeADT :: ()
     => ToColumns _Table _Columns f context
@@ -417,7 +417,7 @@ type GMakeableADT'
   :: (Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Exp Type)
-  -> K.HContext -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
+  -> K.Context -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
 class GMakeableADT' _Table _Columns f context htable name rep fields where
   gmakeADT' :: ()
     => ToColumns _Table _Columns f context
