@@ -114,6 +114,7 @@ library
     Rel8.Query.These
     Rel8.Query.Values
 
+    Rel8.Schema.Context.Lower
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict
@@ -161,10 +162,10 @@ library
     Rel8.Table.Opaleye
     Rel8.Table.Ord
     Rel8.Table.Order
-    Rel8.Table.Recontextualize
     Rel8.Table.Rel8able
     Rel8.Table.Serialize
     Rel8.Table.These
+    Rel8.Table.Transpose
     Rel8.Table.Undefined
 
     Rel8.Type

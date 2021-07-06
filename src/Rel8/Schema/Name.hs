@@ -10,7 +10,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Schema.Name
   ( Name(..)
@@ -25,6 +24,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Result ( Result( R ) )
@@ -32,8 +32,9 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Transpose ( Transposes )
 import Rel8.Type ( DBType )
 
 
@@ -47,6 +48,9 @@ data Name a where
   N :: { unN :: !(Name a) } -> Name ('Spec a)
 
 
+type instance Lower Name = Name
+
+
 deriving stock instance Show (Name a)
 
 
@@ -58,6 +62,7 @@ instance Sql DBType a => Table Name (Name a) where
   type Columns (Name a) = HType a
   type Context (Name a) = Name
   type FromExprs (Name a) = a
+  type Transpose to (Name a) = Lower to a
 
   toColumns a = HType (N a)
   fromColumns (HType (N a)) = a
@@ -65,17 +70,8 @@ instance Sql DBType a => Table Name (Name a) where
   fromResult (HType (R a)) = a
 
 
-instance Sql DBType a => Recontextualize Expr Name (Expr a) (Name a)
-
-
-instance Sql DBType a => Recontextualize Name Expr (Name a) (Expr a)
-
-
-instance Sql DBType a => Recontextualize Name Name (Name a) (Name a)
-
-
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for
 -- the 'Expr' columns in @b@.
 type Selects :: Type -> Type -> Constraint
-class Recontextualize Name Expr names exprs => Selects names exprs
-instance Recontextualize Name Expr names exprs => Selects names exprs
+class Transposes Name Expr names exprs => Selects names exprs
+instance Transposes Name Expr names exprs => Selects names exprs

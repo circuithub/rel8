@@ -48,6 +48,7 @@ import Rel8.Schema.Name ( Name )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
@@ -59,7 +60,6 @@ import Rel8.Table.Maybe
   )
 import Rel8.Table.Nullify ( Nullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
@@ -146,6 +146,8 @@ instance
   type Context (TheseTable context a b) = Context a
   type FromExprs (TheseTable context a b) =
     These (FromExprs a) (FromExprs b)
+  type Transpose to (TheseTable context a b) =
+    TheseTable to (Transpose to a) (Transpose to b)
 
   toColumns TheseTable {here, there} = HTheseTable
     { hhereTag = hlabel $ HIdentity $ tag here
@@ -200,15 +202,6 @@ instance
         { htag = hrelabel hthereTag
         , hjust = hrelabel hthere
         }
-
-
-instance
-  ( Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
-  , Reifiable from, from ~ from'
-  , Reifiable to, to ~ to'
-  )
-  => Recontextualize from to (TheseTable from' a1 a2) (TheseTable to' b1 b2)
 
 
 instance (EqTable a, EqTable b, context ~ Expr) =>

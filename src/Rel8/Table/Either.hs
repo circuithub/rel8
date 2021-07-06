@@ -49,12 +49,12 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
@@ -118,6 +118,8 @@ instance
   type Columns (EitherTable context a b) = HEitherTable (Columns a) (Columns b)
   type Context (EitherTable context a b) = Context a
   type FromExprs (EitherTable context a b) = Either (FromExprs a) (FromExprs b)
+  type Transpose to (EitherTable context a b) =
+    EitherTable to (Transpose to a) (Transpose to b)
 
   toColumns EitherTable {tag, left, right} = HEitherTable
     { htag = hlabel $ HType tag
@@ -149,15 +151,6 @@ instance
       IsRight -> maybe err Right $ fromResult @_ @(Nullify context b) (hunlabel hright)
     where
       err = error "Either.fromColumns: mismatch between tag and data"
-
-
-instance
-  ( Reifiable from, from ~ from'
-  , Reifiable to, to ~ to'
-  , Recontextualize from to a1 b1
-  , Recontextualize from to a2 b2
-  )
-  => Recontextualize from to (EitherTable from' a1 a2) (EitherTable to' b1 b2)
 
 
 instance (EqTable a, EqTable b, context ~ Expr) =>

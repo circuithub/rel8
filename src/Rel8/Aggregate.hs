@@ -9,7 +9,6 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
 module Rel8.Aggregate
   ( Aggregate(..), foldInputs, mapInputs
@@ -30,16 +29,17 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
-import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
+import Rel8.Table.Transpose ( Transposes )
 import Rel8.Type ( DBType )
 
 
@@ -54,10 +54,14 @@ data Aggregate a where
   A :: { unA :: !(Aggregate a) } -> Aggregate ('Spec a)
 
 
+type instance Lower Aggregate = Aggregate
+
+
 instance Sql DBType a => Table Aggregate (Aggregate a) where
   type Columns (Aggregate a) = HType a
   type Context (Aggregate a) = Aggregate
   type FromExprs (Aggregate a) = a
+  type Transpose to (Aggregate a) = Lower to a
 
   toColumns = HIdentity . A
   fromColumns (HIdentity (A a)) = a
@@ -65,31 +69,11 @@ instance Sql DBType a => Table Aggregate (Aggregate a) where
   fromResult (HIdentity (R a)) = a
 
 
-instance Sql DBType a =>
-  Recontextualize Aggregate Aggregate (Aggregate a) (Aggregate a)
-
-
-instance Sql DBType a =>
-  Recontextualize Aggregate Expr (Aggregate a) (Expr a)
-
-
-instance Sql DBType a =>
-  Recontextualize Aggregate Name (Aggregate a) (Name a)
-
-
-instance Sql DBType a =>
-  Recontextualize Expr Aggregate (Expr a) (Aggregate a)
-
-
-instance Sql DBType a =>
-  Recontextualize Name Aggregate (Name a) (Aggregate a)
-
-
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
 -- for the columns in @b@.
 type Aggregates :: Type -> Type -> Constraint
-class Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
-instance Recontextualize Aggregate Expr aggregates exprs => Aggregates aggregates exprs
+class Transposes Aggregate Expr aggregates exprs => Aggregates aggregates exprs
+instance Transposes Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 
 
 foldInputs :: forall (a :: Type) (b :: Type). Monoid b

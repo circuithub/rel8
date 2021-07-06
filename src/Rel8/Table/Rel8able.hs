@@ -31,39 +31,31 @@ import Rel8.Schema.HTable ( HConstrainTable, hdicts )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( Table, Columns, Context, Congruent, fromColumns, toColumns
+  ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table.ADT ( ADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Virtual f, f ~ g) => Table f (t g) where
-  type Columns (t g) = GColumns t
-  type Context (t g) = g
-  type FromExprs (t g) = GFromExprs t
+instance (Rel8able t, Virtual context, context ~ context') =>
+  Table context' (t context)
+ where
+  type Columns (t context) = GColumns t
+  type Context (t context) = context
+  type FromExprs (t context) = GFromExprs t
+  type Transpose to (t context) = t to
 
   fromColumns = gfromColumns virtual
   toColumns = gtoColumns virtual
   fromResult = gfromResult @t
   toResult = gtoResult @t
-
-
-instance
-  ( Rel8able t
-  , Virtual from
-  , Virtual to
-  , Congruent (t from) (t to)
-  , from ~ from'
-  , to ~ to'
-  )
-  => Recontextualize from' to' (t from) (t to)
 
 
 instance

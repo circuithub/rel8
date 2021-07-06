@@ -21,7 +21,6 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table ( Table(..) )
-import Rel8.Table.Recontextualize ( Recontextualize )
 
 
 type Cols :: K.Context -> K.HTable -> Type
@@ -34,15 +33,13 @@ instance (HTable columns, context ~ context') =>
   type Columns (Cols context columns) = columns
   type Context (Cols context columns) = context
   type FromExprs (Cols context columns) = Cols Result columns
+  type Transpose to (Cols context columns) = Cols to columns
 
   toColumns (Cols a) = a
   fromColumns = Cols
 
   toResult (Cols a) = a
   fromResult = Cols
-
-
-instance HTable t => Recontextualize from to (Cols from t) (Cols to t)
 
 
 fromCols :: Table context a => Cols context (Columns a) -> a
