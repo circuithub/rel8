@@ -134,17 +134,15 @@ instance ListContext Name where
     where rename = N . (\(Name x) -> Name x) . unN
 
 
-instance (Table context a, c ~ context, Context a ~ c, ListContext context) =>
-  Table context (ListTable c a)
+instance (Table context a, context ~ context', ListContext context') =>
+  Table context' (ListTable context a)
  where
-  type Columns (ListTable c a) = HListTable (Columns a)
-  type Context (ListTable c a) = Context a
-  type FromExprs (ListTable c a) = [FromExprs a]
+  type Columns (ListTable context a) = HListTable (Columns a)
+  type Context (ListTable context a) = Context a
+  type FromExprs (ListTable context a) = [FromExprs a]
 
-  fromColumns c = ListTable fromColumns c
-
+  fromColumns = ListTable fromColumns
   toColumns (ListTable f cols) = mapColumns (toColumns . f) cols
-
   fromResult = fmap (fromResult @_ @a) . hunvectorize unvectorizer
   toResult = hvectorize vectorizer . fmap (toResult @_ @a)
 
@@ -171,7 +169,8 @@ instance (OrdTable a, context ~ Expr) => OrdTable (ListTable context a) where
       (Identity (ordTable @a))
 
 
-instance (context ~ Expr, ToExprs exprs a) => ToExprs (ListTable context exprs) [a] where
+instance (ToExprs exprs a, context ~ Expr) =>
+  ToExprs (ListTable context exprs) [a]
 
 
 instance context ~ Expr => AltTable (ListTable context) where
@@ -182,19 +181,23 @@ instance context ~ Expr => AlternativeTable (ListTable context) where
   emptyTable = mempty
 
 
-instance (context ~ Expr, Table Expr a) => Semigroup (ListTable context a) where
-  as <> bs = ListTable fromColumns $
+instance (context ~ Expr, Table Expr a) =>
+  Semigroup (ListTable context a)
+ where
+  as <> bs = fromColumns $
     happend (\_ _ (E a) (E b) -> E (sappend a b)) (toColumns as) (toColumns bs)
 
 
-instance (context ~ Expr, Table Expr a) => Monoid (ListTable context a) where
-  mempty = ListTable fromColumns $ hempty $ \_ -> E . sempty
+instance (context ~ Expr, Table Expr a) =>
+  Monoid (ListTable context a)
+ where
+  mempty = fromColumns $ hempty $ \_ -> E . sempty
 
 
 -- | Construct a @ListTable@ from a list of expressions.
 listTable :: Table Expr a => [a] -> ListTable Expr a
 listTable =
-  ListTable fromColumns .
+  fromColumns .
   hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
   fmap toColumns
 
@@ -207,7 +210,7 @@ nameListTable
   => a -- ^ The names of the columns of elements of the list.
   -> ListTable Name a
 nameListTable =
-  ListTable fromColumns .
+  fromColumns .
   hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
   pure .
   toColumns
