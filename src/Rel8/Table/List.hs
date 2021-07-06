@@ -22,28 +22,26 @@ where
 import Control.Applicative ( Const(..) )
 import Data.Functor.Identity ( Identity( Identity ), runIdentity )
 import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 import Data.List ( intercalate )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr(..), Col( E, unE ) )
+import Rel8.Expr ( Expr( Expr, E, unE ) )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Expr.Opaleye ( unsafeLiteral, fromPrimExpr, toPrimExpr )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable, htabulate, hfield, hspecs, htraverse, hmap )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( HVectorize(..), happend, hempty, hunvectorize, hvectorize )
-import Rel8.Schema.Name ( Col( N ), Name( Name ), unN )
+import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
+import Rel8.Schema.Name ( Name( N, Name, unN ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
+import Rel8.Schema.Result ( vectorizer, unvectorizer )
 import Rel8.Schema.Spec ( Spec(..), SSpec(..) )
-import Rel8.Schema.Spec.ConstrainDBType ( dbTypeDict, dbTypeNullity )
-import Rel8.Schema.Reify ( UnwrapReify, hreify, hunreify )
 import Rel8.Table
-  ( Table, Context, Columns, Unreify, fromColumns, toColumns
-  , reify, unreify
+  ( Table, Context, Columns, fromColumns, toColumns
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -52,12 +50,12 @@ import Rel8.Table.Alternative
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
 import Control.Monad.Trans.State.Strict ( evalState, get, put, State )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as O
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as O
 import qualified Opaleye.Internal.HaskellDB.Sql.Print as O
 import qualified Opaleye.Internal.HaskellDB.Sql.Generate as O
+import Rel8.Table.Serialize ( ToExprs )
 
 
 -- | A @ListTable@ value contains zero or more instances of @a@. You construct
@@ -65,8 +63,8 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Generate as O
 type ListTable :: K.Context -> Type -> Type
 data ListTable context a where
   ListTable :: HTable f
-    => (f (Col context) -> b)
-    -> HListTable f (Col context)
+    => (f context -> b)
+    -> HListTable f context
     -> ListTable context b
 
 
@@ -77,44 +75,49 @@ instance Functor (ListTable i) where
 class ListContext context where
   mapColumns
     :: (HTable f, HTable g)
-    => (f (Col context) -> g (Col context))
-    -> HListTable f (Col context)
-    -> HListTable g (Col context)
+    => (f context -> g context)
+    -> HListTable f context
+    -> HListTable g context
 
 
 instance ListContext Expr where
-  mapColumns f i = hvectorize vectorizer $ pure $ htabulate \field ->
+  mapColumns f i = hvectorize v $ pure $ htabulate \field ->
     case hfield hspecs field of
-      SSpec{ info } ->
+      SSpec{} ->
         hfield (f exprs) field
     where
       names = evalState (htraverse freshName i) 0
 
-      namesList = getConst $ htraverse (\(N (Name x)) -> Const [x]) names
+      namesList = getConst $ htraverse g names
+        where
+          g :: forall (a :: Spec). Name a -> Const [String] (Name a)
+          g (N (Name x)) = Const [x]
 
-      vectorizer :: SSpec ('Spec a) -> Identity (Col Expr ('Spec a)) -> Col Expr ('Spec [a])
-      vectorizer SSpec{info} (Identity (E (Expr yuck))) =
+      v :: SSpec ('Spec a) -> Identity (Expr ('Spec a)) -> Expr ('Spec [a])
+      v SSpec{} (Identity (E (Expr yuck))) =
         E $ unsafeLiteral $
         "(SELECT array_agg(" <> show (O.ppSqlExpr (O.sqlExpr O.defaultSqlGenerator yuck)) <> ") FROM " <>
         "(SELECT " <> unnests <> ") q(" <> intercalate "," namesList <> "))"
-      vectorizer SSpec{info} (Identity (E (Expr other))) = error $ show other
 
       unnests :: String
       unnests = intercalate "," $ getConst $ htraverse unnest i
         where
-          unnest :: Col Expr a -> Const [String] (Col Expr a)
+          unnest :: forall (a :: Spec). Expr a -> Const [String] (Expr a)
           unnest (E (Expr yuck)) =
             Const [ "unnest(" <> show (O.ppSqlExpr (O.sqlExpr O.defaultSqlGenerator yuck)) <> ")" ]
 
-      freshName :: Col Expr a -> State Int (Col Name a)
+      freshName :: forall (a :: Spec). Expr a -> State Int (Name a)
       freshName (E _) = do
         n <- get
         put (n + 1)
         return $ N $ Name $ "x" <> show n
 
-      exprs = runIdentity $ hunvectorize (\SSpec{info} -> pure . E . fromPrimExpr . toPrimExpr . unE) (hmap projectName names)
+      exprs = runIdentity $ hunvectorize uv (hmap projectName names)
         where
-          projectName :: Col Name a -> Col Expr a
+          uv :: SSpec ('Spec a) -> Expr ('Spec [a]) -> Identity (Expr ('Spec a))
+          uv SSpec{} = pure . E . fromPrimExpr . toPrimExpr . unE
+
+          projectName :: forall (a :: Spec). Name a -> Expr a
           projectName (N (Name name)) =
             E $ fromPrimExpr $ O.BaseTableAttrExpr name
 
@@ -135,53 +138,40 @@ instance (Table context a, c ~ context, Context a ~ c, ListContext context) =>
   Table context (ListTable c a)
  where
   type Columns (ListTable c a) = HListTable (Columns a)
-  type Context (ListTable c a) = c
-  type Unreify (ListTable c a) = ListTable (UnwrapReify c) (Unreify a)
+  type Context (ListTable c a) = Context a
+  type FromExprs (ListTable c a) = [FromExprs a]
 
   fromColumns c = ListTable fromColumns c
 
-  toColumns (ListTable f cols) = mapColumns (toColumns . f . fromColumns) cols
+  toColumns (ListTable f cols) = mapColumns (toColumns . f) cols
 
-  reify Refl (ListTable f cols) = ListTable (reify Refl . f . hunreify) (hreify cols)
-
-  unreify Refl (ListTable f cols) = ListTable (unreify Refl . f . hreify) (hunreify cols)
-
-
-instance
-  ( Recontextualize from to a b
-  , ListContext from, ListContext to
-  , from ~ from'
-  , to ~ to'
-  )
-  => Recontextualize from to (ListTable from' a) (ListTable to' b)
+  fromResult = fmap (fromResult @_ @a) . hunvectorize unvectorizer
+  toResult = hvectorize vectorizer . fmap (toResult @_ @a)
 
 
-instance (context ~ Expr, EqTable a) => EqTable (ListTable context a) where
+instance (Recontextualize from to a b, from ~ from', to ~ to', ListContext from', ListContext to') =>
+  Recontextualize from to (ListTable from' a) (ListTable to' b)
+
+
+instance (EqTable a, context ~ Expr) => EqTable (ListTable context a) where
   eqTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (eqTable @a))
 
 
-instance (context ~ Expr, OrdTable a) => OrdTable (ListTable context a) where
+instance (OrdTable a, context ~ Expr) => OrdTable (ListTable context a) where
   ordTable =
     hvectorize
-      (\SSpec {} (Identity dict) -> case dbTypeDict dict of
-          Dict -> case dbTypeNullity dict of
-            Null -> Dict
-            NotNull -> Dict)
+      (\SSpec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
       (Identity (ordTable @a))
 
 
-type instance FromExprs (ListTable _ a) = [FromExprs a]
-
-
 instance (context ~ Expr, ToExprs exprs a) => ToExprs (ListTable context exprs) [a] where
-  fromResult = fmap (fromResult @exprs) . fromColumns
-  toResult = toColumns . fmap (toResult @exprs)
 
 
 instance context ~ Expr => AltTable (ListTable context) where

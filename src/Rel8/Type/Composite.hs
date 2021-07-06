@@ -30,19 +30,19 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Col( E ), Expr )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
-import Rel8.Schema.HTable ( hfield, hspecs, htabulate, htabulateA )
-import Rel8.Schema.Name ( Col( N ), Name( Name ) )
+import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
+import Rel8.Schema.Name ( Name( N, Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
-import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Table ( fromColumns, toColumns, fromResult, toResult )
 import Rel8.Table.Eq ( EqTable )
-import Rel8.Table.HKD ( HKD, HKDable, fromHKD, toHKD )
+import Rel8.Table.HKD ( HKD, HKDable )
 import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Rel8able ()
-import Rel8.Table.Serialize ( lit )
+import Rel8.Table.Serialize ( litHTable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
@@ -67,8 +67,8 @@ newtype Composite a = Composite
 
 instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
-    { decode = Hasql.composite (Composite . fromHKD <$> decoder)
-    , encode = encoder . lit . toColumns . toHKD . unComposite
+    { decode = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
+    , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
     , typeName = compositeTypeName @a
     }
 
@@ -103,7 +103,7 @@ class (DBType a, HKDable a) => DBComposite a where
 -- single column expression, by combining them into a PostgreSQL composite
 -- type.
 compose :: DBComposite a => HKD a Expr -> Expr a
-compose = castExpr . fromPrimExpr . encoder
+compose = castExpr . fromPrimExpr . encoder . toColumns
 
 
 -- | Expand a composite type into a 'HKD'.
@@ -118,8 +118,8 @@ decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
     names = toColumns (compositeFields @a)
 
 
-decoder :: Table Result a => Hasql.Composite a
-decoder = fmap fromColumns $ unwrapApplicative $ htabulateA \field ->
+decoder :: HTable t => Hasql.Composite (t Result)
+decoder = unwrapApplicative $ htabulateA \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> WrapApplicative $ R <$>
       case nullity of
@@ -127,8 +127,8 @@ decoder = fmap fromColumns $ unwrapApplicative $ htabulateA \field ->
         NotNull -> Hasql.field $ Hasql.nonNullable $ decode info
 
 
-encoder :: Table Expr a => a -> Opaleye.PrimExpr
-encoder (toColumns -> a) = Opaleye.FunExpr "ROW" exprs
+encoder :: HTable t => t Expr -> Opaleye.PrimExpr
+encoder a = Opaleye.FunExpr "ROW" exprs
   where
     exprs = getConst $ htabulateA \field -> case hfield a field of
       E (toPrimExpr -> expr) -> Const [expr]

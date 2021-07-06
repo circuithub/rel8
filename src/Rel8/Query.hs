@@ -169,14 +169,14 @@ instance Bind Query where
 
 
 instance Monad Query where
-  Query q >>= f = Query $ \dummies -> Opaleye.QueryArr $ \(_, query, tag) ->
+  Query q >>= f = Query $ \dummies -> Opaleye.QueryArr $ \(_, tag) ->
     let
       Opaleye.QueryArr qa = q dummies
-      ((m, a), query', tag') = qa ((), query, tag)
+      ((m, a), query, tag') = qa ((), tag)
       Query q' = f a
-      (dummies', query'', tag'') =
+      (dummies', query', tag'') =
         ( dummy : dummies
-        , Opaleye.Rebind True bindings query'
+        , \lateral -> Opaleye.Rebind True bindings . query lateral
         , Opaleye.next tag'
         )
         where
@@ -185,19 +185,13 @@ instance Monad Query where
               random = Opaleye.FunExpr "random" []
               name = Opaleye.extractAttr "dummy" tag'
       Opaleye.QueryArr qa' = Opaleye.lateral $ \_ -> q' dummies'
-      -- NOTE: query''' and needsDummies are corecursive; only laziness saves
-      -- us here.
-      --
-      -- This refactoring, if adopted, would allow us to do this without
-      -- relying on laziness:
-      -- https://github.com/tomjaguarpaw/haskell-opaleye/commit/8a23f5028ab7396290984d63a8316949909fdbb4
-      ((m'@(Any needsDummies), b), query'''', tag''') = qa' ((), query''', tag'')
+      ((m'@(Any needsDummies), b), query'', tag''') = qa' ((), tag'')
       query'''
-        | needsDummies = query''
-        | otherwise = query'
+        | needsDummies = \lateral -> query'' lateral . query' lateral
+        | otherwise = \lateral -> query'' lateral . query lateral
       m'' = m <> m'
     in
-      ((m'', b), query'''', tag''')
+      ((m'', b), query''', tag''')
 
 
 -- | '<|>:' = 'unionAll'.

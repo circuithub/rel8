@@ -59,6 +59,7 @@ module Rel8
   , optional
   , catMaybeTable
   , traverseMaybeTable
+  , aggregateMaybeTable
   , nameMaybeTable
 
     -- ** @EitherTable@
@@ -68,6 +69,7 @@ module Rel8
   , keepLeftTable
   , keepRightTable
   , bitraverseEitherTable
+  , aggregateEitherTable
   , nameEitherTable
 
     -- ** @TheseTable@
@@ -83,6 +85,7 @@ module Rel8
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
   , bitraverseTheseTable
+  , aggregateTheseTable
   , nameTheseTable
 
     -- ** @ListTable@
@@ -236,8 +239,7 @@ module Rel8
 
     -- * IO
   , Serializable
-  , ToExprs(..)
-  , FromExprs
+  , ToExprs
   , Result
 
     -- * Running statements
@@ -250,14 +252,15 @@ module Rel8
   , Insert(..)
   , OnConflict(..)
   , insert
+  , unsafeDefault
 
     -- ** @DELETE@
   , Delete(..)
   , delete
 
     -- ** @UPDATE@
-  , update
   , Update(..)
+  , update
 
     -- ** @.. RETURNING@
   , Returning(..)
@@ -268,9 +271,6 @@ module Rel8
     -- ** Sequences
   , nextval
   , evaluate
-
-    -- * Implementation details
-  , HKDT(..)
   ) where
 
 -- base
@@ -289,6 +289,7 @@ import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
 import Rel8.Expr.Bool
+import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null

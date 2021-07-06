@@ -19,15 +19,24 @@
 module Rel8.Schema.HTable.Nullify
   ( HNullify( HNullify )
   , Nullify
-  , hnulls, hnullify, hunnullify
+  , hguard
+  , hnulls
+  , hnullify
+  , hunnullify
   )
 where
 
 -- base
+import GHC.Generics ( Generic )
 import Prelude hiding ( null )
 
 -- rel8
+import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable.MapTable
+  ( HMapTable, HMapTableField( HMapTableField )
+  , MapSpec, mapInfo
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import qualified Rel8.Schema.Null as Type ( Nullify )
@@ -35,16 +44,12 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply )
-import Rel8.Schema.HTable.MapTable
-import Rel8.FCF
-import GHC.Generics (Generic)
 
 
 type HNullify :: K.HTable -> K.HTable
 newtype HNullify table context = HNullify (HMapTable Nullify table context)
   deriving stock Generic
   deriving anyclass HTable
-
 
 
 -- | Transform a 'Spec' by allowing it to be @null@.
@@ -62,7 +67,18 @@ instance MapSpec Nullify where
           Null    -> Null
           NotNull -> Null
       , ..
-      } 
+      }
+
+
+hguard :: HTable t
+  => (forall a. context ('Spec (Maybe a)) -> context ('Spec (Maybe a)))
+  -> HNullify t context -> HNullify t context
+hguard guarder (HNullify as) = HNullify $ htabulate $ \(HMapTableField field) ->
+  case hfield hspecs field of
+    SSpec {nullity} -> case hfield as (HMapTableField field) of
+      a -> case nullity of
+        Null -> guarder a
+        NotNull -> guarder a
 
 
 hnulls :: HTable t
@@ -70,8 +86,9 @@ hnulls :: HTable t
     => SSpec ('Spec a)
     -> context ('Spec (Type.Nullify a)))
   -> HNullify t context
-hnulls null = HNullify $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
-  spec@SSpec {} -> null spec
+hnulls null = HNullify $ htabulate $ \(HMapTableField field) ->
+  case hfield hspecs field of
+    spec@SSpec {} -> null spec
 {-# INLINABLE hnulls #-}
 
 

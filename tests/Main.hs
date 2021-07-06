@@ -473,9 +473,6 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
         [res] <- liftIO $ Rel8.select connection $ pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
 
-        cover 1 "Equal" $ x == y
-        cover 1 "Not Equal" $ x /= y
-
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
 testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
@@ -486,9 +483,6 @@ testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
        pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
      eq === (x == y)
-
-     cover 1 "Equal" $ x == y
-     cover 1 "Not Equal" $ x /= y
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
@@ -759,13 +753,13 @@ testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect
 
     normalize selected' ===
       [ (('a', 'd'), (0, 0))
-      , (('b', 'd'), (1, 1))
-      , (('c', 'd'), (2, 2))
-      , (('a', 'e'), (3, 3))
+      , (('a', 'e'), (1, 1))
+      , (('a', 'f'), (2, 2))
+      , (('b', 'd'), (3, 3))
       , (('b', 'e'), (4, 4))
-      , (('c', 'e'), (5, 5))
-      , (('a', 'f'), (6, 6))
-      , (('b', 'f'), (7, 7))
+      , (('b', 'f'), (5, 5))
+      , (('c', 'd'), (6, 6))
+      , (('c', 'e'), (7, 7))
       , (('c', 'f'), (8, 8))
       ]
 

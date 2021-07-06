@@ -13,14 +13,9 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
-module Rel8.Expr
-  ( Expr(..)
-  , Col( E, unE )
-  )
-where
+module Rel8.Expr ( Expr(..) ) where
 
 -- base
-import Data.Functor.Identity ( Identity )
 import Data.Kind ( Type )
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
@@ -38,14 +33,13 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context ( Interpretation, Col )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Schema.Reify ( notReify )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns, reify, unreify
+  ( Table, Columns, Context, fromColumns, toColumns
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
@@ -55,10 +49,10 @@ import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
 -- | Typed SQL expressions.
-type role Expr representational
 type Expr :: k -> Type
 data Expr a where
-  Expr :: k ~ Type => !Opaleye.PrimExpr -> Expr (a :: k)
+  Expr :: forall (a :: Type). !Opaleye.PrimExpr -> Expr a
+  E :: { unE :: !(Expr a) } -> Expr ('Spec a)
 
 
 deriving stock instance Show (Expr a)
@@ -125,25 +119,15 @@ instance Sql DBFloating a => Floating (Expr a) where
   atanh = function "atanh"
 
 
-instance Interpretation Expr where
-  data Col Expr _spec where
-    E :: {unE :: !(Expr a)} -> Col Expr ('Spec a)
-
-
 instance Sql DBType a => Table Expr (Expr a) where
   type Columns (Expr a) = HType a
   type Context (Expr a) = Expr
+  type FromExprs (Expr a) = a
 
   toColumns a = HType (E a)
   fromColumns (HType (E a)) = a
-  reify = notReify
-  unreify = notReify
+  toResult a = HType (R a)
+  fromResult (HType (R a)) = a
 
 
 instance Sql DBType a => Recontextualize Expr Expr (Expr a) (Expr a)
-
-
-instance Sql DBType a => Recontextualize Expr Result (Expr a) (Identity a)
-
-
-instance Sql DBType a => Recontextualize Result Expr (Identity a) (Expr a)

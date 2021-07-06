@@ -1,7 +1,4 @@
 {-# language AllowAmbiguousTypes #-}
-{-# language DataKinds #-}
-{-# language DefaultSignatures #-}
-{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
@@ -10,41 +7,30 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
-{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Serialize
-  ( Serializable, lit, parse
-  , ToExprs(..), FromExprs
-  , TToExprs
+  ( Serializable, lit, litHTable, parse
+  , ToExprs
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
-import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
-import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Record ( Record(..) )
-import Rel8.Generic.Table
-  ( GGToExprs, GGColumns, ggfromResult, ggtoResult
-  , GAlgebra
-  )
-import Rel8.Kind.Algebra ( KnownAlgebra )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Result ( Col( R ), Result )
+import Rel8.Schema.Result ( Result( R ) )
 import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
-import Rel8.Table ( Table, Columns, fromColumns, toColumns, TColumns )
+import Rel8.Table ( Table, fromColumns, FromExprs, fromResult, toResult )
 import Rel8.Type ( DBType )
 
 -- semigroupoids
@@ -53,71 +39,21 @@ import Data.Functor.Apply ( WrappedApplicative(..) )
 
 -- | @ToExprs exprs a@ is evidence that the types @exprs@ and @a@ describe
 -- essentially the same type, but @exprs@ is in the 'Expr' context, and @a@ is
--- in the 'Result' context.
+-- a normal Haskell type.
 type ToExprs :: Type -> Type -> Constraint
-class Table Expr exprs => ToExprs exprs a where
-  fromResult :: Columns exprs (Col Result) -> a
-  toResult :: a -> Columns exprs (Col Result)
-
-  default fromResult ::
-    ( Generic (Record a)
-    , KnownAlgebra (GAlgebra (Rep (Record exprs)))
-    , Eval (GGToExprs (GAlgebra (Rep (Record exprs))) TToExprs TColumns (Rep (Record exprs)) (Rep (Record a)))
-    , Columns exprs ~ Eval (GGColumns (GAlgebra (Rep (Record exprs))) TColumns (Rep (Record exprs)))
-    )
-    => Columns exprs (Col Result) -> a
-  fromResult =
-    unrecord .
-    to .
-    ggfromResult
-      @(GAlgebra (Rep (Record exprs)))
-      @TToExprs
-      @TColumns
-      @(Rep (Record exprs))
-      (\(_ :: proxy expr) -> fromResult @expr)
-
-  default toResult ::
-    ( Generic (Record a)
-    , KnownAlgebra (GAlgebra (Rep (Record exprs)))
-    , Eval (GGToExprs (GAlgebra (Rep (Record exprs))) TToExprs TColumns (Rep (Record exprs)) (Rep (Record a)))
-    , Columns exprs ~ Eval (GGColumns (GAlgebra (Rep (Record exprs))) TColumns (Rep (Record exprs)))
-    )
-    => a -> Columns exprs (Col Result)
-  toResult =
-    ggtoResult
-      @(GAlgebra (Rep (Record exprs)))
-      @TToExprs
-      @TColumns
-      @(Rep (Record exprs))
-      (\(_ :: proxy expr) -> toResult @expr) .
-    from .
-    Record
+class Table Expr exprs => ToExprs exprs a
 
 
-data TToExprs :: Type -> Type -> Exp Constraint
-type instance Eval (TToExprs exprs a) = ToExprs exprs a
+instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a
 
 
-instance {-# OVERLAPPABLE #-} (Sql DBType a, x ~ Expr a) => ToExprs x a where
-  fromResult (HType (R a)) = a
-  toResult = HType . R
-
-
-instance (Sql DBType a, x ~ [a]) => ToExprs (Expr x) [a] where
-  fromResult (HType (R a)) = a
-  toResult = HType . R
+instance (Sql DBType a, x ~ [a]) => ToExprs (Expr x) [a]
 
 
 instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Expr x) (Maybe a)
- where
-  fromResult (HType (R a)) = a
-  toResult = HType . R
 
 
 instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty a)
- where
-  fromResult (HType (R a)) = a
-  toResult = HType . R
 
 
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ (exprs1, exprs2)) =>
@@ -179,41 +115,8 @@ instance
   => ToExprs x (a, b, c, d, e, f, g)
 
 
-instance (HTable t, result ~ Col Result, x ~ t (Col Expr)) =>
-  ToExprs x (t result)
- where
-  fromResult = id
-  toResult = id
-
-
-instance (KnownSpec spec, x ~ Col Expr spec) =>
-  ToExprs x (Col Result spec)
- where
-  fromResult = fromColumns
-  toResult = toColumns
-
-
--- | The @FromExprs@ type function maps a type in the @Expr@ context to the
--- corresponding type in the @Result@ context.
-type FromExprs :: Type -> Type
-type family FromExprs a
-type instance FromExprs (Expr a) = a
-type instance FromExprs (Col Expr spec) = Col Result spec
-type instance FromExprs (a, b) = (FromExprs a, FromExprs b)
-type instance FromExprs (a, b, c) = (FromExprs a, FromExprs b, FromExprs c)
-type instance FromExprs (a, b, c, d) =
-  (FromExprs a, FromExprs b, FromExprs c, FromExprs d)
-type instance FromExprs (a, b, c, d, e) =
-  (FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e)
-type instance FromExprs (a, b, c, d, e, f) =
-  ( FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e
-  , FromExprs f
-  )
-type instance FromExprs (a, b, c, d, e, f, g) =
-  ( FromExprs a, FromExprs b, FromExprs c, FromExprs d, FromExprs e
-  , FromExprs f, FromExprs g
-  )
-type instance FromExprs (t (Col Expr)) = t (Col Result)
+instance (KnownSpec spec, x ~ Expr spec) =>
+  ToExprs x (Result spec)
 
 
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
@@ -228,21 +131,21 @@ instance {-# OVERLAPPING #-} Sql DBType a => Serializable (Expr a) a
 -- | Use @lit@ to turn literal Haskell values into expressions. @lit@ is
 -- capable of lifting single @Expr@s to full tables.
 lit :: forall exprs a. Serializable exprs a => a -> exprs
-lit = fromColumns . litHTable . toResult @exprs
+lit = fromColumns . litHTable . toResult @_ @exprs
 
 
 parse :: forall exprs a. Serializable exprs a => Hasql.Row a
-parse = fromResult @exprs <$> parseHTable
+parse = fromResult @_ @exprs <$> parseHTable
 
 
-litHTable :: HTable t => t (Col Result) -> t (Col Expr)
+litHTable :: HTable t => t Result -> t Expr
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
     SSpec {nullity, info} -> case hfield as field of
       R value -> E (slitExpr nullity info value)
 
 
-parseHTable :: HTable t => Hasql.Row (t (Col Result))
+parseHTable :: HTable t => Hasql.Row (t Result)
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
     SSpec {nullity, info} -> R <$> sparseValue nullity info

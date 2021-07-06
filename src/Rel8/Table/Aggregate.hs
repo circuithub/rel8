@@ -16,8 +16,8 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregates, Col( A ) )
-import Rel8.Expr ( Expr, Col( E ) )
+import Rel8.Aggregate ( Aggregate( A ), Aggregates )
+import Rel8.Expr ( Expr( E ) )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , slistAggExpr
@@ -26,8 +26,9 @@ import Rel8.Expr.Aggregate
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable, hfield, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Schema.Spec.ConstrainDBType ( ConstrainDBType )
+import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
@@ -43,8 +44,8 @@ groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
 
 
 hgroupBy :: HTable t
-  => t (Dict (ConstrainDBType DBEq)) -> t (Col Expr) -> t (Col Aggregate)
-hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
+  => t (Dict (ConstrainSpec (Sql DBEq))) -> t Expr -> t Aggregate
+hgroupBy eqs exprs = htabulate $ \field ->
   case hfield eqs field of
     Dict -> case hfield exprs field of
       E expr -> A $ groupByExpr expr
@@ -60,7 +61,7 @@ hgroupBy eqs exprs = fromColumns $ htabulate $ \field ->
 -- items:
 --
 -- @
--- ordersWithItems :: Query (Order Expr, ListTable (Item Expr))
+-- ordersWithItems :: Query (Order Expr, ListTable Expr (Item Expr))
 -- ordersWithItems = do
 --   order <- each orderSchema
 --   items <- aggregate $ listAgg <$> itemsFromOrder order
@@ -74,7 +75,7 @@ listAgg (toColumns -> exprs) = fromColumns $
 
 
 -- | Like 'listAgg', but the result is guaranteed to be a non-empty list.
-nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable aggregates
+nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable Aggregate aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)

@@ -18,42 +18,44 @@ module Rel8.Table.Either
   ( EitherTable(..)
   , eitherTable, leftTable, rightTable
   , isLeftTable, isRightTable
+  , aggregateEitherTable
   , nameEitherTable
   )
 where
 
 -- base
-import Control.Applicative ( liftA2 )
 import Data.Bifunctor ( Bifunctor, bimap )
-import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
 import Prelude hiding ( undefined )
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- rel8
-import Rel8.Expr ( Expr )
+import Rel8.Aggregate ( Aggregate( A ) )
+import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiable, ConstrainTag
-  , HNullifiable, HConstrainTag
-  , hencodeTag, hdecodeTag
-  , hnullifier, hunnullifier
-  )
-import Rel8.Schema.HTable ( HTable )
+import Rel8.Kind.Context ( Reifiable )
+import Rel8.Schema.Context.Nullify ( Nullifiable )
+import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.Either ( HEitherTable(..) )
 import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import Rel8.Schema.HTable.Label ( hlabel, hunlabel )
-import Rel8.Schema.HTable.Nullify ( hnullify, hunnullify )
-import Rel8.Schema.Name ( Name )
+import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Name ( Name( N ) )
+import Rel8.Schema.Result ( Result( R ) )
+import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
-  , reify, unreify
+  , FromExprs, fromResult, toResult
   )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Recontextualize ( Recontextualize )
-import Rel8.Table.Serialize ( FromExprs, ToExprs, fromResult, toResult )
-import Rel8.Table.Tag ( Tag(..), fromExpr, fromName )
+import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
 
@@ -68,119 +70,160 @@ import Data.Functor.Bind ( Bind, (>>-) )
 --
 -- An @EitherTable@ is operationally the same as Haskell's 'Either' type, but
 -- adapted to work with Rel8.
-type EitherTable :: Type -> Type -> Type
-data EitherTable a b = EitherTable
-  { tag :: Tag "isRight" EitherTag
-  , left :: a
-  , right :: b
+type EitherTable :: K.Context -> Type -> Type -> Type
+data EitherTable context a b = EitherTable
+  { tag :: context ('Spec EitherTag)
+  , left :: Nullify context a
+  , right :: Nullify context b
   }
   deriving stock Functor
 
 
-instance Bifunctor EitherTable where
-  bimap f g (EitherTable tag a b) = EitherTable tag (f a) (g b)
+instance Nullifiable context => Bifunctor (EitherTable context) where
+  bimap f g (EitherTable tag a b) = EitherTable tag (fmap f a) (fmap g b)
 
 
-instance Table Expr a => Apply (EitherTable a) where
-  EitherTable tag l1 f <.> EitherTable tag' l2 a =
-    EitherTable (tag <> tag') (bool l1 l2 (isLeft (expr tag))) (f a)
+instance (context ~ Expr, Table Expr a) => Apply (EitherTable context a) where
+  EitherTable (E tag) l1 f <.> EitherTable (E tag') l2 a =
+    EitherTable (E (tag <> tag')) (bool l1 l2 (isLeft tag)) (f <.> a)
 
 
-instance Table Expr a => Applicative (EitherTable a) where
+instance (context ~ Expr, Table Expr a) => Applicative (EitherTable context a) where
   pure = rightTable
   (<*>) = (<.>)
 
 
-instance Table Expr a => Bind (EitherTable a) where
-  EitherTable tag l1 a >>- f = case f a of
-    EitherTable tag' l2 b ->
-      EitherTable (tag <> tag') (bool l1 l2 (isRight (expr tag))) b
+instance (context ~ Expr, Table Expr a) => Bind (EitherTable context a) where
+  EitherTable (E tag) l1 a >>- f = case f (extract a) of
+    EitherTable (E tag') l2 b ->
+      EitherTable (E (tag <> tag')) (bool l1 l2 (isRight tag)) b
 
 
-instance Table Expr a => Monad (EitherTable a) where
+instance (context ~ Expr, Table Expr a) => Monad (EitherTable context a) where
   (>>=) = (>>-)
 
 
-instance (Table Expr a, Table Expr b) => Semigroup (EitherTable a b) where
+instance (context ~ Expr, Table Expr a, Table Expr b) =>
+  Semigroup (EitherTable context a b)
+ where
   a <> b = bool a b (isRightTable a)
 
 
 instance
   ( Table context a, Table context b
-  , Nullifiable context, ConstrainTag context EitherTag
-  ) =>
-  Table context (EitherTable a b)
+  , Reifiable context, context ~ context'
+  )
+  => Table context' (EitherTable context a b)
  where
-  type Columns (EitherTable a b) = HEitherTable (Columns a) (Columns b)
-  type Context (EitherTable a b) = Context a
+  type Columns (EitherTable context a b) = HEitherTable (Columns a) (Columns b)
+  type Context (EitherTable context a b) = Context a
+  type FromExprs (EitherTable context a b) = Either (FromExprs a) (FromExprs b)
 
-  toColumns = toColumns2 toColumns toColumns
-  fromColumns = fromColumns2 fromColumns fromColumns
-  reify = liftA2 bimap reify reify
-  unreify = liftA2 bimap unreify unreify
+  toColumns EitherTable {tag, left, right} = HEitherTable
+    { htag = hlabel $ HType tag
+    , hleft = hlabel $ guard tag (== IsLeft) isLeft $ toColumns left
+    , hright = hlabel $ guard tag (== IsRight) isRight $ toColumns right
+    }
+
+  fromColumns HEitherTable {htag, hleft, hright} = EitherTable
+    { tag = unHIdentity $ hunlabel htag
+    , left = fromColumns $ hunlabel hleft
+    , right = fromColumns $ hunlabel hright
+    }
+
+  toResult = \case
+    Left table -> HEitherTable
+      { htag = hlabel (HType (R IsLeft))
+      , hleft = hlabel (toResult @_ @(Nullify context a) (Just table))
+      , hright = hlabel (toResult @_ @(Nullify context b) Nothing)
+      }
+    Right table -> HEitherTable
+      { htag = hlabel (HType (R IsRight))
+      , hleft = hlabel (toResult @_ @(Nullify context a) Nothing)
+      , hright = hlabel (toResult @_ @(Nullify context b) (Just table))
+      }
+
+  fromResult HEitherTable {htag, hleft, hright} = case hunlabel htag of
+    HType (R tag) -> case tag of
+      IsLeft -> maybe err Left $ fromResult @_ @(Nullify context a) (hunlabel hleft)
+      IsRight -> maybe err Right $ fromResult @_ @(Nullify context b) (hunlabel hright)
+    where
+      err = error "Either.fromColumns: mismatch between tag and data"
 
 
 instance
-  ( Nullifiable from, ConstrainTag from EitherTag
-  , Nullifiable to, ConstrainTag to EitherTag
+  ( Reifiable from, from ~ from'
+  , Reifiable to, to ~ to'
   , Recontextualize from to a1 b1
   , Recontextualize from to a2 b2
   )
-  => Recontextualize from to (EitherTable a1 a2) (EitherTable b1 b2)
+  => Recontextualize from to (EitherTable from' a1 a2) (EitherTable to' b1 b2)
 
 
-instance (EqTable a, EqTable b) => EqTable (EitherTable a b) where
-  eqTable = toColumns2 id id (rightTableWith (eqTable @a) (eqTable @b))
-
-
-instance (OrdTable a, OrdTable b) => OrdTable (EitherTable a b) where
-  ordTable = toColumns2 id id (rightTableWith (ordTable @a) (ordTable @b))
-
-
-type instance FromExprs (EitherTable a b) = Either (FromExprs a) (FromExprs b)
-
-
-instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable exprs1 exprs2) =>
-  ToExprs x (Either a b)
+instance (EqTable a, EqTable b, context ~ Expr) =>
+  EqTable (EitherTable context a b)
  where
-  fromResult =
-    bimap (fromResult @exprs1) (fromResult @exprs2) .
-    fromColumns
-  toResult =
-    toColumns .
-    bimap (toResult @exprs1) (toResult @exprs2)
+  eqTable = HEitherTable
+    { htag = hlabel (HType Dict)
+    , hleft = hlabel (eqTable @(Nullify context a))
+    , hright = hlabel (eqTable @(Nullify context b))
+    }
+
+
+instance (OrdTable a, OrdTable b, context ~ Expr) =>
+  OrdTable (EitherTable context a b)
+ where
+  ordTable = HEitherTable
+    { htag = hlabel (HType Dict)
+    , hleft = hlabel (ordTable @(Nullify context a))
+    , hright = hlabel (ordTable @(Nullify context b))
+    }
+
+
+instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ EitherTable Expr exprs1 exprs2) =>
+  ToExprs x (Either a b)
 
 
 -- | Test if an 'EitherTable' is a 'leftTable'.
-isLeftTable :: EitherTable a b -> Expr Bool
-isLeftTable = isLeft . expr . tag
+isLeftTable :: EitherTable Expr a b -> Expr Bool
+isLeftTable EitherTable {tag = E tag} = isLeft tag
 
 
 -- | Test if an 'EitherTable' is a 'rightTable'.
-isRightTable :: EitherTable a b -> Expr Bool
-isRightTable = isRight . expr . tag
+isRightTable :: EitherTable Expr a b -> Expr Bool
+isRightTable EitherTable {tag = E tag} = isRight tag
 
 
 -- | Pattern match/eliminate an 'EitherTable', by providing mappings from a
 -- 'leftTable' and 'rightTable'.
 eitherTable :: Table Expr c
-  => (a -> c) -> (b -> c) -> EitherTable a b -> c
-eitherTable f g EitherTable {tag, left, right} =
-  bool (f left) (g right) (isRight (expr tag))
+  => (a -> c) -> (b -> c) -> EitherTable Expr a b -> c
+eitherTable f g EitherTable {tag = E tag, left, right} =
+  bool (f (extract left)) (g (extract right)) (isRight tag)
 
 
 -- | Construct a left 'EitherTable'. Like 'Left'.
-leftTable :: Table Expr b => a -> EitherTable a b
-leftTable a = EitherTable (fromExpr (litExpr IsLeft)) a undefined
+leftTable :: Table Expr b => a -> EitherTable Expr a b
+leftTable a = EitherTable (E (litExpr IsLeft)) (pure a) undefined
 
 
 -- | Construct a right 'EitherTable'. Like 'Right'.
-rightTable :: Table Expr a => b -> EitherTable a b
-rightTable = rightTableWith undefined
+rightTable :: Table Expr a => b -> EitherTable Expr a b
+rightTable = EitherTable (E (litExpr IsRight)) undefined . pure
 
 
-rightTableWith :: a -> b -> EitherTable a b
-rightTableWith = EitherTable (fromExpr (litExpr IsRight))
+-- | Lift a pair of aggregating functions to operate on an 'EitherTable'.
+-- @leftTable@s and @rightTable@s are grouped separately.
+aggregateEitherTable :: ()
+  => (exprs -> aggregates)
+  -> (exprs' -> aggregates')
+  -> EitherTable Expr exprs exprs'
+  -> EitherTable Aggregate aggregates aggregates'
+aggregateEitherTable f g (EitherTable (E tag) a b) = EitherTable
+  { tag = A (groupByExpr tag)
+  , left = aggregateNullify f a
+  , right = aggregateNullify g b
+  }
 
 
 -- | Construct a 'EitherTable' in the 'Name' context. This can be useful if you
@@ -194,49 +237,5 @@ nameEitherTable
      -- ^ Names of the columns in the @a@ table.
   -> b
      -- ^ Names of the columns in the @b@ table.
-  -> EitherTable a b
-nameEitherTable = EitherTable . fromName
-
-
-toColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context EitherTag
-  , HNullifiable context
-  )
-  => (a -> t context)
-  -> (b -> u context)
-  -> EitherTable a b
-  -> HEitherTable t u context
-toColumns2 f g EitherTable {tag, left, right} = HEitherTable
-  { htag
-  , hleft = hlabel $ hnullify (hnullifier tag isLeft) $ f left
-  , hright = hlabel $ hnullify (hnullifier tag isRight) $ g right
-  }
-  where
-    htag = hlabel $ HType $ hencodeTag tag
-
-
-fromColumns2 ::
-  ( HTable t
-  , HTable u
-  , HConstrainTag context EitherTag
-  , HNullifiable context
-  )
-  => (t context -> a)
-  -> (u context -> b)
-  -> HEitherTable t u context
-  -> EitherTable a b
-fromColumns2 f g HEitherTable {htag, hleft, hright} = EitherTable
-  { tag
-  , left = f $ runIdentity $
-     hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel
-     hleft
-  , right = g $ runIdentity $
-     hunnullify (\a -> pure . hunnullifier a) $
-     hunlabel
-     hright
-  }
-  where
-    tag = hdecodeTag $ unHIdentity $ hunlabel htag
+  -> EitherTable Name a b
+nameEitherTable tag left right = EitherTable (N tag) (pure left) (pure right)

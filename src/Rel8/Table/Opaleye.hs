@@ -1,8 +1,10 @@
 {-# language BlockArguments #-}
+{-# language DataKinds #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language RankNTypes #-}
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
@@ -35,8 +37,8 @@ import qualified Opaleye.Internal.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Aggregate ( Col( A ), Aggregate( Aggregate ), Aggregates )
-import Rel8.Expr ( Expr, Col(..) )
+import Rel8.Aggregate ( Aggregate( A, Aggregate ), Aggregates )
+import Rel8.Expr ( Expr(..) )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , traversePrimExpr
@@ -44,8 +46,8 @@ import Rel8.Expr.Opaleye
   , scastExpr
   )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Name ( Col( N ), Name( Name ), Selects )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.Name ( Name( N, Name ), Selects )
+import Rel8.Schema.Spec ( Spec, SSpec(..) )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Undefined ( undefined )
@@ -88,14 +90,14 @@ table (TableSchema name schema columns) =
     Just schemaName -> Opaleye.TableWithSchema schemaName name (tableFields columns)
 
 
-tableFields ::Selects names exprs
+tableFields :: Selects names exprs
   => names -> Opaleye.TableFields exprs exprs
 tableFields (toColumns -> names) = dimap toColumns fromColumns $
   unwrapApplicative $ htabulateA $ \field -> WrapApplicative $
     case hfield names field of
       name -> lmap (`hfield` field) (go name)
   where
-    go :: Col Name spec -> Opaleye.TableFields (Col Expr spec) (Col Expr spec)
+    go :: forall (spec :: Spec). Name spec -> Opaleye.TableFields (Expr spec) (Expr spec)
     go (N (Name name)) =
       lmap (\(E a) -> toColumn $ toPrimExpr a) $
         E . fromPrimExpr . fromColumn <$>
@@ -130,7 +132,7 @@ toPackMap as = Opaleye.PackMap $ \f () ->
 castTable :: Table Expr a => a -> a
 castTable (toColumns -> as) = fromColumns $ htabulate \i ->
   case hfield hspecs i of
-    SSpec{info} -> 
+    SSpec{info} ->
       case hfield as i of
         E expr ->
           E (scastExpr info expr)
