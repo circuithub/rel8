@@ -24,7 +24,7 @@ import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.), false, true )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Ord ( (<.), (>.) )
@@ -33,9 +33,8 @@ import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Null (Sql)
-import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( Columns, toColumns, TColumns, TFromExprs )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
@@ -47,13 +46,13 @@ import Rel8.Type.Ord ( DBOrd )
 -- columns in a 'Table' have an instance of 'DBOrd'".
 type OrdTable :: Type -> Constraint
 class EqTable a => OrdTable a where
-  ordTable :: Columns a (Dict (ConstrainSpec (Sql DBOrd)))
+  ordTable :: Columns a (Dict (Sql DBOrd))
 
   default ordTable ::
     ( GTable TOrdTable TColumns TFromExprs (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
-    => Columns a (Dict (ConstrainSpec (Sql DBOrd)))
+    => Columns a (Dict (Sql DBOrd))
   ordTable =
     gtable
       @TOrdTable
@@ -70,7 +69,7 @@ type instance Eval (TOrdTable a) = OrdTable a
 
 
 instance Sql DBOrd a => OrdTable (Expr a) where
-  ordTable = HType Dict
+  ordTable = HIdentity Dict
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (a, b)
@@ -105,7 +104,7 @@ instance
 (toColumns -> as) <: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (ordTable @a) field of
+      (a, b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
     go (lt, eq) a = lt ||. (eq &&. a)
@@ -118,7 +117,7 @@ infix 4 <:
 (toColumns -> as) <=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (ordTable @a) field of
+      (a, b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a <. b, a ==. b)]
   where
     go (lt, eq) a = lt ||. (eq &&. a)
@@ -131,7 +130,7 @@ infix 4 <=:
 (toColumns -> as) >: (toColumns -> bs) =
   foldr @[] go false $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (ordTable @a) field of
+      (a, b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
     go (gt, eq) a = gt ||. (eq &&. a)
@@ -144,7 +143,7 @@ infix 4 >:
 (toColumns -> as) >=: (toColumns -> bs) =
   foldr @[] go true $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (ordTable @a) field of
+      (a, b) -> case hfield (ordTable @a) field of
         Dict -> Const [(a >. b, a ==. b)]
   where
     go (gt, eq) a = gt ||. (eq &&. a)

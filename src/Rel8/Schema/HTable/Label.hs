@@ -19,15 +19,15 @@ import Prelude
 -- rel8
 import Rel8.Schema.HTable
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Spec ( Spec, SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 
 
 type HLabel :: Symbol -> K.HTable -> K.HTable
 newtype HLabel label table context = HLabel (table context)
 
 
-type HLabelField :: Symbol -> K.HTable -> Spec -> Type
-newtype HLabelField label table spec = HLabelField (HField table spec)
+type HLabelField :: Symbol -> K.HTable -> Type -> Type
+newtype HLabelField label table a = HLabelField (HField table a)
 
 
 instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
@@ -40,7 +40,7 @@ instance (HTable table, KnownSymbol label) => HTable (HLabel label table) where
   htraverse f (HLabel a) = HLabel <$> htraverse f a
   hdicts = HLabel (hdicts @table)
   hspecs = HLabel $ htabulate $ \field -> case hfield (hspecs @table) field of
-    SSpec {..} -> SSpec {labels = symbolVal (Proxy @label) : labels, ..}
+    Spec {..} -> Spec {labels = symbolVal (Proxy @label) : labels, ..}
   {-# INLINABLE hspecs #-}
 
 

@@ -5,21 +5,20 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.Result
-  ( Result( R, unR )
+  ( Result
   , null, nullifier, unnullifier
   , vectorizer, unvectorizer
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity )
+import Data.Functor.Identity ( Identity( Identity), runIdentity )
 import Prelude hiding ( null )
 
 -- rel8
-import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.Kind ( Context )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 
 
 -- | The @Result@ context is the context used for decoded query results.
@@ -27,45 +26,29 @@ import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
 -- When a query is executed against a PostgreSQL database, Rel8 parses the
 -- returned rows, decoding each row into the @Result@ context.
 type Result :: Context
-data Result a where
-  R :: { unR :: !a } -> Result ('Spec a)
+type Result = Identity
 
 
-type instance Lower Result = Identity
+null :: Result (Maybe a)
+null = Identity Nothing
 
 
-null :: Result ('Spec (Maybe a))
-null = R Nothing
-
-
-nullifier :: ()
-  => SSpec ('Spec a)
-  -> Result ('Spec a)
-  -> Result ('Spec (Nullify a))
-nullifier SSpec {nullity} (R a) = R $ case nullity of
+nullifier :: Spec a -> Result a -> Result (Nullify a)
+nullifier Spec {nullity} (Identity a) = Identity $ case nullity of
   Null -> a
   NotNull -> Just a
 
 
-unnullifier :: ()
-  => SSpec ('Spec a)
-  -> Result ('Spec (Nullify a))
-  -> Maybe (Result ('Spec a))
-unnullifier SSpec {nullity} (R a) =
+unnullifier :: Spec a -> Result (Nullify a) -> Maybe (Result a)
+unnullifier Spec {nullity} (Identity a) =
   case nullity of
-    Null -> pure $ R a
-    NotNull -> R <$> a
+    Null -> pure $ Identity a
+    NotNull -> Identity <$> a
 
 
-vectorizer :: Functor f
-  => SSpec ('Spec a)
-  -> f (Result ('Spec a))
-  -> Result ('Spec (f a))
-vectorizer _ = R . fmap unR
+vectorizer :: Functor f => Spec a -> f (Result a) -> Result (f a)
+vectorizer _ = Identity . fmap runIdentity
 
 
-unvectorizer :: Functor f
-  => SSpec ('Spec a)
-  -> Result ('Spec (f a))
-  -> f (Result ('Spec a))
-unvectorizer _ (R results) = R <$> results
+unvectorizer :: Functor f => Spec a -> Result (f a) -> f (Result a)
+unvectorizer _ (Identity results) = Identity <$> results

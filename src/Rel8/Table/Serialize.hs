@@ -16,6 +16,7 @@ module Rel8.Table.Serialize
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -24,12 +25,12 @@ import Prelude
 import qualified Hasql.Decoders as Hasql
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Serialize ( slitExpr, sparseValue )
 import Rel8.Schema.HTable ( HTable, htabulate, htabulateA, hfield, hspecs )
 import Rel8.Schema.Null ( NotNull, Sql )
-import Rel8.Schema.Result ( Result( R ) )
-import Rel8.Schema.Spec ( SSpec(..), KnownSpec )
+import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Table ( Table, fromColumns, FromExprs, fromResult, toResult )
 import Rel8.Type ( DBType )
 
@@ -115,10 +116,6 @@ instance
   => ToExprs x (a, b, c, d, e, f, g)
 
 
-instance (KnownSpec spec, x ~ Expr spec) =>
-  ToExprs x (Result spec)
-
-
 -- | @Serializable@ witnesses the one-to-one correspondence between the type
 -- @sql@, which contains SQL expressions, and the type @haskell@, which
 -- contains the Haskell decoding of rows containing @sql@ SQL expressions.
@@ -141,11 +138,11 @@ parse = fromResult @_ @exprs <$> parseHTable
 litHTable :: HTable t => t Result -> t Expr
 litHTable as = htabulate $ \field ->
   case hfield hspecs field of
-    SSpec {nullity, info} -> case hfield as field of
-      R value -> E (slitExpr nullity info value)
+    Spec {nullity, info} -> case hfield as field of
+      Identity value -> slitExpr nullity info value
 
 
 parseHTable :: HTable t => Hasql.Row (t Result)
 parseHTable = unwrapApplicative $ htabulateA $ \field ->
   WrapApplicative $ case hfield hspecs field of
-    SSpec {nullity, info} -> R <$> sparseValue nullity info
+    Spec {nullity, info} -> Identity <$> sparseValue nullity info

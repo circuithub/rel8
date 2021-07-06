@@ -25,7 +25,7 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr, not_ )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( toPrimExpr, traversePrimExpr )
@@ -53,8 +53,8 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> cas
     where
       (ma, left', tag') = Opaleye.runSimpleQueryArr (pure <$> left) ((), tag)
       (mb, right', tag'') = Opaleye.runSimpleQueryArr (pure <$> right) ((), tag')
-      MaybeTable (E hasHere) a = ma
-      MaybeTable (E hasThere) b = mb
+      MaybeTable hasHere a = ma
+      MaybeTable hasThere b = mb
       (hasHere', lbindings) = Opaleye.run $ do
         traversePrimExpr (Opaleye.extractAttr "hasHere" tag'') hasHere
       (hasThere', rbindings) = Opaleye.run $ do
@@ -65,8 +65,8 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> cas
           on = toPrimExpr $ condition (extract a) (extract b)
           left'' = (lateral, Opaleye.Rebind True lbindings left')
           right'' = (lateral, Opaleye.Rebind True rbindings right')
-      ma' = MaybeTable (E hasHere') a
-      mb' = MaybeTable (E hasThere') b
+      ma' = MaybeTable hasHere' a
+      mb' = MaybeTable hasThere' b
       tab = TheseTable {here = ma', there = mb'}
       join' lateral input = Opaleye.times lateral input (join lateral)
 
@@ -120,7 +120,7 @@ keepThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
 loseThoseTable :: TheseTable Expr a b -> Query (EitherTable Expr a b)
 loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
   where_ $ not_ $ isThoseTable t
-  pure $ EitherTable (E tag) a b
+  pure $ EitherTable tag a b
   where
     tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
 

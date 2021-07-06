@@ -21,16 +21,16 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr( E, unE ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( N, Name ) )
+import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( vectorizer, unvectorizer )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
   , FromExprs, fromResult, toResult
@@ -69,7 +69,7 @@ instance (Table context a, context ~ context') =>
 instance (EqTable a, context ~ Expr) => EqTable (ListTable context a) where
   eqTable =
     hvectorize
-      (\SSpec {nullity} (Identity Dict) -> case nullity of
+      (\Spec {nullity} (Identity Dict) -> case nullity of
         Null -> Dict
         NotNull -> Dict)
       (Identity (eqTable @a))
@@ -78,7 +78,7 @@ instance (EqTable a, context ~ Expr) => EqTable (ListTable context a) where
 instance (OrdTable a, context ~ Expr) => OrdTable (ListTable context a) where
   ordTable =
     hvectorize
-      (\SSpec {nullity} (Identity Dict) -> case nullity of
+      (\Spec {nullity} (Identity Dict) -> case nullity of
         Null -> Dict
         NotNull -> Dict)
       (Identity (ordTable @a))
@@ -96,24 +96,22 @@ instance context ~ Expr => AlternativeTable (ListTable context) where
   emptyTable = mempty
 
 
-instance (context ~ Expr, Table Expr a) =>
-  Semigroup (ListTable context a)
+instance (context ~ Expr, Table Expr a) => Semigroup (ListTable context a)
  where
-  ListTable as <> ListTable bs = ListTable $
-    happend (\_ _ (E a) (E b) -> E (sappend a b)) as bs
+  ListTable as <> ListTable bs = ListTable $ happend (const sappend) as bs
 
 
 instance (context ~ Expr, Table Expr a) =>
   Monoid (ListTable context a)
  where
-  mempty = ListTable $ hempty $ \_ -> E . sempty
+  mempty = ListTable $ hempty $ \Spec {info} -> sempty info
 
 
 -- | Construct a @ListTable@ from a list of expressions.
 listTable :: Table Expr a => [a] -> ListTable Expr a
 listTable =
   ListTable .
-  hvectorize (\SSpec {info} -> E . slistOf info . fmap unE) .
+  hvectorize (\Spec {info} -> slistOf info) .
   fmap toColumns
 
 
@@ -126,6 +124,6 @@ nameListTable
   -> ListTable Name a
 nameListTable =
   ListTable .
-  hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
+  hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
   toColumns

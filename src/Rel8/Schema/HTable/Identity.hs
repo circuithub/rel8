@@ -1,17 +1,17 @@
 {-# language DataKinds #-}
-{-# language GADTs #-}
-{-# language PatternSynonyms #-}
+{-# language FlexibleContexts #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Schema.HTable.Identity
-  ( HIdentity( HIdentity, HType, unHIdentity )
-  , HType
+  ( HIdentity( HIdentity, unHIdentity )
   )
 where
 
 -- base
 import Data.Kind ( Type )
+import Data.Type.Equality ( (:~:)( Refl ) )
 import Prelude
 
 -- rel8
@@ -21,35 +21,23 @@ import Rel8.Schema.HTable
   , hfield, htabulate, htraverse, hdicts, hspecs
   )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Spec ( Spec( Spec ), KnownSpec, specSing )
+import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.Spec ( specification )
+import Rel8.Type ( DBType )
 
 
-type HType :: Type -> K.HTable
-type HType a = HIdentity ('Spec a)
-
-
-pattern HType :: context ('Spec a) -> HType a context
-pattern HType a = HIdentity a
-{-# COMPLETE HType #-}
-
-
-type HIdentity :: Spec -> K.HTable
-newtype HIdentity spec context = HIdentity
-  { unHIdentity :: context spec
+type HIdentity :: Type -> K.HTable
+newtype HIdentity a context = HIdentity
+  { unHIdentity :: context a
   }
 
 
-type HIdentityField :: Spec -> Spec -> Type
-data HIdentityField _spec spec where
-  HIdentityField :: HIdentityField spec spec
+instance Sql DBType a => HTable (HIdentity a) where
+  type HConstrainTable (HIdentity a) constraint = constraint a
+  type HField (HIdentity a) = (:~:) a
 
-
-instance KnownSpec spec => HTable (HIdentity spec) where
-  type HConstrainTable (HIdentity spec) c = c spec
-  type HField (HIdentity spec) = HIdentityField spec
-
-  hfield (HIdentity a) HIdentityField = a
-  htabulate f = HIdentity $ f HIdentityField
+  hfield (HIdentity a) Refl = a
+  htabulate f = HIdentity $ f Refl
   htraverse f (HIdentity a) = HIdentity <$> f a
   hdicts = HIdentity Dict
-  hspecs = HIdentity specSing
+  hspecs = HIdentity specification

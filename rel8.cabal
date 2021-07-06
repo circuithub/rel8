@@ -114,7 +114,6 @@ library
     Rel8.Query.These
     Rel8.Query.Values
 
-    Rel8.Schema.Context.Lower
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Context.Virtual
     Rel8.Schema.Dict
@@ -135,7 +134,6 @@ library
     Rel8.Schema.Null
     Rel8.Schema.Result
     Rel8.Schema.Spec
-    Rel8.Schema.Spec.Constrain
     Rel8.Schema.Table
 
     Rel8.Statement.Delete

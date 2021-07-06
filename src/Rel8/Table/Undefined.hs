@@ -11,16 +11,16 @@ where
 import Prelude hiding ( undefined )
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Null ( snull, unsafeUnnullify )
 import Rel8.Schema.HTable ( htabulate, hfield, hspecs )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Table ( Table, fromColumns )
 
 
 undefined :: Table Expr a => a
 undefined = fromColumns $ htabulate $ \field -> case hfield hspecs field of
-  SSpec {nullity, info} -> case nullity of
-    Null -> E (snull info)
-    NotNull -> E (unsafeUnnullify (snull info))
+  Spec {nullity, info} -> case nullity of
+    Null -> snull info
+    NotNull -> unsafeUnnullify (snull info)

@@ -29,8 +29,8 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( A, Aggregate ) )
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Aggregate ( Aggregate( Aggregate ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Null ( nullify, snull, unsafeUnnullify )
@@ -57,11 +57,11 @@ import Rel8.Kind.Algebra
 import qualified Rel8.Kind.Algebra as K
 import Rel8.Schema.Context.Nullify ( sguard, snullify )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( N, Name ) )
+import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( SSpec( SSpec, nullity, info ) )
+import Rel8.Schema.Spec ( Spec( Spec, nullity, info ) )
 import Rel8.Table
   ( TTable, TColumns
   , Table, fromColumns, toColumns
@@ -127,11 +127,11 @@ ggbuild gfromColumns = case algebraSing @algebra of
       @name
       @(Eval (rep Expr))
       (const toColumns)
-      (\SSpec {info} -> E (snull info))
-      (\SSpec {nullity} -> case nullity of
+      (\Spec {info} -> snull info)
+      (\Spec {nullity} -> case nullity of
         Null -> id
-        NotNull -> \(E a) -> E (nullify a))
-      (HType . E . litExpr)
+        NotNull -> nullify)
+      (HIdentity . litExpr)
 
 
 type GGConstructable :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Constraint
@@ -198,11 +198,11 @@ ggconstruct gfromColumns f = case algebraSing @algebra of
       @Expr
       @(Eval (rep Expr))
       (const toColumns)
-      (\SSpec {info} -> E (snull info))
-      (\SSpec {nullity} -> case nullity of
+      (\Spec {info} -> snull info)
+      (\Spec {nullity} -> case nullity of
         Null -> id
-        NotNull -> \(E a) -> E (nullify a))
-      (HType . E . litExpr)
+        NotNull -> nullify)
+      (HIdentity . litExpr)
 
 
 type GGDeconstruct :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type -> Type
@@ -230,7 +230,7 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
   SSum ->
     gctabulate @Id @(Eval (rep Expr)) @r @(a -> r) $ \constructors as ->
       let
-        (HType (E tag), cases) =
+        (HIdentity tag, cases) =
           gdeconstructADT
             @(TTable Expr)
             @TColumns
@@ -238,9 +238,9 @@ ggdeconstruct gtoColumns = case algebraSing @algebra of
             @Expr
             @(Eval (rep Expr))
             (const fromColumns)
-            (\SSpec {nullity} -> case nullity of
+            (\Spec {nullity} -> case nullity of
               Null -> id
-              NotNull -> \(E a) -> E (unsafeUnnullify a))
+              NotNull -> unsafeUnnullify)
             constructors $
           gtoColumns as
       in
@@ -279,8 +279,8 @@ ggname gfromColumns = case algebraSing @algebra of
       @Name
       @(Eval (rep Name))
       (const toColumns)
-      (\_ _ (N (Name a)) -> N (Name a))
-      (HType (N tag))
+      (\_ _ (Name a) -> Name a)
+      (HIdentity tag)
 
 
 type GGAggregate :: K.Algebra -> (K.Context -> Exp (Type -> Type)) -> Type -> Type
@@ -330,15 +330,15 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
       @Aggregate
       @(Eval (rep Aggregate))
       (const toColumns)
-      (\tag' SSpec {nullity} (A (Aggregate a)) ->
-        A $ Aggregate $ sguard (tag ==. litExpr tag') . snullify nullity <$> a)
-      (HType (A (groupByExpr tag)))
+      (\tag' Spec {nullity} (Aggregate a) ->
+        Aggregate $ sguard (tag ==. litExpr tag') . snullify nullity <$> a)
+      (HIdentity (groupByExpr tag))
     where
       f =
         gfindex @Id @(Eval (rep Expr)) @agg .
         agg .
         gftabulate @Id @(Eval (rep Aggregate)) @agg
-      (HType (E tag), exprs) =
+      (HIdentity tag, exprs) =
         gunbuildADT
           @(TTable Expr)
           @TColumns
@@ -346,7 +346,7 @@ ggaggregate gfromColumns gtoColumns agg es = case algebraSing @algebra of
           @Expr
           @(Eval (rep Expr))
           (const fromColumns)
-          (\SSpec {nullity} -> case nullity of
+          (\Spec {nullity} -> case nullity of
             Null -> id
-            NotNull -> \(E a) -> E (unsafeUnnullify a)) $
+            NotNull -> unsafeUnnullify) $
         gtoColumns es

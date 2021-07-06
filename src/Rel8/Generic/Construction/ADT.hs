@@ -49,12 +49,12 @@ import Rel8.Generic.Construction.Record
 import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
 import Rel8.Generic.Table.Record ( GColumns )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HType )
+import Rel8.Schema.HTable.Identity ( HIdentity )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import Rel8.Schema.Null ( Nullify )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec )
+import Rel8.Schema.Spec ( Spec )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Type.Tag ( Tag( Tag ) )
 
@@ -63,23 +63,15 @@ import Data.Text ( pack )
 
 
 type Null :: K.Context -> Type
-type Null context = forall a. ()
-  => SSpec ('Spec a)
-  -> context ('Spec (Nullify a))
+type Null context = forall a. Spec a -> context (Nullify a)
 
 
 type Nullifier :: K.Context -> Type
-type Nullifier context = forall a. ()
-  => SSpec ('Spec a)
-  -> context ('Spec a)
-  -> context ('Spec (Nullify a))
+type Nullifier context = forall a. Spec a -> context a -> context (Nullify a)
 
 
 type Unnullifier :: K.Context -> Type
-type Unnullifier context = forall a. ()
-  => SSpec ('Spec a)
-  -> context ('Spec (Nullify a))
-  -> context ('Spec a)
+type Unnullifier context = forall a. Spec a -> context (Nullify a) -> context a
 
 
 type NoConstructor :: Symbol -> Symbol -> ErrorMessage
@@ -193,7 +185,7 @@ class GConstructableADT _Table _Columns f context rep where
   gbuildADT :: ()
     => ToColumns _Table _Columns f context
     -> (Tag -> Nullifier context)
-    -> HType Tag context
+    -> HIdentity Tag context
     -> GFieldsADT f rep
     -> GColumnsADT _Columns rep context
 
@@ -201,13 +193,13 @@ class GConstructableADT _Table _Columns f context rep where
     => FromColumns _Table _Columns f context
     -> Unnullifier context
     -> GColumnsADT _Columns rep context
-    -> (HType Tag context, GFieldsADT f rep)
+    -> (HIdentity Tag context, GFieldsADT f rep)
 
   gconstructADT :: ()
     => ToColumns _Table _Columns f context
     -> Null context
     -> Nullifier context
-    -> (Tag -> HType Tag context)
+    -> (Tag -> HIdentity Tag context)
     -> GConstructors f rep (GColumnsADT _Columns rep context)
 
   gdeconstructADT :: ()
@@ -215,11 +207,11 @@ class GConstructableADT _Table _Columns f context rep where
     -> Unnullifier context
     -> GConstructors f rep r
     -> GColumnsADT _Columns rep context
-    -> (HType Tag context, NonEmpty (Tag, r))
+    -> (HIdentity Tag context, NonEmpty (Tag, r))
 
 
 instance
-  ( htable ~ HLabel "tag" (HType Tag)
+  ( htable ~ HLabel "tag" (HIdentity Tag)
   , GConstructableADT' _Table _Columns f context htable rep
   )
   => GConstructableADT _Table _Columns f context (M1 D meta rep)
@@ -389,13 +381,13 @@ class GMakeableADT _Table _Columns f context name rep where
     => ToColumns _Table _Columns f context
     -> Null context
     -> Nullifier context
-    -> (Tag -> HType Tag context)
+    -> (Tag -> HIdentity Tag context)
     -> GFields f (GConstructorADT name rep)
     -> GColumnsADT _Columns rep context
 
 
 instance
-  ( htable ~ HLabel "tag" (HType Tag)
+  ( htable ~ HLabel "tag" (HIdentity Tag)
   , meta ~ 'MetaData datatype _module _package _newtype
   , fallback ~ TypeError (NoConstructor datatype name)
   , fields ~ GFields f (GConstructorADT' name rep fallback)

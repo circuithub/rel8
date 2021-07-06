@@ -16,6 +16,7 @@ where
 
 -- base
 import Data.Bool ( bool )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.Monoid ( getFirst )
 import Prelude hiding ( null )
@@ -24,20 +25,17 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Aggregate
-  ( Aggregate( A, Aggregate )
-  , foldInputs, mapInputs
-  )
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Aggregate ( Aggregate( Aggregate ), foldInputs, mapInputs )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Context ( SContext(..) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( N, Name ) )
+import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
-import Rel8.Schema.Result ( Result( R ) )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Spec ( Spec(..) )
 
 
 type Nullifiability :: K.Context -> Type
@@ -88,48 +86,48 @@ absurd = \case
 
 guarder :: ()
   => SContext context
-  -> context ('Spec tag)
+  -> context tag
   -> (tag -> Bool)
   -> (Expr tag -> Expr Bool)
-  -> context ('Spec (Maybe a))
-  -> context ('Spec (Maybe a))
-guarder SAggregate (A tag) _ isNonNull (A (Aggregate a)) =
-  A $
+  -> context (Maybe a)
+  -> context (Maybe a)
+guarder SAggregate tag _ isNonNull (Aggregate a) =
   mapInputs (toPrimExpr . run . fromPrimExpr) $
   Aggregate $
   run <$> a
   where
     mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
     run = maybe id (sguard . isNonNull) (getFirst mtag)
-guarder SExpr (E tag) _ isNonNull (E a) = E $ sguard condition a
+guarder SExpr tag _ isNonNull a = sguard condition a
   where
     condition = isNonNull tag
 guarder SName _ _ _ name = name
-guarder SResult (R tag) isNonNull _ (R a) = R (bool Nothing a condition)
+guarder SResult (Identity tag) isNonNull _ (Identity a) =
+  Identity (bool Nothing a condition)
   where
     condition = isNonNull tag
 
 
 nullifier :: ()
   => Nullifiability context
-  -> SSpec ('Spec a)
-  -> context ('Spec a)
-  -> context ('Spec (Nullify a))
-nullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
-  A $ Aggregate $ snullify nullity <$> a
-nullifier NExpr SSpec {nullity} (E a) = E $ snullify nullity a
-nullifier NName _ (N (Name a)) = N $ Name a
+  -> Spec a
+  -> context a
+  -> context (Nullify a)
+nullifier NAggregate Spec {nullity} (Aggregate a) =
+  Aggregate $ snullify nullity <$> a
+nullifier NExpr Spec {nullity} a = snullify nullity a
+nullifier NName _ (Name a) = Name a
 
 
 unnullifier :: ()
   => Nullifiability context
-  -> SSpec ('Spec a)
-  -> context ('Spec (Nullify a))
-  -> context ('Spec a)
-unnullifier NAggregate SSpec {nullity} (A (Aggregate a)) =
-  A $ Aggregate $ sunnullify nullity <$> a
-unnullifier NExpr SSpec {nullity} (E a) = E $ sunnullify nullity a
-unnullifier NName _ (N (Name a)) = N $ Name a
+  -> Spec a
+  -> context (Nullify a)
+  -> context a
+unnullifier NAggregate Spec {nullity} (Aggregate a) =
+  Aggregate $ sunnullify nullity <$> a
+unnullifier NExpr Spec {nullity} a = sunnullify nullity a
+unnullifier NName _ (Name a) = Name a
 
 
 sguard :: Expr Bool -> Expr (Maybe a) -> Expr (Maybe a)

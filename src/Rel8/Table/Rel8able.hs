@@ -35,7 +35,6 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
-import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table.ADT ( ADT )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
@@ -61,22 +60,22 @@ instance (Rel8able t, Virtual context, context ~ context') =>
 instance
   ( context ~ Expr
   , Rel8able t
-  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBEq))
+  , HConstrainTable (Columns (t context)) (Sql DBEq)
   )
   => EqTable (t context)
  where
-  eqTable = hdicts @(Columns (t context)) @(ConstrainSpec (Sql DBEq))
+  eqTable = hdicts @(Columns (t context)) @(Sql DBEq)
 
 
 instance
   ( context ~ Expr
   , Rel8able t
-  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBEq))
-  , HConstrainTable (Columns (t context)) (ConstrainSpec (Sql DBOrd))
+  , HConstrainTable (Columns (t context)) (Sql DBEq)
+  , HConstrainTable (Columns (t context)) (Sql DBOrd)
   )
   => OrdTable (t context)
  where
-  ordTable = hdicts @(Columns (t context)) @(ConstrainSpec (Sql DBOrd))
+  ordTable = hdicts @(Columns (t context)) @(Sql DBOrd)
 
 
 instance

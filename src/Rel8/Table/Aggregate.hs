@@ -16,8 +16,8 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( A ), Aggregates )
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Aggregate ( Aggregate, Aggregates )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , slistAggExpr
@@ -27,8 +27,7 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable, hfield, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
-import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
+import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
@@ -43,12 +42,11 @@ groupBy :: forall exprs aggregates. (EqTable exprs, Aggregates aggregates exprs)
 groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
 
 
-hgroupBy :: HTable t
-  => t (Dict (ConstrainSpec (Sql DBEq))) -> t Expr -> t Aggregate
+hgroupBy :: HTable t => t (Dict (Sql DBEq)) -> t Expr -> t Aggregate
 hgroupBy eqs exprs = htabulate $ \field ->
   case hfield eqs field of
     Dict -> case hfield exprs field of
-      E expr -> A $ groupByExpr expr
+      expr -> groupByExpr expr
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
@@ -70,7 +68,7 @@ hgroupBy eqs exprs = htabulate $ \field ->
 listAgg :: Aggregates aggregates exprs => exprs -> ListTable Aggregate aggregates
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\SSpec {info} (Identity (E a)) -> A $ slistAggExpr info a)
+    (\Spec {info} (Identity a) -> slistAggExpr info a)
     (pure exprs)
 
 
@@ -78,5 +76,5 @@ listAgg (toColumns -> exprs) = fromColumns $
 nonEmptyAgg :: Aggregates aggregates exprs => exprs -> NonEmptyTable Aggregate aggregates
 nonEmptyAgg (toColumns -> exprs) = fromColumns $
   hvectorize
-    (\SSpec {info} (Identity (E a)) -> A $ snonEmptyAggExpr info a)
+    (\Spec {info} (Identity a) -> snonEmptyAggExpr info a)
     (pure exprs)

@@ -15,7 +15,6 @@ import Prelude ()
 -- rel8
 import Rel8.FCF ( Eval, Exp )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.Result ( Result )
 
 
@@ -25,7 +24,7 @@ import Rel8.Schema.Result ( Result )
 type Column :: K.Context -> Type -> Type
 type family Column context a where
   Column Result  a = a
-  Column context a = Lower context a
+  Column context a = context a
 
 
 data TColumn :: K.Context -> Type -> Exp Type

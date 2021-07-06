@@ -18,6 +18,7 @@ module Rel8.Generic.Table.ADT
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.Proxy ( Proxy( Proxy ) )
 import GHC.Generics
@@ -33,15 +34,12 @@ import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Map ( GMap )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gfromResult, gtoResult )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
 import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Result
-  ( Result( R )
-  , null, nullifier, unnullifier
-  )
+import Rel8.Schema.Result ( Result, null, nullifier, unnullifier )
 import Rel8.Type.Tag ( Tag( Tag ) )
 
 -- text
@@ -53,7 +51,7 @@ type GColumnsADT
   -> (Type -> Type) -> K.HTable
 type family GColumnsADT _Columns rep where
   GColumnsADT _Columns (M1 D _ rep) =
-    GColumnsADT' _Columns (HLabel "tag" (HType Tag)) rep
+    GColumnsADT' _Columns (HLabel "tag" (HIdentity Tag)) rep
 
 
 type GColumnsADT'
@@ -87,7 +85,7 @@ class GTableADT _Table _Columns _FromExprs rep where
 
 
 instance
-  ( htable ~ HLabel "tag" (HType Tag)
+  ( htable ~ HLabel "tag" (HIdentity Tag)
   , GTableADT' _Table _Columns _FromExprs htable rep
   )
   => GTableADT _Table _Columns _FromExprs (M1 D meta rep)
@@ -97,12 +95,12 @@ instance
       Just rep -> M1 rep
       _ -> error "ADT.fromColumns: mismatch between tag and data"
     where
-      tag = (\(HType (R a)) -> a) . hunlabel @"tag"
+      tag = (\(HIdentity (Identity a)) -> a) . hunlabel @"tag"
 
   gtoResultADT toResult (M1 rep) =
     gtoResultADT' @_Table @_Columns @_FromExprs @htable @rep toResult tag (Just rep)
     where
-      tag = hlabel @"tag" . HType . R
+      tag = hlabel @"tag" . HIdentity . Identity
 
 
 type GTableADT'

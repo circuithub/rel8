@@ -27,6 +27,7 @@ module Rel8.Schema.HTable.Nullify
 where
 
 -- base
+import Data.Kind ( Type )
 import GHC.Generics ( Generic )
 import Prelude hiding ( null )
 
@@ -40,7 +41,7 @@ import Rel8.Schema.HTable.MapTable
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import qualified Rel8.Schema.Null as Type ( Nullify )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply )
@@ -52,17 +53,14 @@ newtype HNullify table context = HNullify (HMapTable Nullify table context)
   deriving anyclass HTable
 
 
--- | Transform a 'Spec' by allowing it to be @null@.
-data Nullify :: Spec -> Exp Spec
-
-
-type instance Eval (Nullify ('Spec a)) =
-  'Spec (Type.Nullify a)
+-- | Transform a 'Type' by allowing it to be @null@.
+data Nullify :: Type -> Exp Type
+type instance Eval (Nullify a) = Type.Nullify a
 
 
 instance MapSpec Nullify where
   mapInfo = \case
-    SSpec {nullity, ..} -> SSpec
+    Spec {nullity, ..} -> Spec
       { nullity = case nullity of
           Null    -> Null
           NotNull -> Null
@@ -71,49 +69,41 @@ instance MapSpec Nullify where
 
 
 hguard :: HTable t
-  => (forall a. context ('Spec (Maybe a)) -> context ('Spec (Maybe a)))
+  => (forall a. context (Maybe a) -> context (Maybe a))
   -> HNullify t context -> HNullify t context
 hguard guarder (HNullify as) = HNullify $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    SSpec {nullity} -> case hfield as (HMapTableField field) of
+    Spec {nullity} -> case hfield as (HMapTableField field) of
       a -> case nullity of
         Null -> guarder a
         NotNull -> guarder a
 
 
 hnulls :: HTable t
-  => (forall a. ()
-    => SSpec ('Spec a)
-    -> context ('Spec (Type.Nullify a)))
+  => (forall a. Spec a -> context (Type.Nullify a))
   -> HNullify t context
 hnulls null = HNullify $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    spec@SSpec {} -> null spec
+    spec@Spec {} -> null spec
 {-# INLINABLE hnulls #-}
 
 
 hnullify :: HTable t
-  => (forall a. ()
-    => SSpec ('Spec a)
-    -> context ('Spec a)
-    -> context ('Spec (Type.Nullify a)))
+  => (forall a. Spec a -> context a -> context (Type.Nullify a))
   -> t context
   -> HNullify t context
 hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    spec@SSpec {} -> nullifier spec (hfield a field)
+    spec@Spec {} -> nullifier spec (hfield a field)
 {-# INLINABLE hnullify #-}
 
 
 hunnullify :: (HTable t, Apply m)
-  => (forall a. ()
-    => SSpec ('Spec a)
-    -> context ('Spec (Type.Nullify a))
-    -> m (context ('Spec a)))
+  => (forall a. Spec a -> context (Type.Nullify a) -> m (context a))
   -> HNullify t context
   -> m (t context)
 hunnullify unnullifier (HNullify as) =
   htabulateA $ \field -> case hfield hspecs field of
-    spec@SSpec {} -> case hfield as (HMapTableField field) of
+    spec@Spec {} -> case hfield as (HMapTableField field) of
       a -> unnullifier spec a
 {-# INLINABLE hunnullify #-}

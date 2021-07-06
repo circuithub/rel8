@@ -22,16 +22,16 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
 
 -- rel8
-import Rel8.Expr ( Expr( E, unE ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize ( happend, hvectorize, hunvectorize )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name( N, Name ) )
+import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( vectorizer, unvectorizer )
-import Rel8.Schema.Spec ( SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
   , FromExprs, fromResult, toResult
@@ -70,7 +70,7 @@ instance (EqTable a, context ~ Expr) =>
  where
   eqTable =
     hvectorize
-      (\SSpec {nullity} (Identity Dict) -> case nullity of
+      (\Spec {nullity} (Identity Dict) -> case nullity of
         Null -> Dict
         NotNull -> Dict)
       (Identity (eqTable @a))
@@ -81,7 +81,7 @@ instance (OrdTable a, context ~ Expr) =>
  where
   ordTable =
     hvectorize
-      (\SSpec {nullity} (Identity Dict) -> case nullity of
+      (\Spec {nullity} (Identity Dict) -> case nullity of
         Null -> Dict
         NotNull -> Dict)
       (Identity (ordTable @a))
@@ -95,18 +95,17 @@ instance context ~ Expr => AltTable (NonEmptyTable context) where
   (<|>:) = (<>)
 
 
-instance (Table Expr a, context ~ Expr) =>
-  Semigroup (NonEmptyTable context a)
+instance (Table Expr a, context ~ Expr) => Semigroup (NonEmptyTable context a)
  where
   NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
-    happend (\_ _ (E a) (E b) -> E (sappend1 a b)) as bs
+    happend (const sappend1) as bs
 
 
 -- | Construct a @NonEmptyTable@ from a non-empty list of expressions.
 nonEmptyTable :: Table Expr a => NonEmpty a -> NonEmptyTable Expr a
 nonEmptyTable =
   NonEmptyTable .
-  hvectorize (\SSpec {info} -> E . snonEmptyOf info . fmap unE) .
+  hvectorize (\Spec {info} -> snonEmptyOf info) .
   fmap toColumns
 
 
@@ -119,6 +118,6 @@ nameNonEmptyTable
   -> NonEmptyTable Name a
 nameNonEmptyTable =
   NonEmptyTable .
-  hvectorize (\_ (Identity (N (Name a))) -> N (Name a)) .
+  hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
   toColumns
