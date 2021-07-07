@@ -208,9 +208,9 @@ instance (EqTable a, EqTable b, context ~ Expr) =>
   EqTable (TheseTable context a b)
  where
   eqTable = HTheseTable
-    { hhereTag = hlabel (HType Dict)
+    { hhereTag = hlabel (HIdentity Dict)
     , hhere = hlabel (eqTable @(Nullify context a))
-    , hthereTag = hlabel (HType Dict)
+    , hthereTag = hlabel (HIdentity Dict)
     , hthere = hlabel (eqTable @(Nullify context b))
     }
 
@@ -219,9 +219,9 @@ instance (OrdTable a, OrdTable b, context ~ Expr) =>
   OrdTable (TheseTable context a b)
  where
   ordTable = HTheseTable
-    { hhereTag = hlabel (HType Dict)
+    { hhereTag = hlabel (HIdentity Dict)
     , hhere = hlabel (ordTable @(Nullify context a))
-    , hthereTag = hlabel (HType Dict)
+    , hthereTag = hlabel (HIdentity Dict)
     , hthere = hlabel (ordTable @(Nullify context b))
     }
 

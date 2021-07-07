@@ -1,10 +1,8 @@
 {-# language DataKinds #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language NamedFieldPuns #-}
-{-# language PolyKinds #-}
 {-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -19,6 +17,7 @@ where
 
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Prelude
 
@@ -29,11 +28,9 @@ import qualified Opaleye.Internal.PackMap as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context.Lower ( Lower )
-import Rel8.Schema.HTable.Identity ( HIdentity(..), HType )
+import Rel8.Schema.HTable.Identity ( HIdentity(..) )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Result ( Result( R ) )
-import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
@@ -48,25 +45,20 @@ import Rel8.Type ( DBType )
 -- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
 -- operation. This means 'Aggregate' is an instance of 'Apply', and you can
 -- combine @Aggregate@s using the @<.>@ combinator.
-type Aggregate :: k -> Type
-data Aggregate a where
-  Aggregate :: forall (a :: Type). !(Opaleye.Aggregator () (Expr a)) -> Aggregate a
-  A :: { unA :: !(Aggregate a) } -> Aggregate ('Spec a)
-
-
-type instance Lower Aggregate = Aggregate
+type Aggregate :: K.Context
+newtype Aggregate a = Aggregate (Opaleye.Aggregator () (Expr a))
 
 
 instance Sql DBType a => Table Aggregate (Aggregate a) where
-  type Columns (Aggregate a) = HType a
+  type Columns (Aggregate a) = HIdentity a
   type Context (Aggregate a) = Aggregate
   type FromExprs (Aggregate a) = a
-  type Transpose to (Aggregate a) = Lower to a
+  type Transpose to (Aggregate a) = to a
 
-  toColumns = HIdentity . A
-  fromColumns (HIdentity (A a)) = a
-  toResult = HIdentity . R
-  fromResult (HIdentity (R a)) = a
+  toColumns = HIdentity
+  fromColumns (HIdentity a) = a
+  toResult = HIdentity . Identity
+  fromResult (HIdentity (Identity a)) = a
 
 
 -- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's

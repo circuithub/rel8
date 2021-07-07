@@ -1,6 +1,7 @@
 {-# language DataKinds #-}
 {-# language GADTs #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeSynonymInstances #-}
 
 module Rel8.Kind.Context
   ( Reifiable( contextSing )

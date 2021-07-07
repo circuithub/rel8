@@ -6,7 +6,6 @@
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -24,29 +23,32 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import Prelude ( ($), (.), (<$>), fmap )
+import Prelude
 
 -- rel8
-import Rel8.FCF
+import Rel8.FCF ( Exp, Eval )
 import Rel8.Schema.HTable
-import Rel8.Schema.Spec ( Spec, SSpec )
+  ( HTable, HConstrainTable, HField
+  , hfield, htabulate, htraverse, hdicts, hspecs
+  )
+import Rel8.Schema.Spec ( Spec )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Dict ( Dict( Dict ) )
 
 
-type HMapTable :: (a -> Exp b) -> ((a -> Type) -> Type) -> (b -> Type) -> Type
-newtype HMapTable f t g = HMapTable
-  { unHMapTable :: t (Precompose f g)
+type HMapTable :: (Type -> Exp Type) -> K.HTable -> K.HTable
+newtype HMapTable f t context = HMapTable
+  { unHMapTable :: t (Precompose f context)
   }
 
 
-type Precompose :: (a -> Exp b) -> (b -> Type) -> a -> Type
+type Precompose :: (Type -> Exp Type) -> K.Context -> K.Context
 newtype Precompose f g x = Precompose
   { precomposed :: g (Eval (f x))
   }
 
 
-type HMapTableField :: (Spec -> Exp a) -> K.HTable -> a -> Type
+type HMapTableField :: (Type -> Exp Type) -> K.HTable -> K.Context
 data HMapTableField f t x where
   HMapTableField :: HField t a -> HMapTableField f t (Eval (f a))
 
@@ -79,11 +81,11 @@ instance (HTable t, MapSpec f) => HTable (HMapTable f t) where
   {-# INLINABLE hspecs #-}
 
 
-type MapSpec :: (Spec -> Exp Spec) -> Constraint
+type MapSpec :: (Type -> Exp Type) -> Constraint
 class MapSpec f where
-  mapInfo :: SSpec x -> SSpec (Eval (f x))
+  mapInfo :: Spec x -> Spec (Eval (f x))
 
 
-type ComposeConstraint :: (a -> Exp b) -> (b -> Constraint) -> a -> Constraint
+type ComposeConstraint :: (Type -> Exp Type) -> (Type -> Constraint) -> Type -> Constraint
 class c (Eval (f a)) => ComposeConstraint f c a
 instance c (Eval (f a)) => ComposeConstraint f c a

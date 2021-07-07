@@ -15,7 +15,7 @@ import Prelude ()
 
 -- rel8
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HType )
+import Rel8.Schema.HTable.Identity ( HIdentity )
 import Rel8.Schema.HTable.Label ( HLabel )
 import Rel8.Schema.HTable.Nullify ( HNullify )
 import qualified Rel8.Schema.Kind as K
@@ -24,7 +24,7 @@ import Rel8.Type.Tag ( EitherTag )
 
 type HEitherTable :: K.HTable -> K.HTable -> K.HTable
 data HEitherTable left right context = HEitherTable
-  { htag :: HLabel "isRight" (HType EitherTag) context
+  { htag :: HLabel "isRight" (HIdentity EitherTag) context
   , hleft :: HLabel "Left" (HNullify left) context
   , hright :: HLabel "Right" (HNullify right) context
   }

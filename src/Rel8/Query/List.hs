@@ -19,7 +19,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( E, unE ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
@@ -28,7 +28,7 @@ import Rel8.Query.Evaluate ( rebind )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
-import Rel8.Schema.Spec ( SSpec( SSpec, info ) )
+import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table ( Table, fromColumns )
 import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
@@ -86,7 +86,7 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
 catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
-  hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
+  hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
 -- | Expand a 'NonEmptyTable' into a 'Query', where each row in the query is an
@@ -95,7 +95,7 @@ catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
 catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
-  hunvectorize (\SSpec {info} -> pure . E . sunnest info . unE) as
+  hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
 -- | Expand an expression that contains a list into a 'Query', where each row

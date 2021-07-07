@@ -19,7 +19,7 @@ import Control.Comonad ( extract )
 import qualified Opaleye.Internal.MaybeFields as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
 import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr )
 import Rel8.Query ( Query )
@@ -35,7 +35,7 @@ import Rel8.Table.Maybe ( MaybeTable(..), isJustTable )
 -- JOIN@s.
 optional :: Query a -> Query (MaybeTable Expr a)
 optional = mapOpaleye $ Opaleye.optionalInternal $ \tag a -> MaybeTable
-  { tag = E $ fromPrimExpr $ fromColumn tag
+  { tag = fromPrimExpr $ fromColumn tag
   , just = pure a
   }
 
@@ -61,8 +61,8 @@ catMaybeTable ma@(MaybeTable _ a) = do
 -- the input is @nothingTable@, you will always get exactly one @nothingTable@
 -- back.
 traverseMaybeTable :: (a -> Query b) -> MaybeTable Expr  a -> Query (MaybeTable Expr b)
-traverseMaybeTable query ma@(MaybeTable (E input) _) = do
+traverseMaybeTable query ma@(MaybeTable input _) = do
   optional (query =<< catMaybeTable ma) >>= \case
-    MaybeTable (E output) b -> do
+    MaybeTable output b -> do
       where_ $ output ==. input
-      pure $ MaybeTable (E input) b
+      pure $ MaybeTable input b

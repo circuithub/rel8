@@ -27,7 +27,7 @@ import GHC.Generics ( Rep )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr( E ) )
+import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), (&&.) )
 import Rel8.Expr.Eq ( (==.), (/=.) )
 import Rel8.FCF ( Eval, Exp )
@@ -35,9 +35,8 @@ import Rel8.Generic.Record ( Record )
 import Rel8.Generic.Table.Record ( GTable, GColumns, gtable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ) )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Spec.Constrain ( ConstrainSpec )
 import Rel8.Table ( Table, Columns, toColumns, TColumns, TFromExprs )
 import Rel8.Type.Eq ( DBEq )
 
@@ -47,13 +46,13 @@ import Rel8.Type.Eq ( DBEq )
 -- means "all columns in a 'Table' have an instance of 'DBEq'".
 type EqTable :: Type -> Constraint
 class Table Expr a => EqTable a where
-  eqTable :: Columns a (Dict (ConstrainSpec (Sql DBEq)))
+  eqTable :: Columns a (Dict (Sql DBEq))
 
   default eqTable ::
     ( GTable TEqTable TColumns TFromExprs (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
-    => Columns a (Dict (ConstrainSpec (Sql DBEq)))
+    => Columns a (Dict (Sql DBEq))
   eqTable =
     gtable
       @TEqTable
@@ -70,7 +69,7 @@ type instance Eval (TEqTable a) = EqTable a
 
 
 instance Sql DBEq a => EqTable (Expr a) where
-  eqTable = HType Dict
+  eqTable = HIdentity Dict
 
 
 instance (EqTable a, EqTable b) => EqTable (a, b)
@@ -104,7 +103,7 @@ instance
 (toColumns -> as) ==: (toColumns -> bs) =
   foldl1' (&&.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (eqTable @a) field of
+      (a, b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a ==. b))
 infix 4 ==:
 
@@ -116,7 +115,7 @@ infix 4 ==:
 (toColumns -> as) /=: (toColumns -> bs) =
   foldl1' (||.) $ getConst $ htabulateA $ \field ->
     case (hfield as field, hfield bs field) of
-      (E a, E b) -> case hfield (eqTable @a) field of
+      (a, b) -> case hfield (eqTable @a) field of
         Dict -> Const (pure (a /=. b))
 infix 4 /=:
 

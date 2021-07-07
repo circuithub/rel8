@@ -34,7 +34,7 @@ import Prelude
 
 -- rel8
 import Rel8.Schema.Dict ( Dict )
-import Rel8.Schema.Spec ( Spec, SSpec )
+import Rel8.Schema.Spec ( Spec )
 import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
 
@@ -50,14 +50,14 @@ import Data.Functor.Apply ( Apply, (<.>) )
 -- instances yourself or specify this constraint.
 type HTable :: K.HTable -> Constraint
 class HTable t where
-  type HField t = (field :: Spec -> Type) | field -> t
-  type HConstrainTable t (c :: Spec -> Constraint) :: Constraint
+  type HField t = (field :: Type -> Type) | field -> t
+  type HConstrainTable t (c :: Type -> Constraint) :: Constraint
 
-  hfield :: t context -> HField t spec -> context spec
-  htabulate :: (forall spec. HField t spec -> context spec) -> t context
-  htraverse :: Apply m => (forall spec. f spec -> m (g spec)) -> t f -> m (t g)
+  hfield :: t context -> HField t a -> context a
+  htabulate :: (forall a. HField t a -> context a) -> t context
+  htraverse :: Apply m => (forall a. f a -> m (g a)) -> t f -> m (t g)
   hdicts :: HConstrainTable t c => t (Dict c)
-  hspecs :: t SSpec
+  hspecs :: t Spec
 
   type HField t = GHField t
   type HConstrainTable t c = HConstrainTable (GHColumns (Rep (t Proxy))) c
@@ -68,7 +68,7 @@ class HTable t where
     , HField (GHColumns (Rep (t Proxy))) ~ HField (GHColumns (Rep (t context)))
     , GHTable context (Rep (t context))
     )
-    => t context -> HField t spec -> context spec
+    => t context -> HField t a -> context a
   hfield table (GHField field) = hfield (toGHColumns (from table)) field
 
   default htabulate ::
@@ -77,7 +77,7 @@ class HTable t where
     , HField (GHColumns (Rep (t Proxy))) ~ HField (GHColumns (Rep (t context)))
     , GHTable context (Rep (t context))
     )
-    => (forall spec. HField t spec -> context spec) -> t context
+    => (forall a. HField t a -> context a) -> t context
   htabulate f = to $ fromGHColumns $ htabulate (f . GHField)
 
   default htraverse
@@ -87,7 +87,7 @@ class HTable t where
        , Generic (t g), GHTable g (Rep (t g))
        , GHColumns (Rep (t f)) ~ GHColumns (Rep (t g))
        )
-    => (forall spec. f spec -> m (g spec)) -> t f -> m (t g)
+    => (forall a. f a -> m (g a)) -> t f -> m (t g)
   htraverse f = fmap (to . fromGHColumns) . htraverse f . toGHColumns . from
 
   default hdicts
@@ -101,10 +101,10 @@ class HTable t where
   hdicts = to $ fromGHColumns (hdicts @(GHColumns (Rep (t Proxy))) @c)
 
   default hspecs ::
-    ( Generic (t SSpec)
-    , GHTable SSpec (Rep (t SSpec))
+    ( Generic (t Spec)
+    , GHTable Spec (Rep (t Spec))
     )
-    => t SSpec
+    => t Spec
   hspecs = to $ fromGHColumns hspecs
 
   {-# INLINABLE hfield #-}
@@ -115,18 +115,18 @@ class HTable t where
 
 
 hmap :: HTable t
-  => (forall spec. context spec -> context' spec) -> t context -> t context'
+  => (forall a. context a -> context' a) -> t context -> t context'
 hmap f a = htabulate $ \field -> f (hfield a field)
 
 
 htabulateA :: (HTable t, Apply m)
-  => (forall spec. HField t spec -> m (context spec)) -> m (t context)
+  => (forall a. HField t a -> m (context a)) -> m (t context)
 htabulateA f = htraverse getCompose $ htabulate $ Compose . f
 {-# INLINABLE htabulateA #-}
 
 
-type GHField :: K.HTable -> Spec -> Type
-newtype GHField t spec = GHField (HField (GHColumns (Rep (t Proxy))) spec)
+type GHField :: K.HTable -> Type -> Type
+newtype GHField t a = GHField (HField (GHColumns (Rep (t Proxy))) a)
 
 
 type GHTable :: K.Context -> (Type -> Type) -> Constraint
@@ -155,10 +155,10 @@ instance (GHTable context a, GHTable context b) => GHTable context (a :*: b) whe
 
 
 -- | A HField type for indexing into HProduct.
-type HProductField :: K.HTable -> K.HTable -> Spec -> Type
-data HProductField x y spec
-  = HFst (HField x spec)
-  | HSnd (HField y spec)
+type HProductField :: K.HTable -> K.HTable -> Type -> Type
+data HProductField x y a
+  = HFst (HField x a)
+  | HSnd (HField y a)
 
 
 instance (HTable x, HTable y) => HTable (HProduct x y) where

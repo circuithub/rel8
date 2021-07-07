@@ -3,10 +3,9 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
+{-# language GeneralizedNewtypeDeriving #-}
 {-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
 {-# language RankNTypes #-}
-{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
@@ -18,17 +17,16 @@ module Rel8.Schema.Name
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
-import Data.String ( IsString, fromString )
+import Data.String ( IsString )
 import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Schema.Context.Lower ( Lower )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
+import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Result ( Result( R ) )
-import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
@@ -42,32 +40,22 @@ import Rel8.Type ( DBType )
 -- schema definition. You can construct names by using the @OverloadedStrings@
 -- extension and writing string literals. This is typically done when providing
 -- a 'TableSchema' value.
-type Name :: k -> Type
-data Name a where
-  Name :: forall (a :: Type). !String -> Name a
-  N :: { unN :: !(Name a) } -> Name ('Spec a)
-
-
-type instance Lower Name = Name
-
-
-deriving stock instance Show (Name a)
-
-
-instance k ~ Type => IsString (Name (a :: k)) where
-  fromString = Name
+type Name :: K.Context
+newtype Name a = Name String
+  deriving stock Show
+  deriving newtype IsString
 
 
 instance Sql DBType a => Table Name (Name a) where
-  type Columns (Name a) = HType a
+  type Columns (Name a) = HIdentity a
   type Context (Name a) = Name
   type FromExprs (Name a) = a
-  type Transpose to (Name a) = Lower to a
+  type Transpose to (Name a) = to a
 
-  toColumns a = HType (N a)
-  fromColumns (HType (N a)) = a
-  toResult a = HType (R a)
-  fromResult (HType (R a)) = a
+  toColumns a = HIdentity a
+  fromColumns (HIdentity a) = a
+  toResult a = HIdentity (Identity a)
+  fromResult (HIdentity (Identity a)) = a
 
 
 -- | @Selects a b@ means that @a@ is a schema (i.e., a 'Table' of 'Name's) for

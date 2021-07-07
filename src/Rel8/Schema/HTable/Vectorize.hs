@@ -9,7 +9,6 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
@@ -33,12 +32,9 @@ import Prelude
 -- rel8
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.HTable
-  ( HTable
-  , hfield, htabulate, htabulateA, hspecs
-  )
+import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
 import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
-import Rel8.Schema.Spec ( Spec( Spec ), SSpec(..) )
+import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
@@ -73,16 +69,16 @@ newtype HVectorize list table context = HVectorize (HMapTable (Vectorize list) t
   deriving anyclass HTable
 
 
-data Vectorize :: (Type -> Type) -> Spec -> Exp Spec
+data Vectorize :: (Type -> Type) -> Type -> Exp Type
 
 
-type instance Eval (Vectorize list ('Spec a)) = 'Spec (list a)
+type instance Eval (Vectorize list a) = list a
 
 
 instance Vector list => MapSpec (Vectorize list) where
   mapInfo = \case
-    SSpec {..} -> case listNotNull @list nullity of
-      Dict -> SSpec
+    Spec {..} -> case listNotNull @list nullity of
+      Dict -> Spec
         { nullity = NotNull
         , info = vectorTypeInformation nullity info
         , ..
@@ -90,55 +86,39 @@ instance Vector list => MapSpec (Vectorize list) where
 
 
 hvectorize :: (HTable t, Unzip f, Vector list)
-  => (forall a. ()
-    => SSpec ('Spec a)
-    -> f (context ('Spec a))
-    -> context' ('Spec (list a)))
+  => (forall a. Spec a -> f (context a) -> context' (list a))
   -> f (t context)
   -> HVectorize list t context'
 hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
-    spec@SSpec {} -> vectorizer spec (fmap (`hfield` field) as)
+    spec -> vectorizer spec (fmap (`hfield` field) as)
 {-# INLINABLE hvectorize #-}
 
 
 hunvectorize :: (HTable t, Zip f, Vector list)
-  => (forall a. ()
-    => SSpec ('Spec a)
-    -> context ('Spec (list a))
-    -> f (context' ('Spec a)))
+  => (forall a. Spec a -> context (list a) -> f (context' a))
   -> HVectorize list t context
   -> f (t context')
 hunvectorize unvectorizer (HVectorize table) =
   getZippy $ htabulateA $ \field -> case hfield hspecs field of
-    spec@SSpec{} -> case hfield table (HMapTableField field) of
+    spec -> case hfield table (HMapTableField field) of
       a -> Zippy (unvectorizer spec a)
 {-# INLINABLE hunvectorize #-}
 
 
-happend :: (HTable t, Vector list) =>
-  ( forall a. ()
-    => Nullity a
-    -> TypeInformation (Unnullify a)
-    -> context ('Spec (list a))
-    -> context ('Spec (list a))
-    -> context ('Spec (list a))
-  )
+happend :: (HTable t, Vector list)
+  => (forall a. Spec a -> context (list a) -> context (list a) -> context (list a))
   -> HVectorize list t context
   -> HVectorize list t context
   -> HVectorize list t context
 happend append (HVectorize as) (HVectorize bs) = HVectorize $
   htabulate $ \field@(HMapTableField j) -> case (hfield as field, hfield bs field) of
     (a, b) -> case hfield hspecs j of
-      SSpec {nullity, info} -> append nullity info a b
+      spec -> append spec a b
 
 
-hempty :: HTable t =>
-  ( forall a. ()
-    => Nullity a
-    -> TypeInformation (Unnullify a)
-    -> context ('Spec [a])
-  )
+hempty :: HTable t
+  => (forall a. Spec a -> context [a])
   -> HVectorize [] t context
-hempty empty = HVectorize $ htabulate $ \(HMapTableField field) -> case hfield hspecs field of
-  SSpec {nullity, info} -> empty nullity info
+hempty empty = HVectorize $ htabulate $ \(HMapTableField field) ->
+  empty (hfield hspecs field)

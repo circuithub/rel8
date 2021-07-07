@@ -16,13 +16,12 @@ import Data.Functor.Contravariant ( (>$<), contramap )
 import Prelude
 
 -- rel8
-import Rel8.Expr ( unE )
 import Rel8.Expr.Order ( asc, desc, nullsFirst, nullsLast )
 import Rel8.Order ( Order )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (htabulateA, hfield, hspecs)
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
-import Rel8.Schema.Spec ( SSpec( SSpec, nullity ) )
+import Rel8.Schema.Spec ( Spec( Spec, nullity ) )
 import Rel8.Table ( Columns, toColumns )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 
@@ -32,8 +31,8 @@ import Rel8.Table.Ord ( OrdTable, ordTable )
 ascTable :: forall a. OrdTable a => Order a
 ascTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {nullity} -> case hfield (ordTable @a) field of
-      Dict -> Const $ unE . (`hfield` field) >$<
+    Spec {nullity} -> case hfield (ordTable @a) field of
+      Dict -> Const $ (`hfield` field) >$<
         case nullity of
           Null -> nullsFirst asc
           NotNull -> asc
@@ -44,8 +43,8 @@ ascTable = contramap toColumns $ getConst $
 descTable :: forall a. OrdTable a => Order a
 descTable = contramap toColumns $ getConst $
   htabulateA @(Columns a) $ \field -> case hfield hspecs field of
-    SSpec {nullity} -> case hfield (ordTable @a) field of
-      Dict -> Const $ unE . (`hfield` field) >$<
+    Spec {nullity} -> case hfield (ordTable @a) field of
+      Dict -> Const $ (`hfield` field) >$<
         case nullity of
           Null -> nullsLast desc
           NotNull -> desc

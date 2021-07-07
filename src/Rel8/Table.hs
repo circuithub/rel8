@@ -35,10 +35,8 @@ import Rel8.Generic.Table.Record
   )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HIdentity(..) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Result ( Result )
-import Rel8.Schema.Spec ( KnownSpec )
 
 
 -- | @Table@s are one of the foundational elements of Rel8, and describe data
@@ -167,19 +165,6 @@ type instance Eval (TFromExprs a) = FromExprs a
 
 data TTranspose :: K.Context -> Type -> Exp Type
 type instance Eval (TTranspose context a) = Transpose context a
-
-
--- | Any context is trivially a table.
-instance KnownSpec spec => Table context (context spec) where
-  type Columns (context spec) = HIdentity spec
-  type Context (context spec) = context
-  type FromExprs (context spec) = Result spec
-  type Transpose to (context spec) = to spec
-
-  toColumns = HIdentity
-  fromColumns = unHIdentity
-  toResult = HIdentity
-  fromResult = unHIdentity
 
 
 instance (Table context a, Table context b) => Table context (a, b)

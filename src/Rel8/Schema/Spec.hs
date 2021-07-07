@@ -1,18 +1,15 @@
-{-# language DataKinds #-}
 {-# language FlexibleContexts #-}
-{-# language GADTs #-}
+{-# language MonoLocalBinds #-}
 {-# language StandaloneKindSignatures #-}
-{-# language UndecidableInstances #-}
 
 module Rel8.Schema.Spec
-  ( Spec( Spec )
-  , SSpec( SSpec, labels, info, nullity )
-  , KnownSpec( specSing )
+  ( Spec( Spec, labels, info, nullity )
+  , specification
   )
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind ( Type )
 import Prelude
 
 -- rel8
@@ -21,28 +18,17 @@ import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 
-type Spec :: Type
-newtype Spec = Spec Type
+type Spec :: Type -> Type
+data Spec a = Spec
+  { labels :: [String]
+  , info :: TypeInformation (Unnullify a)
+  , nullity :: Nullity a
+  }
 
 
-type SSpec :: Spec -> Type
-data SSpec spec where
-  SSpec ::
-    { labels :: [String]
-    , info :: TypeInformation (Unnullify a)
-    , nullity :: Nullity a
-    }
-    -> SSpec ('Spec a)
-
-
-type KnownSpec :: Spec -> Constraint
-class KnownSpec spec where
-  specSing :: SSpec spec
-
-
-instance Sql DBType a => KnownSpec ('Spec a) where
-  specSing = SSpec
-    { labels = []
-    , info = typeInformation
-    , nullity = nullable
-    }
+specification :: Sql DBType a => Spec a
+specification = Spec
+  { labels = []
+  , info = typeInformation
+  , nullity = nullable
+  }

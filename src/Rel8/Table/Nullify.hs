@@ -42,7 +42,6 @@ import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify, hguard )
 import qualified Rel8.Schema.Kind as K
 import qualified Rel8.Schema.Result as R
-import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, toColumns, fromColumns
   , FromExprs, fromResult, toResult
@@ -165,7 +164,7 @@ aggregateNullify f = \case
 
 
 guard :: (Reifiable context, HTable t)
-  => context ('Spec tag)
+  => context tag
   -> (tag -> Bool)
   -> (Expr tag -> Expr Bool)
   -> HNullify t context

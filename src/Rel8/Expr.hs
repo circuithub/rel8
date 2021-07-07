@@ -1,12 +1,8 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleInstances #-}
-{-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
-{-# language RoleAnnotations #-}
 {-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
@@ -18,7 +14,7 @@ module Rel8.Expr
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
 
@@ -35,11 +31,9 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.Context.Lower ( Lower )
-import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
+import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Schema.Result ( Result( R ) )
-import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
@@ -52,16 +46,9 @@ import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
 
 
 -- | Typed SQL expressions.
-type Expr :: k -> Type
-data Expr a where
-  Expr :: forall (a :: Type). !Opaleye.PrimExpr -> Expr a
-  E :: { unE :: !(Expr a) } -> Expr ('Spec a)
-
-
-deriving stock instance Show (Expr a)
-
-
-type instance  Lower Expr = Expr
+type Expr :: K.Context
+newtype Expr a = Expr Opaleye.PrimExpr
+  deriving stock Show
 
 
 instance Sql DBSemigroup a => Semigroup (Expr a) where
@@ -126,12 +113,12 @@ instance Sql DBFloating a => Floating (Expr a) where
 
 
 instance Sql DBType a => Table Expr (Expr a) where
-  type Columns (Expr a) = HType a
+  type Columns (Expr a) = HIdentity a
   type Context (Expr a) = Expr
   type FromExprs (Expr a) = a
-  type Transpose to (Expr a) = Lower to a
+  type Transpose to (Expr a) = to a
 
-  toColumns a = HType (E a)
-  fromColumns (HType (E a)) = a
-  toResult a = HType (R a)
-  fromResult (HType (R a)) = a
+  toColumns a = HIdentity a
+  fromColumns (HIdentity a) = a
+  toResult a = HIdentity (Identity a)
+  fromResult (HIdentity (Identity a)) = a
