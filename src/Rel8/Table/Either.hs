@@ -54,6 +54,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Biprojectable, Projectable, biproject, project )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ), isLeft, isRight )
@@ -78,8 +79,17 @@ data EitherTable context a b = EitherTable
   deriving stock Functor
 
 
+instance Biprojectable (EitherTable context) where
+  biproject f g (EitherTable tag a b) =
+    EitherTable tag (project f a) (project g b)
+
+
 instance Nullifiable context => Bifunctor (EitherTable context) where
   bimap f g (EitherTable tag a b) = EitherTable tag (fmap f a) (fmap g b)
+
+
+instance Projectable (EitherTable context a) where
+  project f (EitherTable tag a b) = EitherTable tag a (project f b)
 
 
 instance (context ~ Expr, Table Expr a) => Apply (EitherTable context a) where

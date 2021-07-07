@@ -23,6 +23,7 @@ module Rel8.Schema.HTable.Nullify
   , hnulls
   , hnullify
   , hunnullify
+  , hproject
   )
 where
 
@@ -38,6 +39,7 @@ import Rel8.Schema.HTable.MapTable
   ( HMapTable, HMapTableField( HMapTableField )
   , MapSpec, mapInfo
   )
+import qualified Rel8.Schema.HTable.MapTable as HMapTable ( hproject )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import qualified Rel8.Schema.Null as Type ( Nullify )
@@ -107,3 +109,9 @@ hunnullify unnullifier (HNullify as) =
     spec@Spec {} -> case hfield as (HMapTableField field) of
       a -> unnullifier spec a
 {-# INLINABLE hunnullify #-}
+
+
+hproject :: ()
+  => (forall ctx. t ctx -> t' ctx)
+  -> HNullify t context -> HNullify t' context
+hproject f (HNullify a) = HNullify (HMapTable.hproject f a)

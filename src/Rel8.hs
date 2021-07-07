@@ -173,6 +173,13 @@ module Rel8
   , Query
   , showQuery
 
+    -- ** Projection
+  , Projection
+  , Projectable( project )
+  , Biprojectable( biproject )
+  , Projecting
+  , Field
+
     -- ** Selecting rows
   , Selects
   , each
@@ -317,6 +324,7 @@ import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
+import Rel8.Schema.Field
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
@@ -342,6 +350,7 @@ import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
+import Rel8.Table.Projection
 import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These

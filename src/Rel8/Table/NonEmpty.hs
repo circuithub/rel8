@@ -26,7 +26,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hvectorize, hunvectorize )
+import Rel8.Schema.HTable.Vectorize
+  ( hvectorize, hunvectorize
+  , happend
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
@@ -40,6 +44,7 @@ import Rel8.Table
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Projectable, project, apply )
 import Rel8.Table.Serialize ( ToExprs )
 
 
@@ -48,6 +53,10 @@ import Rel8.Table.Serialize ( ToExprs )
 type NonEmptyTable :: K.Context -> Type -> Type
 newtype NonEmptyTable context a =
   NonEmptyTable (HNonEmptyTable (Columns a) (Context a))
+
+
+instance Projectable (NonEmptyTable context) where
+  project f (NonEmptyTable a) = NonEmptyTable (hproject (apply f) a)
 
 
 instance (Table context a, context ~ context') =>

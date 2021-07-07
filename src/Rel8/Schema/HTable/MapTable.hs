@@ -6,6 +6,7 @@
 {-# language GADTs #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -18,6 +19,7 @@ module Rel8.Schema.HTable.MapTable
   , MapSpec(..)
   , Precompose(..)
   , HMapTableField(..)
+  , hproject
   )
 where
 
@@ -89,3 +91,9 @@ class MapSpec f where
 type ComposeConstraint :: (Type -> Exp Type) -> (Type -> Constraint) -> Type -> Constraint
 class c (Eval (f a)) => ComposeConstraint f c a
 instance c (Eval (f a)) => ComposeConstraint f c a
+
+
+hproject :: ()
+  => (forall ctx. t ctx -> t' ctx)
+  -> HMapTable f t context -> HMapTable f t' context
+hproject f (HMapTable a) = HMapTable (f a)

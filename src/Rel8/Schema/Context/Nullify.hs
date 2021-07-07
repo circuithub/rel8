@@ -31,6 +31,7 @@ import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
 import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
 import Rel8.Kind.Context ( SContext(..) )
+import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullify, Nullity( Null, NotNull ) )
@@ -64,7 +65,8 @@ instance Nullifiable Name where
 
 type NonNullifiability :: K.Context -> Type
 data NonNullifiability context where
-  NNResult :: NonNullifiability Result
+  NField :: NonNullifiability (Field table)
+  NResult :: NonNullifiability Result
 
 
 nullifiableOrNot :: ()
@@ -73,8 +75,9 @@ nullifiableOrNot :: ()
 nullifiableOrNot = \case
   SAggregate -> Right NAggregate
   SExpr -> Right NExpr
+  SField -> Left NField
   SName -> Right NName
-  SResult -> Left NNResult
+  SResult -> Left NResult
 
 
 absurd :: Nullifiability context -> NonNullifiability context -> a
@@ -91,21 +94,20 @@ guarder :: ()
   -> (Expr tag -> Expr Bool)
   -> context (Maybe a)
   -> context (Maybe a)
-guarder SAggregate tag _ isNonNull (Aggregate a) =
-  mapInputs (toPrimExpr . run . fromPrimExpr) $
-  Aggregate $
-  run <$> a
-  where
-    mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
-    run = maybe id (sguard . isNonNull) (getFirst mtag)
-guarder SExpr tag _ isNonNull a = sguard condition a
-  where
-    condition = isNonNull tag
-guarder SName _ _ _ name = name
-guarder SResult (Identity tag) isNonNull _ (Identity a) =
-  Identity (bool Nothing a condition)
-  where
-    condition = isNonNull tag
+guarder = \case
+  SAggregate -> \tag _ isNonNull (Aggregate a) ->
+    let
+      mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
+      run = maybe id (sguard . isNonNull) (getFirst mtag)
+    in
+      mapInputs (toPrimExpr . run . fromPrimExpr) $
+      Aggregate $
+      run <$> a
+  SExpr -> \tag _ isNonNull a -> sguard (isNonNull tag) a
+  SField -> \_ _ _ field -> field
+  SName -> \_ _ _ name -> name
+  SResult -> \(Identity tag) isNonNull _ (Identity a) ->
+    Identity (bool Nothing a (isNonNull tag))
 
 
 nullifier :: ()
@@ -113,10 +115,11 @@ nullifier :: ()
   -> Spec a
   -> context a
   -> context (Nullify a)
-nullifier NAggregate Spec {nullity} (Aggregate a) =
-  Aggregate $ snullify nullity <$> a
-nullifier NExpr Spec {nullity} a = snullify nullity a
-nullifier NName _ (Name a) = Name a
+nullifier = \case
+  NAggregate -> \Spec {nullity} (Aggregate a) ->
+    Aggregate $ snullify nullity <$> a
+  NExpr -> \Spec {nullity} a -> snullify nullity a
+  NName -> \_ (Name a) -> Name a
 
 
 unnullifier :: ()
@@ -124,10 +127,11 @@ unnullifier :: ()
   -> Spec a
   -> context (Nullify a)
   -> context a
-unnullifier NAggregate Spec {nullity} (Aggregate a) =
-  Aggregate $ sunnullify nullity <$> a
-unnullifier NExpr Spec {nullity} a = sunnullify nullity a
-unnullifier NName _ (Name a) = Name a
+unnullifier = \case
+  NAggregate -> \Spec {nullity} (Aggregate a) ->
+    Aggregate $ sunnullify nullity <$> a
+  NExpr -> \Spec {nullity} a -> sunnullify nullity a
+  NName -> \_ (Name a) -> Name a
 
 
 sguard :: Expr Bool -> Expr (Maybe a) -> Expr (Maybe a)

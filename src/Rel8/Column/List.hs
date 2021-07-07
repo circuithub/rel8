@@ -12,10 +12,7 @@ import Data.Kind ( Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table.List ( ListTable )
 
@@ -24,7 +21,5 @@ import Rel8.Table.List ( ListTable )
 -- @a@ in the 'Expr' context, and a @[a]@ in the 'Result' context.
 type HList :: K.Context -> Type -> Type
 type family HList context = list | list -> context where
-  HList Aggregate = ListTable Aggregate
-  HList Expr = ListTable Expr
-  HList Name = ListTable Name
   HList Result = []
+  HList context = ListTable context
