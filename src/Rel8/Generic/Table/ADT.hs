@@ -12,8 +12,8 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Table.ADT
-  ( GTableADT, GColumnsADT, gfromResultADT, gtoResultADT
-  , GTableADT', GColumnsADT'
+  ( GSerializeADT, GColumnsADT, gfromResultADT, gtoResultADT
+  , GSerializeADT', GColumnsADT'
   )
 where
 
@@ -31,8 +31,7 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Map ( GMap )
-import Rel8.Generic.Table.Record ( GTable, GColumns, gfromResult, gtoResult )
+import Rel8.Generic.Table.Record ( GSerialize, GColumns, gfromResult, gtoResult )
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
@@ -65,120 +64,118 @@ type family GColumnsADT' _Columns htable rep  where
     HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
 
 
-type GTableADT
-  :: (Type -> Exp Constraint)
+type GSerializeADT
+  :: (Type -> Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> (Type -> Type) -> Constraint
-class GTableADT _Table _Columns _FromExprs rep where
+  -> (Type -> Type) -> (Type -> Type) -> Constraint
+class GSerializeADT _Serialize _Columns exprs rep where
   gfromResultADT :: ()
-    => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_Columns a) Result -> Eval (_FromExprs a))
-    -> GColumnsADT _Columns rep Result
-    -> GMap _FromExprs rep x
+    => (forall expr a proxy. Eval (_Serialize expr a)
+        => proxy expr -> Eval (_Columns expr) Result -> a)
+    -> GColumnsADT _Columns exprs Result
+    -> rep x
 
   gtoResultADT :: ()
-    => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) Result)
-    -> GMap _FromExprs rep x
-    -> GColumnsADT _Columns rep Result
+    => (forall expr a proxy. Eval (_Serialize expr a)
+        => proxy expr -> a -> Eval (_Columns expr) Result)
+    -> rep x
+    -> GColumnsADT _Columns exprs Result
 
 
 instance
   ( htable ~ HLabel "tag" (HIdentity Tag)
-  , GTableADT' _Table _Columns _FromExprs htable rep
+  , GSerializeADT' _Serialize _Columns htable exprs rep
   )
-  => GTableADT _Table _Columns _FromExprs (M1 D meta rep)
+  => GSerializeADT _Serialize _Columns (M1 D meta exprs) (M1 D meta rep)
  where
   gfromResultADT fromResult columns =
-    case gfromResultADT' @_Table @_Columns @_FromExprs @htable @rep fromResult tag columns of
+    case gfromResultADT' @_Serialize @_Columns @htable @exprs @rep fromResult tag columns of
       Just rep -> M1 rep
       _ -> error "ADT.fromColumns: mismatch between tag and data"
     where
       tag = (\(HIdentity (Identity a)) -> a) . hunlabel @"tag"
 
   gtoResultADT toResult (M1 rep) =
-    gtoResultADT' @_Table @_Columns @_FromExprs @htable @rep toResult tag (Just rep)
+    gtoResultADT' @_Serialize @_Columns @htable @exprs @rep toResult tag (Just rep)
     where
       tag = hlabel @"tag" . HIdentity . Identity
 
 
-type GTableADT'
-  :: (Type -> Exp Constraint)
+type GSerializeADT'
+  :: (Type -> Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> K.HTable -> (Type -> Type) -> Constraint
-class GTableADT' _Table _Columns _FromExprs htable rep where
+  -> K.HTable -> (Type -> Type) -> (Type -> Type) -> Constraint
+class GSerializeADT' _Serialize _Columns htable exprs rep where
   gfromResultADT' :: context ~ Result
-    => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_Columns a) context -> Eval (_FromExprs a))
+    => (forall expr a proxy. Eval (_Serialize expr a)
+        => proxy expr -> Eval (_Columns expr) context -> a)
     -> (htable Result -> Tag)
-    -> GColumnsADT' _Columns htable rep context
-    -> Maybe (GMap _FromExprs rep x)
+    -> GColumnsADT' _Columns htable exprs context
+    -> Maybe (rep x)
 
   gtoResultADT' :: context ~ Result
-    => (forall a proxy. Eval (_Table a)
-        => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) context)
+    => (forall expr a proxy. Eval (_Serialize expr a)
+        => proxy expr -> a -> Eval (_Columns expr) context)
     -> (Tag -> htable Result)
-    -> Maybe (GMap _FromExprs rep x)
-    -> GColumnsADT' _Columns htable rep context
+    -> Maybe (rep x)
+    -> GColumnsADT' _Columns htable exprs context
 
-  extract :: GColumnsADT' _Columns htable rep context -> htable context
+  extract :: GColumnsADT' _Columns htable exprs context -> htable context
 
 
 instance
-  ( htable' ~ GColumnsADT' _Columns htable a
-  , GTableADT' _Table _Columns _FromExprs htable a
-  , GTableADT' _Table _Columns _FromExprs htable' b
+  ( htable' ~ GColumnsADT' _Columns htable exprs1
+  , GSerializeADT' _Serialize _Columns htable exprs1 a
+  , GSerializeADT' _Serialize _Columns htable' exprs2 b
   )
-  => GTableADT' _Table _Columns _FromExprs htable (a :+: b)
+  => GSerializeADT' _Serialize _Columns htable (exprs1 :+: exprs2) (a :+: b)
  where
   gfromResultADT' fromResult f columns =
     case ma of
       Just a -> Just (L1 a)
       Nothing -> R1 <$>
-        gfromResultADT' @_Table @_Columns @_FromExprs @_ @b
+        gfromResultADT' @_Serialize @_Columns @_ @exprs2 @b
           fromResult
-          (f . extract @_Table @_Columns @_FromExprs @_ @a)
+          (f . extract @_Serialize @_Columns @_ @exprs1 @a)
           columns
     where
       ma =
-        gfromResultADT' @_Table @_Columns @_FromExprs @_ @a
+        gfromResultADT' @_Serialize @_Columns @_ @exprs1 @a
           fromResult
           f
-          (extract @_Table @_Columns @_FromExprs @_ @b columns)
+          (extract @_Serialize @_Columns @_ @exprs2 @b columns)
 
   gtoResultADT' toResult tag = \case
     Just (L1 a) ->
-      gtoResultADT' @_Table @_Columns @_FromExprs @_ @b
+      gtoResultADT' @_Serialize @_Columns @_ @exprs2 @b
         toResult
-        (\_ -> gtoResultADT' @_Table @_Columns @_FromExprs @_ @a
+        (\_ -> gtoResultADT' @_Serialize @_Columns @_ @exprs1 @a
           toResult
           tag
           (Just a))
         Nothing
     Just (R1 b) ->
-      gtoResultADT' @_Table @_Columns @_FromExprs @_ @b
+      gtoResultADT' @_Serialize @_Columns @_ @exprs2 @b
         toResult
         (\tag' ->
-          gtoResultADT' @_Table @_Columns @_FromExprs @_ @a
+          gtoResultADT' @_Serialize @_Columns @_ @exprs1 @a
             toResult
             (\_ -> tag tag')
             Nothing)
         (Just b)
     Nothing ->
-      gtoResultADT' @_Table @_Columns @_FromExprs @_ @b
+      gtoResultADT' @_Serialize @_Columns @_ @exprs2 @b
         toResult
-        (\_ -> gtoResultADT' @_Table @_Columns @_FromExprs @_ @a toResult tag Nothing)
+        (\_ -> gtoResultADT' @_Serialize @_Columns @_ @exprs1 @a toResult tag Nothing)
         Nothing
 
   extract =
-    extract @_Table @_Columns @_FromExprs @_ @a .
-    extract @_Table @_Columns @_FromExprs @_ @b
+    extract @_Serialize @_Columns @_ @exprs1 @a .
+    extract @_Serialize @_Columns @_ @exprs2 @b
 
 
 instance (meta ~ 'MetaCons label _fixity _isRecord, KnownSymbol label) =>
-  GTableADT' _Table _Columns _FromExprs htable (M1 C meta U1)
+  GSerializeADT' _Serialize _Columns _htable (M1 C meta U1) (M1 C meta U1)
  where
   gfromResultADT' _ tag columns
     | tag columns == tag' = Just (M1 U1)
@@ -194,18 +191,18 @@ instance (meta ~ 'MetaCons label _fixity _isRecord, KnownSymbol label) =>
 
 
 instance {-# OVERLAPPABLE #-}
-  ( HTable (GColumns _Columns rep)
-  , GTable _Table _Columns _FromExprs rep
+  ( HTable (GColumns _Columns exprs)
+  , GSerialize _Serialize _Columns exprs rep
   , meta ~ 'MetaCons label _fixity _isRecord
   , KnownSymbol label
-  , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep) ~
-      HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
+  , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) exprs) ~
+      HProduct htable (HLabel label (HNullify (GColumns _Columns exprs)))
   )
-  => GTableADT' _Table _Columns _FromExprs htable (M1 C meta rep)
+  => GSerializeADT' _Serialize _Columns htable (M1 C meta exprs) (M1 C meta rep)
  where
   gfromResultADT' fromResult tag (HProduct a b)
     | tag a == tag' =
-        M1 . gfromResult @_Table @_Columns @_FromExprs @rep fromResult <$>
+        M1 . gfromResult @_Serialize @_Columns @exprs @rep fromResult <$>
           hunnullify unnullifier (hunlabel b)
     | otherwise = Nothing
     where
@@ -216,7 +213,7 @@ instance {-# OVERLAPPABLE #-}
     Just (M1 rep) -> HProduct (tag tag') $
       hlabel $
       hnullify nullifier $
-      gtoResult @_Table @_Columns @_FromExprs @rep toResult rep
+      gtoResult @_Serialize @_Columns @exprs @rep toResult rep
     where
       tag' = Tag $ pack $ symbolVal (Proxy @label)
 

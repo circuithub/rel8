@@ -37,7 +37,7 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Null ( Sql )
-import Rel8.Table ( Table, Columns, toColumns, TColumns, TFromExprs )
+import Rel8.Table ( Table, Columns, toColumns, TColumns )
 import Rel8.Type.Eq ( DBEq )
 
 
@@ -49,17 +49,11 @@ class Table Expr a => EqTable a where
   eqTable :: Columns a (Dict (Sql DBEq))
 
   default eqTable ::
-    ( GTable TEqTable TColumns TFromExprs (Rep (Record a))
+    ( GTable TEqTable TColumns (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a (Dict (Sql DBEq))
-  eqTable =
-    gtable
-      @TEqTable
-      @TColumns
-      @TFromExprs
-      @(Rep (Record a))
-      table
+  eqTable = gtable @TEqTable @TColumns @(Rep (Record a)) table
     where
       table (_ :: proxy x) = eqTable @x
 

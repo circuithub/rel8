@@ -7,7 +7,6 @@
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 {-# language TypeFamilyDependencies #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
@@ -28,7 +27,7 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-import GHC.Generics ( Generic, Rep, from, to )
+import GHC.Generics ( Generic, from, to )
 import GHC.TypeLits ( Symbol )
 import Prelude
 
@@ -45,24 +44,20 @@ import Rel8.Generic.Construction
   , GGName, ggname
   , GGAggregate, ggaggregate
   )
-import Rel8.Generic.Map ( GMap )
 import Rel8.Generic.Record ( Record( Record ), unrecord )
 import Rel8.Generic.Rel8able
   ( Rel8able
   , GRep, GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
+  , TSerialize, deserialize, serialize
   )
 import qualified Rel8.Generic.Table.ADT as G
 import qualified Rel8.Kind.Algebra as K
-import Rel8.Schema.Context.Virtual
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
-import Rel8.Table
-  ( Table, fromResult, toResult
-  , TTable, TColumns, TFromExprs
-  )
+import Rel8.Table ( Table, TColumns )
 
 
 type ADT :: K.Rel8able -> K.Rel8able
@@ -73,31 +68,26 @@ instance ADTable t => Rel8able (ADT t) where
   type GColumns (ADT t) = GColumnsADT t
   type GFromExprs (ADT t) = t Result
 
-  gfromColumns VAggregate = ADT
-  gfromColumns VExpr = ADT
-  gfromColumns VName = ADT
-
-  gtoColumns VAggregate (ADT a) = a
-  gtoColumns VExpr (ADT a) = a
-  gtoColumns VName (ADT a) = a
+  gfromColumns _ = ADT
+  gtoColumns _ (ADT a) = a
 
   gfromResult =
     unrecord .
     to .
     G.gfromResultADT
-      @(TTable Expr)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Eval (ADTRep t Expr))
-      (\(_ :: proxy x) -> fromResult @_ @x)
+      @(Eval (ADTRep t Result))
+      (\(_ :: proxy x) -> deserialize @_ @x)
 
   gtoResult =
     G.gtoResultADT
-      @(TTable Expr)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Eval (ADTRep t Expr))
-      (\(_ :: proxy x) -> toResult @_ @x) .
+      @(Eval (ADTRep t Result))
+      (\(_ :: proxy x) -> serialize @_ @x) .
     from .
     Record
 
@@ -106,15 +96,13 @@ type ADTable :: K.Rel8able -> Constraint
 class
   ( Generic (Record (t Result))
   , HTable (GColumnsADT t)
-  , G.GTableADT (TTable Expr) TColumns TFromExprs (Eval (ADTRep t Expr))
-  , GMap TFromExprs (Rep (Record (t Expr))) ~ Rep (Record (t Result))
+  , G.GSerializeADT TSerialize TColumns (Eval (ADTRep t Expr)) (Eval (ADTRep t Result))
   )
   => ADTable t
 instance
   ( Generic (Record (t Result))
   , HTable (GColumnsADT t)
-  , G.GTableADT (TTable Expr) TColumns TFromExprs (Eval (ADTRep t Expr))
-  , GMap TFromExprs (Rep (Record (t Expr))) ~ Rep (Record (t Result))
+  , G.GSerializeADT TSerialize TColumns (Eval (ADTRep t Expr)) (Eval (ADTRep t Result))
   )
   => ADTable t
 

@@ -12,7 +12,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Table
-  ( GGTable, GGColumns, ggfromResult, ggtoResult
+  ( GGSerialize, GGColumns, ggfromResult, ggtoResult
   , GAlgebra
   )
 where
@@ -24,11 +24,10 @@ import Prelude ()
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Map ( GMap )
 import Rel8.Generic.Table.ADT
-  ( GTableADT, GColumnsADT, gtoResultADT, gfromResultADT
+  ( GSerializeADT, GColumnsADT, gtoResultADT, gfromResultADT
   )
-import Rel8.Generic.Table.Record ( GTable, GColumns, gtoResult, gfromResult )
+import Rel8.Generic.Table.Record ( GSerialize, GColumns, gtoResult, gfromResult )
 import Rel8.Kind.Algebra
   ( Algebra( Product, Sum )
   , SAlgebra( SProduct, SSum )
@@ -38,21 +37,21 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Result ( Result )
 
 
-data GGTable
+data GGSerialize
   :: Algebra
-  -> (Type -> Exp Constraint)
+  -> (Type -> Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
+  -> (Type -> Type)
   -> (Type -> Type)
   -> Exp Constraint
 
 
-type instance Eval (GGTable 'Product _Table _Columns _FromExprs rep) =
-  GTable _Table _Columns _FromExprs rep
+type instance Eval (GGSerialize 'Product _Serialize _Columns exprs rep) =
+  GSerialize _Serialize _Columns exprs rep
 
 
-type instance Eval (GGTable 'Sum _Table _Columns _FromExprs rep) =
-  GTableADT _Table _Columns _FromExprs rep
+type instance Eval (GGSerialize 'Sum _Serialize _Columns exprs rep) =
+  GSerializeADT _Serialize _Columns exprs rep
 
 
 data GGColumns
@@ -78,27 +77,27 @@ type family GAlgebra rep where
   GAlgebra (K1 _ _) = 'Product
 
 
-ggfromResult :: forall algebra _Table _Columns _FromExprs rep x.
+ggfromResult :: forall algebra _Serialize _Columns exprs rep x.
   ( KnownAlgebra algebra
-  , Eval (GGTable algebra _Table _Columns _FromExprs rep)
+  , Eval (GGSerialize algebra _Serialize _Columns exprs rep)
   )
-  => (forall a proxy. Eval (_Table a)
-      => proxy a -> Eval (_Columns a) Result -> Eval (_FromExprs a))
-  -> Eval (GGColumns algebra _Columns rep) Result
-  -> GMap _FromExprs rep x
+  => (forall expr a proxy. Eval (_Serialize expr a)
+      => proxy expr -> Eval (_Columns expr) Result -> a)
+  -> Eval (GGColumns algebra _Columns exprs) Result
+  -> rep x
 ggfromResult f x = case algebraSing @algebra of
-  SProduct -> gfromResult @_Table @_Columns @_FromExprs @rep f x
-  SSum -> gfromResultADT @_Table @_Columns @_FromExprs @rep f x
+  SProduct -> gfromResult @_Serialize @_Columns @exprs @rep f x
+  SSum -> gfromResultADT @_Serialize @_Columns @exprs @rep f x
 
 
-ggtoResult :: forall algebra _Table _Columns _FromExprs rep x.
+ggtoResult :: forall algebra _Serialize _Columns exprs rep x.
   ( KnownAlgebra algebra
-  , Eval (GGTable algebra _Table _Columns _FromExprs rep)
+  , Eval (GGSerialize algebra _Serialize _Columns exprs rep)
   )
-  => (forall a proxy. Eval (_Table a)
-      => proxy a -> Eval (_FromExprs a) -> Eval (_Columns a) Result)
-  -> GMap _FromExprs rep x
-  -> Eval (GGColumns algebra _Columns rep) Result
+  => (forall expr a proxy. Eval (_Serialize expr a)
+      => proxy expr -> a -> Eval (_Columns expr) Result)
+  -> rep x
+  -> Eval (GGColumns algebra _Columns exprs) Result
 ggtoResult f x = case algebraSing @algebra of
-  SProduct -> gtoResult @_Table @_Columns @_FromExprs @rep f x
-  SSum -> gtoResultADT @_Table @_Columns @_FromExprs @rep f x
+  SProduct -> gtoResult @_Serialize @_Columns @exprs @rep f x
+  SSum -> gtoResultADT @_Serialize @_Columns @exprs @rep f x

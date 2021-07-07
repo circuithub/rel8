@@ -57,16 +57,18 @@ import Rel8.Generic.Rel8able
   , GFromExprs, gfromResult, gtoResult
   )
 import Rel8.Generic.Table
-  ( GGTable, GGColumns, GAlgebra, ggfromResult, ggtoResult
+  ( GGSerialize, GGColumns, GAlgebra, ggfromResult, ggtoResult
   )
 import Rel8.Generic.Table.Record ( GTable, GContext )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable )
 import Rel8.Schema.Name ( Name )
+import Rel8.Schema.Result ( Result )
 import Rel8.Table
   ( Table, fromColumns, toColumns, fromResult, toResult
-  , TTable, TColumns, TContext, TFromExprs
+  , TTable, TColumns, TContext
+  , TSerialize
   )
 
 
@@ -91,26 +93,26 @@ instance HKDable a => Rel8able (HKD a) where
     to .
     ggfromResult
       @(GAlgebra (Rep a))
-      @(TTable Expr)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Eval (HKDRep a Expr))
+      @(Eval (HKDRep a Result))
       (\(_ :: proxy x) -> fromResult @_ @x)
 
   gtoResult =
     ggtoResult
       @(GAlgebra (Rep a))
-      @(TTable Expr)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Eval (HKDRep a Expr))
+      @(Eval (HKDRep a Result))
       (\(_ :: proxy x) -> toResult @_ @x) .
     from .
     Record
 
 
 instance
-  ( GTable (TTable f) TColumns TFromExprs (GRecord (GMap (TColumn f) (Rep a)))
+  ( GTable (TTable f) TColumns (GRecord (GMap (TColumn f) (Rep a)))
   , G.GColumns TColumns (GRecord (GMap (TColumn f) (Rep a))) ~ GColumnsHKD a
   , GContext TContext (GRecord (GMap (TColumn f) (Rep a))) ~ f
   , GRecordable (GMap (TColumn f) (Rep a))
@@ -124,7 +126,6 @@ instance
     G.gfromColumns
       @(TTable f)
       @TColumns
-      @TFromExprs
       fromColumns .
     (\(HKD a) -> a)
 
@@ -133,7 +134,6 @@ instance
     G.gtoColumns
       @(TTable f)
       @TColumns
-      @TFromExprs
       toColumns .
     grecord @(GMap (TColumn f) (Rep a))
 
@@ -143,16 +143,16 @@ class
   ( Generic (Record a)
   , HTable (GColumns (HKD a))
   , KnownAlgebra (GAlgebra (Rep a))
-  , Eval (GGTable (GAlgebra (Rep a)) (TTable Expr) TColumns TFromExprs (Eval (HKDRep a Expr)))
-  , GMap TFromExprs (GRecord (GMap (TColumn Expr) (Rep a))) ~ Rep (Record a)
+  , Eval (GGSerialize (GAlgebra (Rep a)) TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
+  , GRecord (GMap (TColumn Result) (Rep a)) ~ Rep (Record a)
   )
   => HKDable a
 instance
   ( Generic (Record a)
   , HTable (GColumns (HKD a))
   , KnownAlgebra (GAlgebra (Rep a))
-  , Eval (GGTable (GAlgebra (Rep a)) (TTable Expr) TColumns TFromExprs (Eval (HKDRep a Expr)))
-  , GMap TFromExprs (GRecord (GMap (TColumn Expr) (Rep a))) ~ Rep (Record a)
+  , Eval (GGSerialize (GAlgebra (Rep a)) TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
+  , GRecord (GMap (TColumn Result) (Rep a)) ~ Rep (Record a)
   )
   => HKDable a
 
