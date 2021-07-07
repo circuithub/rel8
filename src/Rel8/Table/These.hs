@@ -60,6 +60,7 @@ import Rel8.Table.Maybe
   )
 import Rel8.Table.Nullify ( Nullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Biprojectable, Projectable, biproject, project )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type.Tag ( MaybeTag )
@@ -88,8 +89,16 @@ data TheseTable context a b = TheseTable
   deriving stock Functor
 
 
+instance Biprojectable (TheseTable context) where
+  biproject f g (TheseTable a b) = TheseTable (project f a) (project g b)
+
+
 instance Nullifiable context => Bifunctor (TheseTable context) where
   bimap f g (TheseTable a b) = TheseTable (fmap f a) (fmap g b)
+
+
+instance Projectable (TheseTable context a) where
+  project f (TheseTable a b) = TheseTable a (project f b)
 
 
 instance (context ~ Expr, Table Expr a, Semigroup a) =>

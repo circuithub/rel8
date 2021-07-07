@@ -6,6 +6,7 @@
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -38,6 +39,7 @@ import Rel8.Generic.Table ( GAlgebra )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
 import Rel8.Kind.Context ( SContext(..) )
+import Rel8.Schema.Field ( Field )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
@@ -149,6 +151,7 @@ class HTable (GColumns t) => Rel8able t where
   default gfromColumns :: forall context.
     ( SRel8able t Aggregate
     , SRel8able t Expr
+    , forall table. SRel8able t (Field table)
     , SRel8able t Name
     , SSerialize t
     )
@@ -156,12 +159,14 @@ class HTable (GColumns t) => Rel8able t where
   gfromColumns = \case
     SAggregate -> sfromColumns
     SExpr -> sfromColumns
+    SField -> sfromColumns
     SName -> sfromColumns
     SResult -> sfromResult
 
   default gtoColumns :: forall context.
     ( SRel8able t Aggregate
     , SRel8able t Expr
+    , forall table. SRel8able t (Field table)
     , SRel8able t Name
     , SSerialize t
     )
@@ -169,6 +174,7 @@ class HTable (GColumns t) => Rel8able t where
   gtoColumns = \case
     SAggregate -> stoColumns
     SExpr -> stoColumns
+    SField -> stoColumns
     SName -> stoColumns
     SResult -> stoResult
 
@@ -190,11 +196,18 @@ type GRep t context = Rep (Record (t context))
 
 
 type SRel8able :: K.Rel8able -> K.Context -> Constraint
-type SRel8able t context =
+class
   ( Generic (Record (t context))
   , G.GTable (TTable context) TColumns (GRep t context)
   , G.GColumns TColumns (GRep t context) ~ GColumns t
   )
+  => SRel8able t context
+instance
+  ( Generic (Record (t context))
+  , G.GTable (TTable context) TColumns (GRep t context)
+  , G.GColumns TColumns (GRep t context) ~ GColumns t
+  )
+  => SRel8able t context
 
 
 type SSerialize :: K.Rel8able -> Constraint

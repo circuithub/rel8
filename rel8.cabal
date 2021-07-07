@@ -116,6 +116,7 @@ library
 
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
+    Rel8.Schema.Field
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
     Rel8.Schema.HTable.Identity
@@ -159,6 +160,7 @@ library
     Rel8.Table.Opaleye
     Rel8.Table.Ord
     Rel8.Table.Order
+    Rel8.Table.Projection
     Rel8.Table.Rel8able
     Rel8.Table.Serialize
     Rel8.Table.These

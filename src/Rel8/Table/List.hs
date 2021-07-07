@@ -25,7 +25,11 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
-import Rel8.Schema.HTable.Vectorize ( happend, hempty, hvectorize, hunvectorize )
+import Rel8.Schema.HTable.Vectorize
+  ( hvectorize, hunvectorize
+  , happend, hempty
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
@@ -42,6 +46,7 @@ import Rel8.Table.Alternative
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Projectable, project, apply )
 import Rel8.Table.Serialize ( ToExprs )
 
 
@@ -50,6 +55,10 @@ import Rel8.Table.Serialize ( ToExprs )
 type ListTable :: K.Context -> Type -> Type
 newtype ListTable context a =
   ListTable (HListTable (Columns a) (Context a))
+
+
+instance Projectable (ListTable context) where
+  project f (ListTable a) = ListTable (hproject (apply f) a)
 
 
 instance (Table context a, context ~ context') =>

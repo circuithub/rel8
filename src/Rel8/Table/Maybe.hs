@@ -58,6 +58,7 @@ import Rel8.Table.Alternative
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Projectable, project )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
@@ -83,6 +84,10 @@ data MaybeTable context a = MaybeTable
   , just :: Nullify context a
   }
   deriving stock Functor
+
+
+instance Projectable (MaybeTable context) where
+  project f (MaybeTable tag a) = MaybeTable tag (project f a)
 
 
 instance context ~ Expr => Apply (MaybeTable context) where

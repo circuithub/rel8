@@ -12,10 +12,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table.Maybe ( MaybeTable )
 
@@ -25,7 +22,5 @@ import Rel8.Table.Maybe ( MaybeTable )
 -- context.
 type HMaybe :: K.Context -> Type -> Type
 type family HMaybe context = maybe | maybe -> context where
-  HMaybe Aggregate = MaybeTable Aggregate
-  HMaybe Expr = MaybeTable Expr
-  HMaybe Name = MaybeTable Name
   HMaybe Result = Maybe
+  HMaybe context = MaybeTable context

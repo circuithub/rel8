@@ -12,10 +12,7 @@ import Data.Kind ( Type )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table.Either ( EitherTable )
 
@@ -25,7 +22,5 @@ import Rel8.Table.Either ( EitherTable )
 -- 'Result' context.
 type HEither :: K.Context -> Type -> Type -> Type
 type family HEither context = either | either -> context where
-  HEither Aggregate = EitherTable Aggregate
-  HEither Expr = EitherTable Expr
-  HEither Name = EitherTable Name
   HEither Result = Either
+  HEither context = EitherTable context

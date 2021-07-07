@@ -39,7 +39,11 @@ import Rel8.Schema.Context.Nullify
   )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify, hguard )
+import Rel8.Schema.HTable.Nullify
+  ( HNullify, hnulls, hnullify, hunnullify
+  , hguard
+  , hproject
+  )
 import qualified Rel8.Schema.Kind as K
 import qualified Rel8.Schema.Result as R
 import Rel8.Table
@@ -49,6 +53,7 @@ import Rel8.Table
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
+import Rel8.Table.Projection ( Projectable, apply, project )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>), liftF2 )
@@ -60,6 +65,12 @@ type Nullify :: K.Context -> Type -> Type
 data Nullify context a
   = Table (Nullifiability context) a
   | Fields (NonNullifiability context) (HNullify (Columns a) (Context a))
+
+
+instance Projectable (Nullify context) where
+  project f = \case
+    Table nullifiable a -> Table nullifiable (fromColumns (apply f (toColumns a)))
+    Fields nonNullifiable a -> Fields nonNullifiable (hproject (apply f) a)
 
 
 instance Nullifiable context => Functor (Nullify context) where
