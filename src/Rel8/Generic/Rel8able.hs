@@ -3,12 +3,14 @@
 {-# language DataKinds #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
-{-# language TypeFamilies #-}
 {-# language TypeFamilyDependencies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Rel8able
@@ -17,36 +19,75 @@ module Rel8.Generic.Rel8able
   , GRep
   , GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
+  , TSerialize, serialize, deserialize
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
+import Data.Type.Equality ( type (==) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Generic.Map ( GMap )
+import Rel8.FCF ( Exp, Eval )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Generic.Table ( GAlgebra )
 import qualified Rel8.Generic.Table.Record as G
 import qualified Rel8.Kind.Algebra as K ( Algebra(..) )
-import Rel8.Schema.Context.Virtual ( Abstract(..) )
+import Rel8.Kind.Context ( SContext(..) )
 import Rel8.Schema.HTable ( HTable )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table
-  ( fromColumns, toColumns, fromResult, toResult
-  , TTable, TColumns, TFromExprs
+  ( Table, Columns, Context, fromColumns, toColumns
+  , FromExprs, fromResult, toResult
+  , Transpose
+  , TTable, TColumns
   )
+import Rel8.Table.Transpose ( Transposes )
 
 
 -- | The kind of 'Rel8able' types
 type KRel8able :: Type
 type KRel8able = K.Rel8able
+
+
+type Serialize :: Bool -> Type -> Type -> Constraint
+class transposition ~ (a == Transpose Result expr) =>
+  Serialize transposition expr a
+ where
+  serialize :: a -> Columns expr Result
+  deserialize :: Columns expr Result -> a
+
+
+instance
+  ( (a == Transpose Result expr) ~ 'True
+  , Transposes Expr Result expr a
+  )
+  => Serialize 'True expr a
+ where
+  serialize = toColumns
+  deserialize = fromColumns
+
+
+instance
+  ( (a == Transpose Result expr) ~ 'False
+  , Table (Context expr) expr
+  , FromExprs expr ~ a
+  )
+  => Serialize 'False expr a
+ where
+  serialize = toResult @_ @expr
+  deserialize = fromResult @_ @expr
+
+
+data TSerialize :: Type -> Type -> Exp Constraint
+type instance Eval (TSerialize expr a) =
+  Serialize (a == Transpose Result expr) expr a
 
 
 -- | This type class allows you to define custom 'Table's using higher-kinded
@@ -96,8 +137,8 @@ class HTable (GColumns t) => Rel8able t where
   type GColumns t :: K.HTable
   type GFromExprs t :: Type
 
-  gfromColumns :: Abstract context -> GColumns t context -> t context
-  gtoColumns :: Abstract context -> t context -> GColumns t context
+  gfromColumns :: SContext context -> GColumns t context -> t context
+  gtoColumns :: SContext context -> t context -> GColumns t context
 
   gfromResult :: GColumns t Result -> GFromExprs t
   gtoResult :: GFromExprs t -> GColumns t Result
@@ -106,62 +147,38 @@ class HTable (GColumns t) => Rel8able t where
   type GFromExprs t = t Result
 
   default gfromColumns :: forall context.
-    ( VRel8able t Aggregate
-    , VRel8able t Expr
-    , VRel8able t Name
+    ( SRel8able t Aggregate
+    , SRel8able t Expr
+    , SRel8able t Name
+    , SSerialize t
     )
-    => Abstract context -> GColumns t context -> t context
+    => SContext context -> GColumns t context -> t context
   gfromColumns = \case
-    VAggregate -> vfromColumns
-    VExpr -> vfromColumns
-    VName -> vfromColumns
+    SAggregate -> sfromColumns
+    SExpr -> sfromColumns
+    SName -> sfromColumns
+    SResult -> sfromResult
 
   default gtoColumns :: forall context.
-    ( VRel8able t Aggregate
-    , VRel8able t Expr
-    , VRel8able t Name
+    ( SRel8able t Aggregate
+    , SRel8able t Expr
+    , SRel8able t Name
+    , SSerialize t
     )
-    => Abstract context -> t context -> GColumns t context
+    => SContext context -> t context -> GColumns t context
   gtoColumns = \case
-    VAggregate -> vtoColumns
-    VExpr -> vtoColumns
-    VName -> vtoColumns
+    SAggregate -> stoColumns
+    SExpr -> stoColumns
+    SName -> stoColumns
+    SResult -> stoResult
 
-  default gfromResult ::
-    ( Generic (Record (t Result))
-    , G.GTable (TTable Expr) TColumns TFromExprs (GRep t Expr)
-    , G.GColumns TColumns (GRep t Expr) ~ GColumns t
-    , Rep (Record (t Result)) ~ GMap TFromExprs (GRep t Expr)
-    , GFromExprs t ~ t Result
-    )
+  default gfromResult :: (SSerialize t, GFromExprs t ~ t Result)
     => GColumns t Result -> GFromExprs t
-  gfromResult =
-    unrecord .
-    to .
-    G.gfromResult
-      @(TTable Expr)
-      @TColumns
-      @TFromExprs
-      @(GRep t Expr)
-      (\(_ :: proxy x) -> fromResult @Expr @x)
+  gfromResult = sfromResult
 
-  default gtoResult ::
-    ( Generic (Record (t Result))
-    , G.GTable (TTable Expr) TColumns TFromExprs (GRep t Expr)
-    , G.GColumns TColumns (GRep t Expr) ~ GColumns t
-    , Rep (Record (t Result)) ~ GMap TFromExprs (GRep t Expr)
-    , GFromExprs t ~ t Result
-    )
+  default gtoResult :: (SSerialize t, GFromExprs t ~ t Result)
     => GFromExprs t -> GColumns t Result
-  gtoResult =
-    G.gtoResult
-      @(TTable Expr)
-      @TColumns
-      @TFromExprs
-      @(GRep t Expr)
-      (\(_ :: proxy x) -> toResult @Expr @x) .
-    from .
-    Record
+  gtoResult = stoResult
 
 
 type Algebra :: K.Rel8able -> K.Algebra
@@ -172,25 +189,59 @@ type GRep :: K.Rel8able -> K.Context -> Type -> Type
 type GRep t context = Rep (Record (t context))
 
 
-type VRel8able :: K.Rel8able -> K.Context -> Constraint
-type VRel8able t context =
+type SRel8able :: K.Rel8able -> K.Context -> Constraint
+type SRel8able t context =
   ( Generic (Record (t context))
-  , G.GTable (TTable context) TColumns TFromExprs (GRep t context)
+  , G.GTable (TTable context) TColumns (GRep t context)
   , G.GColumns TColumns (GRep t context) ~ GColumns t
   )
 
 
-vfromColumns :: forall t context. VRel8able t context
+type SSerialize :: K.Rel8able -> Constraint
+type SSerialize t =
+  ( Generic (Record (t Result))
+  , G.GSerialize TSerialize TColumns (GRep t Expr) (GRep t Result)
+  , G.GColumns TColumns (GRep t Expr) ~ GColumns t
+  )
+
+
+sfromColumns :: forall t context. SRel8able t context
   => GColumns t context -> t context
-vfromColumns =
+sfromColumns =
   unrecord .
   to .
-  G.gfromColumns @(TTable context) @TColumns @TFromExprs fromColumns
+  G.gfromColumns @(TTable context) @TColumns fromColumns
 
 
-vtoColumns :: forall t context. VRel8able t context
+stoColumns :: forall t context. SRel8able t context
   => t context -> GColumns t context
-vtoColumns =
-  G.gtoColumns @(TTable context) @TColumns @TFromExprs toColumns .
+stoColumns =
+  G.gtoColumns @(TTable context) @TColumns toColumns .
+  from .
+  Record
+
+
+sfromResult :: forall t. SSerialize t
+  => GColumns t Result -> t Result
+sfromResult =
+  unrecord .
+  to .
+  G.gfromResult
+    @TSerialize
+    @TColumns
+    @(GRep t Expr)
+    @(GRep t Result)
+    (\(_ :: proxy x) -> deserialize @_ @x)
+
+
+stoResult :: forall t. SSerialize t
+  => t Result -> GColumns t Result
+stoResult =
+  G.gtoResult
+    @TSerialize
+    @TColumns
+    @(GRep t Expr)
+    @(GRep t Result)
+    (\(_ :: proxy x) -> serialize @_ @x) .
   from .
   Record

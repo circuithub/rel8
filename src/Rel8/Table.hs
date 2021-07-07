@@ -17,26 +17,31 @@ module Rel8.Table
       , Transpose
       )
   , Congruent
-  , TTable, TColumns, TContext, TFromExprs
+  , TTable, TColumns, TContext, TFromExprs, TTranspose
+  , TSerialize
   )
 where
 
 -- base
+import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Map ( GMap, Map )
+import Rel8.Generic.Map ( Map )
 import Rel8.Generic.Table.Record
-  ( GTable, GColumns, GContext
-  , gfromColumns, gtoColumns, gfromResult, gtoResult
+  ( GTable, GColumns, GContext, gfromColumns, gtoColumns
+  , GSerialize, gfromResult, gtoResult
   )
 import Rel8.Generic.Record ( Record(..) )
 import Rel8.Schema.HTable ( HTable )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Result ( Result )
+import Rel8.Type ( DBType )
 
 
 -- | @Table@s are one of the foundational elements of Rel8, and describe data
@@ -84,67 +89,69 @@ class
 
   default toColumns ::
     ( Generic (Record a)
-    , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
+    , GTable (TTable context) TColumns (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => a -> Columns a context
   toColumns =
-    gtoColumns
-      @(TTable context)
-      @TColumns
-      @TFromExprs
-      toColumns .
+    gtoColumns @(TTable context) @TColumns toColumns .
     from .
     Record
 
   default fromColumns ::
     ( Generic (Record a)
-    , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
+    , GTable (TTable context) TColumns (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a context -> a
   fromColumns =
     unrecord .
     to .
-    gfromColumns
-      @(TTable context)
-      @TColumns
-      @TFromExprs
-      fromColumns
+    gfromColumns @(TTable context) @TColumns fromColumns
 
   default toResult ::
     ( Generic (Record (FromExprs a))
-    , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
+    , GSerialize TSerialize TColumns (Rep (Record a)) (Rep (Record (FromExprs a)))
     , Columns a ~ GColumns TColumns (Rep (Record a))
-    , Rep (Record (FromExprs a)) ~ GMap TFromExprs (Rep (Record a))
     )
     => FromExprs a -> Columns a Result
   toResult =
     gtoResult
-      @(TTable context)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Rep (Record a))
+      @(Rep (Record (FromExprs a)))
       (\(_ :: proxy x) -> toResult @(Context x) @x) .
     from .
     Record
 
   default fromResult ::
     ( Generic (Record (FromExprs a))
-    , GTable (TTable context) TColumns TFromExprs (Rep (Record a))
+    , GSerialize TSerialize TColumns (Rep (Record a)) (Rep (Record (FromExprs a)))
     , Columns a ~ GColumns TColumns (Rep (Record a))
-    , Rep (Record (FromExprs a)) ~ GMap TFromExprs (Rep (Record a))
     )
     => Columns a Result -> FromExprs a
   fromResult =
     unrecord .
     to .
     gfromResult
-      @(TTable context)
+      @TSerialize
       @TColumns
-      @TFromExprs
       @(Rep (Record a))
+      @(Rep (Record (FromExprs a)))
       (\(_ :: proxy x) -> fromResult @(Context x) @x)
+
+
+instance Sql DBType a => Table Result (Identity a) where
+  type Columns (Identity a) = HIdentity a
+  type Context (Identity a) = Result
+  type FromExprs (Identity a) = a
+  type Transpose to (Identity a) = to a
+
+  toColumns = HIdentity
+  fromColumns (HIdentity a) = a
+  toResult a = HIdentity (Identity a)
+  fromResult (HIdentity (Identity a)) = a
 
 
 data TTable :: K.Context -> Type -> Exp Constraint
@@ -165,6 +172,13 @@ type instance Eval (TFromExprs a) = FromExprs a
 
 data TTranspose :: K.Context -> Type -> Exp Type
 type instance Eval (TTranspose context a) = Transpose context a
+
+
+data TSerialize :: Type -> Type -> Exp Constraint
+type instance Eval (TSerialize expr a) =
+  ( Table (Context expr) expr
+  , a ~ FromExprs expr
+  )
 
 
 instance (Table context a, Table context b) => Table context (a, b)

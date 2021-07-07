@@ -6,6 +6,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
+{-# language UndecidableInstances #-}
 
 {-# options_ghc -O0 #-}
 
@@ -136,10 +137,35 @@ data TableSum f
   deriving stock Generic
 
 
+data BarbieSum f
+  = BarbieSumA (f Bool) (f Text)
+  | BarbieSumB
+  | BarbieSumC (f Text)
+  deriving stock Generic
+
+
 data TableProduct f = TableProduct
-  { sum :: HADT f TableSum
+  { sum :: HADT f BarbieSum
   , list :: TableList f
   , foos :: HList f (HADT f TableSum, Lift f HKDSum, HKDTest f)
+  }
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+
+data TableTestB f = TableTestB
+  { foo :: f Bool
+  , bar :: f (Maybe Bool)
+  }
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+
+data NestedTableTestB f = NestedTableTestB
+  { foo :: f Bool
+  , bar :: f (Maybe Bool)
+  , baz :: Column f Char
+  , nest :: TableTestB f
   }
   deriving stock Generic
   deriving anyclass Rel8able

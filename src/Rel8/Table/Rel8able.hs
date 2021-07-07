@@ -20,12 +20,12 @@ import Prelude ()
 -- rel8
 import Rel8.Expr ( Expr )
 import qualified Rel8.Kind.Algebra as K
+import Rel8.Kind.Context ( Reifiable, contextSing )
 import Rel8.Generic.Rel8able
   ( Rel8able, Algebra
   , GColumns, gfromColumns, gtoColumns
   , GFromExprs, gfromResult, gtoResult
   )
-import Rel8.Schema.Context.Virtual ( Virtual, virtual )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HConstrainTable, hdicts )
 import Rel8.Schema.Null ( Sql )
@@ -43,7 +43,7 @@ import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Ord ( DBOrd )
 
 
-instance (Rel8able t, Virtual context, context ~ context') =>
+instance (Rel8able t, Reifiable context, context ~ context') =>
   Table context' (t context)
  where
   type Columns (t context) = GColumns t
@@ -51,8 +51,8 @@ instance (Rel8able t, Virtual context, context ~ context') =>
   type FromExprs (t context) = GFromExprs t
   type Transpose to (t context) = t to
 
-  fromColumns = gfromColumns virtual
-  toColumns = gtoColumns virtual
+  fromColumns = gfromColumns contextSing
+  toColumns = gtoColumns contextSing
   fromResult = gfromResult @t
   toResult = gtoResult @t
 

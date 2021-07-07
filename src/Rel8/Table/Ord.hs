@@ -35,7 +35,7 @@ import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( htabulateA, hfield )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.Null (Sql)
-import Rel8.Table ( Columns, toColumns, TColumns, TFromExprs )
+import Rel8.Table ( Columns, toColumns, TColumns )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable )
 import Rel8.Type.Ord ( DBOrd )
@@ -49,17 +49,11 @@ class EqTable a => OrdTable a where
   ordTable :: Columns a (Dict (Sql DBOrd))
 
   default ordTable ::
-    ( GTable TOrdTable TColumns TFromExprs (Rep (Record a))
+    ( GTable TOrdTable TColumns (Rep (Record a))
     , Columns a ~ GColumns TColumns (Rep (Record a))
     )
     => Columns a (Dict (Sql DBOrd))
-  ordTable =
-    gtable
-      @TOrdTable
-      @TColumns
-      @TFromExprs
-      @(Rep (Record a))
-      table
+  ordTable = gtable @TOrdTable @TColumns @(Rep (Record a)) table
     where
       table (_ :: proxy x) = ordTable @x
 
