@@ -14,6 +14,7 @@ module Rel8.Table
   ( Table
       ( Columns, Context, fromColumns, toColumns
       , FromExprs, fromResult, toResult
+      , Transpose
       )
   , Congruent
   , TTable, TColumns, TContext, TFromExprs
@@ -27,7 +28,7 @@ import Prelude hiding ( null )
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Generic.Map ( GMap )
+import Rel8.Generic.Map ( GMap, Map )
 import Rel8.Generic.Table.Record
   ( GTable, GColumns, GContext
   , gfromColumns, gtoColumns, gfromResult, gtoResult
@@ -52,7 +53,13 @@ import Rel8.Schema.Spec ( KnownSpec )
 -- yourself, as anything that's an instance of 'Rel8.Rel8able' is always a
 -- 'Table'.
 type Table :: K.Context -> Type -> Constraint
-class (HTable (Columns a), context ~ Context a) => Table context a | a -> context where
+class
+  ( HTable (Columns a)
+  , context ~ Context a
+  , a ~ Transpose context a
+  )
+  => Table context a | a -> context
+ where
   -- | The 'HTable' functor that describes the schema of this table.
   type Columns a :: K.HTable
 
@@ -63,6 +70,9 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
   -- corresponding Haskell type.
   type FromExprs a :: Type
 
+  type Transpose (context' :: K.Context) a :: Type
+
+
   toColumns :: a -> Columns a context
   fromColumns :: Columns a context -> a
 
@@ -71,7 +81,8 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
 
   type Columns a = GColumns TColumns (Rep (Record a))
   type Context a = GContext TContext (Rep (Record a))
-  type FromExprs a = DefaultFromExprs a
+  type FromExprs a = Map TFromExprs a
+  type Transpose context a = Map (TTranspose context) a
 
   default toColumns ::
     ( Generic (Record a)
@@ -138,23 +149,6 @@ class (HTable (Columns a), context ~ Context a) => Table context a | a -> contex
       (\(_ :: proxy x) -> fromResult @(Context x) @x)
 
 
-type DefaultFromExprs :: Type -> Type
-type family DefaultFromExprs a where
-  DefaultFromExprs (t a b c d e f g) =
-    t (FromExprs a) (FromExprs b) (FromExprs c) (FromExprs d) (FromExprs e)
-      (FromExprs f) (FromExprs g)
-  DefaultFromExprs (t a b c d e f) =
-    t (FromExprs a) (FromExprs b) (FromExprs c) (FromExprs d) (FromExprs e)
-      (FromExprs f)
-  DefaultFromExprs (t a b c d e) =
-    t (FromExprs a) (FromExprs b) (FromExprs c) (FromExprs d) (FromExprs e)
-  DefaultFromExprs (t a b c d) =
-    t (FromExprs a) (FromExprs b) (FromExprs c) (FromExprs d)
-  DefaultFromExprs (t a b c) = t (FromExprs a) (FromExprs b) (FromExprs c)
-  DefaultFromExprs (t a b) = t (FromExprs a) (FromExprs b)
-  DefaultFromExprs (t a) = t (FromExprs a)
-
-
 data TTable :: K.Context -> Type -> Exp Constraint
 type instance Eval (TTable context a) = Table context a
 
@@ -171,11 +165,16 @@ data TFromExprs :: Type -> Exp Type
 type instance Eval (TFromExprs a) = FromExprs a
 
 
+data TTranspose :: K.Context -> Type -> Exp Type
+type instance Eval (TTranspose context a) = Transpose context a
+
+
 -- | Any context is trivially a table.
 instance KnownSpec spec => Table context (context spec) where
   type Columns (context spec) = HIdentity spec
   type Context (context spec) = context
   type FromExprs (context spec) = Result spec
+  type Transpose to (context spec) = to spec
 
   toColumns = HIdentity
   fromColumns = unHIdentity

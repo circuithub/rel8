@@ -13,11 +13,9 @@ import Data.Kind ( Type )
 import Prelude ()
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
-import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Name ( Name(..) )
+import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.Result ( Result )
 
 
@@ -26,10 +24,8 @@ import Rel8.Schema.Result ( Result )
 -- 'Rel8able' definitions), and @a@ is the type of the column.
 type Column :: K.Context -> Type -> Type
 type family Column context a where
-  Column Aggregate       a = Aggregate a
-  Column Expr            a = Expr a
-  Column Name            a = Name a
-  Column Result          a = a
+  Column Result  a = a
+  Column context a = Lower context a
 
 
 data TColumn :: K.Context -> Type -> Exp Type

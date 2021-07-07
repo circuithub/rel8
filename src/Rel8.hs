@@ -43,7 +43,7 @@ module Rel8
 
   , Table(..)
   , HTable
-  , Recontextualize
+  , Transposes
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
   , EqTable, (==:), (/=:)
@@ -342,10 +342,10 @@ import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Ord
 import Rel8.Table.Order
-import Rel8.Table.Recontextualize
 import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
+import Rel8.Table.Transpose
 import Rel8.Type
 import Rel8.Type.Composite
 import Rel8.Type.Eq

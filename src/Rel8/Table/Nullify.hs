@@ -46,10 +46,10 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, toColumns, fromColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>), liftF2 )
@@ -126,6 +126,7 @@ instance (Table context a, Reifiable context, context ~ context') =>
   type Columns (Nullify context a) = HNullify (Columns a)
   type Context (Nullify context a) = Context a
   type FromExprs (Nullify context a) = Maybe (FromExprs a)
+  type Transpose to (Nullify context a) = Nullify to (Transpose to a)
 
   fromColumns = case nullifiableOrNot contextSing of
     Left notNullifiable -> Fields notNullifiable
@@ -144,14 +145,6 @@ instance (Table context a, Reifiable context, context ~ context') =>
   toResult =
     maybe (hnulls (const R.null)) (hnullify R.nullifier) .
     fmap (toResult @_ @a)
-
-
-instance
-  ( Recontextualize from to a b
-  , Reifiable from, from ~ from'
-  , Reifiable to, to ~ to'
-  )
-  => Recontextualize from' to' (Nullify from a) (Nullify to b)
 
 
 instance (EqTable a, context ~ Expr) => EqTable (Nullify context a) where

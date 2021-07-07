@@ -11,9 +11,11 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 
-module Rel8.Expr ( Expr(..) ) where
+module Rel8.Expr
+  ( Expr(..)
+  )
+where
 
 -- base
 import Data.Kind ( Type )
@@ -33,6 +35,7 @@ import Rel8.Expr.Opaleye
   , zipPrimExprsWith
   )
 import Rel8.Expr.Serialize ( litExpr )
+import Rel8.Schema.Context.Lower ( Lower )
 import Rel8.Schema.HTable.Identity ( HIdentity( HType ), HType )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Schema.Result ( Result( R ) )
@@ -40,8 +43,8 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Num ( DBFloating, DBFractional, DBNum )
@@ -56,6 +59,9 @@ data Expr a where
 
 
 deriving stock instance Show (Expr a)
+
+
+type instance  Lower Expr = Expr
 
 
 instance Sql DBSemigroup a => Semigroup (Expr a) where
@@ -123,11 +129,9 @@ instance Sql DBType a => Table Expr (Expr a) where
   type Columns (Expr a) = HType a
   type Context (Expr a) = Expr
   type FromExprs (Expr a) = a
+  type Transpose to (Expr a) = Lower to a
 
   toColumns a = HType (E a)
   fromColumns (HType (E a)) = a
   toResult a = HType (R a)
   fromResult (HType (R a)) = a
-
-
-instance Sql DBType a => Recontextualize Expr Expr (Expr a) (Expr a)

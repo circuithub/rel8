@@ -11,7 +11,6 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
 
 module Rel8.Table.Eq

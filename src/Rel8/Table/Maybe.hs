@@ -50,6 +50,7 @@ import Rel8.Schema.Spec ( Spec( Spec ) )
 import Rel8.Table
   ( Table, Columns, Context, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
@@ -59,7 +60,6 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
@@ -134,6 +134,7 @@ instance (Table context a, Reifiable context, context ~ context') =>
   type Columns (MaybeTable context a) = HMaybeTable (Columns a)
   type Context (MaybeTable context a) = Context a
   type FromExprs (MaybeTable context a) = Maybe (FromExprs a)
+  type Transpose to (MaybeTable context a) = MaybeTable to (Transpose to a)
 
   toColumns MaybeTable {tag, just} = HMaybeTable
     { htag = hlabel $ HIdentity tag
@@ -155,14 +156,6 @@ instance (Table context a, Reifiable context, context ~ context') =>
       fromMaybe err (fromResult @_ @(Nullify context a) (hunlabel hjust))
     where
       err = error "Maybe.fromColumns: mismatch between tag and data"
-
-
-instance
-  ( Recontextualize from to a b
-  , Reifiable from, from ~ from'
-  , Reifiable to, to ~ to'
-  )
-  => Recontextualize from to (MaybeTable from' a) (MaybeTable to' b)
 
 
 instance (EqTable a, context ~ Expr) => EqTable (MaybeTable context a) where

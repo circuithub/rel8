@@ -35,11 +35,11 @@ import Rel8.Schema.Spec ( SSpec(..) )
 import Rel8.Table
   ( Table, Context, Columns, fromColumns, toColumns
   , FromExprs, fromResult, toResult
+  , Transpose
   )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Recontextualize ( Recontextualize )
 import Rel8.Table.Serialize ( ToExprs )
 
 
@@ -56,15 +56,13 @@ instance (Table context a, context ~ context') =>
   type Columns (NonEmptyTable context a) = HNonEmptyTable (Columns a)
   type Context (NonEmptyTable context a) = Context a
   type FromExprs (NonEmptyTable context a) = NonEmpty (FromExprs a)
+  type Transpose to (NonEmptyTable context a) =
+    NonEmptyTable to (Transpose to a)
 
   fromColumns = NonEmptyTable
   toColumns (NonEmptyTable a) = a
   fromResult = fmap (fromResult @_ @a) . hunvectorize unvectorizer
   toResult = hvectorize vectorizer . fmap (toResult @_ @a)
-
-
-instance (Recontextualize from to a b, from ~ from', to ~ to') =>
-  Recontextualize from to (NonEmptyTable from' a) (NonEmptyTable to' b)
 
 
 instance (EqTable a, context ~ Expr) =>
