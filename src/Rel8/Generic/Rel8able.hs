@@ -6,6 +6,7 @@
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
 {-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -25,8 +26,9 @@ module Rel8.Generic.Rel8able
 where
 
 -- base
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Data.Type.Equality ( type (==) )
+import Data.Type.Bool ( type (&&) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
@@ -56,6 +58,20 @@ import Rel8.Table.Transpose ( Transposes )
 -- | The kind of 'Rel8able' types
 type KRel8able :: Type
 type KRel8able = K.Rel8able
+
+
+-- This is almost 'Data.Type.Equality.==', but we add an extra case.
+type (==) :: k -> k -> Bool
+type family a == b where
+  -- This extra case is needed to solve the equation "a == Identity a", 
+  -- which occurs when we have polymorphic Rel8ables 
+  -- (e.g., newtype T a f = T { x :: Column f a })
+  a == Identity a = 'False
+  
+  -- These cases are exactly the same as those in 'Data.Type.Equality.==.
+  f a == g b = f == g && a == b
+  a == a = 'True
+  _ == _ = 'False
 
 
 type Serialize :: Bool -> Type -> Type -> Constraint
