@@ -24,7 +24,7 @@
   data MyTable f = MyTable
     { myTableX :: f Int32
     , myTableY :: f Text
-    }
+    } deriving (Generic, Rel8able)
   ```
   
 * The `Projectable` and `Biprojectable` type classes have been introduced. These classes model a type of functors and bifunctors (respectively) on tables, where the mapping function is only able to rearrange columns. For example, the following is now possible:
