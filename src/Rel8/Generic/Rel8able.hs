@@ -26,9 +26,9 @@ module Rel8.Generic.Rel8able
 where
 
 -- base
-import Data.Type.Bool ( type (&&) )
 import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
+import Data.Type.Bool ( type (&&) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
