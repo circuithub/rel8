@@ -6,6 +6,7 @@
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
 {-# language QuantifiedConstraints #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
@@ -25,8 +26,9 @@ module Rel8.Generic.Rel8able
 where
 
 -- base
+import Data.Type.Bool ( type (&&) )
+import Data.Functor.Identity ( Identity )
 import Data.Kind ( Constraint, Type )
-import Data.Type.Equality ( type (==) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
@@ -56,6 +58,14 @@ import Rel8.Table.Transpose ( Transposes )
 -- | The kind of 'Rel8able' types
 type KRel8able :: Type
 type KRel8able = K.Rel8able
+
+
+type (==) :: k -> k -> Bool
+type family a == b where
+  a == Identity a = 'False
+  f a == g b = f == g && a == b
+  a == a = 'True
+  _ == _ = 'False
 
 
 type Serialize :: Bool -> Type -> Type -> Constraint
