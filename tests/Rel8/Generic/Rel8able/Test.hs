@@ -172,7 +172,8 @@ data NestedTableTestB f = NestedTableTestB
 
 
 
-newtype IdRecord a f = IdRecord { recordId :: Column f a } deriving Generic
+newtype IdRecord a f = IdRecord { recordId :: Column f a }
+  deriving stock Generic
 
 
 instance DBType a => Rel8able (IdRecord a)
