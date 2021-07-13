@@ -8,8 +8,6 @@ where
 
 -- base
 import Control.Exception ( throwIO )
-import Data.Foldable ( fold )
-import Data.Maybe ( fromMaybe )
 import Prelude
 
 -- hasql
@@ -25,7 +23,6 @@ import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
 import Rel8.Statement.Insert ( ppInto )
 import Rel8.Statement.Select ( ppSelect )
-import Rel8.Table.Alternative ( emptyTable )
 
 -- pretty
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
@@ -49,7 +46,8 @@ createView connection schema query =
     params = Hasql.noParams
     decode = Hasql.noResult
     prepare = False
-    sql = show (ppCreateView schema query)
+    sql = show doc
+    doc = ppCreateView schema query
 
 
 ppCreateView :: Selects names exprs
@@ -58,6 +56,4 @@ ppCreateView schema query =
   text "CREATE VIEW" <+>
   ppInto schema $$
   text "AS" <+>
-  fromMaybe fallback (ppSelect query)
-  where
-    fallback = fold (ppSelect (emptyTable `asTypeOf` query))
+  ppSelect query

@@ -13,14 +13,11 @@ module Rel8.Statement.Update
 where
 
 -- base
-import Control.Exception ( throwIO )
 import Data.Kind ( Type )
 import Prelude
 
 -- hasql
-import Hasql.Connection ( Connection )
 import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- pretty
@@ -31,10 +28,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
-import Rel8.Statement.Returning
-  ( Returning
-  , decodeReturning, emptyReturning, ppReturning
-  )
+import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
 import Rel8.Statement.Set ( ppSet )
 import Rel8.Statement.Using ( ppFrom )
 import Rel8.Statement.Where ( ppWhere )
@@ -63,12 +57,14 @@ data Update a where
     -> Update a
 
 
-ppUpdate :: Update a -> Maybe Doc
-ppUpdate Update {..} = do
-  (fromDoc, i) <- ppFrom from
-  pure $
-    text "UPDATE" <+>
-    ppTable target $$
+ppUpdate :: Update a -> Doc
+ppUpdate Update {..} = case ppFrom from of
+  Nothing ->
+    text "UPDATE" <+> ppTable target $$
+    ppSet target id $$
+    text "WHERE false"
+  Just (fromDoc, i) ->
+    text "UPDATE" <+> ppTable target $$
     ppSet target (set i) $$
     fromDoc $$
     ppWhere target (updateWhere i) $$
@@ -76,16 +72,12 @@ ppUpdate Update {..} = do
 
 
 -- | Run an @UPDATE@ statement.
-update :: Connection -> Update a -> IO a
-update connection u@Update {returning} =
-  case show <$> ppUpdate u of
-    Nothing -> pure (emptyReturning returning)
-    Just sql ->
-      Hasql.run session connection >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decodeReturning returning
-        prepare = False
+update :: Update a -> Hasql.Statement () a
+update u@Update {returning} = Hasql.Statement bytes params decode prepare
+  where
+    bytes = encodeUtf8 $ Text.pack sql
+    params = Hasql.noParams
+    decode = decodeReturning returning
+    prepare = False
+    sql = show doc
+    doc = ppUpdate u
