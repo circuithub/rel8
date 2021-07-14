@@ -23,7 +23,7 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
 
 -- pretty
-import Text.PrettyPrint ( Doc, (<+>), ($$), text )
+import Text.PrettyPrint ( Doc, (<+>), ($$), parens, text )
 
 -- rel8
 import Rel8.Expr ( Expr )
@@ -102,5 +102,5 @@ ppUpsert schema@TableSchema {columns} Upsert {..} =
 ppIndex :: (Table Name names, Projecting names index)
   => TableSchema names -> Projection names index -> Doc
 ppIndex TableSchema {columns} index =
-  Opaleye.commaV ppColumn $ toList $
+  parens $ Opaleye.commaV ppColumn $ toList $
     showNames $ Cols $ apply index $ toColumns columns

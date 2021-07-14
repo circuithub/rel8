@@ -244,6 +244,9 @@ module Rel8
   , nullsFirst
   , nullsLast
 
+    -- ** Bindings
+  , rebind
+
     -- * IO
   , Serializable
   , ToExprs
