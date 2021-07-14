@@ -26,10 +26,11 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Schema.Name ( Name, Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..) )
-import Rel8.Statement.Set ( Set, ppSet )
-import Rel8.Statement.Where ( Where, ppWhere )
+import Rel8.Statement.Set ( ppSet )
+import Rel8.Statement.Where ( ppWhere )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Cols ( Cols( Cols ) )
 import Rel8.Table.Name ( showNames )
@@ -68,9 +69,9 @@ data Upsert names where
     { index :: Projection names index
       -- ^ The set of conflict targets, projected from the set of columns for
       -- the whole table
-    , set :: Set excluded exprs
+    , set :: excluded -> exprs -> exprs
       -- ^ How to update each selected row.
-    , updateWhere :: excluded -> Where exprs
+    , updateWhere :: excluded -> exprs -> Expr Bool
       -- ^ Which rows to select for update.
     }
     -> Upsert names
@@ -88,7 +89,7 @@ ppUpsert schema@TableSchema {columns} Upsert {..} =
   text "ON CONFLICT" <+>
   ppIndex schema index <+>
   text "DO UPDATE" $$
-  ppSet schema excluded set $$
+  ppSet schema (set excluded) $$
   ppWhere schema (updateWhere excluded)
   where
     excluded = attributes TableSchema

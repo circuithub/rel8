@@ -270,8 +270,6 @@ module Rel8
 
     -- ** @UPDATE@
   , Update(..)
-  , Set
-  , Where
   , update
   , showUpdate
 
@@ -341,11 +339,9 @@ import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
 import Rel8.Statement.Select
-import Rel8.Statement.Set
 import Rel8.Statement.SQL
 import Rel8.Statement.Update
 import Rel8.Statement.View
-import Rel8.Statement.Where
 import Rel8.Table
 import Rel8.Table.ADT
 import Rel8.Table.Aggregate

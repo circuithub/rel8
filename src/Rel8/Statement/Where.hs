@@ -1,8 +1,7 @@
 {-# language MonoLocalBinds #-}
 
 module Rel8.Statement.Where
-  ( Where
-  , ppWhere
+  ( ppWhere
   )
 where
 
@@ -24,13 +23,8 @@ import Rel8.Schema.Table ( TableSchema )
 import Rel8.Table.Opaleye ( attributes )
 
 
--- | The @WHERE@ condition in a @DELETE@ or @UPDATE@ (or @ON CONFLICT DO
--- UPDATE@) statement. This takes the value of the existing row and decides
--- whether or not it should be modified.
-type Where expr = expr -> Expr Bool
-
-
-ppWhere :: Selects names exprs => TableSchema names -> Where exprs -> Doc
+ppWhere :: Selects names exprs
+  => TableSchema names -> (exprs -> Expr Bool) -> Doc
 ppWhere schema where_ = text "WHERE" <+> ppExpr condition
   where
     ppExpr = Opaleye.ppSqlExpr . Opaleye.sqlExpr . toPrimExpr

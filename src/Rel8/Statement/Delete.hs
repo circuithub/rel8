@@ -28,6 +28,7 @@ import qualified Hasql.Statement as Hasql
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema, ppTable )
@@ -36,7 +37,7 @@ import Rel8.Statement.Returning
   , decodeReturning, emptyReturning, ppReturning
   )
 import Rel8.Statement.Using ( ppUsing )
-import Rel8.Statement.Where ( Where, ppWhere )
+import Rel8.Statement.Where ( ppWhere )
 
 -- text
 import qualified Data.Text as Text
@@ -52,7 +53,7 @@ data Delete a where
     , using :: Query using
       -- ^ @USING@ clause — this can be used to join against other tables,
       -- and its results can be referenced in the @WHERE@ clause
-    , deleteWhere :: using -> Where exprs
+    , deleteWhere :: using -> exprs -> Expr Bool
       -- ^ Which rows should be selected for deletion.
     , returning :: Returning names a
       -- ^ What to return from the @DELETE@ statement.

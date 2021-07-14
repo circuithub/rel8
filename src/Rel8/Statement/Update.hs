@@ -27,6 +27,7 @@ import qualified Hasql.Statement as Hasql
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
@@ -34,9 +35,9 @@ import Rel8.Statement.Returning
   ( Returning
   , decodeReturning, emptyReturning, ppReturning
   )
-import Rel8.Statement.Set ( Set, ppSet )
+import Rel8.Statement.Set ( ppSet )
 import Rel8.Statement.Using ( ppFrom )
-import Rel8.Statement.Where ( Where, ppWhere )
+import Rel8.Statement.Where ( ppWhere )
 
 -- text
 import qualified Data.Text as Text
@@ -52,9 +53,9 @@ data Update a where
     , from :: Query from
       -- ^ @FROM@ clause — this can be used to join against other tables,
       -- and its results can be referenced in the @SET@ and @WHERE@ clauses.
-    , set :: Set from exprs
+    , set :: from -> exprs -> exprs
       -- ^ How to update each selected row.
-    , updateWhere :: from -> Where exprs
+    , updateWhere :: from -> exprs -> Expr Bool
       -- ^ Which rows to select for update.
     , returning :: Returning names a
       -- ^ What to return from the @UPDATE@ statement.
@@ -68,7 +69,7 @@ ppUpdate Update {..} = do
   pure $
     text "UPDATE" <+>
     ppTable target $$
-    ppSet target i set $$
+    ppSet target (set i) $$
     fromDoc $$
     ppWhere target (updateWhere i) $$
     ppReturning target returning
