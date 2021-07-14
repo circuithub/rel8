@@ -21,19 +21,19 @@ module Rel8.Tabulate
   , lookup
 
     -- * Aggregation and Ordering
-  , aggregateTabulation
-  , distinctTabulation
-  , orderTabulation
+  , aggregate
+  , distinct
+  , order
 
     -- ** Magic 'Tabulation's
     -- $magic
-  , countTabulation
-  , optionalTabulation
-  , manyTabulation
-  , someTabulation
-  , existsTabulation
-  , presentTabulation
-  , absentTabulation
+  , count
+  , optional
+  , many
+  , some
+  , exists
+  , present
+  , absent
 
     -- * Natural joins
   , align
@@ -90,10 +90,10 @@ import Rel8.Expr.Aggregate ( countStar )
 import Rel8.Expr.Bool ( true )
 import Rel8.Order ( Order( Order ) )
 import Rel8.Query ( Query )
-import Rel8.Query.Exists ( exists, present, absent )
+import qualified Rel8.Query.Exists as Q ( exists, present, absent )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.List ( catNonEmptyTable )
-import Rel8.Query.Maybe ( optional )
+import qualified Rel8.Query.Maybe as Q ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table, fromColumns, toColumns )
@@ -170,7 +170,7 @@ ensure (Predicate mp) = traverse_ (\k -> traverse_ (\p -> where_ (p k)) mp)
 -- | A @'Tabulation' k a@ is like a @'Query' a@, except that each row also
 -- has a key @k@ in addition to the value @a@. 'Tabulation's can be composed
 -- monadically just like 'Query's, but the resulting join is more like a
--- @NATURAL JOIN@ (based on the common key column(s) @k@) as opposed to the
+-- @NATURAL JOIN@ (based on the common key column(s) @k@) than the
 -- @CROSS JOIN@ given by 'Query'.
 --
 -- Another way to think of @'Tabulation' k a@ is as analogous to @Map k a@ in
@@ -231,7 +231,7 @@ instance EqTable k => Monad (Tabulation k) where
 -- | If @'Tabulation' k a@ is @Map k (NonEmpty a)@, then @(<|>:)@ is
 -- @unionWith (<>)@.
 instance EqTable k => AltTable (Tabulation k) where
-  as <|>: bs = catNonEmptyTable `through` ((<>) `on` someTabulation) as bs
+  as <|>: bs = catNonEmptyTable `through` ((<>) `on` some) as bs
 
 
 instance EqTable k => AlternativeTable (Tabulation k) where
@@ -308,14 +308,14 @@ lookup k (Tabulation f) = do
     p = match (pure k)
 
 
--- | 'aggregateTabulation' aggregates the values within each key of a
+-- | 'aggregate' aggregates the values within each key of a
 -- 'Tabulation'. There is an implicit @GROUP BY@ on all the key columns.
-aggregateTabulation :: forall k aggregates exprs.
+aggregate :: forall k aggregates exprs.
   ( EqTable k
   , Aggregates aggregates exprs
   )
   => Tabulation k aggregates -> Tabulation k exprs
-aggregateTabulation (Tabulation f) = Tabulation $
+aggregate (Tabulation f) = Tabulation $
   mapOpaleye (Opaleye.aggregate (keyed haggregator aggregator)) .
   fmap (first (fmap (hgroupBy (eqTable @k) . toColumns))) .
   f
@@ -323,12 +323,12 @@ aggregateTabulation (Tabulation f) = Tabulation $
     haggregator = dimap fromColumns fromCols aggregator
 
 
--- | 'distinctTabulation' ensures a 'Tabulation' has at most one value for
+-- | 'distinct' ensures a 'Tabulation' has at most one value for
 -- each key, i.e., it drops duplicates. In general it keeps only the
 -- \"first\" value it encounters for each key, but note that \"first\" is
--- undefined unless you first call 'orderTabulation'.
-distinctTabulation :: EqTable k => Tabulation k a -> Tabulation k a
-distinctTabulation (Tabulation f) = Tabulation $
+-- undefined unless you first call 'order'.
+distinct :: EqTable k => Tabulation k a -> Tabulation k a
+distinct (Tabulation f) = Tabulation $
   mapOpaleye
     (\q ->
       Opaleye.productQueryArr
@@ -339,12 +339,12 @@ distinctTabulation (Tabulation f) = Tabulation $
   f
 
 
--- | 'orderTabulation' orders the /values/ of a 'Tabulation' within their
--- respective keys. This specifies a defined order for 'distinctTabulation'.
--- It also defines the order of the lists produced by 'manyTabulation' and
--- 'someTabulation'.
-orderTabulation :: OrdTable k => Order a -> Tabulation k a -> Tabulation k a
-orderTabulation ordering (Tabulation f) =
+-- | 'order' orders the /values/ of a 'Tabulation' within their
+-- respective keys. This specifies a defined order for 'distinct'.
+-- It also defines the order of the lists produced by 'many' and
+-- 'some'.
+order :: OrdTable k => Order a -> Tabulation k a -> Tabulation k a
+order ordering (Tabulation f) =
   Tabulation $ mapOpaleye (Opaleye.orderBy ordering') . f
   where
     Order ordering' = runClown (keyed (Clown ascTable) (Clown ordering))
@@ -353,11 +353,11 @@ orderTabulation ordering (Tabulation f) =
 -- $magic
 --
 -- Some of the following combinators produce \"magic\" 'Tabulation's. Let's
--- use 'countTabulation' as an example to demonstrate this concept. Consider
+-- use 'count' as an example to demonstrate this concept. Consider
 -- the following:
 --
 -- @
--- countTabulation $ fromQuery $ values
+-- count $ fromQuery $ values
 --   [ (lit 'a', lit True)
 --   , (lit 'a', lit False)
 --   , (lit 'b', lit True)
@@ -382,98 +382,98 @@ orderTabulation ordering (Tabulation f) =
 -- @
 -- do
 --   user <- usersById
---   orderCount <- countTabulation ordersByUserId
+--   orderCount <- count ordersByUserId
 -- @
 --
 -- To see how many orders a user has (getting @0@ if they have no orders).
 
 
--- | 'countTabulation' returns a count of how many entries are in the given
+-- | 'count' returns a count of how many entries are in the given
 -- 'Tabulation' at each key.
 --
 -- The resulting 'Tabulation' is \"magic\" in that the value @0@ exists at
 -- every possible key that wasn't in the given 'Tabulation'.
-countTabulation :: EqTable k => Tabulation k a -> Tabulation k (Expr Int64)
-countTabulation =
+count :: EqTable k => Tabulation k a -> Tabulation k (Expr Int64)
+count =
   fmap (maybeTable 0 id) .
-  optionalTabulation .
-  aggregateTabulation .
+  optional .
+  aggregate .
   fmap (const countStar)
 
 
--- | 'optionalTabulation' produces a \"magic\" 'Tabulation' whereby each
+-- | 'optional' produces a \"magic\" 'Tabulation' whereby each
 -- entry in the given 'Tabulation' is wrapped in 'Rel8.justTable', and every
 -- other possible key contains a single 'Rel8.nothingTable'.
 --
 -- This is used to implement 'leftAlignWith'.
-optionalTabulation :: Tabulation k a -> Tabulation k (MaybeTable Expr a)
-optionalTabulation (Tabulation f) = Tabulation $ \p -> case p of
+optional :: Tabulation k a -> Tabulation k (MaybeTable Expr a)
+optional (Tabulation f) = Tabulation $ \p -> case p of
   Predicate Nothing -> fmap pure <$> f p
-  _ -> fmap (\m -> (empty, snd <$> m)) $ optional $ do
+  _ -> fmap (\m -> (empty, snd <$> m)) $ Q.optional $ do
     (k, a) <- f p
     ensure p k
     pure (k, a)
 
 
--- | 'manyTabulation' aggregates each entry with a particular key into a
+-- | 'many' aggregates each entry with a particular key into a
 -- single entry with all of the values contained in a 'ListTable'.
 --
--- 'orderTabulation' can be used to give this 'ListTable' a defined order.
+-- 'order' can be used to give this 'ListTable' a defined order.
 --
 -- The resulting 'Tabulation' is \"magic\" in that the value
 -- @'Rel8.listTable []'@ exists at every possible key that wasn't in the given
 -- 'Tabulation'.
-manyTabulation :: (EqTable k, Table Expr a)
+many :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (ListTable Expr a)
-manyTabulation =
+many =
   fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
-  optionalTabulation .
-  aggregateTabulation .
+  optional .
+  aggregate .
   fmap (listAgg . toCols)
 
 
--- | 'someTabulation' aggregates each entry with a particular key into a
+-- | 'some' aggregates each entry with a particular key into a
 -- single entry with all of the values contained in a 'NonEmptyTable'.
 --
--- 'orderTabulation' can be used to give this 'NonEmptyTable' a defined order.
-someTabulation :: (EqTable k, Table Expr a)
+-- 'order' can be used to give this 'NonEmptyTable' a defined order.
+some :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (NonEmptyTable Expr a)
-someTabulation =
+some =
   fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
-  aggregateTabulation .
+  aggregate .
   fmap (nonEmptyAgg . toCols)
 
 
--- | 'existsTabulation' produces a \"magic\" 'Tabulation' which contains the
+-- | 'exists' produces a \"magic\" 'Tabulation' which contains the
 -- value 'Rel8.true' at each key in the given 'Tabulation', and the value
 -- 'Rel8.false' at every other possible key.
-existsTabulation :: Tabulation k a -> Tabulation k (Expr Bool)
-existsTabulation (Tabulation f) = Tabulation $ \p -> case p of
+exists :: Tabulation k a -> Tabulation k (Expr Bool)
+exists (Tabulation f) = Tabulation $ \p -> case p of
   Predicate Nothing -> (true <$) <$> f p
-  _ -> fmap (empty,) $ exists $ do
+  _ -> fmap (empty,) $ Q.exists $ do
     (k, _) <- f p
     ensure p k
 
 
--- | 'presentTabulation' produces a 'Tabulation' where a single @()@ row
+-- | 'present' produces a 'Tabulation' where a single @()@ row
 -- exists for every key that was present in the given 'Tabulation'.
 --
 -- This is used to implement 'similarity'.
-presentTabulation :: Tabulation k a -> Tabulation k ()
-presentTabulation (Tabulation f) = Tabulation $ \p -> do
-  present $ do
+present :: Tabulation k a -> Tabulation k ()
+present (Tabulation f) = Tabulation $ \p -> do
+  Q.present $ do
     (k, _) <- f p
     ensure p k
   pure (empty, ())
 
 
--- | 'absentTabulation' produces a 'Tabulation' where a single @()@ row exists
+-- | 'absent' produces a 'Tabulation' where a single @()@ row exists
 -- at every possible key that absent from the given 'Tabulation'.
 --
 -- This is used to implement 'difference'.
-absentTabulation :: Tabulation k a -> Tabulation k ()
-absentTabulation (Tabulation f) = Tabulation $ \p -> do
-  absent $ do
+absent :: Tabulation k a -> Tabulation k ()
+absent (Tabulation f) = Tabulation $ \p -> do
+  Q.absent $ do
     (k, _) <- f p
     ensure p k
   pure (empty, ())
@@ -514,9 +514,9 @@ alignWith f (Tabulation as) (Tabulation bs) = Tabulation $ \p -> do
 --
 -- Analogous to 'Data.Semialign.rpadZip'.
 --
--- Note that you can achieve the same effect with 'optionalTabulation' and the
+-- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (,) left (optionalTabulation right). You can also
+-- @\left right -> liftA2 (,) left (optional right). You can also
 -- use @do@-notation.
 leftAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (a, MaybeTable Expr b)
@@ -527,23 +527,23 @@ leftAlign = leftAlignWith (,)
 --
 -- Analogous to 'Data.Semialign.rpadZipWith'.
 --
--- Note that you can achieve the same effect with 'optionalTabulation' and the
+-- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 f left (optionalTabulation right). You can also
+-- @\f left right -> liftA2 f left (optional right). You can also
 -- use @do@-notation.
 leftAlignWith :: EqTable k
   => (a -> MaybeTable Expr b -> c)
   -> Tabulation k a -> Tabulation k b -> Tabulation k c
-leftAlignWith f left right = liftA2 f left (optionalTabulation right)
+leftAlignWith f left right = liftA2 f left (optional right)
 
 
 -- | Performs a @NATURAL RIGHT OUTER JOIN@ based on the common key columns.
 --
 -- Analogous to 'Data.Semialign.lpadZip'.
 --
--- Note that you can achieve the same effect with 'optionalTabulation' and the
+-- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (flip (,)) right (optionalTabulation left). You can
+-- @\left right -> liftA2 (flip (,)) right (optional left). You can
 -- also use @do@-notation.
 rightAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (MaybeTable Expr a, b)
@@ -554,14 +554,14 @@ rightAlign = rightAlignWith (,)
 --
 -- Analogous to 'Data.Semialign.lpadZipWith'.
 --
--- Note that you can achieve the same effect with 'optionalTabulation' and the
+-- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 (flip f) right (optionalTabulation left). You can
+-- @\f left right -> liftA2 (flip f) right (optional left). You can
 -- also use @do@-notation.
 rightAlignWith :: EqTable k
   => (MaybeTable Expr a -> b -> c)
   -> Tabulation k a -> Tabulation k b -> Tabulation k c
-rightAlignWith f left right = liftA2 (flip f) right (optionalTabulation left)
+rightAlignWith f left right = liftA2 (flip f) right (optional left)
 
 
 -- | Performs a @NATURAL INNER JOIN@ based on the common key columns.
@@ -594,12 +594,12 @@ zipWith = liftA2
 -- The result is a subset of the left tabulation where only entries which have
 -- a corresponding entry in the right tabulation are kept.
 --
--- Note that you can achieve a similar effect with 'presentTabulation' and the
+-- Note that you can achieve a similar effect with 'present' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* presentTabulation right@. You can also use
+-- @\left right -> left <* present right@. You can also use
 -- @do@-notation.
 similarity :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
-similarity a b = a <* presentTabulation b
+similarity a b = a <* present b
 
 
 -- | Performs a [@NATURAL ANTI JOIN@](https://en.wikipedia.org/wiki/Relational_algebra#Antijoin_%28%E2%96%B7%29)
@@ -608,9 +608,9 @@ similarity a b = a <* presentTabulation b
 -- The result is a subset of the left tabulation where only entries which do
 -- not have a corresponding entry in the right tabulation are kept.
 --
--- Note that you can achieve a similar effect with 'absentTabulation' and the
+-- Note that you can achieve a similar effect with 'absent' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* absentTabulation right@. You can also use
+-- @\left right -> left <* absent right@. You can also use
 -- @do@-notation.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
-difference a b = a <* absentTabulation b
+difference a b = a <* absent b
