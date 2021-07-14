@@ -185,14 +185,13 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
   rows <- forAll $ Gen.list (Range.linear 0 10) genTestTable
 
   transaction \connection -> do
-    void do
-      liftIO $ Rel8.insert connection
-        Rel8.Insert
-          { into = testTableSchema
-          , rows = map Rel8.lit rows
-          , onConflict = Rel8.DoNothing
-          , returning = Rel8.NumberOfRowsAffected
-          }
+    liftIO $ Rel8.insert connection
+      Rel8.Insert
+        { into = testTableSchema
+        , rows = Rel8.values $ map Rel8.lit rows
+        , onConflict = Rel8.DoNothing
+        , returning = pure ()
+        }
 
     selected <- liftIO $ Rel8.select connection do
       Rel8.each testTableSchema
@@ -599,18 +598,19 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
   rows <- forAll $ Gen.map (Range.linear 0 5) $ liftA2 (,) genTestTable genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ Rel8.insert connection
+    liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit $ Map.keys rows
+        , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsAffected
+        , returning = pure ()
         }
 
-    void $ liftIO $ Rel8.update connection
+    liftIO $ Rel8.update connection
       Rel8.Update
         { target = testTableSchema
-        , set = \r ->
+        , from = pure ()
+        , set = \_ r ->
             let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
             in
             foldl
@@ -624,8 +624,8 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
               )
               r
               updates
-        , updateWhere = \_ -> Rel8.lit True
-        , returning = Rel8.NumberOfRowsAffected
+        , updateWhere = \_ _ -> Rel8.lit True
+        , returning = pure ()
         }
 
     selected <- liftIO $ Rel8.select connection do
@@ -643,19 +643,20 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
   rows <- forAll $ Gen.list (Range.linear 0 5) genTestTable
 
   transaction \connection -> do
-    void $ liftIO $ Rel8.insert connection
+    liftIO $ Rel8.insert connection
       Rel8.Insert
         { into = testTableSchema
-        , rows = map Rel8.lit rows
+        , rows = Rel8.values $ map Rel8.lit rows
         , onConflict = Rel8.DoNothing
-        , returning = Rel8.NumberOfRowsAffected
+        , returning = pure ()
         }
 
     deleted <-
       liftIO $ Rel8.delete connection
         Rel8.Delete
           { from = testTableSchema
-          , deleteWhere = testTableColumn2
+          , using = pure ()
+          , deleteWhere = const testTableColumn2
           , returning = Rel8.Projection id
           }
 

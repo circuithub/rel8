@@ -29,13 +29,13 @@ import Rel8.Table.Transpose ( Transposes )
 -- usable 'Projection'.
 type Projecting :: Type -> Type -> Constraint
 class
-  ( Transposes (Field a) (Context a) a (Transpose (Field a) a)
-  , Transposes (Field a) (Context a) b (Transpose (Field a) b)
+  ( Transposes (Context a) (Field a) a (Transpose (Field a) a)
+  , Transposes (Context a) (Field a) b (Transpose (Field a) b)
   )
   => Projecting a b
 instance
-  ( Transposes (Field a) (Context a) a (Transpose (Field a) a)
-  , Transposes (Field a) (Context a) b (Transpose (Field b) b)
+  ( Transposes (Context a) (Field a) a (Transpose (Field a) a)
+  , Transposes (Context a) (Field a) b (Transpose (Field b) b)
   )
   => Projecting a b
 

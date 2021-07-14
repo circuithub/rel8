@@ -244,6 +244,9 @@ module Rel8
   , nullsFirst
   , nullsLast
 
+    -- ** Bindings
+  , rebind
+
     -- * IO
   , Serializable
   , ToExprs
@@ -258,16 +261,20 @@ module Rel8
     -- ** @INSERT@
   , Insert(..)
   , OnConflict(..)
+  , Upsert(..)
   , insert
   , unsafeDefault
+  , showInsert
 
     -- ** @DELETE@
   , Delete(..)
   , delete
+  , showDelete
 
     -- ** @UPDATE@
   , Update(..)
   , update
+  , showUpdate
 
     -- ** @.. RETURNING@
   , Returning(..)
@@ -332,8 +339,10 @@ import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
+import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
 import Rel8.Statement.Select
+import Rel8.Statement.SQL
 import Rel8.Statement.Update
 import Rel8.Statement.View
 import Rel8.Table

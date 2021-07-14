@@ -2,7 +2,6 @@
 {-# language DataKinds #-}
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language TypeFamilies #-}
@@ -10,17 +9,23 @@
 
 module Rel8.Table.Opaleye
   ( aggregator
+  , attributes
   , binaryspec
   , distinctspec
+  , exprs
+  , exprsWithNames
   , table
   , tableFields
   , unpackspec
   , valuesspec
+  , view
   , castTable
   )
 where
 
 -- base
+import Data.Functor.Const ( Const( Const ), getConst )
+import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( undefined )
 
 -- opaleye
@@ -46,9 +51,9 @@ import Rel8.Expr.Opaleye
   , scastExpr
   )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
-import Rel8.Schema.Name ( Name( Name ), Selects )
+import Rel8.Schema.Name ( Name( Name ), Selects, ppColumn )
 import Rel8.Schema.Spec ( Spec(..) )
-import Rel8.Schema.Table ( TableSchema(..) )
+import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Undefined ( undefined )
 
@@ -62,6 +67,14 @@ aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f aggregates ->
     WrapApplicative $ case hfield (toColumns aggregates) field of
       Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner)) ->
         inner f ()
+
+
+attributes :: Selects names exprs => TableSchema names -> exprs
+attributes schema@TableSchema {columns} = fromColumns $ htabulate $ \field ->
+  case hfield (toColumns columns) field of
+    Name column -> fromPrimExpr $ Opaleye.ConstExpr $
+      Opaleye.OtherLit $
+        show (ppTable schema) <> "." <> show (ppColumn column)
 
 
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a
@@ -82,7 +95,20 @@ distinctspec =
     toColumns
 
 
-table ::Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
+exprs :: Table Expr a => a -> NonEmpty Opaleye.PrimExpr
+exprs (toColumns -> as) = getConst $ htabulateA $ \field ->
+  case hfield as field of
+    expr -> Const (pure (toPrimExpr expr))
+
+
+exprsWithNames :: Selects names exprs
+  => names -> exprs -> NonEmpty (String, Opaleye.PrimExpr)
+exprsWithNames names as = getConst $ htabulateA $ \field ->
+  case (hfield (toColumns names) field, hfield (toColumns as) field) of
+    (Name name, expr) -> Const (pure (name, toPrimExpr expr))
+
+
+table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
 table (TableSchema name schema columns) =
   case schema of
     Nothing -> Opaleye.Table name (tableFields columns)
@@ -113,6 +139,12 @@ unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
 
 valuesspec :: Table Expr a => Opaleye.ValuesspecSafe a a
 valuesspec = Opaleye.ValuesspecSafe (toPackMap undefined) unpackspec
+
+
+view :: Selects names exprs => names -> exprs
+view columns = fromColumns $ htabulate $ \field ->
+  case hfield (toColumns columns) field of
+    Name column -> fromPrimExpr $ Opaleye.BaseTableAttrExpr column
 
 
 toPackMap :: Table Expr a

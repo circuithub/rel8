@@ -13,6 +13,7 @@
 module Rel8.Schema.Name
   ( Name(..)
   , Selects
+  , ppColumn
   )
 where
 
@@ -21,6 +22,13 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.String ( IsString )
 import Prelude
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+
+-- pretty
+import Text.PrettyPrint ( Doc )
 
 -- rel8
 import Rel8.Expr ( Expr )
@@ -63,3 +71,7 @@ instance Sql DBType a => Table Name (Name a) where
 type Selects :: Type -> Type -> Constraint
 class Transposes Name Expr names exprs => Selects names exprs
 instance Transposes Name Expr names exprs => Selects names exprs
+
+
+ppColumn :: String -> Doc
+ppColumn = Opaleye.ppSqlExpr . Opaleye.ColumnSqlExpr . Opaleye.SqlColumn
