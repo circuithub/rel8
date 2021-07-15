@@ -5,6 +5,7 @@ module Rel8.Query.Opaleye
   , toOpaleye
   , mapOpaleye
   , zipOpaleyeWith
+  , unsafePeekQuery
   )
 where
 
@@ -14,6 +15,7 @@ import Prelude
 
 -- opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Query ( Query( Query ) )
@@ -35,6 +37,12 @@ zipOpaleyeWith :: ()
   => (Opaleye.Select a -> Opaleye.Select b -> Opaleye.Select c)
   -> Query a -> Query b -> Query c
 zipOpaleyeWith f (Query a) (Query b) = Query $ liftA2 (zipping f) a b
+
+
+unsafePeekQuery :: Query a -> a
+unsafePeekQuery (Query q) = case q mempty of
+  Opaleye.QueryArr f -> case f ((), Opaleye.start) of
+    ((_, a), _, _) -> a
 
 
 mapping :: ()

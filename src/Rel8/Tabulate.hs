@@ -92,9 +92,10 @@ import Rel8.Order ( Order( Order ) )
 import Rel8.Query ( Query )
 import qualified Rel8.Query.Exists as Q ( exists, present, absent )
 import Rel8.Query.Filter ( where_ )
+import Rel8.Query.Limit ( limit )
 import Rel8.Query.List ( catNonEmptyTable )
 import qualified Rel8.Query.Maybe as Q ( optional )
-import Rel8.Query.Opaleye ( mapOpaleye )
+import Rel8.Query.Opaleye ( mapOpaleye, unsafePeekQuery )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Aggregate ( hgroupBy, listAgg, nonEmptyAgg )
@@ -177,6 +178,10 @@ ensure (Predicate mp) = traverse_ (\k -> traverse_ (\p -> where_ (p k)) mp)
 -- the same way @'Query' a@ is analogous to @[a]@. However, there's nothing
 -- stopping a 'Tabulation' from containing multiple rows with the same key, so
 -- technically @Map k (NonEmpty a)@ is more accurate.
+--
+-- 'Tabulation's can be created from 'Query's with 'fromQuery' and 'littQuery'
+-- and converted back to 'Query's with 'lookup' and 'toQuery' (though note the
+-- caveats that come with the latter).
 type Tabulation :: Type -> Type -> Type
 newtype Tabulation k a = Tabulation (Predicate k -> Query (Key k, a))
 
@@ -260,7 +265,6 @@ fromQuery = Tabulation . const . fmap (first pure)
 -- Note that the result of a 'toQuery' is undefined (will always return zero
 -- rows) on 'Tabulation's constructed with 'liftQuery' or 'pure'. So while
 -- @toQuery . fromQuery@ is always @id@, @fromQuery . toQuery@ is not.
--- 'toQuery' is therefore mostly only intended for debugging.
 --
 -- A safer, more predictable alternative to 'toQuery' is to use 'lookup' with
 -- an explicit set of keys:
@@ -271,6 +275,19 @@ fromQuery = Tabulation . const . fmap (first pure)
 --    a <- lookup k tabulation
 --    pure (k, a)
 -- @
+--
+-- Having said that, in practice, most legitimate uses of 'Tabulation' will
+-- have a well-defined 'toQuery'. It would be possible in theory to encode
+-- the necessary invariants at the type level using an indexed monad, but we
+-- would lose the ability to use @do@-notation, which is the main benefit
+-- of having 'Tabulation' as a monad in the first place.
+--
+-- In particular, @'toQuery' t@ is well-defined for any 'Tabulation' @t@
+-- defined as @t = fromQuery _@. @'toQuery' t@ is also well-defined for any
+-- 'Tabulation' @t@ defined as @t = t' >>= _@ or @t = t' *> _@ where
+-- @'toQuery' t'@ is well-defined. There are other valid permutations too.
+-- Generally, anything that uses 'fromQuery' at some point, unless wrapped in
+-- a top-level 'present' or 'absent', will have a well-defined 'toQuery'.
 toQuery :: Table Expr k => Tabulation k a -> Query (k, a)
 toQuery (Tabulation f) = do
   (mk, a) <- f mempty
@@ -328,15 +345,19 @@ aggregate (Tabulation f) = Tabulation $
 -- \"first\" value it encounters for each key, but note that \"first\" is
 -- undefined unless you first call 'order'.
 distinct :: EqTable k => Tabulation k a -> Tabulation k a
-distinct (Tabulation f) = Tabulation $
-  mapOpaleye
-    (\q ->
-      Opaleye.productQueryArr
-        ( Opaleye.distinctOn (key unpackspec) fst
-        . Opaleye.runSimpleQueryArr q
+distinct (Tabulation f) = Tabulation $ \p ->
+  -- workaround for https://github.com/tomjaguarpaw/haskell-opaleye/pull/518
+  case fst (unsafePeekQuery (f p)) of
+    Nothing -> limit 1 (f p)
+    Just _ ->
+      mapOpaleye
+        (\q ->
+          Opaleye.productQueryArr
+            ( Opaleye.distinctOn (key unpackspec) fst
+            . Opaleye.runSimpleQueryArr q
+            )
         )
-    ) .
-  f
+        (f p)
 
 
 -- | 'order' orders the /values/ of a 'Tabulation' within their
