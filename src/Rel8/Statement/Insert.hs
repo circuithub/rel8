@@ -15,15 +15,12 @@ module Rel8.Statement.Insert
 where
 
 -- base
-import Control.Exception ( throwIO )
 import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Prelude
 
 -- hasql
-import Hasql.Connection ( Connection )
 import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- opaleye
@@ -37,10 +34,7 @@ import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Name, Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Statement.OnConflict ( OnConflict, ppOnConflict )
-import Rel8.Statement.Returning
-  ( Returning
-  , decodeReturning, emptyReturning, ppReturning
-  )
+import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
 import Rel8.Statement.Select ( ppSelect )
 import Rel8.Table ( Table )
 import Rel8.Table.Name ( showNames )
@@ -68,13 +62,13 @@ data Insert a where
     -> Insert a
 
 
-ppInsert :: Insert a -> Maybe Doc
-ppInsert Insert {..} = do
-  rows' <- ppSelect rows
-  pure $ text "INSERT INTO" <+> ppInto into
-    $$ rows'
-    $$ ppOnConflict into onConflict
-    $$ ppReturning into returning
+ppInsert :: Insert a -> Doc
+ppInsert Insert {..} =
+  text "INSERT INTO" <+>
+  ppInto into $$
+  ppSelect rows $$
+  ppOnConflict into onConflict $$
+  ppReturning into returning
 
 
 ppInto :: Table Name a => TableSchema a -> Doc
@@ -84,16 +78,12 @@ ppInto table@TableSchema {columns} =
 
 
 -- | Run an 'Insert' statement.
-insert :: Connection -> Insert a -> IO a
-insert connection i@Insert {returning} =
-  case show <$> ppInsert i of
-    Nothing -> pure (emptyReturning returning)
-    Just sql ->
-      Hasql.run session connection >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decodeReturning returning
-        prepare = False
+insert :: Insert a -> Hasql.Statement () a
+insert i@Insert {returning} = Hasql.Statement bytes params decode prepare
+  where
+    bytes = encodeUtf8 $ Text.pack sql
+    params = Hasql.noParams
+    decode = decodeReturning returning
+    prepare = False
+    sql = show doc
+    doc = ppInsert i

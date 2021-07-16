@@ -14,14 +14,11 @@ module Rel8.Statement.Delete
 where
 
 -- base
-import Control.Exception ( throwIO )
 import Data.Kind ( Type )
 import Prelude
 
 -- hasql
-import Hasql.Connection ( Connection )
 import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- pretty
@@ -32,10 +29,7 @@ import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema, ppTable )
-import Rel8.Statement.Returning
-  ( Returning
-  , decodeReturning, emptyReturning, ppReturning
-  )
+import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
 import Rel8.Statement.Using ( ppUsing )
 import Rel8.Statement.Where ( ppWhere )
 
@@ -61,26 +55,25 @@ data Delete a where
     -> Delete a
 
 
-ppDelete :: Delete a -> Maybe Doc
-ppDelete Delete {..} = do
-  (usingDoc, i) <- ppUsing using
-  pure $ text "DELETE FROM" <+> ppTable from
-    $$ usingDoc
-    $$ ppWhere from (deleteWhere i)
-    $$ ppReturning from returning
+ppDelete :: Delete a -> Doc
+ppDelete Delete {..} = case ppUsing using of
+  Nothing ->
+    text "DELETE FROM" <+> ppTable from $$
+    text "WHERE false"
+  Just (usingDoc, i) ->
+    text "DELETE FROM" <+> ppTable from $$
+    usingDoc $$
+    ppWhere from (deleteWhere i) $$
+    ppReturning from returning
 
 
 -- | Run a 'Delete' statement.
-delete :: Connection -> Delete a -> IO a
-delete connection d@Delete {returning} =
-  case show <$> ppDelete d of
-    Nothing -> pure (emptyReturning returning)
-    Just sql ->
-      Hasql.run session connection >>= either throwIO pure
-      where
-        session = Hasql.statement () statement
-        statement = Hasql.Statement bytes params decode prepare
-        bytes = encodeUtf8 $ Text.pack sql
-        params = Hasql.noParams
-        decode = decodeReturning returning
-        prepare = False
+delete :: Delete a -> Hasql.Statement () a
+delete d@Delete {returning} = Hasql.Statement bytes params decode prepare
+  where
+    bytes = encodeUtf8 $ Text.pack sql
+    params = Hasql.noParams
+    decode = decodeReturning returning
+    prepare = False
+    sql = show doc
+    doc = ppDelete d

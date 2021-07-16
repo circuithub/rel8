@@ -18,4 +18,4 @@ import Rel8.Table ( Table )
 
 -- | Convert a 'Query' to a 'String' containing a @SELECT@ statement.
 showQuery :: Table Expr a => Query a -> String
-showQuery = foldMap show . ppSelect
+showQuery = show . ppSelect

@@ -37,7 +37,6 @@ library
     , text
     , these
     , time
-    , transformers
     , uuid
   default-language:
     Haskell2010
@@ -201,9 +200,9 @@ test-suite tests
     , case-insensitive
     , containers
     , hasql
+    , hasql-transaction
     , hedgehog          ^>=1.0.2
-    , lifted-base       ^>=0.2.3.12
-    , monad-control     ^>=1.0.2.3
+    , mmorph
     , rel8
     , scientific
     , tasty
@@ -211,6 +210,7 @@ test-suite tests
     , text
     , time
     , tmp-postgres      ^>=1.34.1.0
+    , transformers
     , uuid
 
   other-modules:

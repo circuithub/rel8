@@ -9,9 +9,7 @@
 
 module Rel8.Statement.Returning
   ( Returning( NumberOfRowsAffected, Projection )
-
   , decodeReturning
-  , emptyReturning
   , ppReturning
   )
 where
@@ -124,11 +122,6 @@ decodeReturning :: Returning names a -> Hasql.Result a
 decodeReturning = runReturning
   (<$> Hasql.rowsAffected)
   (\decoder withRows -> withRows <$> Hasql.rowList decoder)
-
-
-emptyReturning :: Returning names a -> a
-emptyReturning =
-  runReturning (\withCount -> withCount 0) (\_ withRows -> withRows [])
 
 
 ppReturning :: TableSchema names -> Returning names a -> Doc

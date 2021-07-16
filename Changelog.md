@@ -45,6 +45,8 @@
   * `Table` has a new associated type - `FromExprs`. This was previously an open type family.
   * `Table` has a new associated type - `Transpose` - and `Recontextualise` has been renamed to `Transposes`. This `Transposes` class now operates in terms of `Transpose`.
 
+* `select`, `insert`, `update` and `delete` now produce Hasql `Statement`s, rather than actually running the statement as IO. This allows Rel8 to be used with transaction/connection-managing monads like [`hasql-transaction`](https://hackage.haskell.org/package/hasql-transaction). ([#94](https://github.com/circuithub/rel8/pull/94))
+
 ## Bug fixes
 
 * Fixes a bug where cartesian products of queries using `catListTable`, `catNonEmptyTable`, `catList` and `catNonEmpty` would incorrectly be zipped instead. ([#61](https://github.com/circuithub/rel8/pull/61))
