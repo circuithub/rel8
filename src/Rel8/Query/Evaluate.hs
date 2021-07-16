@@ -59,7 +59,7 @@ rebind a = Query $ \_ -> Opaleye.QueryArr $ \(_, tag) ->
   let
     tag' = Opaleye.next tag
     (a', bindings) = Opaleye.run $
-      Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag') a
+      Opaleye.runUnpackspec unpackspec (Opaleye.extractAttr "eval" tag) a
   in
     ((mempty, a'), \_ -> Opaleye.Rebind True bindings, tag')
 
