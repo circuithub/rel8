@@ -1,4 +1,4 @@
-# 1.1.0.0 (??)
+# 1.1.0.0 (2021-07-16)
 
 ## New features
 
@@ -10,7 +10,7 @@
     , myTableY :: f Text
     } deriving (Generic, Rel8able)
   ```
-  
+
 * The `Projectable` and `Biprojectable` type classes have been introduced. These classes model a type of functors and bifunctors (respectively) on tables, where the mapping function is only able to rearrange columns. For example, the following is now possible:
 
   ```haskell
