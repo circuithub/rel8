@@ -244,6 +244,9 @@ module Rel8
   , nullsFirst
   , nullsLast
 
+    -- ** Window functions
+  , indexed
+
     -- ** Bindings
   , rebind
 
@@ -322,6 +325,7 @@ import Rel8.Query.Either
 import Rel8.Query.Evaluate
 import Rel8.Query.Exists
 import Rel8.Query.Filter
+import Rel8.Query.Indexed
 import Rel8.Query.Limit
 import Rel8.Query.List
 import Rel8.Query.Maybe

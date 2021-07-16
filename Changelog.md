@@ -27,6 +27,8 @@
 
 * The new `Rel8.Tabulate` module has been added, which gives a `Map`-esque interface to writing and composing queries. ([#70](https://github.com/circuithub/rel8/pull/70))
 
+* The new `indexed` `Query -> Query` function was added. This function augments each row in a query with it's 0-based index. ([#117](https://github.com/circuithub/rel8/pull/117))
+
 ## Breaking changes
 
 * `Insert`, `Delete` and `Update` have all changed. In particular, for `Insert` users should now replace `rows = xs` with `rows = values xs`. ([#85](https://github.com/circuithub/rel8/pull/85))
