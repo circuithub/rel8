@@ -106,6 +106,7 @@ library
     Rel8.Query.Evaluate
     Rel8.Query.Exists
     Rel8.Query.Filter
+    Rel8.Query.Indexed
     Rel8.Query.Limit
     Rel8.Query.List
     Rel8.Query.Maybe
