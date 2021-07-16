@@ -35,7 +35,7 @@ import Rel8.Schema.Name ( Name, Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Statement.OnConflict ( OnConflict, ppOnConflict )
 import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
-import Rel8.Statement.Select ( ppSelect )
+import Rel8.Statement.Select ( ppRows )
 import Rel8.Table ( Table )
 import Rel8.Table.Name ( showNames )
 
@@ -66,7 +66,7 @@ ppInsert :: Insert a -> Doc
 ppInsert Insert {..} =
   text "INSERT INTO" <+>
   ppInto into $$
-  ppSelect rows $$
+  ppRows rows $$
   ppOnConflict into onConflict $$
   ppReturning into returning
 
