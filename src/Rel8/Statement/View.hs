@@ -7,14 +7,11 @@ module Rel8.Statement.View
 where
 
 -- base
-import Control.Exception ( throwIO )
 import Prelude
 
 -- hasql
-import Hasql.Connection ( Connection )
 import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- rel8
@@ -36,12 +33,9 @@ import Data.Text.Encoding ( encodeUtf8 )
 -- statement that will save the given query as a view. This can be useful if
 -- you want to share Rel8 queries with other applications.
 createView :: Selects names exprs
-  => Connection -> TableSchema names -> Query exprs -> IO ()
-createView connection schema query =
-  Hasql.run session connection >>= either throwIO pure
+  => TableSchema names -> Query exprs -> Hasql.Statement () ()
+createView schema query = Hasql.Statement bytes params decode prepare
   where
-    session = Hasql.statement () statement
-    statement = Hasql.Statement bytes params decode prepare
     bytes = encodeUtf8 (Text.pack sql)
     params = Hasql.noParams
     decode = Hasql.noResult
