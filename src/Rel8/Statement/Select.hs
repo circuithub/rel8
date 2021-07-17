@@ -11,10 +11,13 @@ module Rel8.Statement.Select
 
   , Optimized(..)
   , ppPrimSelect
+  , ppRows
   )
 where
 
 -- base
+import Data.Foldable ( toList )
+import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Data.Void ( Void )
 import Prelude hiding ( undefined )
 
@@ -24,12 +27,15 @@ import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Statement as Hasql
 
 -- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
+import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Print as Opaleye
 import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye hiding ( Select )
-import qualified Opaleye.Internal.Sql as Opaleye
+import qualified Opaleye.Internal.Sql as Opaleye hiding ( Values )
+import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
 import Text.PrettyPrint ( Doc )
@@ -45,6 +51,7 @@ import Rel8.Table ( Table )
 import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Name ( namesFromLabels )
 import Rel8.Table.Opaleye ( castTable, exprsWithNames )
+import qualified Rel8.Table.Opaleye as T
 import Rel8.Table.Serialize ( Serializable, parse )
 import Rel8.Table.Undefined ( undefined )
 
@@ -80,12 +87,33 @@ ppSelect query =
     never = pure (toPrimExpr false)
 
 
+ppRows :: Table Expr a => Query a -> Doc
+ppRows query = case optimize primQuery of
+  -- Special case VALUES because we can't use DEFAULT inside a SELECT
+  Optimized (Opaleye.Product ((_, Opaleye.Values symbols rows) :| []) [])
+    | eqSymbols symbols (toList (T.exprs a)) ->
+        Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
+  _ -> ppSelect query
+  where
+    (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
+
+    eqSymbols (symbol : symbols) (Opaleye.AttrExpr symbol' : exprs)
+      | eqSymbol symbol symbol' = eqSymbols symbols exprs
+      | otherwise = False
+    eqSymbols [] [] = True
+    eqSymbols _ _ = False
+
+    eqSymbol
+      (Opaleye.Symbol name (Opaleye.UnsafeTag tag))
+      (Opaleye.Symbol name' (Opaleye.UnsafeTag tag'))
+      = name == name' && tag == tag'
+
+
 ppPrimSelect :: Query a -> (Optimized Doc, a)
 ppPrimSelect query =
   (Opaleye.ppSql . primSelect <$> optimize primQuery, a)
   where
-    (a, primQuery, _) =
-      Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
+    (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
 
 
 data Optimized a = Empty | Unit | Optimized a
