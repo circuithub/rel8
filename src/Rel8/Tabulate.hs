@@ -179,7 +179,7 @@ ensure (Predicate mp) = traverse_ (\k -> traverse_ (\p -> where_ (p k)) mp)
 -- stopping a 'Tabulation' from containing multiple rows with the same key, so
 -- technically @Map k (NonEmpty a)@ is more accurate.
 --
--- 'Tabulation's can be created from 'Query's with 'fromQuery' and 'littQuery'
+-- 'Tabulation's can be created from 'Query's with 'fromQuery' and 'liftQuery'
 -- and converted back to 'Query's with 'lookup' and 'toQuery' (though note the
 -- caveats that come with the latter).
 type Tabulation :: Type -> Type -> Type
