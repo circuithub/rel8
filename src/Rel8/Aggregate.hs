@@ -9,14 +9,14 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Aggregate
-  ( Aggregate(..), foldInputs, mapInputs
+  ( Aggregate(..), zipOutputs
   , Aggregator(..), unsafeMakeAggregate
   , Aggregates
   )
 where
 
 -- base
-import Data.Functor.Const ( Const( Const ), getConst )
+import Control.Applicative ( liftA2 )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Prelude
@@ -40,11 +40,7 @@ import Rel8.Table.Transpose ( Transposes )
 import Rel8.Type ( DBType )
 
 
--- | An @Aggregate a@ describes how to aggregate @Table@s of type @a@. You can
--- unpack an @Aggregate@ back to @a@ by running it with 'Rel8.aggregate'. As
--- @Aggregate@ is almost an 'Applicative' functor - but there is no 'pure'
--- operation. This means 'Aggregate' is an instance of 'Apply', and you can
--- combine @Aggregate@s using the @<.>@ combinator.
+-- | 'Aggregate' is a special context used by 'Rel8.aggregate'.
 type Aggregate :: K.Context
 newtype Aggregate a = Aggregate (Opaleye.Aggregator () (Expr a))
 
@@ -61,28 +57,16 @@ instance Sql DBType a => Table Aggregate (Aggregate a) where
   fromResult (HIdentity (Identity a)) = a
 
 
--- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate' 'Expr's
--- for the columns in @b@.
+-- | @Aggregates a b@ means that the columns in @a@ are all 'Aggregate's
+-- for the 'Expr' columns in @b@.
 type Aggregates :: Type -> Type -> Constraint
 class Transposes Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 instance Transposes Aggregate Expr aggregates exprs => Aggregates aggregates exprs
 
 
-foldInputs :: forall (a :: Type) (b :: Type). Monoid b
-  => (Maybe Aggregator -> Opaleye.PrimExpr -> b) -> Aggregate a -> b
-foldInputs f (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
-  getConst $ flip agg () $ \(aggregator, a) ->
-    Const $ f (detuplize <$> aggregator) a
-  where
-    detuplize (operation, ordering, distinction) =
-      Aggregator {operation, ordering, distinction}
-
-
-mapInputs :: forall (a :: Type). ()
-  => (Opaleye.PrimExpr -> Opaleye.PrimExpr) -> Aggregate a -> Aggregate a
-mapInputs transform (Aggregate (Opaleye.Aggregator (Opaleye.PackMap agg))) =
-  Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ agg . \f input ->
-    f (fmap transform input)
+zipOutputs :: ()
+  => (Expr a -> Expr b -> Expr c) -> Aggregate a -> Aggregate b -> Aggregate c
+zipOutputs f (Aggregate a) (Aggregate b) = Aggregate (liftA2 f a b)
 
 
 type Aggregator :: Type

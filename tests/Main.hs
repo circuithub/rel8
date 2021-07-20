@@ -1,3 +1,4 @@
+{-# language BangPatterns #-}
 {-# language BlockArguments #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
@@ -113,6 +114,7 @@ tests =
     , testCatMaybeTable getTestDatabase
     , testCatMaybe getTestDatabase
     , testMaybeTable getTestDatabase
+    , testAggregateMaybeTable getTestDatabase
     , testNestedTables getTestDatabase
     , testMaybeTableApplicative getTestDatabase
     , testLogicalFixities getTestDatabase
@@ -553,6 +555,28 @@ testMaybeTable = databasePropertyTest "maybeTable" \transaction -> evalM do
     case rows of
       [] -> selected === [def]
       _ -> sort selected === sort rows
+
+
+testAggregateMaybeTable :: IO TmpPostgres.DB -> TestTree
+testAggregateMaybeTable = databasePropertyTest "aggregateMaybeTable" \transaction -> evalM do
+  rows <- forAll $ Gen.list (Range.linear 0 10) (Gen.maybe (Gen.int64 (Range.linear 0 10)))
+
+  let
+    aggregate = go 0 False False
+      where
+        go !n nothing _ (Just a : as) = go (n + a) nothing True as
+        go n _ just (Nothing : as) = go n True just as
+        go _ False False [] = []
+        go _ True False [] = [Nothing]
+        go n False True [] = [Just n]
+        go n True True [] = [Nothing, Just n]
+
+  transaction do
+    selected <- lift do
+      statement () $ Rel8.select do
+        Rel8.aggregate $ Rel8.aggregateMaybeTable Rel8.sum <$> Rel8.values (Rel8.lit <$> rows)
+
+    sort selected === aggregate rows
 
 
 data TwoTestTables f =

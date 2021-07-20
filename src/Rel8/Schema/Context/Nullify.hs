@@ -18,18 +18,17 @@ where
 import Data.Bool ( bool )
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
-import Data.Monoid ( getFirst )
 import Prelude hiding ( null )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ), foldInputs, mapInputs )
+import Rel8.Aggregate ( Aggregate(..), zipOutputs )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
-import Rel8.Expr.Opaleye ( fromPrimExpr, toPrimExpr )
+import Rel8.Expr.Opaleye ( fromPrimExpr )
 import Rel8.Kind.Context ( SContext(..) )
 import Rel8.Schema.Field ( Field )
 import qualified Rel8.Schema.Kind as K
@@ -95,17 +94,10 @@ guarder :: ()
   -> context (Maybe a)
   -> context (Maybe a)
 guarder = \case
-  SAggregate -> \tag _ isNonNull (Aggregate a) ->
-    let
-      mtag = foldInputs (\_ -> pure . fromPrimExpr) tag
-      run = maybe id (sguard . isNonNull) (getFirst mtag)
-    in
-      mapInputs (toPrimExpr . run . fromPrimExpr) $
-      Aggregate $
-      run <$> a
-  SExpr -> \tag _ isNonNull a -> sguard (isNonNull tag) a
-  SField -> \_ _ _ field -> field
-  SName -> \_ _ _ name -> name
+  SAggregate -> \tag _ isNonNull -> zipOutputs (sguard . isNonNull) tag
+  SExpr -> \tag _ isNonNull -> sguard (isNonNull tag)
+  SField -> \_ _ _ -> id
+  SName -> \_ _ _ -> id
   SResult -> \(Identity tag) isNonNull _ (Identity a) ->
     Identity (bool Nothing a (isNonNull tag))
 
