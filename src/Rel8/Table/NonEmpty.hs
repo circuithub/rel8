@@ -11,7 +11,9 @@
 
 module Rel8.Table.NonEmpty
   ( NonEmptyTable(..)
-  , nonEmptyTable, nameNonEmptyTable
+  , ($+)
+  , nonEmptyTable
+  , nameNonEmptyTable
   )
 where
 
@@ -29,7 +31,7 @@ import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
   , happend
-  , hproject
+  , hproject, hcolumn
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
@@ -44,7 +46,9 @@ import Rel8.Table
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Projection ( Projectable, project, apply )
+import Rel8.Table.Projection
+  ( Projectable, Projecting, Projection, project, apply
+  )
 import Rel8.Table.Serialize ( ToExprs )
 
 
@@ -108,6 +112,13 @@ instance (Table Expr a, context ~ Expr) => Semigroup (NonEmptyTable context a)
  where
   NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
     happend (const sappend1) as bs
+
+
+-- | Project a single expression out of a 'NonEmptyTable'.
+($+) :: Projecting a (Expr b)
+  => Projection a (Expr b) -> NonEmptyTable Expr a -> Expr (NonEmpty b)
+f $+ NonEmptyTable a = hcolumn $ hproject (apply f) a
+infixl 4 $+
 
 
 -- | Construct a @NonEmptyTable@ from a non-empty list of expressions.

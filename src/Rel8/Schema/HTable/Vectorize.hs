@@ -22,6 +22,7 @@ module Rel8.Schema.HTable.Vectorize
   , hvectorize, hunvectorize
   , happend, hempty
   , hproject
+  , hcolumn
   )
 where
 
@@ -36,9 +37,11 @@ import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.MapTable
-  ( HMapTable, HMapTableField( HMapTableField )
+  ( HMapTable( HMapTable ), HMapTableField( HMapTableField )
   , MapSpec, mapInfo
+  , Precompose( Precompose )
   )
 import qualified Rel8.Schema.HTable.MapTable as HMapTable ( hproject )
 import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
@@ -133,3 +136,7 @@ hproject :: ()
   => (forall ctx. t ctx -> t' ctx)
   -> HVectorize list t context -> HVectorize list t' context
 hproject f (HVectorize a) = HVectorize (HMapTable.hproject f a)
+
+
+hcolumn :: HVectorize list (HIdentity a) context -> context (list a)
+hcolumn (HVectorize (HMapTable (HIdentity (Precompose a)))) = a

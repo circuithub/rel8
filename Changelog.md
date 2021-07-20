@@ -1,3 +1,7 @@
+# Unreleased
+
+  New `$*` and `$+` operators for projecting out of `ListTable` and `NonEmptyTable` respectively (analogous to the existing `$?` for `MaybeTable`).
+
 # 1.1.0.0 (2021-07-16)
 
 ## New features

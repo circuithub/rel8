@@ -90,7 +90,7 @@ module Rel8
 
     -- ** @ListTable@
   , ListTable
-  , listTable
+  , listTable, ($*)
   , nameListTable
   , many
   , manyExpr
@@ -99,7 +99,7 @@ module Rel8
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
-  , nonEmptyTable
+  , nonEmptyTable, ($+)
   , nameNonEmptyTable
   , some
   , someExpr
