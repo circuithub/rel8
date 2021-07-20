@@ -24,8 +24,8 @@ import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
-import Rel8.Query.Evaluate ( rebind )
 import Rel8.Query.Maybe ( optional )
+import Rel8.Query.Rebind ( rebind )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
@@ -85,8 +85,9 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 --
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
-catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
-  hunvectorize (\Spec {info} -> pure . sunnest info) as
+catListTable (ListTable as) =
+  rebind "unnest" $ fromColumns $ runIdentity $
+    hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
 -- | Expand a 'NonEmptyTable' into a 'Query', where each row in the query is an
@@ -94,8 +95,9 @@ catListTable (ListTable as) = rebind $ fromColumns $ runIdentity $
 --
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
-catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
-  hunvectorize (\Spec {info} -> pure . sunnest info) as
+catNonEmptyTable (NonEmptyTable as) =
+  rebind "unnest" $ fromColumns $ runIdentity $
+    hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
 -- | Expand an expression that contains a list into a 'Query', where each row
@@ -103,7 +105,7 @@ catNonEmptyTable (NonEmptyTable as) = rebind $ fromColumns $ runIdentity $
 --
 -- @catList@ is an inverse to 'manyExpr'.
 catList :: Sql DBType a => Expr [a] -> Query (Expr a)
-catList = rebind . sunnest typeInformation
+catList = rebind "unnest" . sunnest typeInformation
 
 
 -- | Expand an expression that contains a non-empty list into a 'Query', where
@@ -111,7 +113,7 @@ catList = rebind . sunnest typeInformation
 --
 -- @catNonEmpty@ is an inverse to 'someExpr'.
 catNonEmpty :: Sql DBType a => Expr (NonEmpty a) -> Query (Expr a)
-catNonEmpty = rebind . sunnest typeInformation
+catNonEmpty = rebind "unnest" . sunnest typeInformation
 
 
 sunnest :: TypeInformation (Unnullify a) -> Expr (list a) -> Expr a

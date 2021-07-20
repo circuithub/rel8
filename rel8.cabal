@@ -113,6 +113,7 @@ library
     Rel8.Query.Null
     Rel8.Query.Opaleye
     Rel8.Query.Order
+    Rel8.Query.Rebind
     Rel8.Query.Set
     Rel8.Query.SQL
     Rel8.Query.These

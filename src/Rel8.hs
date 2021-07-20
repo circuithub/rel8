@@ -224,6 +224,7 @@ module Rel8
   , countRows
   , groupBy
   , listAgg, listAggExpr
+  , mlistAgg
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max
   , DBMin, min
@@ -331,6 +332,7 @@ import Rel8.Query.List
 import Rel8.Query.Maybe
 import Rel8.Query.Null
 import Rel8.Query.Order
+import Rel8.Query.Rebind
 import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These

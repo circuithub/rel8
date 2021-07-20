@@ -7,7 +7,7 @@
 
 module Rel8.Table.Aggregate
   ( groupBy, hgroupBy
-  , listAgg, nonEmptyAgg
+  , listAgg, mlistAgg, nonEmptyAgg
   )
 where
 
@@ -15,14 +15,20 @@ where
 import Data.Functor.Identity ( Identity( Identity ) )
 import Prelude
 
+-- comonad
+import Control.Comonad ( extract )
+
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregates )
+import Rel8.Aggregate ( Aggregate, Aggregates, zipOutputs )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate
   ( groupByExpr
   , slistAggExpr
   , snonEmptyAggExpr
   )
+import Rel8.Expr.Array ( sempty )
+import Rel8.Expr.Bool ( boolExpr )
+import Rel8.Expr.Null ( isNonNull )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable ( HTable, hfield, htabulate )
 import Rel8.Schema.HTable.Vectorize ( hvectorize )
@@ -31,6 +37,7 @@ import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table ( toColumns, fromColumns )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
+import Rel8.Table.Maybe ( MaybeTable( MaybeTable ) )
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Type.Eq ( DBEq )
 
@@ -69,6 +76,18 @@ listAgg :: Aggregates aggregates exprs => exprs -> ListTable Aggregate aggregate
 listAgg (toColumns -> exprs) = fromColumns $
   hvectorize
     (\Spec {info} (Identity a) -> slistAggExpr info a)
+    (pure exprs)
+
+
+mlistAgg :: Aggregates aggregates exprs
+  => MaybeTable Expr exprs -> ListTable Aggregate aggregates
+mlistAgg (MaybeTable tag (toColumns . extract -> exprs)) = fromColumns $
+  hvectorize
+    (\Spec {info} (Identity a) ->
+      zipOutputs
+        (\a' -> boolExpr (sempty info) a' . isNonNull)
+        (slistAggExpr info a)
+        (groupBy tag))
     (pure exprs)
 
 

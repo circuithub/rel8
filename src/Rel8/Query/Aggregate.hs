@@ -8,6 +8,7 @@ module Rel8.Query.Aggregate
 where
 
 -- base
+import Control.Monad ( (>=>) )
 import Data.Int ( Int64 )
 import Prelude
 
@@ -21,13 +22,14 @@ import Rel8.Expr.Aggregate ( countStar )
 import Rel8.Query ( Query )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye )
+import Rel8.Query.Rebind ( rebind )
 import Rel8.Table.Opaleye ( aggregator )
 import Rel8.Table.Maybe ( maybeTable )
 
 
 -- | Apply an aggregation to all rows returned by a 'Query'.
 aggregate :: Aggregates aggregates exprs => Query aggregates -> Query exprs
-aggregate = mapOpaleye (Opaleye.aggregate aggregator)
+aggregate = mapOpaleye (Opaleye.aggregate aggregator) >=> rebind "aggregate"
 
 
 -- | Count the number of rows returned by a query. Note that this is different
