@@ -6,6 +6,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MonoLocalBinds #-}
+{-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
@@ -37,6 +38,7 @@ import qualified Data.ByteString.Lazy
 import Data.CaseInsensitive ( mk )
 
 -- containers
+import Data.Containers.ListUtils ( nubOrdOn )
 import qualified Data.Map.Strict as Map
 
 -- hasql
@@ -120,6 +122,7 @@ tests =
     , testLogicalFixities getTestDatabase
     , testUpdate getTestDatabase
     , testDelete getTestDatabase
+    , testUpsert getTestDatabase
     , testSelectNestedPairs getTestDatabase
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
@@ -135,6 +138,7 @@ tests =
         flip run conn do
           sql "CREATE EXTENSION citext"
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
+          sql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
           sql "CREATE SEQUENCE test_seq"
 
       return db
@@ -707,6 +711,72 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       pure (deleted, selected)
 
     sort (deleted <> selected) === sort rows
+
+
+data UniqueTable f = UniqueTable
+  { uniqueTableKey :: Rel8.Column f Text
+  , uniqueTableValue :: Rel8.Column f Text
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.Rel8able
+
+
+deriving stock instance Eq (UniqueTable Result)
+deriving stock instance Ord (UniqueTable Result)
+deriving stock instance Show (UniqueTable Result)
+
+
+uniqueTableSchema :: Rel8.TableSchema (UniqueTable Rel8.Name)
+uniqueTableSchema =
+  Rel8.TableSchema
+    { name = "unique_table"
+    , schema = Nothing
+    , columns = UniqueTable
+        { uniqueTableKey = "key"
+        , uniqueTableValue = "value"
+        }
+    }
+
+
+genUniqueTable :: Gen (UniqueTable Result)
+genUniqueTable = do
+  uniqueTableKey <- Gen.text (Range.linear 0 5) Gen.alphaNum
+  uniqueTableValue <- Gen.text (Range.linear 0 5) Gen.alphaNum
+  pure UniqueTable {..}
+
+
+testUpsert :: IO TmpPostgres.DB -> TestTree
+testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
+  as <- unique $ forAll $ Gen.list (Range.linear 0 20) genUniqueTable
+  bs <- unique $ forAll $ Gen.list (Range.linear 0 20) genUniqueTable
+
+  transaction do
+    selected <- lift do
+      statement () $ Rel8.insert Rel8.Insert
+        { into = uniqueTableSchema
+        , rows = Rel8.values $ Rel8.lit <$> as
+        , onConflict = Rel8.DoNothing
+        , returning = pure ()
+        }
+
+      statement () $ Rel8.insert Rel8.Insert
+        { into = uniqueTableSchema
+        , rows = Rel8.values $ Rel8.lit <$> bs
+        , onConflict = Rel8.DoUpdate Rel8.Upsert
+            { index = uniqueTableKey
+            , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
+            , updateWhere = \_ _ -> Rel8.true
+            }
+        , returning = pure ()
+        }
+
+      statement () $ Rel8.select do
+        Rel8.each uniqueTableSchema
+
+    fromUniqueTables selected === fromUniqueTables bs <> fromUniqueTables as
+  where
+    unique = fmap (nubOrdOn uniqueTableKey)
+    fromUniqueTables = Map.fromList . map \(UniqueTable key value) -> (key, value)
 
 
 newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
