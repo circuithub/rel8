@@ -75,7 +75,6 @@ instance Sql DBOrd a => DBOrd (NonEmpty a)
 -- | The class of database types that support the @max@ aggregation function.
 type DBMax :: Type -> Constraint
 class DBOrd a => DBMax a
-instance DBMax Bool
 instance DBMax Char
 instance DBMax Int16
 instance DBMax Int32
@@ -101,7 +100,6 @@ instance Sql DBMax a => DBMax (NonEmpty a)
 -- | The class of database types that support the @min@ aggregation function.
 type DBMin :: Type -> Constraint
 class DBOrd a => DBMin a
-instance DBMin Bool
 instance DBMin Char
 instance DBMin Int16
 instance DBMin Int32
