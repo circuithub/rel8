@@ -35,7 +35,7 @@ class
   => Projecting a b
 instance
   ( Transposes (Context a) (Field a) a (Transpose (Field a) a)
-  , Transposes (Context a) (Field a) b (Transpose (Field b) b)
+  , Transposes (Context a) (Field a) b (Transpose (Field a) b)
   )
   => Projecting a b
 
