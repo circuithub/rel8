@@ -1,6 +1,20 @@
-# Unreleased
+# 1.2.0.0 (2021-10-22)
 
-  New `$*` and `$+` operators for projecting out of `ListTable` and `NonEmptyTable` respectively (analogous to the existing `$?` for `MaybeTable`).
+## New features
+
+* New `$*` and `$+` operators for projecting out of `ListTable` and `NonEmptyTable` respectively (analogous to the existing `$?` for `MaybeTable`). ([#125](https://github.com/circuithub/rel8/pull/125))
+
+## Bug fixes
+
+* Fix `UPSERT` support (and add tests), which was broken due to a typo inside Rel8 that made it impossible to construct `Projection`s which are needed by `UPSERT`. ([#134](https://github.com/circuithub/rel8/pull/134))
+
+* Remove `DBMin` and `DBMax` instances for `Bool`, which are invalid as far as Postgres is concerned. `and` and `or` can be used to achieve the same thing. ([#126](https://github.com/circuithub/rel8/pull/126))
+
+* Fix `aggregateMaybeTable`, `aggregateEitherTable` and `aggregateTheseTable`, which generated invalid SQL previously. ([#127](https://github.com/circuithub/rel8/pull/127))
+
+## Breaking changes
+
+* `rebind` now takes an additional argument for the "name" of the binding. ([#128](https://github.com/circuithub/rel8/pull/128))
 
 # 1.1.0.0 (2021-07-16)
 
