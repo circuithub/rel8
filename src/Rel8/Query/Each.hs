@@ -17,16 +17,14 @@ import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema )
-import Rel8.Table.Cols ( fromCols, toCols )
-import Rel8.Table.Opaleye ( table, unpackspec )
+import Rel8.Table.Opaleye ( castTable, table, unpackspec )
 
 
 -- | Select each row from a table definition. This is equivalent to @FROM
 -- table@.
 each :: Selects names exprs => TableSchema names -> Query exprs
 each =
-  fmap fromCols .
+  fmap castTable .
   fromOpaleye .
   Opaleye.selectTableExplicit unpackspec .
-  table .
-  fmap toCols
+  table
