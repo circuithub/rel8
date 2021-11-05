@@ -51,6 +51,7 @@ module Rel8
   , lit
   , bool
   , case_
+  , castTable
 
     -- ** @MaybeTable@
   , MaybeTable
@@ -362,6 +363,7 @@ import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
+import Rel8.Table.Opaleye ( castTable )
 import Rel8.Table.Ord
 import Rel8.Table.Order
 import Rel8.Table.Projection
