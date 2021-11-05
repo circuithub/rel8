@@ -7,7 +7,7 @@
 {-# language TypeFamilies #-}
 
 module Rel8.Schema.HTable.Label
-  ( HLabel, hlabel, hrelabel, hunlabel
+  ( HLabel(HLabel), hlabel, hrelabel, hunlabel
   , hproject
   )
 where
