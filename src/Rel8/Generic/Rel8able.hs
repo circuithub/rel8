@@ -16,7 +16,7 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Generic.Rel8able
-  ( KRel8able, Rel8able
+  ( KRel8able, Rel8able(..)
   , Algebra
   , GRep
   , GColumns, gfromColumns, gtoColumns

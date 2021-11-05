@@ -6,6 +6,7 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TemplateHaskell #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
@@ -23,6 +24,7 @@ import Prelude
 
 -- rel8
 import Rel8
+import Rel8.TH ( deriveRel8able )
 
 -- text
 import Data.Text ( Text )
@@ -32,8 +34,9 @@ data TableTest f = TableTest
   { foo :: Column f Bool
   , bar :: Column f (Maybe Bool)
   }
-  deriving stock Generic
-  deriving anyclass Rel8able
+
+
+deriveRel8able ''TableTest
 
 
 data TablePair f = TablePair
