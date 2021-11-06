@@ -5,7 +5,7 @@ let
 in
   hsPkgs.shellFor {
     withHoogle = false;
-    tools = { cabal = "latest"; };
+    tools = { cabal = "latest"; haskell-language-server = "latest"; };
     exactDeps = false;
     buildInputs = [ pkgs.postgresql pkgs.pythonPackages.sphinx ];
   }
