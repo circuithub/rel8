@@ -9,7 +9,11 @@ in
       cabal = "latest"; 
       haskell-language-server = {
         version = "latest"; 
-        modules = [{ packages.haskell-language-server.flags.floskell = false; }];
+        cabalProject = ''
+          packages: .
+          package haskell-language-server
+            flags: -floskell -brittany
+        '';
       };
     };
     exactDeps = false;
