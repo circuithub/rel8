@@ -40,7 +40,7 @@ deriveRel8able name = do
     , funD 'gfromResult $ pure do
         name1 <- newName $ nameBase fieldName1
         names <- for fieldNames $ newName . nameBase
-        clause [varP name1] (normalB [|undefined|]) []
+        clause [varP name1] (normalB [| undefined |]) []
 
     , funD 'gtoResult $ pure $
         clause [] (normalB [|undefined|]) []
