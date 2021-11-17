@@ -41,8 +41,9 @@ data TablePair f = TablePair
   { foo :: Column f Bool
   , bars :: (Column f Text, Column f Text)
   }
-  deriving stock Generic
-  deriving anyclass Rel8able
+
+
+deriveRel8able ''TablePair
 
 
 data TableMaybe f = TableMaybe
