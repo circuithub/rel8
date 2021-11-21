@@ -6,6 +6,10 @@
 
 * Added `<:`, `<=:`, `>:`, `>=:`, `greatest` and `least`, which sort all columns in a table lexicographically. These operators are like the `<.` operators which operate on `Expr`s, but the `<:` operate on entire tables. ([#139](https://github.com/circuithub/rel8/pull/139))
 
+## Other
+
+* Support opaleye-0.8 ([#142](https://github.com/circuithub/rel8/pull/142))
+
 # 1.2.0.0 (2021-10-22)
 
 ## New features
