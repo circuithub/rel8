@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                rel8
-version:             1.2.0.0
+version:             1.2.1.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD3
 license-file:        LICENSE
