@@ -6,4 +6,6 @@ in
   hsPkgs.shellFor {
     withHoogle = false;
     tools = { cabal = "latest"; };
+    exactDeps = false;
+    buildInputs = [ pkgs.postgresql pkgs.pythonPackages.sphinx ];
   }
