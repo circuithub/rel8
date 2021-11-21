@@ -1,3 +1,15 @@
+# 1.2.1.0 (2021-11-21)
+
+## New features
+
+* `castTable` has been added, which casts all columns selected from in `Query` according to the types of columns. This can occasionally be useful when using `many`/`some` on older PostgreSQL versions. ([#137](https://github.com/circuithub/rel8/pull/137))
+
+* Added `<:`, `<=:`, `>:`, `>=:`, `greatest` and `least`, which sort all columns in a table lexicographically. These operators are like the `<.` operators which operate on `Expr`s, but the `<:` operate on entire tables. ([#139](https://github.com/circuithub/rel8/pull/139))
+
+## Other
+
+* Support opaleye-0.8 ([#142](https://github.com/circuithub/rel8/pull/142))
+
 # 1.2.0.0 (2021-10-22)
 
 ## New features
