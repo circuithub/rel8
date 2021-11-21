@@ -11,7 +11,7 @@ where
 import Prelude
 
 -- opaleye
-import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Distinct as Opaleye hiding ( distinctOn, distinctOnBy )
 import qualified Opaleye.Internal.Order as Opaleye
 import qualified Opaleye.Internal.QueryArr as Opaleye
 
