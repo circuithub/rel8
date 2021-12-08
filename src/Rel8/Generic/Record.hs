@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
