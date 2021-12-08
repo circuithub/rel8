@@ -157,6 +157,7 @@ module Rel8
   , (==.), (/=.), (==?), (/=?)
   , in_
   , boolExpr, caseExpr
+  , like, ilike
 
     -- ** Ordering
   , DBOrd
@@ -316,6 +317,7 @@ import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
+import Rel8.Expr.Text ( like, ilike )
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query

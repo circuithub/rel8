@@ -17,6 +17,9 @@ module Rel8.Expr.Text
   , pgClientEncoding, quoteIdent, quoteLiteral, quoteNullable, regexpReplace
   , regexpSplitToArray, repeat, replace, reverse, right, rpad, rtrim
   , splitPart, strpos, substr, translate
+
+    -- * @LIKE@ and @ILIKE@
+  , like, ilike
   )
 where
 
@@ -273,3 +276,13 @@ substr a b Nothing = function "substr" a b
 -- | Corresponds to the @translate@ function.
 translate :: Expr Text -> Expr Text -> Expr Text -> Expr Text
 translate = function "translate"
+
+
+-- | Corresponds to the @LIKE@ operator.
+ilike :: Expr Text -> Expr Text -> Expr Bool
+ilike = binaryOperator "LIKE"
+
+
+-- | Corresponds to the @ILIKE@ operator.
+ilike :: Expr Text -> Expr Text -> Expr Bool
+ilike = binaryOperator "ILIKE"
