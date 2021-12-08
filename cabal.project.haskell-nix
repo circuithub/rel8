@@ -5,6 +5,7 @@
 
 source-repository-package
   type: git
-  location: git://github.com/jcpetruzza/barbies
-  tag: f99b05454874192e3511bd133555dfb6cc6a6ecb
-  --sha256: 0yy2i2jbllwavv5d2176rf8lmm4l1ws90lxkmdlfgvfzqxidx0gi
+  location: https://github.com/patrickt/haskell-hedgehog
+  tag: 94dd5b81e46d4a636521acf08039c8e3d848ef37
+  subdir: hedgehog
+  --sha256: 1iaza4hjq1897bchb6i6adk7hggbald18ahbn1fn9pkw5imsy2a7
