@@ -279,8 +279,8 @@ translate = function "translate"
 
 
 -- | Corresponds to the @LIKE@ operator.
-ilike :: Expr Text -> Expr Text -> Expr Bool
-ilike = binaryOperator "LIKE"
+like :: Expr Text -> Expr Text -> Expr Bool
+like = binaryOperator "LIKE"
 
 
 -- | Corresponds to the @ILIKE@ operator.
