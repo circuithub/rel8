@@ -1,3 +1,4 @@
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MonoLocalBinds #-}
 {-# language MultiWayIf #-}
