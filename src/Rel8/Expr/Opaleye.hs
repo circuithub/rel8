@@ -80,9 +80,9 @@ traversePrimExpr :: Functor f
 traversePrimExpr f = fmap fromPrimExpr . f . toPrimExpr
 
 
-toColumn :: Opaleye.PrimExpr -> Opaleye.Column b
+toColumn :: Opaleye.PrimExpr -> Opaleye.Field_ n b
 toColumn = Opaleye.Column
 
 
-fromColumn :: Opaleye.Column b -> Opaleye.PrimExpr
+fromColumn :: Opaleye.Field_ n b -> Opaleye.PrimExpr
 fromColumn (Opaleye.Column a) = a
