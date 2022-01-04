@@ -47,7 +47,7 @@ intersectAll = zipOpaleyeWith (Opaleye.intersectAllExplicit binaryspec)
 
 
 -- | Find the difference of two queries, collapsing duplicates @except a b@ is
--- the same as the SQL statement @x INTERSECT b@.
+-- the same as the SQL statement @x EXCEPT b@.
 except :: EqTable a => Query a -> Query a -> Query a
 except = zipOpaleyeWith (Opaleye.exceptExplicit binaryspec)
 
