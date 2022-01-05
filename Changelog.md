@@ -1,3 +1,11 @@
+# 1.2.2.0 (2021-11-21)
+
+## Other
+
+* Support GHC 9.2 ([#145](https://github.com/circuithub/rel8/pull/145))
+* Correct the documentation for `except` ([#147](https://github.com/circuithub/rel8/pull/147))
+* Support `hasql` 1.5 ([#149](https://github.com/circuithub/rel8/pull/149))
+
 # 1.2.1.0 (2021-11-21)
 
 ## New features
