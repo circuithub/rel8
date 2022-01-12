@@ -10,6 +10,7 @@ module Rel8.Expr.Aggregate
   , and, or
   , min, max
   , sum, sumWhere
+  , avg
   , stringAgg
   , groupByExpr
   , listAggExpr, nonEmptyAggExpr
@@ -120,13 +121,27 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 
 -- | Corresponds to @sum@. Note that in SQL, @sum@ is type changing - for
 -- example the @sum@ of @integer@ returns a @bigint@. Rel8 doesn't support
--- this, and will add explicit cast back to the original input type. This can
+-- this, and will add explicit casts back to the original input type. This can
 -- lead to overflows, and if you anticipate very large sums, you should upcast
 -- your input.
 sum :: Sql DBSum a => Expr a -> Aggregate a
 sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
   Just Aggregator
     { operation = Opaleye.AggrSum
+    , ordering = []
+    , distinction = Opaleye.AggrAll
+    }
+
+
+-- | Corresponds to @avg@. Note that in SQL, @avg@ is type changing - for
+-- example, the @avg@ of @integer@ returns a @numeric@. Rel8 doesn't support
+-- this, and will add explicit casts back to the original input type. If you
+-- need a fractional result on an integral column, you should cast your input
+-- to 'Double' or 'Data.Scientific.Scientific' before calling 'avg'.
+avg :: Sql DBSum a => Expr a -> Aggregate a
+avg = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
+  Just Aggregator
+    { operation = Opaleye.AggrAvg
     , ordering = []
     , distinction = Opaleye.AggrAll
     }
