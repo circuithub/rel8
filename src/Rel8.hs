@@ -225,10 +225,11 @@ module Rel8
   , countRows
   , groupBy
   , listAgg, listAggExpr
+  , mode
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max
   , DBMin, min
-  , DBSum, sum, sumWhere
+  , DBSum, sum, sumWhere, avg
   , DBString, stringAgg
   , count
   , countStar
