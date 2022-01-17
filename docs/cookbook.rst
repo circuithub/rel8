@@ -142,23 +142,25 @@ rows, but can also return *tree*\s.
 To understand what this means, we'll consider a small example query for blog
 posts. We want our query to return:
 
-1. The latest 5 blog posts.
+1. The latest 5 blog posts that have at least one tag each.
 2. For each blog post, all tags.
-3. For each blog post, the latest 3 comments.
+3. For each blog post, the latest 3 comments if they exist.
 
 In Rel8, we can write this query as::
 
   latestBlogPosts = do
     post <- each postSchema
 
-    tags <- aggregate do
+    -- Returns a `NonEmptyTable a` which ends up as a `Data.List.NonEmpty a` after the query is run
+    tags <- some $ do
       tag <- each tagSchema
       where_ (tagPostId tag ==. postId post)
-      return (listAgg (tagName tag))
+      return (tagName tag)
 
-    latestComments <- 
-      many $ 
-      limit 3 $ 
+    -- Returns a `ListTable a` which ends up as a `[a]` after the query is run
+    latestComments <-
+      many $
+      limit 3 $
       orderBy (commentCreatedAt >$< desc) do
         comment <- each commentSchema
         where_ (commentPostId comment ==. postId post)
