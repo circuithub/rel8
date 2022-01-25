@@ -144,7 +144,7 @@ instance DBType Double where
         if | x == (1 / 0) -> Opaleye.OtherLit "'Infinity'"
            | isNaN x       -> Opaleye.OtherLit "'NaN'"
            | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-           | otherwise   -> Opaleye.NumericLit $ realToFrac x
+           | otherwise     -> Opaleye.NumericLit $ realToFrac x
     , decode = Hasql.float8
     , typeName = "float8"
     }
