@@ -46,6 +46,7 @@ library
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-monomorphism-restriction
     -Wno-missing-local-signatures
+    -Wno-missing-kind-signatures
   hs-source-dirs:
     src
   exposed-modules:
