@@ -128,8 +128,8 @@ instance DBType Int64 where
 instance DBType Float where
   typeInformation = TypeInformation
     { encode = \x -> Opaleye.ConstExpr
-        if | x == (1 / 0) -> Opaleye.OtherLit "'Infinity'"
-           | isNaN x      -> Opaleye.OtherLit "'NaN'"
+        if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
+           | isNaN x       -> Opaleye.OtherLit "'NaN'"
            | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
            | otherwise     -> Opaleye.NumericLit $ realToFrac x
     , decode = Hasql.float4
