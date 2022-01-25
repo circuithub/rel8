@@ -18,6 +18,7 @@ import Prelude
 
 -- rel8
 import Rel8.Type ( DBType )
+import Rel8.Type.Ord ( DBOrd )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -39,7 +40,7 @@ instance DBNum Scientific
 -- expressions. This is a Rel8 concept, and allows us to provide
 -- 'fromIntegral'.
 type DBIntegral :: Type -> Constraint
-class DBNum a => DBIntegral a
+class (DBNum a, DBOrd a) => DBIntegral a
 instance DBIntegral Int16
 instance DBIntegral Int32
 instance DBIntegral Int64
