@@ -27,7 +27,7 @@ module Rel8.Schema.HTable.Vectorize
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
 import GHC.Generics (Generic)
 import Prelude
@@ -53,6 +53,7 @@ import Rel8.Type.Information ( TypeInformation )
 import Data.Zip ( Unzip, Zip, Zippy(..) )
 
 
+type Vector :: (Type -> Type) -> Constraint
 class Vector list where
   listNotNull :: proxy a -> Dict NotNull (list a)
   vectorTypeInformation :: ()

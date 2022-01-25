@@ -157,6 +157,7 @@ instance
   => HKDable a
 
 
+type Top_ :: Constraint
 class Top_
 instance Top_
 

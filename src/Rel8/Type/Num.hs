@@ -46,6 +46,7 @@ instance DBIntegral Int64
 
 
 -- | The class of database types that support the @/@ operator.
+type DBFractional :: Type -> Constraint
 class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
@@ -53,6 +54,7 @@ instance DBFractional Scientific
 
 
 -- | The class of database types that support the @/@ operator.
+type DBFloating :: Type -> Constraint
 class DBFractional a => DBFloating a
 instance DBFloating Float
 instance DBFloating Double
