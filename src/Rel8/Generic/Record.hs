@@ -142,6 +142,7 @@ instance {-# OVERLAPPABLE #-} Snd (Count n rep) ~ rep => Countable n rep where
   uncount = id
 
 
+type Record :: Type -> Type
 newtype Record a = Record
   { unrecord :: a
   }

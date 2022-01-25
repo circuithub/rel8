@@ -3,6 +3,7 @@
 {-# language FlexibleContexts #-}
 {-# language MonoLocalBinds #-}
 {-# language ScopedTypeVariables #-}
+{-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 
 module Rel8.Statement.Select
@@ -17,6 +18,7 @@ where
 
 -- base
 import Data.Foldable ( toList )
+import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Data.Void ( Void )
 import Prelude hiding ( undefined )
@@ -116,6 +118,7 @@ ppPrimSelect query =
     (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
 
 
+type Optimized :: Type -> Type
 data Optimized a = Empty | Unit | Optimized a
   deriving stock (Functor, Foldable, Traversable)
 

@@ -106,6 +106,7 @@ class (DBType a, Enumable a) => DBEnum a where
 
 -- | Types that are sum types, where each constructor is unary (that is, has no
 -- fields).
+type Enumable :: Type -> Constraint
 class (Generic a, GEnumable (Rep a)) => Enumable a
 instance (Generic a, GEnumable (Rep a)) => Enumable a
 
