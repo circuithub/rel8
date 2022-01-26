@@ -139,6 +139,7 @@ module Rel8
     -- ** @null@
   , NotNull
   , Nullable
+  , Homonullable
   , null
   , nullify
   , nullable
