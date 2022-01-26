@@ -46,8 +46,8 @@ module Rel8
   , Transposes
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
-  , EqTable, (==:), (/=:)
-  , OrdTable, (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
+  , EqTable(..), (==:), (/=:)
+  , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
   , lit
   , bool
   , case_
