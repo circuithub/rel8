@@ -2,7 +2,7 @@
 
 ## Breaking changes
 
-* `div` and `mod` have been changed to match Haskell semantics. If you need the PostgreSQL `div()` and `mod()` functions, use `quot` and `rem`. ([#155](https://github.com/circuithub/rel8/pull/155))
+* `div` and `mod` have been changed to match Haskell semantics. If you need the PostgreSQL `div()` and `mod()` functions, use `quot` and `rem`. While this is not an API change, we feel this is a breaking change in semantics and have bumped the major version number. ([#155](https://github.com/circuithub/rel8/pull/155))
 
 ## New features
 
