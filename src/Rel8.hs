@@ -46,8 +46,8 @@ module Rel8
   , Transposes
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
-  , EqTable, (==:), (/=:)
-  , OrdTable, (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
+  , EqTable(..), (==:), (/=:)
+  , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
   , lit
   , bool
   , case_
@@ -139,6 +139,7 @@ module Rel8
     -- ** @null@
   , NotNull
   , Nullable
+  , Homonullable
   , null
   , nullify
   , nullable
@@ -226,10 +227,11 @@ module Rel8
   , countRows
   , groupBy
   , listAgg, listAggExpr
+  , mode
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max
   , DBMin, min
-  , DBSum, sum, sumWhere
+  , DBSum, sum, sumWhere, avg
   , DBString, stringAgg
   , count
   , countStar
