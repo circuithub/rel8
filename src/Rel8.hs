@@ -46,11 +46,12 @@ module Rel8
   , Transposes
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
-  , EqTable, (==:), (/=:)
-  , OrdTable, ascTable, descTable
+  , EqTable(..), (==:), (/=:)
+  , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
   , lit
   , bool
   , case_
+  , castTable
 
     -- ** @MaybeTable@
   , MaybeTable
@@ -138,6 +139,7 @@ module Rel8
     -- ** @null@
   , NotNull
   , Nullable
+  , Homonullable
   , null
   , nullify
   , nullable
@@ -224,10 +226,11 @@ module Rel8
   , countRows
   , groupBy
   , listAgg, listAggExpr
+  , mode
   , nonEmptyAgg, nonEmptyAggExpr
   , DBMax, max
   , DBMin, min
-  , DBSum, sum, sumWhere
+  , DBSum, sum, sumWhere, avg
   , DBString, stringAgg
   , count
   , countStar
@@ -362,6 +365,7 @@ import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
+import Rel8.Table.Opaleye ( castTable )
 import Rel8.Table.Ord
 import Rel8.Table.Order
 import Rel8.Table.Projection

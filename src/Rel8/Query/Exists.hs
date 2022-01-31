@@ -12,7 +12,7 @@ import Prelude hiding ( filter )
 
 -- opaleye
 import qualified Opaleye.Exists as Opaleye
-import qualified Opaleye.Operators as Opaleye hiding ( exists )
+import qualified Opaleye.Operators as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )

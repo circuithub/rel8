@@ -90,6 +90,7 @@ instance DBMonoid MaybeTag where
   memptyExpr = litExpr mempty
 
 
+type Tag :: Type
 newtype Tag = Tag Text
   deriving newtype
     ( Eq, Ord, Read, Show

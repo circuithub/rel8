@@ -1,5 +1,6 @@
 {-# language DataKinds #-}
 {-# language DerivingStrategies #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}

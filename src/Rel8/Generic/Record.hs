@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
@@ -141,6 +142,7 @@ instance {-# OVERLAPPABLE #-} Snd (Count n rep) ~ rep => Countable n rep where
   uncount = id
 
 
+type Record :: Type -> Type
 newtype Record a = Record
   { unrecord :: a
   }

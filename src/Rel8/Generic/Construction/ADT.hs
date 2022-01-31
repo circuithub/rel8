@@ -1,6 +1,7 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language BlockArguments #-}
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 {-# language RankNTypes #-}
