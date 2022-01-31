@@ -17,6 +17,9 @@ module Rel8.Expr.Text
   , pgClientEncoding, quoteIdent, quoteLiteral, quoteNullable, regexpReplace
   , regexpSplitToArray, repeat, replace, reverse, right, rpad, rtrim
   , splitPart, strpos, substr, translate
+
+    -- * @LIKE@ and @ILIKE@
+  , like, ilike
   )
 where
 
@@ -24,7 +27,7 @@ where
 import Data.Bool ( Bool )
 import Data.Int ( Int32 )
 import Data.Maybe ( Maybe( Nothing, Just ) )
-import Prelude ()
+import Prelude ( flip )
 
 -- bytestring
 import Data.ByteString ( ByteString )
@@ -49,7 +52,7 @@ infixr 6 ++.
 
 
 -- | Matches regular expression, case sensitive
--- 
+--
 -- Corresponds to the @~.@ operator.
 (~.) :: Expr Text -> Expr Text -> Expr Bool
 (~.) = binaryOperator "~."
@@ -273,3 +276,21 @@ substr a b Nothing = function "substr" a b
 -- | Corresponds to the @translate@ function.
 translate :: Expr Text -> Expr Text -> Expr Text -> Expr Text
 translate = function "translate"
+
+
+-- | @like x y@ corresponds to the expression @y LIKE x@.
+--
+-- Note that the arguments to @like@ are swapped. This is to aid currying, so
+-- you can write expressions like
+-- @filter (like "Rel%" . packageName) =<< each haskellPackages@
+like :: Expr Text -> Expr Text -> Expr Bool
+like = flip (binaryOperator "LIKE")
+
+
+-- | @ilike x y@ corresponds to the expression @y ILIKE x@.
+--
+-- Note that the arguments to @ilike@ are swapped. This is to aid currying, so
+-- you can write expressions like
+-- @filter (ilike "Rel%" . packageName) =<< each haskellPackages@
+ilike :: Expr Text -> Expr Text -> Expr Bool
+ilike = flip (binaryOperator "ILIKE")
