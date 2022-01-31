@@ -52,7 +52,7 @@ infixr 6 ++.
 
 
 -- | Matches regular expression, case sensitive
--- 
+--
 -- Corresponds to the @~.@ operator.
 (~.) :: Expr Text -> Expr Text -> Expr Bool
 (~.) = binaryOperator "~."
@@ -278,11 +278,19 @@ translate :: Expr Text -> Expr Text -> Expr Text -> Expr Text
 translate = function "translate"
 
 
--- | Corresponds to the @LIKE@ operator.
+-- | @like x y@ corresponds to the expression @y LIKE x@.
+--
+-- Note that the arguments to @like@ are swapped. This is to aid currying, so
+-- you can write expressions like
+-- @filter (like "Rel%" . packageName) =<< each haskellPackages@
 like :: Expr Text -> Expr Text -> Expr Bool
-like = binaryOperator "LIKE"
+like = flip (binaryOperator "LIKE")
 
 
--- | Corresponds to the @ILIKE@ operator.
+-- | @ilike x y@ corresponds to the expression @y ILIKE x@.
+--
+-- Note that the arguments to @ilike@ are swapped. This is to aid currying, so
+-- you can write expressions like
+-- @filter (ilike "Rel%" . packageName) =<< each haskellPackages@
 ilike :: Expr Text -> Expr Text -> Expr Bool
-ilike = binaryOperator "ILIKE"
+ilike = flip (binaryOperator "ILIKE")
