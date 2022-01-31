@@ -27,7 +27,7 @@ library
     , comonad
     , contravariant
     , hasql ^>= 1.4.5.1 || ^>= 1.5.0.0
-    , opaleye ^>= 0.8.0.0
+    , opaleye ^>= 0.9.0.0
     , pretty
     , profunctors
     , product-profunctors
