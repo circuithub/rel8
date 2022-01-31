@@ -15,6 +15,7 @@
 
 * Rel8 now requires Opaleye 0.9. ([#158](https://github.com/circuithub/rel8/pull/158))
 * Rel8's test suite supports Hedgehog 1.1. ([#160](https://github.com/circuithub/rel8/pull/160))
+* The documentation for binary operations has been corrected. ([#162](https://github.com/circuithub/rel8/pull/162))
 
 # 1.2.2.0 (2021-11-21)
 
