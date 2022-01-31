@@ -3,106 +3,104 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
 module Rel8.TH (deriveRel8able) where
 
-import Prelude ((.), pure, (<$>), Maybe (Nothing), ($), fail, map, uncurry, id)
-import Language.Haskell.TH (Name, Q, Dec, instanceD, cxt, appT, conT, funD, clause, normalB, tySynEqn, tySynInstD, Type (AppT), newName, conP, varP, nameBase, conE, appE, varE, appsE, caseE, match)
-import Language.Haskell.TH.Datatype (reifyDatatype, ConstructorInfo (ConstructorInfo), DatatypeInfo (DatatypeInfo), datatypeCons, constructorFields, ConstructorVariant (RecordConstructor), constructorVariant, constructorName)
+import Prelude ((.), pure, (<$>), ($), fail, map, id, (==), (<>), show, last, error, otherwise)
+import Language.Haskell.TH (Name, Q, Dec, conT, Type (AppT, ConT, VarT, TupleT), newName, conP, varP, nameBase, conE, varE, appsE, TyVarBndr(..), varT, tupleT)
+import Language.Haskell.TH.Datatype (reifyDatatype, ConstructorInfo (ConstructorInfo), DatatypeInfo (DatatypeInfo), datatypeCons, constructorFields, ConstructorVariant (RecordConstructor), constructorVariant, constructorName, datatypeVars)
 import Rel8.Generic.Rel8able ( Rel8able(..) )
 import Rel8.Schema.Result (Result)
-import Data.Foldable (foldl')
+import Data.Foldable (foldl', toList )
 import Rel8.Schema.HTable.Identity (HIdentity(HIdentity))
 import Rel8.Schema.HTable.Product (HProduct(HProduct))
 import Data.Traversable (for)
 import Data.Functor.Identity (Identity(Identity), runIdentity)
 import Rel8.Kind.Context (SContext(..))
+import Data.Functor ( (<&>) )
+import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+import Rel8.Column ( Column )
+import Rel8.Expr ( Expr )
+import Rel8.Table ( Columns )
 
 deriveRel8able :: Name -> Q [Dec]
 deriveRel8able name = do
-  DatatypeInfo{ datatypeCons = [ ConstructorInfo{ constructorName, constructorFields = f1:fs, constructorVariant = RecordConstructor (fieldName1:fieldNames) } ]} <- reifyDatatype name
+  DatatypeInfo{ datatypeVars = (last -> fBinder), datatypeCons = [ ConstructorInfo{ constructorName, constructorFields = f1:fs, constructorVariant = RecordConstructor (fieldName1:fieldNames) } ]} <- reifyDatatype name
 
-  pure <$> instanceD (cxt []) (appT (conT ''Rel8able) (conT name))
-    [ tySynInstD $ tySynEqn Nothing (appT (conT ''GColumns) (conT name)) $
-        foldl'
-          (\e x -> appT (appT (conT ''HProduct) e) (appT (conT ''HIdentity) (unColumn x)))
-          (appT (conT ''HIdentity) (unColumn f1))
-          fs
+  let f = case fBinder of
+            PlainTV a _    -> a
+            KindedTV a _ _ -> a
 
-    , tySynInstD $ tySynEqn Nothing (appT (conT ''GFromExprs) (conT name)) $
-        appT (conT name) (conT ''Result)
+  contextName <- newName "context"
+  name1 <- newName $ nameBase fieldName1
+  names <- for fieldNames $ newName . nameBase
 
-    , funD 'gfromColumns $ pure do
-        contextName <- newName "context"
-        name1 <- newName $ nameBase fieldName1
-        names <- for fieldNames $ newName . nameBase
-        let columns = 
-              foldl' (\pat n -> conP 'HProduct [pat, conP 'HIdentity [varP n]])
-                    (conP 'HIdentity [varP name1])
-                    names
-            
-            cases =
-              caseE (varE contextName) $
-              uncurry (mkCase (name1:names)) <$> 
-              [ ('SAggregate, id)
-              , ('SExpr, id)
-              , ('SField, id)
-              , ('SName, id)
-              , ('SResult, appE (varE 'runIdentity))
-              ]
-              where
-                mkCase ns context unpack =
-                  match (conP context []) (normalB (appsE (conE constructorName:map (unpack . varE) ns))) []
+  let allNames = name1 :| names
 
-        clause [varP contextName, columns] (normalB cases) []
+  let
+    unpackP =
+      foldl'
+        (\e n -> [p| HProduct $e (HIdentity $( varP n )) |])
+        [p| HIdentity $( varP name1 ) |]
+        names
 
-    , funD 'gtoColumns $ pure do
-        name1 <- newName $ nameBase fieldName1
-        names <- for fieldNames $ newName . nameBase
-        contextName <- newName "context"
+    unmk (x :| xs) =
+      foldl'
+        (\e n -> [| HProduct $e (HIdentity $n) |])
+        [| HIdentity $x |]
+        xs
 
-        let mkColumns wrap = 
-              foldl' (\e n -> appsE [conE 'HProduct, e, appsE [conE 'HIdentity, wrap (varE n)]])
-                    (appsE [conE 'HIdentity, wrap (varE name1)])
-                    names
-            
-            cases =
-              caseE (varE contextName) $
-              uncurry mkCase <$> 
-              [ ('SAggregate, id)
-              , ('SExpr, id)
-              , ('SField, id)
-              , ('SName, id)
-              , ('SResult, appE (conE 'Identity))
-              ]
-              where
-                mkCase context pack =
-                  match (conP context []) (normalB (mkColumns pack)) []
+    mk xs = appsE (conE constructorName : toList xs)
 
-        clause [varP contextName, conP constructorName (map varP (name1:names))] (normalB cases) []
+  id
+    [d| instance Rel8able $( conT name ) where
+          type GColumns $( conT name) =
+            $(
+              foldl'
+                (\t x -> [t| HProduct $t $(unColumn f x) |])
+                (unColumn f f1)
+                fs
+            )
 
-    , funD 'gfromResult $ pure do
-        name1 <- newName $ nameBase fieldName1
-        names <- for fieldNames $ newName . nameBase
-        clause
-          [foldl' (\pat n -> conP 'HProduct [pat, conP 'HIdentity [conP 'Identity [varP n]]])
-                  (conP 'HIdentity [conP 'Identity [varP name1]]) 
-                  names]
-          (normalB (appsE (conE constructorName : (varE <$> (name1:names)))))
-          []
+          type GFromExprs $( conT name ) =
+            $( conT name ) Result
 
-    , funD 'gtoResult $ pure do
-        name1 <- newName $ nameBase fieldName1
-        names <- for fieldNames $ newName . nameBase
-        clause 
-          [conP constructorName (map varP (name1:names))] 
-          (normalB $
-           foldl' (\e n -> appE (appE (conE 'HProduct) e) (appE (conE 'HIdentity) (appE (conE 'Identity) (varE n))))
-                  (appE (conE 'HIdentity) (appE (conE 'Identity) (varE name1))) 
-                  names
-          ) []
-    ]
+          gfromColumns $( varP contextName ) $unpackP =
+            case $( varE contextName ) of
+              SAggregate -> $( mk $ varE <$> allNames )
+              SExpr      -> $( mk $ varE <$> allNames )
+              SField     -> $( mk $ varE <$> allNames )
+              SName      -> $( mk $ varE <$> allNames )
+              SResult    -> $( mk $ allNames <&> \x -> [| runIdentity $( varE x ) |] )
+
+          gtoColumns $(varP contextName) $( conP constructorName (map varP (name1:names)) ) =
+            case $( varE contextName ) of
+              SAggregate -> $( unmk $ varE <$> allNames )
+              SExpr      -> $( unmk $ varE <$> allNames )
+              SField     -> $( unmk $ varE <$> allNames )
+              SName      -> $( unmk $ varE <$> allNames )
+              SResult    -> $( unmk $ allNames <&> \x -> [| Identity $( varE x ) |] )
+
+          gfromResult $unpackP =
+            $( mk $ allNames <&> \x -> [| runIdentity $( varE x ) |] )
+
+          gtoResult $( conP constructorName (map varP (name1:names)) ) =
+            $( unmk $ allNames <&> \x -> [| Identity $( varE x ) |] )
+    |]
 
 
-unColumn :: Type -> Q Type
-unColumn (AppT (AppT _Column _f) t) = pure t
-unColumn _ = fail "Not a 'Column f' application"
+unColumn :: Name -> Type -> Q Type
+unColumn _ (AppT (AppT (ConT _Column) _f) t) | _Column == ''Column = [t| HIdentity $(pure t) |]
+unColumn f t = [t| Columns $(instantiate t) |]
+  where
+    instantiate = \case
+      VarT v | v == f    -> [t| Expr |]
+             | otherwise -> varT v
+
+      AppT x y -> [t| $(instantiate x) $(instantiate y) |]
+
+      TupleT n -> tupleT n
+
+      ConT n -> conT n
+
+      other -> error $ show other
