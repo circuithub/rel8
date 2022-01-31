@@ -7,7 +7,7 @@
 ## New features
 
 * `divMod` and `quotRem` functions have been added, matching Haskell's `Prelude` functions. ([#155](https://github.com/circuithub/rel8/pull/155))
-* `avg` and `mode` aggregation functions. ([#152](https://github.com/circuithub/rel8/pull/152))
+* `avg` and `mode` aggregation functions to find the mean value of an expression, or the most common row in a query, respectively. ([#152](https://github.com/circuithub/rel8/pull/152))
 * The full `EqTable` and `OrdTable` classes have been exported, allowing for instances to be manually created. ([#157](https://github.com/circuithub/rel8/pull/157))
 * Added `like` and `ilike` (for the `LIKE` and `ILIKE` operators). ([#146](https://github.com/circuithub/rel8/pull/146))
 
