@@ -204,7 +204,7 @@ test-suite tests
     , containers
     , hasql
     , hasql-transaction
-    , hedgehog          ^>= 1.1
+    , hedgehog          ^>= 1.0 || ^>= 1.1
     , mmorph
     , rel8
     , scientific
