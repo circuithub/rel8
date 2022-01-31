@@ -27,7 +27,7 @@ where
 import Data.Bool ( Bool )
 import Data.Int ( Int32 )
 import Data.Maybe ( Maybe( Nothing, Just ) )
-import Prelude ()
+import Prelude ( flip )
 
 -- bytestring
 import Data.ByteString ( ByteString )
