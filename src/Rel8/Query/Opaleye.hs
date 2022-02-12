@@ -41,30 +41,30 @@ zipOpaleyeWith f (Query a) (Query b) = Query $ liftA2 (zipping f) a b
 
 unsafePeekQuery :: Query a -> a
 unsafePeekQuery (Query q) = case q mempty of
-  Opaleye.QueryArr f -> case f ((), Opaleye.start) of
+  f -> case Opaleye.runStateQueryArr f () Opaleye.start of
     ((_, a), _, _) -> a
 
 
 mapping :: ()
   => (Opaleye.Select a -> Opaleye.Select b)
   -> Opaleye.Select (m, a) -> Opaleye.Select (m, b)
-mapping f q@(Opaleye.QueryArr qa) = Opaleye.QueryArr $ \(_, tag) ->
+mapping f q = Opaleye.stateQueryArr $ \_ tag ->
   let
-    ((m, _), _, _) = qa ((), tag)
-    Opaleye.QueryArr qa' = (m,) <$> f (snd <$> q)
+    ((m, _), _, _) = Opaleye.runStateQueryArr q () tag
+    q' = (m,) <$> f (snd <$> q)
   in
-    qa' ((), tag)
+    Opaleye.runStateQueryArr q' () tag
 
 
 zipping :: Semigroup m
   => (Opaleye.Select a -> Opaleye.Select b -> Opaleye.Select c)
   -> Opaleye.Select (m, a) -> Opaleye.Select (m, b) -> Opaleye.Select (m, c)
-zipping f q@(Opaleye.QueryArr qa) q'@(Opaleye.QueryArr qa') =
-  Opaleye.QueryArr $ \(_, tag) ->
+zipping f q q' =
+  Opaleye.stateQueryArr $ \_ tag ->
     let
-      ((m, _), _, _) = qa ((), tag)
-      ((m', _), _, _) = qa' ((), tag)
+      ((m, _), _, _) = Opaleye.runStateQueryArr q () tag
+      ((m', _), _, _) = Opaleye.runStateQueryArr q' () tag
       m'' = m <> m'
-      Opaleye.QueryArr qa'' = (m'',) <$> f (snd <$> q) (snd <$> q')
+      q'' = (m'',) <$> f (snd <$> q) (snd <$> q')
     in
-      qa'' ((), tag)
+      Opaleye.runStateQueryArr q'' () tag

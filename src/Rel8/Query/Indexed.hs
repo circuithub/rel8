@@ -23,12 +23,12 @@ import Rel8.Query.Opaleye ( mapOpaleye )
 
 -- | Pair each row of a query with its index within the query.
 indexed :: Query a -> Query (Expr Int64, a)
-indexed = mapOpaleye $ \(Opaleye.QueryArr f) -> Opaleye.QueryArr $ \(_, tag) ->
+indexed = mapOpaleye $ \f -> Opaleye.stateQueryArr $ \_ tag ->
   let
-    (a, query, tag') = f ((), tag)
+    (a, query, tag') = Opaleye.runStateQueryArr f () tag
     tag'' = Opaleye.next tag'
     window = Opaleye.ConstExpr $ Opaleye.OtherLit "ROW_NUMBER() OVER () - 1"
     (index, bindings) = Opaleye.run $ Opaleye.extractAttr "index" tag' window
-    query' lateral = Opaleye.Rebind True bindings . query lateral
+    query' = query <> Opaleye.aRebind bindings
   in
     ((fromPrimExpr index, a), query', tag'')
