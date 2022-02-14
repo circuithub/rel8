@@ -48,11 +48,11 @@ import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
 alignBy :: ()
   => (a -> b -> Expr Bool)
   -> Query a -> Query b -> Query (TheseTable Expr a b)
-alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> case i of
-  (_, tag) -> (tab, join', tag''')
+alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.stateQueryArr $ \_ t -> case t of
+  tag -> (tab, join', tag''')
     where
-      (ma, left', tag') = Opaleye.runSimpleQueryArr (pure <$> left) ((), tag)
-      (mb, right', tag'') = Opaleye.runSimpleQueryArr (pure <$> right) ((), tag')
+      (ma, left', tag') = Opaleye.runStateQueryArr (pure <$> left) () tag
+      (mb, right', tag'') = Opaleye.runStateQueryArr (pure <$> right) () tag'
       MaybeTable hasHere a = ma
       MaybeTable hasThere b = mb
       (hasHere', lbindings) = Opaleye.run $ do
@@ -60,15 +60,15 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.QueryArr $ \i -> cas
       (hasThere', rbindings) = Opaleye.run $ do
         traversePrimExpr (Opaleye.extractAttr "hasThere" tag'') hasThere
       tag''' = Opaleye.next tag''
-      join lateral = Opaleye.Join Opaleye.FullJoin on left'' right''
+      join = Opaleye.Join Opaleye.FullJoin on left'' right''
         where
           on = toPrimExpr $ condition (extract a) (extract b)
-          left'' = (lateral, Opaleye.Rebind True lbindings left')
-          right'' = (lateral, Opaleye.Rebind True rbindings right')
+          left'' = (Opaleye.NonLateral, Opaleye.toPrimQuery (left' <> Opaleye.aRebind lbindings))
+          right'' = (Opaleye.NonLateral, Opaleye.toPrimQuery (right' <> Opaleye.aRebind rbindings))
       ma' = MaybeTable hasHere' a
       mb' = MaybeTable hasThere' b
       tab = TheseTable {here = ma', there = mb'}
-      join' lateral input = Opaleye.times lateral input (join lateral)
+      join' = Opaleye.aProduct join
 
 
 keepHereTable :: TheseTable Expr a b -> Query (a, MaybeTable Expr b)
