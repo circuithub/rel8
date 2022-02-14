@@ -1,5 +1,3 @@
-{-# options_ghc -fno-warn-redundant-constraints #-}
-
 module Rel8.Query.Distinct
   ( distinct
   , distinctOn
@@ -8,12 +6,11 @@ module Rel8.Query.Distinct
 where
 
 -- base
-import Prelude
+import Prelude ()
 
 -- opaleye
 import qualified Opaleye.Distinct as Opaleye
 import qualified Opaleye.Order as Opaleye
-import qualified Opaleye.Internal.QueryArr as Opaleye
 
 -- rel8
 import Rel8.Order ( Order( Order ) )
