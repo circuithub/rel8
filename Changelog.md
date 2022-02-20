@@ -1,3 +1,9 @@
+# 1.3.1.0 (2022-01-20)
+
+## Other
+
+* Rel8 now requires Opaleye >= 0.9.1. ([#165](https://github.com/circuithub/rel8/pull/165))
+
 # 1.3.0.0 (2022-01-31)
 
 ## Breaking changes
