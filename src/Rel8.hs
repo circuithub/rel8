@@ -46,8 +46,8 @@ module Rel8
   , Transposes
   , AltTable((<|>:))
   , AlternativeTable( emptyTable )
-  , EqTable, (==:), (/=:)
-  , OrdTable, (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
+  , EqTable(..), (==:), (/=:)
+  , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
   , lit
   , bool
   , case_
@@ -139,6 +139,7 @@ module Rel8
     -- ** @null@
   , NotNull
   , Nullable
+  , Homonullable
   , null
   , nullify
   , nullable
@@ -157,6 +158,7 @@ module Rel8
   , (==.), (/=.), (==?), (/=?)
   , in_
   , boolExpr, caseExpr
+  , like, ilike
 
     -- ** Ordering
   , DBOrd
@@ -317,6 +319,7 @@ import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
+import Rel8.Expr.Text ( like, ilike )
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query

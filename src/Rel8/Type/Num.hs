@@ -18,6 +18,7 @@ import Prelude
 
 -- rel8
 import Rel8.Type ( DBType )
+import Rel8.Type.Ord ( DBOrd )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -39,13 +40,14 @@ instance DBNum Scientific
 -- expressions. This is a Rel8 concept, and allows us to provide
 -- 'fromIntegral'.
 type DBIntegral :: Type -> Constraint
-class DBNum a => DBIntegral a
+class (DBNum a, DBOrd a) => DBIntegral a
 instance DBIntegral Int16
 instance DBIntegral Int32
 instance DBIntegral Int64
 
 
 -- | The class of database types that support the @/@ operator.
+type DBFractional :: Type -> Constraint
 class DBNum a => DBFractional a
 instance DBFractional Float
 instance DBFractional Double
@@ -53,6 +55,7 @@ instance DBFractional Scientific
 
 
 -- | The class of database types that support the @/@ operator.
+type DBFloating :: Type -> Constraint
 class DBFractional a => DBFloating a
 instance DBFloating Float
 instance DBFloating Double

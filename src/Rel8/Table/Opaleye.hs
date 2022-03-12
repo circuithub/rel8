@@ -7,6 +7,8 @@
 {-# language TypeFamilies #-}
 {-# language ViewPatterns #-}
 
+{-# options_ghc -Wno-deprecations #-}
+
 module Rel8.Table.Opaleye
   ( aggregator
   , attributes
@@ -137,7 +139,7 @@ unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
 {-# INLINABLE unpackspec #-}
 
 
-valuesspec :: Table Expr a => Opaleye.ValuesspecSafe a a
+valuesspec :: Table Expr a => Opaleye.Valuesspec a a
 valuesspec = Opaleye.ValuesspecSafe (toPackMap undefined) unpackspec
 
 

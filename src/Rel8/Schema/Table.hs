@@ -2,6 +2,7 @@
 {-# language DerivingStrategies #-}
 {-# language DisambiguateRecordFields #-}
 {-# language NamedFieldPuns #-}
+{-# language StandaloneKindSignatures #-}
 
 module Rel8.Schema.Table
   ( TableSchema(..)
@@ -10,6 +11,7 @@ module Rel8.Schema.Table
 where
 
 -- base
+import Data.Kind ( Type )
 import Prelude
 
 -- opaleye
@@ -26,6 +28,7 @@ import Text.PrettyPrint ( Doc )
 -- 
 -- For each selectable table in your database, you should provide a
 -- @TableSchema@ in order to interact with the table via Rel8.
+type TableSchema :: Type -> Type
 data TableSchema names = TableSchema
   { name :: String
     -- ^ The name of the table.

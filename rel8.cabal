@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                rel8
-version:             1.2.2.0
+version:             1.3.1.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD3
 license-file:        LICENSE
@@ -27,7 +27,7 @@ library
     , comonad
     , contravariant
     , hasql ^>= 1.4.5.1 || ^>= 1.5.0.0
-    , opaleye ^>= 0.8.0.0
+    , opaleye ^>= 0.9.1.0
     , pretty
     , profunctors
     , product-profunctors
@@ -46,6 +46,7 @@ library
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-monomorphism-restriction
     -Wno-missing-local-signatures
+    -Wno-missing-kind-signatures
   hs-source-dirs:
     src
   exposed-modules:
@@ -203,7 +204,7 @@ test-suite tests
     , containers
     , hasql
     , hasql-transaction
-    , hedgehog          ^>=1.0.2
+    , hedgehog          ^>= 1.0 || ^>= 1.1
     , mmorph
     , rel8
     , scientific

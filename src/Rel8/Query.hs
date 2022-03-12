@@ -15,7 +15,7 @@ import Prelude
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye
+import qualified Opaleye.Internal.PrimQuery as Opaleye hiding (lateral)
 import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 
@@ -175,14 +175,14 @@ instance Bind Query where
 
 
 instance Monad Query where
-  Query q >>= f = Query $ \dummies -> Opaleye.QueryArr $ \(_, tag) ->
+  Query q >>= f = Query $ \dummies -> Opaleye.stateQueryArr $ \_ tag ->
     let
-      Opaleye.QueryArr qa = q dummies
-      ((m, a), query, tag') = qa ((), tag)
+      qa = q dummies
+      ((m, a), query, tag') = Opaleye.runStateQueryArr qa () tag
       Query q' = f a
       (dummies', query', tag'') =
         ( dummy : dummies
-        , \lateral -> Opaleye.Rebind True bindings . query lateral
+        , query <> Opaleye.aRebind bindings
         , Opaleye.next tag'
         )
         where
@@ -190,11 +190,11 @@ instance Monad Query where
             where
               random = Opaleye.FunExpr "random" []
               name = Opaleye.extractAttr "dummy" tag'
-      Opaleye.QueryArr qa' = Opaleye.lateral $ \_ -> q' dummies'
-      ((m'@(Any needsDummies), b), query'', tag''') = qa' ((), tag'')
+      qa' = Opaleye.lateral $ \_ -> q' dummies'
+      ((m'@(Any needsDummies), b), query'', tag''') = Opaleye.runStateQueryArr qa' () tag''
       query'''
-        | needsDummies = \lateral -> query'' lateral . query' lateral
-        | otherwise = \lateral -> query'' lateral . query lateral
+        | needsDummies = query' <> query''
+        | otherwise = query <> query''
       m'' = m <> m'
     in
       ((m'', b), query''', tag''')

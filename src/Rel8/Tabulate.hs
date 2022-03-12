@@ -69,9 +69,7 @@ import Control.Comonad ( extract )
 
 -- opaleye
 import qualified Opaleye.Aggregate as Opaleye
-import qualified Opaleye.Internal.Order as Opaleye
-import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Order as Opaleye ( orderBy )
+import qualified Opaleye.Order as Opaleye ( orderBy, distinctOnExplicit )
 
 -- profunctors
 import Data.Profunctor ( dimap, lmap )
@@ -350,14 +348,7 @@ distinct (Tabulation f) = Tabulation $ \p ->
   case fst (unsafePeekQuery (f p)) of
     Nothing -> limit 1 (f p)
     Just _ ->
-      mapOpaleye
-        (\q ->
-          Opaleye.productQueryArr
-            ( Opaleye.distinctOn (key unpackspec) fst
-            . Opaleye.runSimpleQueryArr q
-            )
-        )
-        (f p)
+      mapOpaleye (Opaleye.distinctOnExplicit (key unpackspec) fst) (f p)
 
 
 -- | 'order' orders the /values/ of a 'Tabulation' within their

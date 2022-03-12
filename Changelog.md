@@ -1,3 +1,28 @@
+# 1.3.1.0 (2022-01-20)
+
+## Other
+
+* Rel8 now requires Opaleye >= 0.9.1. ([#165](https://github.com/circuithub/rel8/pull/165))
+
+# 1.3.0.0 (2022-01-31)
+
+## Breaking changes
+
+* `div` and `mod` have been changed to match Haskell semantics. If you need the PostgreSQL `div()` and `mod()` functions, use `quot` and `rem`. While this is not an API change, we feel this is a breaking change in semantics and have bumped the major version number. ([#155](https://github.com/circuithub/rel8/pull/155))
+
+## New features
+
+* `divMod` and `quotRem` functions have been added, matching Haskell's `Prelude` functions. ([#155](https://github.com/circuithub/rel8/pull/155))
+* `avg` and `mode` aggregation functions to find the mean value of an expression, or the most common row in a query, respectively. ([#152](https://github.com/circuithub/rel8/pull/152))
+* The full `EqTable` and `OrdTable` classes have been exported, allowing for instances to be manually created. ([#157](https://github.com/circuithub/rel8/pull/157))
+* Added `like` and `ilike` (for the `LIKE` and `ILIKE` operators). ([#146](https://github.com/circuithub/rel8/pull/146))
+
+## Other
+
+* Rel8 now requires Opaleye 0.9. ([#158](https://github.com/circuithub/rel8/pull/158))
+* Rel8's test suite supports Hedgehog 1.1. ([#160](https://github.com/circuithub/rel8/pull/160))
+* The documentation for binary operations has been corrected. ([#162](https://github.com/circuithub/rel8/pull/162))
+
 # 1.2.2.0 (2021-11-21)
 
 ## Other

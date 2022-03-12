@@ -1,5 +1,3 @@
-{-# options_ghc -fno-warn-redundant-constraints #-}
-
 module Rel8.Query.Distinct
   ( distinct
   , distinctOn
@@ -8,12 +6,11 @@ module Rel8.Query.Distinct
 where
 
 -- base
-import Prelude
+import Prelude ()
 
 -- opaleye
-import qualified Opaleye.Distinct as Opaleye hiding ( distinctOn, distinctOnBy )
-import qualified Opaleye.Internal.Order as Opaleye
-import qualified Opaleye.Internal.QueryArr as Opaleye
+import qualified Opaleye.Distinct as Opaleye
+import qualified Opaleye.Order as Opaleye
 
 -- rel8
 import Rel8.Order ( Order( Order ) )
@@ -33,13 +30,11 @@ distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
 -- to a projection. If multiple rows have the same projection, it is
 -- unspecified which row will be returned. If this matters, use 'distinctOnBy'.
 distinctOn :: EqTable b => (a -> b) -> Query a -> Query a
-distinctOn proj =
-  mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOn unpackspec proj . Opaleye.runSimpleQueryArr q))
+distinctOn proj = mapOpaleye (Opaleye.distinctOnExplicit unpackspec proj)
 
 
 -- | Select all distinct rows from a query, where rows are equivalent according
 -- to a projection. If there are multiple rows with the same projection, the
 -- first row according to the specified 'Order' will be returned.
 distinctOnBy :: EqTable b => (a -> b) -> Order a -> Query a -> Query a
-distinctOnBy proj (Order order) =
-  mapOpaleye (\q -> Opaleye.productQueryArr (Opaleye.distinctOnBy unpackspec proj order . Opaleye.runSimpleQueryArr q))
+distinctOnBy proj (Order order) = mapOpaleye (Opaleye.distinctOnByExplicit unpackspec proj order)

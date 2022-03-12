@@ -1,3 +1,5 @@
+{-# language StandaloneKindSignatures #-}
+
 module Rel8.Type.JSONBEncoded ( JSONBEncoded(..) ) where
 
 -- aeson
@@ -6,6 +8,7 @@ import Data.Aeson.Types ( parseEither )
 
 -- base
 import Data.Bifunctor ( first )
+import Data.Kind ( Type )
 import Prelude
 
 -- hasql
@@ -20,6 +23,7 @@ import Data.Text ( pack )
 
 
 -- | Like 'Rel8.JSONEncoded', but works for @jsonb@ columns.
+type JSONBEncoded :: Type -> Type
 newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
 
 
