@@ -38,6 +38,7 @@ module Rel8
   , HMaybe
   , HList
   , HNonEmpty
+  , HNull
   , HThese
   , Lift
 
@@ -314,6 +315,7 @@ import Rel8.Column.Lift
 import Rel8.Column.List
 import Rel8.Column.Maybe
 import Rel8.Column.NonEmpty
+import Rel8.Column.Null
 import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
