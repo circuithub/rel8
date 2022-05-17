@@ -107,6 +107,14 @@ module Rel8
   , catNonEmptyTable
   , catNonEmpty
 
+    -- ** @NullTable@
+  , NullTable
+  , nullableTable, nullTable, nullifyTable
+  , isNullTable, isNonNullTable
+  , catNullTable
+  , nameNullTable
+  , fromMaybeTable, toMaybeTable
+
     -- ** @ADT@
   , ADT, ADTable
   , BuildADT, buildADT
@@ -367,6 +375,7 @@ import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
+import Rel8.Table.Null
 import Rel8.Table.Opaleye ( castTable )
 import Rel8.Table.Ord
 import Rel8.Table.Order
