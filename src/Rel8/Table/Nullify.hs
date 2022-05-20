@@ -1,7 +1,9 @@
 {-# language DataKinds #-}
+{-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -12,11 +14,13 @@ module Rel8.Table.Nullify
   ( Nullify
   , aggregateNullify
   , guard
+  , isNull
   )
 where
 
 -- base
 import Control.Applicative ( liftA2 )
+import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Functor.Identity ( runIdentity )
 import Data.Kind ( Type )
 import Prelude
@@ -27,6 +31,8 @@ import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Bool ( (||.), false )
+import qualified Rel8.Expr.Null as Expr
 import Rel8.Kind.Context ( Reifiable, contextSing )
 import Rel8.Schema.Context.Nullify
   ( Nullifiability( NAggregate, NExpr )
@@ -45,12 +51,14 @@ import Rel8.Schema.HTable.Nullify
   , hproject
   )
 import qualified Rel8.Schema.Kind as K
+import Rel8.Schema.Null ( Nullity( NotNull, Null ) )
 import qualified Rel8.Schema.Result as R
 import Rel8.Table
   ( Table, Columns, Context, toColumns, fromColumns
   , FromExprs, fromResult, toResult
   , Transpose
   )
+import Rel8.Schema.Spec ( Spec( Spec, nullity ) )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection ( Projectable, apply, project )
@@ -182,3 +190,22 @@ guard :: (Reifiable context, HTable t)
   -> HNullify t context
 guard tag isNonNull isNonNullExpr =
   hguard (guarder contextSing tag isNonNull isNonNullExpr)
+
+
+isNull :: forall a. Table Expr a => Nullify Expr a -> Expr Bool
+isNull =
+  maybe false getAny .
+  getConst .
+  hunnullify (\Spec {nullity} a -> Const $ case nullity of
+    NotNull -> Just $ Any $ Expr.isNull a
+    Null -> Nothing) .
+  toColumns
+
+
+newtype Any = Any
+  { getAny :: Expr Bool
+  }
+
+
+instance Semigroup Any where
+  Any a <> Any b = Any (a ||. b)
