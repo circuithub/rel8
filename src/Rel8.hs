@@ -38,6 +38,7 @@ module Rel8
   , HMaybe
   , HList
   , HNonEmpty
+  , HNull
   , HThese
   , Lift
 
@@ -321,6 +322,7 @@ import Rel8.Column.Lift
 import Rel8.Column.List
 import Rel8.Column.Maybe
 import Rel8.Column.NonEmpty
+import Rel8.Column.Null
 import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
@@ -382,6 +384,7 @@ import Rel8.Table.List
 import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
+import Rel8.Table.Null
 import Rel8.Table.Opaleye ( castTable )
 import Rel8.Table.Ord
 import Rel8.Table.Order

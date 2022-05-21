@@ -66,6 +66,7 @@ library
     Rel8.Column.List
     Rel8.Column.Maybe
     Rel8.Column.NonEmpty
+    Rel8.Column.Null
     Rel8.Column.These
 
     Rel8.Expr
@@ -167,6 +168,7 @@ library
     Rel8.Table.Maybe
     Rel8.Table.Name
     Rel8.Table.NonEmpty
+    Rel8.Table.Null
     Rel8.Table.Nullify
     Rel8.Table.Opaleye
     Rel8.Table.Ord
