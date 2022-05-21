@@ -108,6 +108,14 @@ module Rel8
   , catNonEmptyTable
   , catNonEmpty
 
+    -- ** @NullTable@
+  , NullTable
+  , nullableTable, nullTable, nullifyTable
+  , isNullTable, isNonNullTable
+  , catNullTable
+  , nameNullTable
+  , fromMaybeTable, toMaybeTable
+
     -- ** @HKD@
   , HKD, HKDable
   , BuildHKD, buildHKD
