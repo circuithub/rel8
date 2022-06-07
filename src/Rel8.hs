@@ -116,6 +116,29 @@ module Rel8
   , nameNullTable
   , fromMaybeTable, toMaybeTable
 
+    -- ** Algebraic data types / sum types
+    -- $adts
+
+    -- *** Naming of ADTs
+    -- $naming
+  , NameADT, nameADT
+  , ADT, ADTable
+
+    -- *** Deconstruction of ADTs
+    -- $deconstruction
+  , DeconstructADT, deconstructADT
+
+    -- *** Construction of ADTs
+    -- $construction
+  , BuildADT, buildADT
+  , ConstructADT, constructADT
+
+    -- *** Other ADT operations
+  , AggregateADT, aggregateADT
+
+    -- *** Miscellaneous notes
+    -- $misc-notes
+
     -- ** @HKD@
   , HKD, HKDable
   , BuildHKD, buildHKD
@@ -254,29 +277,6 @@ module Rel8
 
     -- ** Bindings
   , rebind
-
-    -- * Algebraic data types / sum types
-    -- $adts
-
-    -- ** Naming of ADTs
-    -- $naming
-  , NameADT, nameADT
-  , ADT, ADTable
-
-    -- ** Deconstruction of ADTs
-    -- $deconstruction
-  , DeconstructADT, deconstructADT
-
-    -- ** Construction of ADTs
-    -- $construction
-  , BuildADT, buildADT
-  , ConstructADT, constructADT
-
-    -- ** Other ADT operations
-  , AggregateADT, aggregateADT
-
-    -- ** Miscellaneous notes
-    -- $misc-notes
 
     -- * IO
   , Serializable
