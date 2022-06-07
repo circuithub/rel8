@@ -116,13 +116,28 @@ module Rel8
   , nameNullTable
   , fromMaybeTable, toMaybeTable
 
-    -- ** @ADT@
+    -- ** Algebraic data types / sum types
+    -- $adts
+
+    -- *** Naming of ADTs
+    -- $naming
+  , NameADT, nameADT
   , ADT, ADTable
+
+    -- *** Deconstruction of ADTs
+    -- $deconstruction
+  , DeconstructADT, deconstructADT
+
+    -- *** Construction of ADTs
+    -- $construction
   , BuildADT, buildADT
   , ConstructADT, constructADT
-  , DeconstructADT, deconstructADT
-  , NameADT, nameADT
+
+    -- *** Other ADT operations
   , AggregateADT, aggregateADT
+
+    -- *** Miscellaneous notes
+    -- $misc-notes
 
     -- ** @HKD@
   , HKD, HKDable
@@ -407,3 +422,208 @@ import Rel8.Type.Sum
 -- provides 'select', 'insert', 'update' and 'delete' functions. Note that
 -- 'insert', 'update' and 'delete' will generally need the
 -- `DuplicateRecordFields` language extension enabled.
+
+-- $adts
+-- Algebraic data types can be modelled between Haskell and SQL.
+--
+-- * Your SQL table needs a certain text field that tags which Haskell constructor is in use.
+-- * You have to use a few combinators to specify the sum type's individual constructors.
+-- * If you want to do case analysis at the @Expr@ (SQL) level, you can use 'maybe'/'either'-like eliminators.
+--
+-- The documentation in this section will assume a set of database types like this:
+--
+-- @
+-- data Thing f = ThingEmployer (Employer f) | ThingPotato (Potato f) | Nullary
+--     deriving stock Generic
+--
+-- data Employer f = Employer { employerId :: f Int32, employerName :: f Text}
+--   deriving stock Generic
+--   deriving anyclass Rel8able
+--
+-- data Potato f = Potato { size :: f Int32, grower :: f Text }
+--   deriving stock Generic
+--   deriving anyclass Rel8able
+-- @
+
+-- $naming
+--
+-- First, in your 'TableSchema', name your type like this:
+--
+-- @
+-- thingSchema :: TableSchema (ADT Thing Name)
+-- thingSchema =
+--   TableSchema
+--     { schema = Nothing,
+--       name = \"thing\",
+--       columns =
+--         nameADT @Thing
+--           \"tag\"
+--           Employer
+--             { employerName = \"name\",
+--               employerId = \"id\"
+--             }
+--           Potato {size = \"size\", grower = \"Mary\"}
+--     }
+-- @
+--
+-- Note that @nameADT \@Thing "tag"@ is variadic: it accepts one
+-- argument per constructor, except the nullary ones (Nullary) because
+-- there's nothing to do for them.
+
+-- $deconstruction
+--
+-- To deconstruct sum types at the SQL level, use 'deconstructADT',
+-- which is also variadic, and has one argument for each
+-- constructor. Similar to 'maybe'.
+--
+-- @
+-- query :: Query (ADT Thing Expr)
+-- query = do
+--   thingExpr <- each thingSchema
+--   where_ $
+--     deconstructADT @Thing
+--       (\employer -> employerName employer ==. lit \"Mary\")
+--       (\potato -> grower potato ==. lit \"Mary\")
+--       (lit False) -- Nullary case
+--       thingExpr
+--   pure thingExpr
+-- @
+--
+-- SQL output:
+--
+-- @
+-- SELECT
+-- CAST("tag0_1" AS text) as "tag",
+-- CAST("id1_1" AS int4) as "ThingEmployer/_1/employerId",
+-- CAST("name2_1" AS text) as "ThingEmployer/_1/employerName",
+-- CAST("size3_1" AS int4) as "ThingPotato/_1/size",
+-- CAST("Mary4_1" AS text) as "ThingPotato/_1/grower"
+-- FROM (SELECT
+--       *
+--       FROM (SELECT
+--             "tag" as "tag0_1",
+--             "id" as "id1_1",
+--             "name" as "name2_1",
+--             "size" as "size3_1",
+--             "Mary" as "Mary4_1"
+--             FROM "thing" as "T1") as "T1"
+--       WHERE (CASE WHEN ("tag0_1") = (CAST(E'ThingPotato' AS text)) THEN ("Mary4_1") = (CAST(E'Mary' AS text))
+--                   WHEN ("tag0_1") = (CAST(E'Nullary' AS text)) THEN CAST(FALSE AS bool) ELSE ("name2_1") = (CAST(E'Mary' AS text)) END)) as "T1"
+-- @
+
+-- $construction
+--
+-- To construct an ADT, you can use 'buildADT' or 'constructADT'. Consider the following type:
+--
+-- @
+-- data Task f = Pending | Complete (CompletedTask f)
+-- @
+--
+-- 'buildADT' is for constructing values of 'Task' in the 'Expr'
+-- context. 'buildADT' needs two type-level arguments before its type
+-- makes any sense. The first argument is the type of the "ADT", which
+-- in our case is 'Task'. The second is the name of the constructor we
+-- want to use. So that means we have the following possible
+-- instantiations of 'buildADT' for 'Task':
+--
+-- @
+-- > :t buildADT @Task @\"Pending\"
+-- buildADT @Task @\"Pending\" :: ADT Task Expr
+-- > :t buildADT @Task @\"Complete\"
+-- buildADT @Task @\"Complete\" :: CompletedTask Expr -> ADT Task Expr
+-- @
+--
+-- Note that as the "Pending" constructor has no fields, @buildADT
+-- \@Task \@"Pending"@ is equivalent to @lit Pending@. But @buildADT
+-- \@Task \@"Complete"@ is not the same as @lit . Complete@:
+--
+-- @
+-- > :t lit . Complete
+-- lit . Complete :: CompletedTask Result -> ADT Task Expr
+-- @
+--
+--
+-- Note that the former takes a @CompletedTask Expr@ while the latter
+-- takes a @CompletedTask Result@. The former is more powerful because
+-- you can construct @Task@s using dynamic values coming a database
+-- query.
+--
+-- To show what this can look like in SQL, consider:
+--
+-- @
+-- > :{
+-- showQuery $ values
+--   [ buildADT @Task @\"Pending\"
+--   , buildADT @Task @\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
+--   ]
+-- :}
+-- @
+--
+-- This produces the following SQL:
+--
+-- @
+-- SELECT
+-- CAST(\"values0_1\" AS text) as \"tag\",
+-- CAST(\"values1_1\" AS timestamptz) as \"Complete/_1/date\"
+-- FROM (SELECT
+--       *
+--       FROM (SELECT \"column1\" as \"values0_1\",
+--                    \"column2\" as \"values1_1\"
+--             FROM
+--             (VALUES
+--              (CAST(E'Pending' AS text),CAST(NULL AS timestamptz)),
+--              (CAST(E'Complete' AS text),CAST(now() AS timestamptz))) as \"V\") as \"T1\") as \"T1\"
+-- @
+--
+-- This is what you get if you run it in @psql@:
+--
+--
+-- @
+--    tag    |       Complete/_1/date
+-- ----------+-------------------------------
+--  Pending  |
+--  Complete | 2022-05-19 21:28:23.969065+00
+-- (2 rows)
+-- @
+--
+-- "constructADT" is less convenient but more general alternative to
+-- "buildADT". It requires only one type-level argument for its type
+-- to make sense:
+--
+-- @
+-- > :t constructADT @Task
+-- constructADT @Task
+--   :: (forall r. r -> (CompletedTask Expr -> r) -> r) -> ADT Task Expr
+-- @
+--
+-- This might still seem a bit opaque, but basically it gives you a
+-- Church-encoded constructor for arbitrary algebraic data types. You
+-- might use it as follows:
+--
+-- @
+-- let
+--   pending :: ADT Task Expr
+--   pending = constructADT @Task $ \pending _complete -> pending
+--
+--   complete :: ADT Task Expr
+--   complete = constructADT @Task $ \_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
+-- @
+--
+-- These values are otherwise identical to the ones we saw above with
+-- @buildADT@, it's just a different style of constructing them.
+--
+
+-- $misc-notes
+--
+-- 1. Note that the order of the arguments for all of these functions
+-- is determined by the order of the constructors in the data
+-- definition. If it were @data Task = Complete (CompletedTask f) |
+-- Pending@ then the order of all the invocations of @constructADT@
+-- and @deconstructADT@ would need to change.
+--
+-- 2. Maybe this is obvious, but just to spell it out: once you're in
+-- the @Result@ context, you can of course construct @Task@ values
+-- normally and use standard Haskell pattern-matching. @constructADT@
+-- and @deconstructADT@ are specifically only needed in the @Expr@
+-- context, and they allow you to do the equivalent of pattern
+-- matching in PostgreSQL.
