@@ -246,6 +246,12 @@ module Rel8
   , without
   , withoutBy
 
+    -- ** @WITH@
+  , materialize
+
+    -- ** @WITH RECURSIVE@
+  , loop
+
     -- ** Aggregation
   , Aggregate
   , Aggregates
@@ -382,6 +388,8 @@ import Rel8.Query.Filter
 import Rel8.Query.Indexed
 import Rel8.Query.Limit
 import Rel8.Query.List
+import Rel8.Query.Loop
+import Rel8.Query.Materialize
 import Rel8.Query.Maybe
 import Rel8.Query.Null
 import Rel8.Query.Order

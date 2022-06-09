@@ -25,6 +25,9 @@ module Rel8.Tabulate
   , distinct
   , order
 
+    -- * Materialize
+  , materialize
+
     -- ** Magic 'Tabulation's
     -- $magic
   , count
@@ -91,6 +94,7 @@ import Rel8.Query ( Query )
 import qualified Rel8.Query.Exists as Q ( exists, present, absent )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.List ( catNonEmptyTable )
+import qualified Rel8.Query.Materialize as Q
 import qualified Rel8.Query.Maybe as Q ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye, unsafePeekQuery )
 import Rel8.Query.Rebind ( rebind )
@@ -628,6 +632,17 @@ similarity a b = a <* present b
 -- @do@-notation.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 difference a b = a <* absent b
+
+
+-- | 'Q.materialize' for 'Tabulation's.
+materialize :: (Table Expr k, Table Expr a)
+  => Tabulation k a -> Query (Tabulation k a)
+materialize tabulation = case peek tabulation of
+  Tabulation query -> do
+    (_, equery) <- query mempty
+    case equery of
+      Left as -> liftQuery <$> Q.materialize as
+      Right kas -> fromQuery <$> Q.materialize kas
 
 
 -- | 'Tabulation's can be produced with either 'fromQuery' or 'liftQuery', and
