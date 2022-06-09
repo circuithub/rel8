@@ -13,7 +13,7 @@ module Rel8.Table.Null
   , nullableTable, nullTable, nullifyTable, unsafeUnnullifyTable
   , isNullTable, isNonNullTable
   , nameNullTable
-  , toMaybeTable, fromMaybeTable
+  , toMaybeTable, toNullTable
   )
 where
 
@@ -131,5 +131,5 @@ toMaybeTable = nullableTable nothingTable justTable
 
 -- | Convert a 'MaybeTable' to a 'NullTable'. Note that if the underlying @a@
 -- has no non-nullable fields, this is a lossy conversion.
-fromMaybeTable :: Table Expr a => MaybeTable Expr a -> NullTable Expr a
-fromMaybeTable = maybeTable nullTable nullifyTable
+toNullTable :: Table Expr a => MaybeTable Expr a -> NullTable Expr a
+toNullTable = maybeTable nullTable nullifyTable

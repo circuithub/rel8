@@ -58,6 +58,7 @@ module Rel8
   , MaybeTable
   , maybeTable, ($?), nothingTable, justTable
   , isNothingTable, isJustTable
+  , fromMaybeTable
   , optional
   , catMaybeTable
   , traverseMaybeTable
@@ -114,7 +115,7 @@ module Rel8
   , isNullTable, isNonNullTable
   , catNullTable
   , nameNullTable
-  , fromMaybeTable, toMaybeTable
+  , toNullTable, toMaybeTable
 
     -- ** Algebraic data types / sum types
     -- $adts
