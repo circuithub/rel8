@@ -15,6 +15,7 @@ module Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, nothingTable, justTable
   , isNothingTable, isJustTable
+  , fromMaybeTable
   , ($?)
   , aggregateMaybeTable
   , nameMaybeTable
@@ -204,6 +205,11 @@ nothingTable = MaybeTable null (pure undefined)
 -- 'pure'.
 justTable :: a -> MaybeTable Expr a
 justTable = MaybeTable mempty . pure
+
+
+-- | 'Data.Maybe.fromMaybe' for 'MaybeTable's.
+fromMaybeTable :: Table Expr a => a -> MaybeTable Expr a -> a
+fromMaybeTable fallback = maybeTable fallback id
 
 
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
