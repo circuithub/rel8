@@ -58,7 +58,7 @@ import Data.Function ( on )
 import Data.Functor.Contravariant ( Contravariant, (>$<), contramap )
 import Data.Int ( Int64 )
 import Data.Kind ( Type )
-import Data.Maybe ( fromMaybe )
+import Data.Maybe ( fromJust, fromMaybe )
 import Prelude hiding ( lookup, zip, zipWith )
 
 -- bifunctors
@@ -90,7 +90,6 @@ import Rel8.Order ( Order( Order ) )
 import Rel8.Query ( Query )
 import qualified Rel8.Query.Exists as Q ( exists, present, absent )
 import Rel8.Query.Filter ( where_ )
-import Rel8.Query.Limit ( limit )
 import Rel8.Query.List ( catNonEmptyTable )
 import qualified Rel8.Query.Maybe as Q ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye, unsafePeekQuery )
@@ -234,7 +233,13 @@ instance EqTable k => Monad (Tabulation k) where
 -- | If @'Tabulation' k a@ is @Map k (NonEmpty a)@, then @(<|>:)@ is
 -- @unionWith (<>)@.
 instance EqTable k => AltTable (Tabulation k) where
-  as <|>: bs = catNonEmptyTable `through` ((<>) `on` some) as bs
+  tas <|>: tbs = do
+    eas <- peek tas
+    ebs <- peek tbs
+    case (eas, ebs) of
+      (Left as, Left bs) -> liftQuery $ as <|>: bs
+      (Right as, Right bs) -> fromQuery $ as <|>: bs
+      _ -> catNonEmptyTable `through` ((<>) `on` some) tas tbs
 
 
 instance EqTable k => AlternativeTable (Tabulation k) where
@@ -343,12 +348,8 @@ aggregate (Tabulation f) = Tabulation $
 -- \"first\" value it encounters for each key, but note that \"first\" is
 -- undefined unless you first call 'order'.
 distinct :: EqTable k => Tabulation k a -> Tabulation k a
-distinct (Tabulation f) = Tabulation $ \p ->
-  -- workaround for https://github.com/tomjaguarpaw/haskell-opaleye/pull/518
-  case fst (unsafePeekQuery (f p)) of
-    Nothing -> limit 1 (f p)
-    Just _ ->
-      mapOpaleye (Opaleye.distinctOnExplicit (key unpackspec) fst) (f p)
+distinct (Tabulation f) = Tabulation $
+  mapOpaleye (Opaleye.distinctOnExplicit (key unpackspec) fst) . f
 
 
 -- | 'order' orders the /values/ of a 'Tabulation' within their
@@ -626,3 +627,13 @@ similarity a b = a <* present b
 -- @do@-notation.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 difference a b = a <* absent b
+
+
+-- | 'Tabulation's can be produced with either 'fromQuery' or 'liftQuery', and
+-- in some cases we might want to treat these differently. 'peek' uses
+-- 'unsafePeekQuery' to determine which type of 'Tabulation' we have.
+peek :: Tabulation k a -> Tabulation k (Either (Query a) (Query (k, a)))
+peek (Tabulation f) = Tabulation $ \p ->
+  pure $ (empty,) $ case unsafePeekQuery (f p) of
+    (Nothing, _) -> Left $ fmap snd (f p)
+    (Just _, _) -> Right $ fmap (first fromJust) (f p)
