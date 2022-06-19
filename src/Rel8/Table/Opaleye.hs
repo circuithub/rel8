@@ -35,7 +35,6 @@ import qualified Opaleye.Adaptors as Opaleye
 import qualified Opaleye.Field as Opaleye ( Field_ )
 import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
 
