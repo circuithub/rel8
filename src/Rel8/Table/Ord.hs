@@ -146,9 +146,9 @@ infix 4 >=:
 
 -- | Given two 'Table's, return the table that sorts before the other.
 least :: OrdTable a => a -> a -> a
-least a b = bool a b (a <: b)
+least a b = bool b a (a <: b)
 
 
 -- | Given two 'Table's, return the table that sorts after the other.
 greatest :: OrdTable a => a -> a -> a
-greatest a b = bool a b (a >: b)
+greatest a b = bool b a (a >: b)
