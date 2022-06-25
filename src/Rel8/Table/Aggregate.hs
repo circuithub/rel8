@@ -37,6 +37,18 @@ import Rel8.Type.Eq ( DBEq )
 
 -- | Group equal tables together. This works by aggregating each column in the
 -- given table with 'groupByExpr'.
+--
+-- For example, if we have a table of items, we could group the items by the
+-- order they belong to:
+--
+-- @
+-- itemsByOrder :: Query (OrderId Expr, ListTable Expr (Item Expr))
+-- itemsByOrder = aggregate $ do
+--   item <- each itemSchema
+--   let orderId = groupBy (itemOrderId item)
+--   let orderItems = listAgg item
+--   pure (orderId, orderItems)
+-- @
 groupBy :: forall exprs aggregates. (EqTable exprs, Aggregates aggregates exprs)
   => exprs -> aggregates
 groupBy = fromColumns . hgroupBy (eqTable @exprs) . toColumns
