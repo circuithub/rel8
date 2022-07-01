@@ -35,6 +35,10 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
+import Rel8.Table.Alternative
+  ( AltTable, (<|>:)
+  , AlternativeTable, emptyTable
+  )
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe ( MaybeTable, justTable, maybeTable, nothingTable )
@@ -57,6 +61,14 @@ newtype NullTable context a = NullTable (Nullify context a)
 
 instance Projectable (NullTable context) where
   project f (NullTable a) = NullTable (project f a)
+
+
+instance context ~ Expr => AltTable (NullTable context) where
+  ma <|>: mb = bool ma mb (isNullTable ma)
+
+
+instance context ~ Expr => AlternativeTable (NullTable context) where
+  emptyTable = nullTable
 
 
 instance (Table context a, Reifiable context, context ~ context') =>
