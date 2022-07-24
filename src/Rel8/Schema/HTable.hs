@@ -16,7 +16,7 @@
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
-  , hmap, htabulateA, htraverseP
+  , hmap, htabulateA, htraverseP, htraversePWithField
   )
 where
 
@@ -138,8 +138,12 @@ instance ProductProfunctor p => Apply (ApplyP p a) where
 
 htraverseP :: (HTable t, ProductProfunctor p)
   => (forall a. p (f a) (g a)) -> p (t f) (t g)
-htraverseP f = unApplyP $ htabulateA $ \field -> ApplyP $
-  lmap (flip hfield field) f
+htraverseP f = htraversePWithField (const f)
+
+htraversePWithField :: (HTable t, ProductProfunctor p)
+  => (forall a. HField t a -> p (f a) (g a)) -> p (t f) (t g)
+htraversePWithField f = unApplyP $ htabulateA $ \field -> ApplyP $
+  lmap (flip hfield field) (f field)
 
 type GHField :: K.HTable -> Type -> Type
 newtype GHField t a = GHField (HField (GHColumns (Rep (t Proxy))) a)
