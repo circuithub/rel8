@@ -31,12 +31,11 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( undefined )
 
 -- opaleye
+import qualified Opaleye.Adaptors as Opaleye
+import qualified Opaleye.Field as Opaleye ( Field_ )
 import qualified Opaleye.Internal.Aggregate as Opaleye
-import qualified Opaleye.Internal.Binary as Opaleye
-import qualified Opaleye.Internal.Distinct as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
 
@@ -50,9 +49,10 @@ import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , traversePrimExpr
   , fromColumn, toColumn
-  , scastExpr
+  , scastExpr, traverseFieldP
   )
-import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate )
+import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate,
+                            htraverseP )
 import Rel8.Schema.Name ( Name( Name ), Selects, ppColumn )
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
@@ -61,6 +61,7 @@ import Rel8.Table.Undefined ( undefined )
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
+import Data.Profunctor.Product ( ProductProfunctor )
 
 
 aggregator :: Aggregates aggregates exprs => Opaleye.Aggregator aggregates exprs
@@ -79,22 +80,19 @@ attributes schema@TableSchema {columns} = fromColumns $ htabulate $ \field ->
         show (ppTable schema) <> "." <> show (ppColumn column)
 
 
+fromOpaleyespec :: (ProductProfunctor p, Table Expr a)
+  => p (Opaleye.Field_ n x) (Opaleye.Field_ n x)
+  -> p a a
+fromOpaleyespec x =
+  dimap toColumns fromColumns (htraverseP (traverseFieldP x))
+
+
 binaryspec :: Table Expr a => Opaleye.Binaryspec a a
-binaryspec = Opaleye.Binaryspec $ Opaleye.PackMap $ \f (as, bs) ->
-  fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
-    WrapApplicative $
-      case (hfield (toColumns as) field, hfield (toColumns bs) field) of
-        (a, b) -> fromPrimExpr <$> f (toPrimExpr a, toPrimExpr b)
+binaryspec = fromOpaleyespec Opaleye.binaryspecField
 
 
 distinctspec :: Table Expr a => Opaleye.Distinctspec a a
-distinctspec =
-  Opaleye.Distinctspec $ Opaleye.Aggregator $ Opaleye.PackMap $ \f ->
-    fmap fromColumns .
-    unwrapApplicative .
-    htraverse
-      (\a -> WrapApplicative $ fromPrimExpr <$> f (Nothing, toPrimExpr a)) .
-    toColumns
+distinctspec = fromOpaleyespec Opaleye.distinctspecField
 
 
 exprs :: Table Expr a => a -> NonEmpty Opaleye.PrimExpr
@@ -131,11 +129,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
 
 
 unpackspec :: Table Expr a => Opaleye.Unpackspec a a
-unpackspec = Opaleye.Unpackspec $ Opaleye.PackMap $ \f ->
-  fmap fromColumns .
-  unwrapApplicative .
-  htraverse (WrapApplicative . traversePrimExpr f) .
-  toColumns
+unpackspec = fromOpaleyespec Opaleye.unpackspecField
 {-# INLINABLE unpackspec #-}
 
 
