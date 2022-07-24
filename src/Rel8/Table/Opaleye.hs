@@ -48,7 +48,6 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , traversePrimExpr
-  , fromColumn, toColumn
   , scastExpr, traverseFieldP
   )
 import Rel8.Schema.HTable ( htabulateA, hfield, htraverse, hspecs, htabulate,
@@ -124,7 +123,7 @@ tableFields (toColumns -> names) = dimap toColumns fromColumns $
   where
     go :: Name a -> Opaleye.TableFields (Expr a) (Expr a)
     go (Name name) =
-      dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn) $
+      traverseFieldP $
         Opaleye.requiredTableField name
 
 
