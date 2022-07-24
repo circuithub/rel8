@@ -63,11 +63,9 @@ import Data.Profunctor.Product ( ProductProfunctor )
 
 
 aggregator :: Aggregates aggregates exprs => Opaleye.Aggregator aggregates exprs
-aggregator = Opaleye.Aggregator $ Opaleye.PackMap $ \f aggregates ->
-  fmap fromColumns $ unwrapApplicative $ htabulateA $ \field ->
-    WrapApplicative $ case hfield (toColumns aggregates) field of
-      Aggregate (Opaleye.Aggregator (Opaleye.PackMap inner)) ->
-        inner f ()
+aggregator = dimap toColumns fromColumns $
+             htraverseP $
+             lmap (\(Aggregate a) -> (a, ())) Opaleye.aggregatorApply
 
 
 attributes :: Selects names exprs => TableSchema names -> exprs
