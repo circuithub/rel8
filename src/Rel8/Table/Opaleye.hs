@@ -38,7 +38,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
 import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
-import qualified Opaleye.Internal.Table as Opaleye
+import qualified Opaleye.Table as Opaleye
 
 -- profunctors
 import Data.Profunctor ( dimap, lmap )
@@ -113,8 +113,8 @@ exprsWithNames names as = getConst $ htabulateA $ \field ->
 table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
 table (TableSchema name schema columns) =
   case schema of
-    Nothing -> Opaleye.Table name (tableFields columns)
-    Just schemaName -> Opaleye.TableWithSchema schemaName name (tableFields columns)
+    Nothing -> Opaleye.table name (tableFields columns)
+    Just schemaName -> Opaleye.tableWithSchema schemaName name (tableFields columns)
 
 
 tableFields :: Selects names exprs
