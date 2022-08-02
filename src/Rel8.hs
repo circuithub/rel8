@@ -310,6 +310,7 @@ module Rel8
 
     -- ** @SELECT@
   , select
+  , selectVector
 
     -- ** @INSERT@
   , Insert(..)

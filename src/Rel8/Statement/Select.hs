@@ -8,6 +8,7 @@
 
 module Rel8.Statement.Select
   ( select
+  , selectVector
   , ppSelect
 
   , Optimized(..)
@@ -19,6 +20,7 @@ where
 -- base
 import Data.Foldable ( toList )
 import Data.Kind ( Type )
+import Data.Vector (Vector)
 import Data.Void ( Void )
 import Prelude hiding ( undefined )
 
@@ -69,6 +71,18 @@ select query = Hasql.Statement bytes params decode prepare
     bytes = encodeUtf8 (Text.pack sql)
     params = Hasql.noParams
     decode = Hasql.rowList (parse @exprs @a)
+    prepare = False
+    sql = show doc
+    doc = ppSelect query
+
+-- | Run a @SELECT@ statement, returning all rows as a Vector.
+selectVector :: forall exprs a. Serializable exprs a
+  => Query exprs -> Hasql.Statement () (Vector a)
+selectVector query = Hasql.Statement bytes params decode prepare
+  where
+    bytes = encodeUtf8 (Text.pack sql)
+    params = Hasql.noParams
+    decode = Hasql.rowVector (parse @exprs @a)
     prepare = False
     sql = show doc
     doc = ppSelect query
