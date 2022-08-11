@@ -32,6 +32,12 @@ import GHC.Generics
   )
 import Prelude
 
+-- profunctors
+import Data.Profunctor ( rmap, Profunctor (lmap) )
+
+-- product-profunctors
+import Data.Profunctor.Product ( ProductProfunctor ((****)) )
+
 -- rel8
 import Rel8.Schema.Dict ( Dict )
 import Rel8.Schema.Spec ( Spec )
@@ -40,11 +46,6 @@ import qualified Rel8.Schema.Kind as K
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
-
--- (product-)profunctors
-import Data.Profunctor.Product ( ProductProfunctor ((****)) )
-import Data.Profunctor ( rmap, Profunctor (lmap) )
-
 
 -- | A @HTable@ is a functor-indexed/higher-kinded data type that is
 -- representable ('htabulate'/'hfield'), constrainable ('hdicts'), and
