@@ -81,6 +81,7 @@ module Rel8
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
+  , alignMaybeTable
   , alignBy
   , keepHereTable, loseHereTable
   , keepThereTable, loseThereTable

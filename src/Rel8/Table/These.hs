@@ -20,6 +20,7 @@ module Rel8.Table.These
   , isThisTable, isThatTable, isThoseTable
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
+  , alignMaybeTable
   , aggregateTheseTable
   , nameTheseTable
   )
@@ -29,13 +30,13 @@ where
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
 import Data.Maybe ( isJust )
-import Prelude hiding ( undefined )
+import Prelude hiding ( null, undefined )
 
 -- rel8
 import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (&&.), not_ )
-import Rel8.Expr.Null ( isNonNull )
+import Rel8.Expr.Bool ( (&&.), (||.), boolExpr, not_ )
+import Rel8.Expr.Null ( null, isNonNull )
 import Rel8.Kind.Context ( Reifiable )
 import Rel8.Schema.Context.Nullify ( Nullifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
@@ -286,6 +287,16 @@ justHereTable = here
 -- Corresponds to 'Data.These.Combinators.justThere'.
 justThereTable :: TheseTable context a b -> MaybeTable context b
 justThereTable = there
+
+
+-- | Construct a @TheseTable@ from two 'MaybeTable's.
+alignMaybeTable :: ()
+  => MaybeTable Expr a
+  -> MaybeTable Expr b
+  -> MaybeTable Expr (TheseTable Expr a b)
+alignMaybeTable a b = MaybeTable tag (pure (TheseTable a b))
+  where
+    tag = boolExpr null mempty (isJustTable a ||. isJustTable b)
 
 
 -- | Construct a @TheseTable@. Corresponds to 'This'.
