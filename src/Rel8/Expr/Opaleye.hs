@@ -10,7 +10,7 @@ module Rel8.Expr.Opaleye
   , scastExpr, sunsafeCastExpr
   , unsafeLiteral
   , fromPrimExpr, toPrimExpr, mapPrimExpr, zipPrimExprsWith, traversePrimExpr
-  , toColumn, fromColumn
+  , toColumn, fromColumn, traverseFieldP
   )
 where
 
@@ -26,6 +26,9 @@ import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Schema.Null ( Unnullify, Sql )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
+
+-- profunctors
+import Data.Profunctor ( Profunctor, dimap )
 
 
 castExpr :: Sql DBType a => Expr a -> Expr a
@@ -78,6 +81,12 @@ zipPrimExprsWith f a b = fromPrimExpr (f (toPrimExpr a) (toPrimExpr b))
 traversePrimExpr :: Functor f
   => (Opaleye.PrimExpr -> f Opaleye.PrimExpr) -> Expr a -> f (Expr b)
 traversePrimExpr f = fmap fromPrimExpr . f . toPrimExpr
+
+
+traverseFieldP :: Profunctor p
+  => p (Opaleye.Field_ n x) (Opaleye.Field_ m y)
+  -> p (Expr a) (Expr b)
+traverseFieldP =  dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn)
 
 
 toColumn :: Opaleye.PrimExpr -> Opaleye.Field_ n b
