@@ -16,7 +16,7 @@
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
-  , hmap, htabulateA
+  , hmap, htabulateA, htraverseP, htraversePWithField
   )
 where
 
@@ -32,6 +32,12 @@ import GHC.Generics
   )
 import Prelude
 
+-- profunctors
+import Data.Profunctor ( rmap, Profunctor (lmap) )
+
+-- product-profunctors
+import Data.Profunctor.Product ( ProductProfunctor ((****)) )
+
 -- rel8
 import Rel8.Schema.Dict ( Dict )
 import Rel8.Schema.Spec ( Spec )
@@ -40,7 +46,6 @@ import qualified Rel8.Schema.Kind as K
 
 -- semigroupoids
 import Data.Functor.Apply ( Apply, (<.>) )
-
 
 -- | A @HTable@ is a functor-indexed/higher-kinded data type that is
 -- representable ('htabulate'/'hfield'), constrainable ('hdicts'), and
@@ -124,6 +129,22 @@ htabulateA :: (HTable t, Apply m)
 htabulateA f = htraverse getCompose $ htabulate $ Compose . f
 {-# INLINABLE htabulateA #-}
 
+newtype ApplyP p a b = ApplyP { unApplyP :: p a b }
+
+instance Profunctor p => Functor (ApplyP p a) where
+  fmap f = ApplyP . rmap f . unApplyP
+
+instance ProductProfunctor p => Apply (ApplyP p a) where
+  ApplyP f <.> ApplyP x = ApplyP (rmap id f **** x)
+
+htraverseP :: (HTable t, ProductProfunctor p)
+  => (forall a. p (f a) (g a)) -> p (t f) (t g)
+htraverseP f = htraversePWithField (const f)
+
+htraversePWithField :: (HTable t, ProductProfunctor p)
+  => (forall a. HField t a -> p (f a) (g a)) -> p (t f) (t g)
+htraversePWithField f = unApplyP $ htabulateA $ \field -> ApplyP $
+  lmap (flip hfield field) (f field)
 
 type GHField :: K.HTable -> Type -> Type
 newtype GHField t a = GHField (HField (GHColumns (Rep (t Proxy))) a)
