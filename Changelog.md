@@ -1,3 +1,26 @@
+# 1.4.0.0 (2002-08-17)
+
+## Breaking changes
+
+* The behavior of `greatest`/`least` has been corrected, and was previously flipped. ([#183](https://github.com/circuithub/rel8/pull/183))
+
+## New features
+
+* `NullTable`/`HNull` have been added. This is an alternative to `MaybeTable` that doesn't use a tag columns. It's less flexible (no `Functor` or `Applicative` instance) and is meaningless when used with a table that has no non-nullable columns (so nesting `NullTable` is redundant). But in situations where the underlying `Table` does have non-nullable columns, it can losslessly converted to and from `MaybeTable`. It is useful for embedding into a base table when you don't want to store the extra tag column in your schema. ([#173](https://github.com/circuithub/rel8/pull/173))
+* Add `fromMaybeTable`. ([#179](https://github.com/circuithub/rel8/pull/179))
+* Add `alignMaybeTable`. ([#196](https://github.com/circuithub/rel8/pull/196))
+
+## Improvements
+
+* Optimize implementation of `AltTable` for `Tabulation` ([#178](https://github.com/circuithub/rel8/pull/178))
+
+## Other
+ 
+* Documentation improvements for `HADT`. ([#177](https://github.com/circuithub/rel8/pull/177))
+* Document example usage of `groupBy`. ([#184](https://github.com/circuithub/rel8/pull/184))
+* Build with and require Opaleye >= 0.9.3.3. ([#190](https://github.com/circuithub/rel8/pull/190))
+* Build with `hasql` 1.6. ([#195](https://github.com/circuithub/rel8/pull/195))
+
 # 1.3.1.0 (2022-01-20)
 
 ## Other
