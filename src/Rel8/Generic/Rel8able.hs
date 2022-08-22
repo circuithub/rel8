@@ -141,7 +141,7 @@ type instance Eval (TSerialize expr a) =
 -- [Supplying @Rel8able@ instances]
 --
 -- This type class should be derived generically for all table types in your
--- project. To do this, enable the @DeriveAnyType@ and @DeriveGeneric@ language
+-- project. To do this, enable the @DeriveAnyClass@ and @DeriveGeneric@ language
 -- extensions:
 --
 -- @
