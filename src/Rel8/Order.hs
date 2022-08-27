@@ -4,7 +4,6 @@
 
 module Rel8.Order
   ( Order(..)
-  , toOrderExprs
   )
 where
 
@@ -18,7 +17,7 @@ import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.Order as Opaleye
+import qualified Opaleye.Order as Opaleye
 
 
 -- | An ordering expression for @a@. Primitive orderings are defined with
@@ -30,8 +29,3 @@ import qualified Opaleye.Internal.Order as Opaleye
 type Order :: Type -> Type
 newtype Order a = Order (Opaleye.Order a)
   deriving newtype (Contravariant, Divisible, Decidable, Semigroup, Monoid)
-
-
-toOrderExprs :: Order a -> a -> [Opaleye.OrderExpr]
-toOrderExprs (Order (Opaleye.Order order)) a =
-  uncurry Opaleye.OrderExpr <$> order a
