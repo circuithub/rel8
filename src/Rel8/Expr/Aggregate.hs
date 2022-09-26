@@ -24,10 +24,12 @@ import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( and, max, min, null, or, sum )
 
 -- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.Aggregate as Opaleye
+import Opaleye.Internal.Column ( Field_( Column ) )
+import qualified Opaleye.Aggregate as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate, Aggregator(..), unsafeMakeAggregate )
+import Rel8.Aggregate ( Aggregate, unsafeMakeAggregate )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( caseExpr )
 import Rel8.Expr.Opaleye
@@ -51,23 +53,13 @@ import Rel8.Type.Sum ( DBSum )
 
 -- | Count the occurances of a single column. Corresponds to @COUNT(a)@
 count :: Expr a -> Aggregate Int64
-count = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrCount
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
-
+count = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.count
 
 -- | Count the number of distinct occurances of a single column. Corresponds to
 -- @COUNT(DISTINCT a)@
 countDistinct :: Sql DBEq a => Expr a -> Aggregate Int64
 countDistinct = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrCount
-    , ordering = []
-    , distinction = Opaleye.AggrDistinct
-    }
+  Opaleye.distinctAggregator Opaleye.count
 
 
 -- | Corresponds to @COUNT(*)@.
@@ -82,42 +74,22 @@ countWhere condition = count (caseExpr [(condition, litExpr (Just True))] null)
 
 -- | Corresponds to @bool_and@.
 and :: Expr Bool -> Aggregate Bool
-and = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrBoolAnd
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+and = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.boolAnd
 
 
 -- | Corresponds to @bool_or@.
 or :: Expr Bool -> Aggregate Bool
-or = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrBoolOr
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+or = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.boolOr
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
 max :: Sql DBMax a => Expr a -> Aggregate a
-max = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrMax
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+max = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.unsafeMax
 
 
 -- | Produce an aggregation for @Expr a@ using the @max@ function.
 min :: Sql DBMin a => Expr a -> Aggregate a
-min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
-  Just Aggregator
-    { operation = Opaleye.AggrMin
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+min = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.unsafeMin
 
 -- | Corresponds to @sum@. Note that in SQL, @sum@ is type changing - for
 -- example the @sum@ of @integer@ returns a @bigint@. Rel8 doesn't support
@@ -125,12 +97,7 @@ min = unsafeMakeAggregate toPrimExpr fromPrimExpr $
 -- lead to overflows, and if you anticipate very large sums, you should upcast
 -- your input.
 sum :: Sql DBSum a => Expr a -> Aggregate a
-sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
-  Just Aggregator
-    { operation = Opaleye.AggrSum
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) Opaleye.unsafeSum
 
 
 -- | Corresponds to @avg@. Note that in SQL, @avg@ is type changing - for
@@ -139,13 +106,7 @@ sum = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
 -- need a fractional result on an integral column, you should cast your input
 -- to 'Double' or 'Data.Scientific.Scientific' before calling 'avg'.
 avg :: Sql DBSum a => Expr a -> Aggregate a
-avg = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
-  Just Aggregator
-    { operation = Opaleye.AggrAvg
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
-
+avg = unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) Opaleye.unsafeAvg
 
 -- | Take the sum of all expressions that satisfy a predicate.
 sumWhere :: (Sql DBNum a, Sql DBSum a)
@@ -157,17 +118,12 @@ sumWhere condition a = sum (caseExpr [(condition, a)] 0)
 stringAgg :: Sql DBString a
   => Expr db -> Expr a -> Aggregate a
 stringAgg delimiter =
-  unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) $
-    Just Aggregator
-      { operation = Opaleye.AggrStringAggr (toPrimExpr delimiter)
-      , ordering = []
-      , distinction = Opaleye.AggrAll
-      }
+  unsafeMakeAggregate toPrimExpr (castExpr . fromPrimExpr) (Opaleye.stringAgg (Column (toPrimExpr delimiter)))
 
 
 -- | Aggregate a value by grouping by it.
 groupByExpr :: Sql DBEq a => Expr a -> Aggregate a
-groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Nothing
+groupByExpr = unsafeMakeAggregate toPrimExpr fromPrimExpr Opaleye.groupBy
 
 
 -- | Collect expressions values as a list.
@@ -182,23 +138,13 @@ nonEmptyAggExpr = snonEmptyAggExpr typeInformation
 
 slistAggExpr :: ()
   => TypeInformation (Unnullify a) -> Expr a -> Aggregate [a]
-slistAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
-  Aggregator
-    { operation = Opaleye.AggrArr
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+slistAggExpr info = unsafeMakeAggregate to fromPrimExpr Opaleye.arrayAgg
   where
     to = encodeArrayElement info . toPrimExpr
 
 
 snonEmptyAggExpr :: ()
   => TypeInformation (Unnullify a) -> Expr a -> Aggregate (NonEmpty a)
-snonEmptyAggExpr info = unsafeMakeAggregate to fromPrimExpr $ Just
-  Aggregator
-    { operation = Opaleye.AggrArr
-    , ordering = []
-    , distinction = Opaleye.AggrAll
-    }
+snonEmptyAggExpr info = unsafeMakeAggregate to fromPrimExpr Opaleye.arrayAgg
   where
     to = encodeArrayElement info . toPrimExpr

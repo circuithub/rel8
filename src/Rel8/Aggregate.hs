@@ -2,7 +2,6 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
@@ -10,7 +9,7 @@
 
 module Rel8.Aggregate
   ( Aggregate(..), zipOutputs
-  , Aggregator(..), unsafeMakeAggregate
+  , unsafeMakeAggregate
   , Aggregates
   )
 where
@@ -21,10 +20,13 @@ import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Prelude
 
+-- profunctors
+import Data.Profunctor ( dimap )
+
 -- opaleye
-import qualified Opaleye.Internal.Aggregate as Opaleye
+import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.Column as Opaleye
 
 -- rel8
 import Rel8.Expr ( Expr )
@@ -69,23 +71,13 @@ zipOutputs :: ()
 zipOutputs f (Aggregate a) (Aggregate b) = Aggregate (liftA2 f a b)
 
 
-type Aggregator :: Type
-data Aggregator = Aggregator
-  { operation :: Opaleye.AggrOp
-  , ordering :: [Opaleye.OrderExpr]
-  , distinction :: Opaleye.AggrDistinct
-  }
-
-
-unsafeMakeAggregate :: forall (input :: Type) (output :: Type). ()
+unsafeMakeAggregate :: forall (input :: Type) (output :: Type) n n' a a'. ()
   => (Expr input -> Opaleye.PrimExpr)
   -> (Opaleye.PrimExpr -> Expr output)
-  -> Maybe Aggregator
+  -> Opaleye.Aggregator (Opaleye.Field_ n a) (Opaleye.Field_ n' a')
   -> Expr input
   -> Aggregate output
 unsafeMakeAggregate input output aggregator expr =
-  Aggregate $ Opaleye.Aggregator $ Opaleye.PackMap $ \f _ ->
-    output <$> f (tuplize <$> aggregator, input expr)
-  where
-    tuplize Aggregator {operation, ordering, distinction} =
-      (operation, ordering, distinction)
+  Aggregate $ dimap in_ out aggregator
+  where out = output . Opaleye.unColumn
+        in_ = Opaleye.Column . input . const expr
