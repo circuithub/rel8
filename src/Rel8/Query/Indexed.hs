@@ -4,31 +4,18 @@ module Rel8.Query.Indexed
 where
 
 -- base
+import Control.Applicative ( liftA2 )
 import Data.Int ( Int64 )
-import Prelude
-
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.PackMap as Opaleye
-import qualified Opaleye.Internal.PrimQuery as Opaleye
-import qualified Opaleye.Internal.QueryArr as Opaleye
-import qualified Opaleye.Internal.Tag as Opaleye
+import Prelude ()
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( fromPrimExpr )
+import Rel8.Expr.Window ( rowNumber )
 import Rel8.Query ( Query )
-import Rel8.Query.Opaleye ( mapOpaleye )
+import Rel8.Query.Window ( window )
+import Rel8.Table.Window ( currentRow )
 
 
 -- | Pair each row of a query with its index within the query.
 indexed :: Query a -> Query (Expr Int64, a)
-indexed = mapOpaleye $ \f -> Opaleye.stateQueryArr $ \_ tag ->
-  let
-    (a, query, tag') = Opaleye.runStateQueryArr f () tag
-    tag'' = Opaleye.next tag'
-    window = Opaleye.ConstExpr $ Opaleye.OtherLit "ROW_NUMBER() OVER () - 1"
-    (index, bindings) = Opaleye.run $ Opaleye.extractAttr "index" tag' window
-    query' = query <> Opaleye.aRebind bindings
-  in
-    ((fromPrimExpr index, a), query', tag'')
+indexed = window (liftA2 (,) rowNumber currentRow)
