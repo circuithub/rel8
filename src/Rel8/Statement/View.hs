@@ -3,6 +3,7 @@
 
 module Rel8.Statement.View
   ( createView
+  , createOrReplaceView
   )
 where
 
@@ -34,20 +35,40 @@ import Data.Text.Encoding ( encodeUtf8 )
 -- you want to share Rel8 queries with other applications.
 createView :: Selects names exprs
   => TableSchema names -> Query exprs -> Hasql.Statement () ()
-createView schema query = Hasql.Statement bytes params decode prepare
+createView =
+  createViewGeneric False
+
+
+-- | Given a 'TableSchema' and 'Query', @createOrReplaceView@ runs a
+-- @CREATE OR REPLACE VIEW@ statement that will save the given query
+-- as a view, replacing the current view definition if it exists and
+-- adheres to the restrictions in place for replacing a view in
+-- PostgreSQL.
+createOrReplaceView :: Selects nemes exprs
+  => TableSchema names -> Query exprs -> Hasql.Statement () ()
+createOrReplaceView =
+  createViewGeneric True
+
+
+createViewGeneric :: Selects names exprs
+  => Bool -> TableSchema names -> Query exprs -> Hasql.Statement () ()
+createViewGeneric schema query replace =
+  Hasql.Statement bytes params decode prepare
   where
     bytes = encodeUtf8 (Text.pack sql)
     params = Hasql.noParams
     decode = Hasql.noResult
     prepare = False
     sql = show doc
-    doc = ppCreateView schema query
+    doc = ppCreateView schema query replace
 
 
 ppCreateView :: Selects names exprs
-  => TableSchema names -> Query exprs -> Doc
-ppCreateView schema query =
-  text "CREATE VIEW" <+>
+  => TableSchema names -> Query exprs -> Bool -> Doc
+ppCreateView schema query replace =
+  text "CREATE" <+>
+  if replace then text "OR REPLACE" else empty <+>
+  text "VIEW" <+>
   ppInto schema $$
   text "AS" <+>
   ppSelect query
