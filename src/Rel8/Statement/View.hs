@@ -23,7 +23,7 @@ import Rel8.Statement.Insert ( ppInto )
 import Rel8.Statement.Select ( ppSelect )
 
 -- pretty
-import Text.PrettyPrint ( Doc, (<+>), ($$), text )
+import Text.PrettyPrint ( Doc, (<+>), ($$), empty, text )
 
 -- text
 import qualified Data.Text as Text
