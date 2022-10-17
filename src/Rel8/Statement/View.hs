@@ -52,7 +52,7 @@ createOrReplaceView =
 
 createViewGeneric :: Selects names exprs
   => Bool -> TableSchema names -> Query exprs -> Hasql.Statement () ()
-createViewGeneric schema query replace =
+createViewGeneric replace schema query =
   Hasql.Statement bytes params decode prepare
   where
     bytes = encodeUtf8 (Text.pack sql)
