@@ -57,6 +57,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Bool ( bool )
+import Rel8.Table.Case ( Case )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection ( Projectable, project )
@@ -191,7 +192,7 @@ isJustTable (MaybeTable tag _) = isNonNull tag
 
 
 -- | Perform case analysis on a 'MaybeTable'. Like 'maybe'.
-maybeTable :: Table Expr b => b -> (a -> b) -> MaybeTable Expr a -> b
+maybeTable :: Case b => b -> (a -> b) -> MaybeTable Expr a -> b
 maybeTable b f ma@(MaybeTable _ a) = bool (f (extract a)) b (isNothingTable ma)
 {-# INLINABLE maybeTable #-}
 

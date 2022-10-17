@@ -51,6 +51,7 @@ import Rel8.Table
   , Transpose
   )
 import Rel8.Table.Bool ( bool )
+import Rel8.Table.Case ( Case )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
@@ -198,7 +199,7 @@ isRightTable EitherTable {tag} = isRight tag
 
 -- | Pattern match/eliminate an 'EitherTable', by providing mappings from a
 -- 'leftTable' and 'rightTable'.
-eitherTable :: Table Expr c
+eitherTable :: Case c
   => (a -> c) -> (b -> c) -> EitherTable Expr a b -> c
 eitherTable f g EitherTable {tag, left, right} =
   bool (f (extract left)) (g (extract right)) (isRight tag)

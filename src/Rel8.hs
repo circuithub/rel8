@@ -50,6 +50,7 @@ module Rel8
   , EqTable(..), (==:), (/=:)
   , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
   , lit
+  , Case
   , bool
   , case_
   , castTable
@@ -409,6 +410,7 @@ import Rel8.Table.ADT
 import Rel8.Table.Aggregate
 import Rel8.Table.Alternative
 import Rel8.Table.Bool
+import Rel8.Table.Case
 import Rel8.Table.Either
 import Rel8.Table.Eq
 import Rel8.Table.HKD

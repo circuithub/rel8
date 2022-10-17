@@ -66,7 +66,7 @@ import Rel8.Table
   ( TTable, TColumns
   , Table, fromColumns, toColumns
   )
-import Rel8.Table.Bool ( case_ )
+import Rel8.Table.Case ( case_ )
 import Rel8.Type.Tag ( Tag )
 
 

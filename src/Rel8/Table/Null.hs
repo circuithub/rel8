@@ -40,6 +40,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Bool ( bool )
+import Rel8.Table.Case ( Case )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe ( MaybeTable, justTable, maybeTable, nothingTable )
 import Rel8.Table.Nullify ( Nullify, isNull )
@@ -110,7 +111,7 @@ isNonNullTable = not_ . isNullTable
 
 
 -- | Like 'Rel8.nullable'.
-nullableTable :: (Table Expr a, Table Expr b)
+nullableTable :: (Table Expr a, Case b)
   => b -> (a -> b) -> NullTable Expr a -> b
 nullableTable b f ma@(NullTable a) = bool (f (extract a)) b (isNullTable ma)
 
