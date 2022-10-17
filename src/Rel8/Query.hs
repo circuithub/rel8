@@ -1,4 +1,6 @@
+{-# language FlexibleContexts #-}
 {-# language StandaloneKindSignatures #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Query
   ( Query( Query )
@@ -20,10 +22,11 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
+import Rel8.Expr ( Expr )
 import Rel8.Query.Set ( unionAll )
 import Rel8.Query.Opaleye ( fromOpaleye )
 import Rel8.Query.Values ( values )
-import Rel8.Table ( fromColumns, toColumns )
+import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
@@ -208,3 +211,13 @@ instance AltTable Query where
 -- | 'emptyTable' = 'values' @[]@.
 instance AlternativeTable Query where
   emptyTable = values []
+
+
+-- | '<>' = 'unionAll'.
+instance Table Expr a => Semigroup (Query a) where
+  (<>) = (<|>:)
+
+
+-- | 'mempty' = @'values' []@.
+instance Table Expr a => Monoid (Query a) where
+  mempty = emptyTable
