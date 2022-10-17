@@ -44,7 +44,7 @@ createView =
 -- as a view, replacing the current view definition if it exists and
 -- adheres to the restrictions in place for replacing a view in
 -- PostgreSQL.
-createOrReplaceView :: Selects nemes exprs
+createOrReplaceView :: Selects names exprs
   => TableSchema names -> Query exprs -> Hasql.Statement () ()
 createOrReplaceView =
   createViewGeneric True
