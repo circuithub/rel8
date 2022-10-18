@@ -23,11 +23,14 @@ import Rel8.Statement.Insert ( ppInto )
 import Rel8.Statement.Select ( ppSelect )
 
 -- pretty
-import Text.PrettyPrint ( Doc, (<+>), ($$), empty, text )
+import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 
 -- text
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
+
+
+data CreateView = Create | CreateOrReplace
 
 
 -- | Given a 'TableSchema' and 'Query', @createView@ runs a @CREATE VIEW@
@@ -36,7 +39,7 @@ import Data.Text.Encoding ( encodeUtf8 )
 createView :: Selects names exprs
   => TableSchema names -> Query exprs -> Hasql.Statement () ()
 createView =
-  createViewGeneric False
+  createViewGeneric Create
 
 
 -- | Given a 'TableSchema' and 'Query', @createOrReplaceView@ runs a
@@ -47,11 +50,11 @@ createView =
 createOrReplaceView :: Selects names exprs
   => TableSchema names -> Query exprs -> Hasql.Statement () ()
 createOrReplaceView =
-  createViewGeneric True
+  createViewGeneric CreateOrReplace
 
 
 createViewGeneric :: Selects names exprs
-  => Bool -> TableSchema names -> Query exprs -> Hasql.Statement () ()
+  => CreateView -> TableSchema names -> Query exprs -> Hasql.Statement () ()
 createViewGeneric replace schema query =
   Hasql.Statement bytes params decode prepare
   where
@@ -64,11 +67,13 @@ createViewGeneric replace schema query =
 
 
 ppCreateView :: Selects names exprs
-  => TableSchema names -> Query exprs -> Bool -> Doc
+  => TableSchema names -> Query exprs -> CreateView -> Doc
 ppCreateView schema query replace =
-  text "CREATE" <+>
-  if replace then text "OR REPLACE" else empty <+>
+  createOrReplace replace <+>
   text "VIEW" <+>
   ppInto schema $$
   text "AS" <+>
   ppSelect query
+  where
+    createOrReplace Create = text "CREATE"
+    createOrReplace CreateOrReplace = text "CREATE OR REPLACE"
