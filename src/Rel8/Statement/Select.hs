@@ -19,7 +19,6 @@ where
 -- base
 import Data.Foldable ( toList )
 import Data.Kind ( Type )
-import Data.List.NonEmpty ( NonEmpty( (:|) ) )
 import Data.Void ( Void )
 import Prelude hiding ( undefined )
 
@@ -92,7 +91,7 @@ ppSelect query =
 ppRows :: Table Expr a => Query a -> Doc
 ppRows query = case optimize primQuery of
   -- Special case VALUES because we can't use DEFAULT inside a SELECT
-  Optimized (Opaleye.Product ((_, Opaleye.Values symbols rows) :| []) [])
+  Optimized (Opaleye.Values symbols rows)
     | eqSymbols symbols (toList (T.exprs a)) ->
         Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
   _ -> ppSelect query
@@ -120,7 +119,7 @@ ppPrimSelect query =
 
 type Optimized :: Type -> Type
 data Optimized a = Empty | Unit | Optimized a
-  deriving stock (Functor, Foldable, Traversable)
+  deriving stock (Functor, Foldable, Traversable, Show)
 
 
 optimize :: Opaleye.PrimQuery' a -> Optimized (Opaleye.PrimQuery' Void)
