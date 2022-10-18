@@ -70,10 +70,9 @@ ppCreateView :: Selects names exprs
   => TableSchema names -> Query exprs -> CreateView -> Doc
 ppCreateView schema query replace =
   createOrReplace replace <+>
-  text "VIEW" <+>
   ppInto schema $$
   text "AS" <+>
   ppSelect query
   where
-    createOrReplace Create = text "CREATE"
-    createOrReplace CreateOrReplace = text "CREATE OR REPLACE"
+    createOrReplace Create = text "CREATE VIEW"
+    createOrReplace CreateOrReplace = text "CREATE OR REPLACE VIEW"
