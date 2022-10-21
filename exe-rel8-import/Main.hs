@@ -210,6 +210,27 @@ tablesToModule nameOfDatabaseSchema tables = HS.Module () Nothing pragmas import
           where
             pascalName = HS.Ident () $ pascal $ unpack name
 
+            field Attribute{ attribute, typ } = (fieldDecl, fieldColumnMapping)
+              where
+                fieldDecl = HS.FieldDecl () [fieldName] $ columnF columnType
+
+                fieldColumnMapping = HS.FieldUpdate () (HS.UnQual () fieldName) columnName
+
+                fieldName = HS.Ident () $ camel $ unpack $ attname attribute
+
+                columnType =
+                  HS.TyCon () $ HS.UnQual () $ HS.Ident () $
+                    maybe (pascal $ unpack $ typname typ) unpack (lookup (typname typ) typeMapping)
+
+                columnF = HS.TyApp () (HS.TyApp () _Column f)
+                  where
+                    _Column = HS.TyCon () $ HS.UnQual () $ HS.Ident () "Column"
+                    f = HS.TyVar () $ HS.Ident () "f"
+
+                columnName = HS.Lit () $ HS.String () str str
+                  where
+                    str = unpack $ attname attribute
+
             rel8able = HS.DataDecl () (HS.DataType ()) Nothing declHead [constructor] [derivingGeneric, derivingRel8able]
               where
                 declHead = HS.DHApp () tyName f
@@ -219,19 +240,7 @@ tablesToModule nameOfDatabaseSchema tables = HS.Module () Nothing pragmas import
 
                 constructor = HS.QualConDecl () Nothing Nothing conDecl
                   where
-                    conDecl = HS.RecDecl () pascalName $ map field columns
-                    field Attribute{ attribute, typ } = HS.FieldDecl () [fieldName] $ columnF columnType
-                      where
-                        fieldName = HS.Ident () $ camel $ unpack $ attname attribute
-
-                        columnType =
-                          HS.TyCon () $ HS.UnQual () $ HS.Ident () $
-                            maybe (pascal $ unpack $ typname typ) unpack (lookup (typname typ) typeMapping)
-
-                        columnF = HS.TyApp () (HS.TyApp () _Column f)
-                          where
-                            _Column = HS.TyCon () $ HS.UnQual () $ HS.Ident () "Column"
-                            f = HS.TyVar () $ HS.Ident () "f"
+                    conDecl = HS.RecDecl () pascalName $ map (fst . field) columns
 
                 derivingGeneric = HS.Deriving () (Just (HS.DerivStock ())) [rule]
                   where
@@ -274,14 +283,7 @@ tablesToModule nameOfDatabaseSchema tables = HS.Module () Nothing pragmas import
                             columnsField = HS.FieldUpdate () columnsName columnsRecord
                               where
                                 columnsName = HS.UnQual () (HS.Ident () "columns")
-                                columnsRecord = HS.RecConstr () (HS.UnQual () pascalName) $ map field columns
-
-                    field Attribute{ attribute, typ } = HS.FieldUpdate () (HS.UnQual () fieldName) columnName
-                      where
-                        fieldName = HS.Ident () $ camel $ unpack $ attname attribute
-                        columnName = HS.Lit () $ HS.String () str str
-                          where
-                            str = unpack $ attname attribute
+                                columnsRecord = HS.RecConstr () (HS.UnQual () pascalName) $ map (snd . field) columns
 
 
 typeMapping :: [(Text, Text)]
