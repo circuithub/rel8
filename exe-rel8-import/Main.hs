@@ -4,7 +4,6 @@
 {-# language DeriveGeneric #-}
 {-# language DerivingStrategies #-}
 {-# language DuplicateRecordFields #-}
-{-# language DisambiguateRecordFields #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
@@ -179,11 +178,11 @@ main = do
       , ..
       }
 
-  putStrLn $ HS.prettyPrint $ tablesToModule tables
+  putStrLn $ HS.prettyPrint $ tablesToModule schema tables
 
 
-tablesToModule :: [Table Result] -> HS.Module ()
-tablesToModule tables = HS.Module () Nothing pragmas imports allTableDecls
+tablesToModule :: Text -> [Table Result] -> HS.Module ()
+tablesToModule nameOfDatabaseSchema tables = HS.Module () Nothing pragmas imports allTableDecls
   where
     pragmas = [ deriveGeneric, deriveAnyClass, derivingStrategies, overloadedStrings ]
       where
@@ -270,7 +269,7 @@ tablesToModule tables = HS.Module () Nothing pragmas imports allTableDecls
                                 HS.App () (HS.Con () (HS.UnQual () (HS.Ident () "Just"))) $
                                   HS.Lit () $ HS.String () str str
                               where
-                                str = unpack name
+                                str = unpack nameOfDatabaseSchema
 
                             columnsField = HS.FieldUpdate () columnsName columnsRecord
                               where
