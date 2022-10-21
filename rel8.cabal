@@ -34,6 +34,8 @@ library
     , scientific
     , semialign
     , semigroupoids
+    , template-haskell
+    , th-abstraction
     , text
     , these
     , time
@@ -55,6 +57,7 @@ library
     Rel8.Expr.Text
     Rel8.Expr.Time
     Rel8.Tabulate
+    Rel8.TH
 
   other-modules:
     Rel8.Aggregate

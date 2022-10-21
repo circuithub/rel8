@@ -5,6 +5,7 @@
 {-# language DuplicateRecordFields #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language TemplateHaskell #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
@@ -21,6 +22,7 @@ import Prelude
 
 -- rel8
 import Rel8
+import Rel8.TH ( deriveRel8able )
 
 -- text
 import Data.Text ( Text )
@@ -30,16 +32,18 @@ data TableTest f = TableTest
   { foo :: Column f Bool
   , bar :: Column f (Maybe Bool)
   }
-  deriving stock Generic
-  deriving anyclass Rel8able
+
+
+deriveRel8able ''TableTest
 
 
 data TablePair f = TablePair
   { foo :: Column f Bool
   , bars :: (Column f Text, Column f Text)
   }
-  deriving stock Generic
-  deriving anyclass Rel8able
+
+
+deriveRel8able ''TablePair
 
 
 data TableMaybe f = TableMaybe
