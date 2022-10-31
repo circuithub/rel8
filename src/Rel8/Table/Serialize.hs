@@ -19,6 +19,7 @@ where
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import Data.Tuple (Solo)
 import Prelude
 
 -- hasql
@@ -55,6 +56,9 @@ instance (Sql DBType a, NotNull a, x ~ Maybe a) => ToExprs (Expr x) (Maybe a)
 
 
 instance (Sql DBType a, NotNull a, x ~ NonEmpty a) => ToExprs (Expr x) (NonEmpty a)
+
+
+instance (ToExprs exprs a, x ~ Solo exprs) => ToExprs x (Solo a)
 
 
 instance (ToExprs exprs1 a, ToExprs exprs2 b, x ~ (exprs1, exprs2)) =>
