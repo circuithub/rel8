@@ -93,6 +93,7 @@ import Rel8.Query.Filter ( where_ )
 import Rel8.Query.List ( catNonEmptyTable )
 import qualified Rel8.Query.Maybe as Q ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye, unsafePeekQuery )
+import Rel8.Query.Rebind ( rebind )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Table.Aggregate ( hgroupBy, listAgg, nonEmptyAgg )
@@ -508,8 +509,8 @@ alignWith :: EqTable k
   -> Tabulation k a -> Tabulation k b -> Tabulation k c
 alignWith f (Tabulation as) (Tabulation bs) = Tabulation $ \p -> do
   tkab <- liftF2 (alignBy condition) as bs p
+  k <- traverse (rebind "key") $ recover $ bimap fst fst tkab
   let
-    k = recover $ bimap fst fst tkab
     tab = bimap snd snd tkab
   pure (k, f tab)
   where
