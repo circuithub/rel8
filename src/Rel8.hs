@@ -334,6 +334,7 @@ module Rel8
 
     -- ** @CREATE VIEW@
   , createView
+  , createOrReplaceView
 
     -- ** Sequences
   , nextval
