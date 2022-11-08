@@ -63,6 +63,11 @@ type KRel8able = K.Rel8able
 -- This is almost 'Data.Type.Equality.==', but we add an extra case.
 type (==) :: k -> k -> Bool
 type family a == b where
+  -- This extra case is needed to solve the equation "a == a" (where a is a
+  -- KRel8able), which occurs when we have polymorphic Rel8ables
+  -- (e.g., newtype T t f = T { x :: t a })
+  (a :: KRel8able) == (a :: KRel8able) = 'True
+
   -- This extra case is needed to solve the equation "a == Identity a", 
   -- which occurs when we have polymorphic Rel8ables 
   -- (e.g., newtype T a f = T { x :: Column f a })
