@@ -84,6 +84,18 @@ data Upsert names where
       -- ^ Which rows to select for update.
     }
     -> Upsert names
+  PartialUpsert :: (Selects names exprs, Projecting names index, excluded ~ exprs) =>
+    { index :: Projection names index
+      -- ^ The set of conflict targets, projected from the set of columns for
+      -- the whole table
+    , indexWhere :: exprs -> Expr Bool
+      -- ^ Index predicate for partial index support
+    , set :: excluded -> exprs -> exprs
+      -- ^ How to update each selected row.
+    , updateWhere :: excluded -> exprs -> Expr Bool
+      -- ^ Which rows to select for update.
+    }
+    -> Upsert names
 
 
 ppOnConflict :: TableSchema names -> OnConflict names -> Doc
@@ -97,6 +109,18 @@ ppUpsert :: TableSchema names -> Upsert names -> Doc
 ppUpsert schema@TableSchema {columns} Upsert {..} =
   text "ON CONFLICT" <+>
   ppIndex columns index <+> foldMap (ppPredicate columns) predicate <+>
+  text "DO UPDATE" $$
+  ppSet schema (set excluded) $$
+  ppWhere schema (updateWhere excluded)
+  where
+    excluded = attributes TableSchema
+      { name = "excluded"
+      , columns
+      }
+ppUpsert schema@TableSchema {columns} PartialUpsert {..} =
+  text "ON CONFLICT" <+>
+  ppIndex columns index <+>
+  ppWhere schema indexWhere <+>
   text "DO UPDATE" $$
   ppSet schema (set excluded) $$
   ppWhere schema (updateWhere excluded)
