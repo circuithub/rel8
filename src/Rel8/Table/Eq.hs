@@ -23,6 +23,7 @@ import Data.Foldable ( foldl' )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty( (:|) ) )
+import Data.Tuple ( Solo )
 import GHC.Generics ( Rep )
 import Prelude
 
@@ -64,6 +65,10 @@ type instance Eval (TEqTable a) = EqTable a
 
 instance Sql DBEq a => EqTable (Expr a) where
   eqTable = HIdentity Dict
+
+
+instance EqTable a => EqTable (Solo a) where
+  eqTable = eqTable @a
 
 
 instance (EqTable a, EqTable b) => EqTable (a, b)

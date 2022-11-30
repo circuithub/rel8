@@ -25,6 +25,7 @@ where
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
 import Data.Kind ( Constraint, Type )
+import Data.Tuple ( Solo( Solo ) )
 import GHC.Generics ( Generic, Rep, from, to )
 import Prelude hiding ( null )
 
@@ -179,6 +180,18 @@ type instance Eval (TSerialize expr a) =
   ( Table (Context expr) expr
   , a ~ FromExprs expr
   )
+
+
+instance Table context a => Table context (Solo a) where
+  type Columns (Solo a) = Columns a
+  type Context (Solo a) = Context a
+  type FromExprs (Solo a) = Solo (FromExprs a)
+  type Transpose to (Solo a) = Solo (Transpose to a)
+
+  toColumns (Solo a) = toColumns a
+  fromColumns = Solo . fromColumns
+  toResult (Solo a) = toResult @_ @a a
+  fromResult = Solo . fromResult @_ @a
 
 
 instance (Table context a, Table context b) => Table context (a, b)

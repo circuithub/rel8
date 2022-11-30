@@ -20,6 +20,7 @@ where
 -- base
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
+import Data.Tuple ( Solo )
 import GHC.Generics ( Rep )
 import Prelude hiding ( seq )
 
@@ -64,6 +65,10 @@ type instance Eval (TOrdTable a) = OrdTable a
 
 instance Sql DBOrd a => OrdTable (Expr a) where
   ordTable = HIdentity Dict
+
+
+instance OrdTable a => OrdTable (Solo a) where
+  ordTable = ordTable @a
 
 
 instance (OrdTable a, OrdTable b) => OrdTable (a, b)
