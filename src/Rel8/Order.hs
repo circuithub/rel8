@@ -16,7 +16,6 @@ import Prelude
 import Data.Functor.Contravariant.Divisible ( Decidable, Divisible )
 
 -- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Order as Opaleye
 
 

@@ -275,6 +275,26 @@ module Rel8
   , nullsLast
 
     -- ** Window functions
+  , Window
+  , window
+  , Partition
+  , over
+  , partitionBy
+  , orderPartitionBy
+  , cumulative
+  , cumulative_
+  , currentRow
+  , rowNumber
+  , rank
+  , denseRank
+  , percentRank
+  , cumeDist
+  , ntile
+  , lag
+  , lead
+  , firstValue
+  , lastValue
+  , nthValue
   , indexed
 
     -- ** Bindings
@@ -314,6 +334,7 @@ module Rel8
 
     -- ** @CREATE VIEW@
   , createView
+  , createOrReplaceView
 
     -- ** Sequences
   , nextval
@@ -347,6 +368,7 @@ import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
 import Rel8.Expr.Text ( like, ilike )
+import Rel8.Expr.Window hiding ( cumulative )
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query
@@ -368,6 +390,7 @@ import Rel8.Query.SQL (showQuery)
 import Rel8.Query.Set
 import Rel8.Query.These
 import Rel8.Query.Values
+import Rel8.Query.Window
 import Rel8.Schema.Field
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
@@ -403,6 +426,7 @@ import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize
 import Rel8.Table.These
 import Rel8.Table.Transpose
+import Rel8.Table.Window
 import Rel8.Type
 import Rel8.Type.Composite
 import Rel8.Type.Eq
@@ -417,6 +441,7 @@ import Rel8.Type.ReadShow
 import Rel8.Type.Semigroup
 import Rel8.Type.String
 import Rel8.Type.Sum
+import Rel8.Window
 
 
 -- $running

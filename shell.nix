@@ -1,6 +1,6 @@
 let
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs {};
+  pkgs = import sources.nixpkgs {overlays = [];};
   hsPkgs = import ./default.nix;
 in
   hsPkgs.shellFor {

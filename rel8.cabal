@@ -82,6 +82,7 @@ library
     Rel8.Expr.Order
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
+    Rel8.Expr.Window
 
     Rel8.FCF
 
@@ -120,6 +121,7 @@ library
     Rel8.Query.SQL
     Rel8.Query.These
     Rel8.Query.Values
+    Rel8.Query.Window
 
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
@@ -179,6 +181,7 @@ library
     Rel8.Table.These
     Rel8.Table.Transpose
     Rel8.Table.Undefined
+    Rel8.Table.Window
 
     Rel8.Type
     Rel8.Type.Array
@@ -196,6 +199,9 @@ library
     Rel8.Type.String
     Rel8.Type.Sum
     Rel8.Type.Tag
+
+    Rel8.Window
+
 
 test-suite tests
   type:             exitcode-stdio-1.0
