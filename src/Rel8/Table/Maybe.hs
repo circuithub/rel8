@@ -142,7 +142,7 @@ instance (Table context a, Reifiable context, context ~ context') =>
 
   toColumns MaybeTable {tag, just} = HMaybeTable
     { htag = hlabel $ HIdentity tag
-    , hjust = hlabel $ guard tag isJust isNonNull $ toColumns just
+    , hjust = hlabel $ toColumns just
     }
 
   fromColumns HMaybeTable {htag, hjust} = MaybeTable
