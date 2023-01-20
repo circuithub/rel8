@@ -1,4 +1,26 @@
-# 1.4.0.0 (2002-08-17)
+# 1.4.1.0 (2023-01-19)
+
+## New features
+
+* Rel8 now supports window functions. See the "Window functions" section of the `Rel8` module documentation for more details. ([#182](https://github.com/circuithub/rel8/pull/182))
+* `Query` now has `Monoid` and `Semigroup` instances. ([#207](https://github.com/circuithub/rel8/pull/207))
+* `createOrReplaceView` has been added (to run `CREATE OR REPLACE VIEW`). ([#209](https://github.com/circuithub/rel8/pull/209) and [#212](https://github.com/circuithub/rel8/pull/212))
+* `deriving Rel8able` now supports more polymorphism. ([#215](https://github.com/circuithub/rel8/pull/215))
+* Support GHC 9.4 ([#199](https://github.com/circuithub/rel8/pull/199))
+
+## Bug fixes
+
+* Insertion of `DEFAULT` values has been fixed. ([#206](https://github.com/circuithub/rel8/pull/206))
+* Avoid some exponential SQL generation in `Rel8.Tabulate.alignWith`. ([#213](https://github.com/circuithub/rel8/pull/213))
+* `nextVal` has been fixed to work with case-sensitive sequence names. ([#217](https://github.com/circuithub/rel8/pull/217))
+
+## Other
+
+* Correct the documentation for "Supplying `Rel8able` instances" ([#200](https://github.com/circuithub/rel8/pull/200))
+* Removed some redundant internal code ([#202](https://github.com/circuithub/rel8/pull/202))
+* Rel8 is now less dependant on the internal Opaleye API. ([#204](https://github.com/circuithub/rel8/pull/204))
+
+# 1.4.0.0 (2022-08-17)
 
 ## Breaking changes
 
