@@ -6,6 +6,7 @@
 * `Query` now has `Monoid` and `Semigroup` instances. ([#207](https://github.com/circuithub/rel8/pull/207))
 * `createOrReplaceView` has been added (to run `CREATE OR REPLACE VIEW`). ([#209](https://github.com/circuithub/rel8/pull/209) and [#212](https://github.com/circuithub/rel8/pull/212))
 * `deriving Rel8able` now supports more polymorphism. ([#215](https://github.com/circuithub/rel8/pull/215))
+* Support GHC 9.4 ([#199](https://github.com/circuithub/rel8/pull/199))
 
 ## Bug fixes
 
