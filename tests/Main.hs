@@ -89,6 +89,7 @@ import qualified Data.UUID
 
 -- ip
 import Network.IP.Addr (NetAddr(..), IP(..), IP4(..), IP6(..))
+import Data.DoubleWord (Word128(..))
 
 main :: IO ()
 main = defaultMain tests
