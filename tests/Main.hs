@@ -435,7 +435,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     dbTypeTest :: (Eq a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator int)) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
     t :: forall a b. (Eq a, Show a, Rel8.Sql Rel8.DBType a)
