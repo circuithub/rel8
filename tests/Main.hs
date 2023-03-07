@@ -87,6 +87,8 @@ import qualified Database.Postgres.Temp as TmpPostgres
 -- uuid
 import qualified Data.UUID
 
+-- ip
+import Network.IP.Addr (NetAddr(..), IP(..), IP4(..), IP6(..))
 
 main :: IO ()
 main = defaultMain tests
@@ -425,13 +427,14 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
+  , dbTypeTest "INet" genNetAddrIP
   ]
 
   where
     dbTypeTest :: (Eq a, Show a, Rel8.DBType a) => TestName -> Gen a -> TestTree
     dbTypeTest name generator = testGroup name
       [ databasePropertyTest name (t generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator int)) getTestDatabase
       ]
 
     t :: forall a b. (Eq a, Show a, Rel8.Sql Rel8.DBType a)
@@ -468,6 +471,26 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
+
+    genWord128 :: Gen Word128
+    genWord128 = Gen.integral Range.linearBounded
+
+    genNetAddrIP  :: Gen (NetAddr IP)
+    genNetAddrIP =
+      let genIP4Mask :: Gen Word8
+          genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
+
+          genIPv4 :: Gen IP
+          genIPv4 = IPv4 . IP4 <$> genWord32
+
+          genIP6Mask :: Gen Word8
+          genIP6Mask = Gen.integral (Range.linearBounded 0 0 128)
+
+          genIPv6 :: Gen IP
+          genIPv6 = IPv6 . IP6 <$> genWord128
+       in Gen.choice [ liftA2 NetAddr genIPv4 genIP4Mask
+                     , liftA2 NetAddr genIPv6 genIP6Mask
+                     ]
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree

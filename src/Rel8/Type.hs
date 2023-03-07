@@ -65,6 +65,8 @@ import Data.Time.Format ( formatTime, defaultTimeLocale )
 import Data.UUID ( UUID )
 import qualified Data.UUID as UUID
 
+-- ip
+import Network.IP.Addr (NetAddr, IP, printNetAddr)
 
 -- | Haskell types that can be represented as expressions in a database. There
 -- should be an instance of @DBType@ for all column types in your database
@@ -277,6 +279,15 @@ instance DBType Value where
         Lazy.unpack . Lazy.decodeUtf8 . Aeson.encode
     , decode = Hasql.jsonb
     , typeName = "jsonb"
+    }
+
+-- | Corresponds to @inet@
+instance DBType (NetAddr IP) where
+  typeInformation = TypeInformation
+    { encode =
+        Opaleye.ConstExpr . Opaleye.StringLit . printNetAddr
+    , decode = Hasql.inet
+    , typeName = "inet"
     }
 
 
