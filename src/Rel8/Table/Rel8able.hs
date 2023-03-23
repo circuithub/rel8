@@ -5,6 +5,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 {-# options_ghc -fno-warn-orphans #-}
@@ -15,6 +16,7 @@ module Rel8.Table.Rel8able
 where
 
 -- base
+import Data.Type.Equality (type (~))
 import Prelude ()
 
 -- rel8

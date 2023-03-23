@@ -7,6 +7,7 @@
 {-# language RankNTypes #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 
