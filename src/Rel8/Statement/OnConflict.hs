@@ -6,6 +6,7 @@
 {-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
 {-# language StrictData #-}
+{-# language TypeOperators #-}
 
 module Rel8.Statement.OnConflict
   ( OnConflict(..)

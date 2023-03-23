@@ -3,6 +3,7 @@
 {-# language FunctionalDependencies #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Transpose
@@ -12,6 +13,7 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
+import Data.Type.Equality (type (~))
 import Prelude ()
 
 -- rel8

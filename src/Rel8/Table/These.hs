@@ -10,6 +10,7 @@
 {-# language TupleSections #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 {-# options_ghc -fno-warn-orphans #-}

@@ -9,6 +9,7 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Table.Maybe
