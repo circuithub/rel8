@@ -478,20 +478,20 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genNetAddrIP  :: Gen (NetAddr IP)
     genNetAddrIP =
-      let genIP4Mask :: Gen Word8
-          genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
+      let
+        genIP4Mask :: Gen Word8
+        genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
 
-          genIPv4 :: Gen (IP46 Net4Addr Net6Addr)
-          genIPv4 = IPv4 <$> (liftA2 net4Addr (IP4 <$> genWord32) genIP4Mask)
+        genIPv4 :: Gen (IP46 Net4Addr Net6Addr)
+        genIPv4 = IPv4 <$> (liftA2 net4Addr (IP4 <$> genWord32) genIP4Mask)
 
-          genIP6Mask :: Gen Word8
-          genIP6Mask = Gen.integral (Range.linearFrom 0 0 128)
+        genIP6Mask :: Gen Word8
+        genIP6Mask = Gen.integral (Range.linearFrom 0 0 128)
 
-          genIPv6 :: Gen (IP46 Net4Addr Net6Addr)
-          genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
-       in fromNetAddr46 <$> Gen.choice [ genIPv4
-                                       , genIPv6
-                                       ]
+        genIPv6 :: Gen (IP46 Net4Addr Net6Addr)
+        genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
+
+       in fromNetAddr46 <$> Gen.choice [ genIPv4, genIPv6 ]
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
