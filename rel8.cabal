@@ -112,6 +112,8 @@ library
     Rel8.Query.Indexed
     Rel8.Query.Limit
     Rel8.Query.List
+    Rel8.Query.Loop
+    Rel8.Query.Materialize
     Rel8.Query.Maybe
     Rel8.Query.Null
     Rel8.Query.Opaleye
