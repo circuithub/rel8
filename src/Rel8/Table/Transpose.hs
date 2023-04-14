@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
@@ -13,7 +14,9 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
+#if __GLASGOW_HASKELL__ >= 904
 import Data.Type.Equality (type (~))
+#endif
 import Prelude ()
 
 -- rel8
