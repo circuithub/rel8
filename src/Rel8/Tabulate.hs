@@ -636,13 +636,13 @@ difference a b = a <* absent b
 
 -- | 'Q.materialize' for 'Tabulation's.
 materialize :: (Table Expr k, Table Expr a)
-  => Tabulation k a -> Query (Tabulation k a)
-materialize tabulation = case peek tabulation of
+  => Tabulation k a -> (Tabulation k a -> Query b) -> Query b
+materialize tabulation f = case peek tabulation of
   Tabulation query -> do
     (_, equery) <- query mempty
     case equery of
-      Left as -> liftQuery <$> Q.materialize as
-      Right kas -> fromQuery <$> Q.materialize kas
+      Left as -> Q.materialize as (f . liftQuery)
+      Right kas -> Q.materialize kas (f . fromQuery)
 
 
 -- | 'Tabulation's can be produced with either 'fromQuery' or 'liftQuery', and

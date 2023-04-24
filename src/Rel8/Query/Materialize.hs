@@ -14,6 +14,7 @@ import Opaleye.With ( withExplicit )
 import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye, toOpaleye )
+import Rel8.Query.Rebind ( rebind )
 import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( unpackspec )
 
@@ -32,6 +33,11 @@ import Rel8.Table.Opaleye ( unpackspec )
 -- 'materialize' to use the newer @WITH foo AS MATERIALIZED bar@ syntax
 -- introduced in PostgreSQL 12 in the future. Currently Rel8 does not use
 -- @AS MATERIALIZED@ to support earlier PostgreSQL versions.
-materialize :: Table Expr a => Query a -> Query (Query a)
-materialize query = fromOpaleye $
-  withExplicit unpackspec (toOpaleye query) (pure . fromOpaleye)
+materialize :: Table Expr a => Query a -> (Query a -> Query b) -> Query b
+materialize query f =
+  fromOpaleye $
+    withExplicit unpackspec
+      (toOpaleye query')
+      (toOpaleye . f . fromOpaleye)
+  where
+    query' = query >>= rebind "with"
