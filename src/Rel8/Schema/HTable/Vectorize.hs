@@ -19,7 +19,7 @@
 
 module Rel8.Schema.HTable.Vectorize
   ( HVectorize
-  , hvectorize, hunvectorize
+  , hvectorize, hvectorizeA, hunvectorize
   , happend, hempty
   , hproject
   , hcolumn
@@ -36,7 +36,9 @@ import Prelude
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable
+  ( HField, HTable, hfield, htabulate, htabulateA, hspecs
+  )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.MapTable
   ( HMapTable( HMapTable ), HMapTableField( HMapTableField )
@@ -51,6 +53,9 @@ import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
 import Data.Zip ( Unzip, Zip, Zippy(..) )
+
+-- semigroupoids
+import Data.Functor.Apply (Apply)
 
 
 type Vector :: (Type -> Type) -> Constraint
@@ -102,6 +107,16 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
   case hfield hspecs field of
     spec -> vectorizer spec (fmap (`hfield` field) as)
 {-# INLINABLE hvectorize #-}
+
+
+hvectorizeA :: (HTable t, Apply f, Vector list)
+  => (forall a. Spec a -> HField t a -> f (context' (list a)))
+  -> f (HVectorize list t context')
+hvectorizeA vectorizer = fmap HVectorize $
+  htabulateA $ \(HMapTableField field) ->
+    case hfield hspecs field of
+      spec -> vectorizer spec field
+{-# INLINABLE hvectorizeA #-}
 
 
 hunvectorize :: (HTable t, Zip f, Vector list)

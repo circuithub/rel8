@@ -602,7 +602,7 @@ testAggregateMaybeTable = databasePropertyTest "aggregateMaybeTable" \transactio
   transaction do
     selected <- lift do
       statement () $ Rel8.select do
-        Rel8.aggregate $ Rel8.aggregateMaybeTable Rel8.sum <$> Rel8.values (Rel8.lit <$> rows)
+        Rel8.aggregate1 (Rel8.aggregateMaybeTable Rel8.sum) $ Rel8.values (Rel8.lit <$> rows)
 
     sort selected === aggregate rows
 

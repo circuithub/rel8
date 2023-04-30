@@ -20,10 +20,10 @@ import Rel8.Table.Opaleye ( unpackspec )
 
 
 -- | 'materialize' takes a 'Query' and fully evaluates it and caches the
--- results thereof, and returns a new 'Query' that simply looks up these
--- cached results. It's usually best not to use this and to let the Postgres
--- optimizer decide for itself what's best, but if you know what you're doing
--- this can sometimes help to nudge it in a particular direction.
+-- results thereof, and passes to a continuation a new 'Query' that simply
+-- looks up these cached results. It's usually best not to use this and to let
+-- the Postgres optimizer decide for itself what's best, but if you know what
+-- you're doing this can sometimes help to nudge it in a particular direction.
 --
 -- 'materialize' is currently implemented in terms of Postgres'
 -- [@WITH](https://www.postgresql.org/docs/current/queries-with.html) syntax.

@@ -29,14 +29,17 @@ import Prelude
 -- comonad
 import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
 
+-- profunctors
+import Data.Profunctor (dimap)
+
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate (Aggregator')
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (||.), false )
 import qualified Rel8.Expr.Null as Expr
 import Rel8.Kind.Context ( Reifiable, contextSing )
 import Rel8.Schema.Context.Nullify
-  ( Nullifiability( NAggregate, NExpr )
+  ( Nullifiability( NExpr )
   , NonNullifiability
   , Nullifiable, nullifiability
   , nullifiableOrNot, absurd
@@ -175,12 +178,14 @@ instance (OrdTable a, context ~ Expr) => OrdTable (Nullify context a) where
 
 
 aggregateNullify :: ()
-  => (exprs -> aggregates)
-  -> Nullify Expr exprs
-  -> Nullify Aggregate aggregates
-aggregateNullify f = \case
-  Table _ a -> Table NAggregate (f a)
-  Fields notNullifiable _ -> absurd NExpr notNullifiable
+  => Aggregator' fold i a
+  -> Aggregator' fold (Nullify Expr i) (Nullify Expr a)
+aggregateNullify = dimap from to
+  where
+    from = \case
+      Table _ a -> a
+      Fields notNullifiable _ -> absurd NExpr notNullifiable
+    to = Table NExpr
 
 
 guard :: (Reifiable context, HTable t)

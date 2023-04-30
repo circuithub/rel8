@@ -135,9 +135,6 @@ module Rel8
   , BuildADT, buildADT
   , ConstructADT, constructADT
 
-    -- *** Other ADT operations
-  , AggregateADT, aggregateADT
-
     -- *** Miscellaneous notes
     -- $misc-notes
 
@@ -147,7 +144,6 @@ module Rel8
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
   , NameHKD, nameHKD
-  , AggregateHKD, aggregateHKD
 
     -- ** Table schemas
   , TableSchema(..)
@@ -253,24 +249,34 @@ module Rel8
   , loop
 
     -- ** Aggregation
-  , Aggregate
-  , Aggregates
+  , Aggregator
+  , Aggregator1
+  , Aggregator'
+  , Fold (Semi, Full)
+  , toAggregator
+  , toAggregator1
   , aggregate
+  , aggregate1
+  , filterWhere
+  , filterWhereOptional
+  , distinctAggregate
+  , orderAggregateBy
+  , optionalAggregate
   , countRows
-  , groupBy
-  , listAgg, listAggExpr
+  , groupBy, groupByOn
+  , listAgg, listAggOn, listAggExpr, listAggExprOn
   , mode
-  , nonEmptyAgg, nonEmptyAggExpr
-  , DBMax, max
-  , DBMin, min
-  , DBSum, sum, sumWhere, avg
+  , nonEmptyAgg, nonEmptyAggOn, nonEmptyAggExpr, nonEmptyAggExprOn
+  , DBMax, max, maxOn
+  , DBMin, min, minOn
+  , DBSum, sum, sumOn, sumWhere, avg, avgOn
   , DBString, stringAgg
-  , count
+  , count, countOn
   , countStar
-  , countDistinct
-  , countWhere
-  , and
-  , or
+  , countDistinct, countDistinctOn
+  , countWhere, countWhereOn
+  , and, andOn
+  , or, orOn
 
     -- ** Ordering
   , orderBy
@@ -288,7 +294,6 @@ module Rel8
   , partitionBy
   , orderPartitionBy
   , cumulative
-  , cumulative_
   , currentRow
   , rowNumber
   , rank
@@ -296,11 +301,11 @@ module Rel8
   , percentRank
   , cumeDist
   , ntile
-  , lag
-  , lead
-  , firstValue
-  , lastValue
-  , nthValue
+  , lag, lagOn
+  , lead, leadOn
+  , firstValue, firstValueOn
+  , lastValue, lastValueOn
+  , nthValue, nthValueOn
   , indexed
 
     -- ** Bindings
@@ -352,6 +357,7 @@ import Prelude ()
 
 -- rel8
 import Rel8.Aggregate
+import Rel8.Aggregate.Fold
 import Rel8.Column
 import Rel8.Column.ADT
 import Rel8.Column.Either
@@ -374,7 +380,7 @@ import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
 import Rel8.Expr.Text ( like, ilike )
-import Rel8.Expr.Window hiding ( cumulative )
+import Rel8.Expr.Window
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query

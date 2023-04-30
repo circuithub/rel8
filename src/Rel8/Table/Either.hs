@@ -33,10 +33,13 @@ import Prelude hiding ( undefined )
 -- comonad
 import Control.Comonad ( extract )
 
+-- profunctors
+import Data.Profunctor (lmap)
+
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate (Aggregator', Aggregator1, toAggregator1)
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( groupByExpr )
+import Rel8.Expr.Aggregate (groupByExprOn)
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Kind.Context ( Reifiable )
 import Rel8.Schema.Context.Nullify ( Nullifiable )
@@ -215,18 +218,17 @@ rightTable :: Table Expr a => b -> EitherTable Expr a b
 rightTable = EitherTable (litExpr IsRight) undefined . pure
 
 
--- | Lift a pair of aggregating functions to operate on an 'EitherTable'.
--- @leftTable@s and @rightTable@s are grouped separately.
+-- | Lift a pair aggregators to operate on an 'EitherTable'. @leftTable@s and
+-- @rightTable@s are grouped separately.
 aggregateEitherTable :: ()
-  => (exprs -> aggregates)
-  -> (exprs' -> aggregates')
-  -> EitherTable Expr exprs exprs'
-  -> EitherTable Aggregate aggregates aggregates'
-aggregateEitherTable f g (EitherTable tag a b) = EitherTable
-  { tag = groupByExpr tag
-  , left = aggregateNullify f a
-  , right = aggregateNullify g b
-  }
+  => Aggregator' fold i a
+  -> Aggregator' fold' i' b
+  -> Aggregator1 (EitherTable Expr i i') (EitherTable Expr a b)
+aggregateEitherTable a b =
+  EitherTable
+    <$> groupByExprOn tag
+    <*> lmap left (toAggregator1 (aggregateNullify a))
+    <*> lmap right (toAggregator1 (aggregateNullify b))
 
 
 -- | Construct a 'EitherTable' in the 'Name' context. This can be useful if you

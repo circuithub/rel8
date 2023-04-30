@@ -23,17 +23,14 @@ import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( listAggExpr, nonEmptyAggExpr )
 import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
-import Rel8.Query.Aggregate ( aggregate )
-import Rel8.Query.Maybe ( optional )
-import Rel8.Query.Rebind ( hrebind, rebind )
+import Rel8.Query.Aggregate (aggregate, aggregate1)
+import Rel8.Query.Rebind (hrebind, rebind)
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table ( Table, fromColumns )
-import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
-import Rel8.Table.Maybe ( maybeTable )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array ( extractArrayElement )
@@ -48,11 +45,7 @@ import Rel8.Type.Information ( TypeInformation )
 -- @many@ is analogous to 'Control.Applicative.many' from
 -- @Control.Applicative@.
 many :: Table Expr a => Query a -> Query (ListTable Expr a)
-many =
-  fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
-  optional .
-  aggregate .
-  fmap (listAgg . toCols)
+many = aggregate listAgg
 
 
 -- | Aggregate a 'Query' into a 'NonEmptyTable'. If the supplied query returns
@@ -64,20 +57,17 @@ many =
 -- @some@ is analogous to 'Control.Applicative.some' from
 -- @Control.Applicative@.
 some :: Table Expr a => Query a -> Query (NonEmptyTable Expr a)
-some =
-  fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
-  aggregate .
-  fmap (nonEmptyAgg . toCols)
+some = aggregate1 nonEmptyAgg
 
 
 -- | A version of 'many' specialised to single expressions.
 manyExpr :: Sql DBType a => Query (Expr a) -> Query (Expr [a])
-manyExpr = fmap (maybeTable mempty id) . optional . aggregate . fmap listAggExpr
+manyExpr = aggregate listAggExpr
 
 
 -- | A version of 'many' specialised to single expressions.
 someExpr :: Sql DBType a => Query (Expr a) -> Query (Expr (NonEmpty a))
-someExpr = aggregate . fmap nonEmptyAggExpr
+someExpr = aggregate1 nonEmptyAggExpr
 
 
 -- | Expand a 'ListTable' into a 'Query', where each row in the query is an
