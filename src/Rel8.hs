@@ -201,6 +201,7 @@ module Rel8
   , Arguments
   , function
   , binaryOperator
+  , queryFunction
 
     -- * Queries
   , Query
@@ -408,6 +409,7 @@ import Rel8.Query.Either
 import Rel8.Query.Evaluate
 import Rel8.Query.Exists
 import Rel8.Query.Filter
+import Rel8.Query.Function
 import Rel8.Query.Indexed
 import Rel8.Query.Limit
 import Rel8.Query.List

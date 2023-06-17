@@ -16,6 +16,7 @@ module Rel8.Table.Opaleye
   , exprs
   , exprsWithNames
   , ifPP
+  , relExprPP
   , table
   , tableFields
   , unpackspec
@@ -34,6 +35,7 @@ import Prelude
 import qualified Opaleye.Adaptors as Opaleye
 import qualified Opaleye.Field as Opaleye ( Field_ )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.Operators as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
 
@@ -100,6 +102,10 @@ ifPP :: Table Expr a => Opaleye.IfPP a a
 ifPP = fromOpaleyespec Opaleye.ifPPField
 
 
+relExprPP :: Table Expr a => Opaleye.RelExprPP a a
+relExprPP = fromOpaleyespec Opaleye.relExprColumn
+
+
 table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
 table (TableSchema (QualifiedName name schema) columns) =
   case schema of
@@ -128,7 +134,8 @@ unpackspec = fromOpaleyespec Opaleye.unpackspecField
 valuesspec :: Table Expr a => Opaleye.Valuesspec a a
 valuesspec = dimap toColumns fromColumns $
   htraversePWithField (traverseFieldP . Opaleye.valuesspecFieldType . typeName)
-  where typeName = Rel8.Type.Information.typeName . info . hfield hspecs
+  where
+    typeName = Rel8.Type.Information.typeName . info . hfield hspecs
 
 
 view :: Selects names exprs => names -> exprs

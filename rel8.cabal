@@ -29,7 +29,7 @@ library
     , contravariant
     , hasql ^>= 1.6.1.2
     , network-ip
-    , opaleye ^>= 0.9.7.0
+    , opaleye ^>= 0.10.0.0
     , pretty
     , profunctors
     , product-profunctors
@@ -116,6 +116,7 @@ library
     Rel8.Query.Evaluate
     Rel8.Query.Exists
     Rel8.Query.Filter
+    Rel8.Query.Function
     Rel8.Query.Indexed
     Rel8.Query.Limit
     Rel8.Query.List
