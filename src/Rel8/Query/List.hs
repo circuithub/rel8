@@ -25,7 +25,7 @@ import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate ( aggregate )
 import Rel8.Query.Maybe ( optional )
-import Rel8.Query.Rebind ( rebind )
+import Rel8.Query.Rebind ( hrebind, rebind )
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
@@ -86,7 +86,7 @@ someExpr = aggregate . fmap nonEmptyAggExpr
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
 catListTable (ListTable as) =
-  rebind "unnest" $ fromColumns $ runIdentity $
+  fmap fromColumns $ hrebind "unnest" $ runIdentity $
     hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
@@ -96,7 +96,7 @@ catListTable (ListTable as) =
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
 catNonEmptyTable (NonEmptyTable as) =
-  rebind "unnest" $ fromColumns $ runIdentity $
+  fmap fromColumns $ hrebind "unnest" $ runIdentity $
     hunvectorize (\Spec {info} -> pure . sunnest info) as
 
 
