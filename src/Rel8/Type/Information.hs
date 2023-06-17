@@ -11,12 +11,8 @@ module Rel8.Type.Information
 where
 
 -- base
-import Data.Bifunctor ( first )
 import Data.Kind ( Type )
 import Prelude
-
--- hasql
-import qualified Hasql.Decoders as Hasql
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -25,7 +21,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Type.Name (TypeName)
 
 -- text
-import qualified Data.Text as Text
+import Rel8.Type.Decoder (Decoder, parseDecoder)
 
 
 -- | @TypeInformation@ describes how to encode and decode a Haskell type to and
@@ -35,7 +31,7 @@ type TypeInformation :: Type -> Type
 data TypeInformation a = TypeInformation
   { encode :: a -> Opaleye.PrimExpr
     -- ^ How to encode a single Haskell value as a SQL expression.
-  , decode :: Hasql.Value a
+  , decode :: Decoder a
     -- ^ How to deserialize a single result back to Haskell.
   , typeName :: TypeName
     -- ^ The name of the SQL type.
@@ -66,6 +62,6 @@ parseTypeInformation :: ()
 parseTypeInformation to from TypeInformation {encode, decode, typeName} =
   TypeInformation
     { encode = encode . from
-    , decode = Hasql.refine (first Text.pack . to) decode
+    , decode = parseDecoder to decode
     , typeName
     }
