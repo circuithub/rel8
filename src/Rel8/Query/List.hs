@@ -26,17 +26,16 @@ import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate (aggregate, aggregate1)
 import Rel8.Query.Rebind (hrebind, rebind)
-import Rel8.Schema.HTable (hfield, hspecs, htabulate)
+import Rel8.Schema.HTable (HTable, hfield, hspecs, htabulate)
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
-import Rel8.Schema.Null ( Sql, Unnullify )
+import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table (Table, fromColumns, toColumns)
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
-import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type ( DBType )
 import Rel8.Type.Array ( extractArrayElement )
-import Rel8.Type.Information ( TypeInformation )
 
 
 -- | Aggregate a 'Query' into a 'ListTable'. If the supplied query returns 0
@@ -78,7 +77,7 @@ someExpr = aggregate1 nonEmptyAggExpr
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
 catListTable (ListTable as) =
-  (>>= extract) $ fmap fromColumns $ hrebind "unnest" $ runIdentity $
+  fmap fromColumns $ (hrebind "unnest" >=> hextract) $ runIdentity $
     hunvectorize (\_ -> pure . unnest) as
 
 
@@ -88,7 +87,7 @@ catListTable (ListTable as) =
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
 catNonEmptyTable (NonEmptyTable as) =
-  (>>= extract) $ fmap fromColumns $ hrebind "unnest" $ runIdentity $
+  fmap fromColumns $ (hrebind "unnest" >=> hextract) $ runIdentity $
     hunvectorize (\_ -> pure . unnest) as
 
 
@@ -113,7 +112,11 @@ unnest = mapPrimExpr $ Opaleye.UnExpr (Opaleye.UnOpOther "UNNEST")
 
 
 extract :: Table Expr a => a -> Query a
-extract = rebind "extract" . fromColumns . go . toColumns
+extract = fmap fromColumns . hextract . toColumns
+
+
+hextract :: HTable t => t Expr -> Query (t Expr)
+hextract = hrebind "extract" . go
   where
     go as = htabulate $ \field ->
       case hfield as field of
