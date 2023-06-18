@@ -2,6 +2,7 @@
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
+{-# language TypeApplications #-}
 {-# language ViewPatterns #-}
 
 module Rel8.Type.Array
@@ -96,5 +97,33 @@ encodeArrayElement info
 
 extractArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 extractArrayElement info
-  | isArray info = flip Opaleye.CompositeExpr "f1"
+  | isArray info = extract
   | otherwise = id
+  where
+    extract input = cast unrow
+      where
+        string = Opaleye.ConstExpr . Opaleye.StringLit
+        int = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger @Int
+        minus a b = Opaleye.BinExpr (Opaleye.:-) a b
+        len = Opaleye.FunExpr "length" . pure
+        substr s a b = Opaleye.FunExpr "substr" [s, a, b]
+        cast = Opaleye.CastExpr (typeName info)
+        text = Opaleye.CastExpr "text" input
+        unrow =
+          Opaleye.CaseExpr
+            [ (quoted, unquote)
+            ]
+            unparen
+          where
+            quoted = Opaleye.BinExpr Opaleye.OpLike text pattern
+              where
+                pattern = string "(\"%\")"
+        unparen = unwrap 1
+        unwrap n = substr text (int (1 + n)) (minus (len text) (int (n * 2)))
+        unquote = unescape '"' $ unescape '\\' $ unwrap 2
+          where
+            unescape char a =
+              Opaleye.FunExpr "replace" [a, pattern, replacement]
+                where
+                  pattern = string [char, char]
+                  replacement = string [char]

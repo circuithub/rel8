@@ -11,6 +11,7 @@ module Rel8.Query.List
 where
 
 -- base
+import Control.Monad ((>=>))
 import Data.Functor.Identity ( runIdentity )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -25,10 +26,11 @@ import Rel8.Expr.Opaleye ( mapPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Aggregate (aggregate, aggregate1)
 import Rel8.Query.Rebind (hrebind, rebind)
+import Rel8.Schema.HTable (hfield, hspecs, htabulate)
 import Rel8.Schema.HTable.Vectorize ( hunvectorize )
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
-import Rel8.Table ( Table, fromColumns )
+import Rel8.Table (Table, fromColumns, toColumns)
 import Rel8.Table.Aggregate ( listAgg, nonEmptyAgg )
 import Rel8.Table.List ( ListTable( ListTable ) )
 import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
@@ -76,8 +78,8 @@ someExpr = aggregate1 nonEmptyAggExpr
 -- @catListTable@ is an inverse to 'many'.
 catListTable :: Table Expr a => ListTable Expr a -> Query a
 catListTable (ListTable as) =
-  fmap fromColumns $ hrebind "unnest" $ runIdentity $
-    hunvectorize (\Spec {info} -> pure . sunnest info) as
+  (>>= extract) $ fmap fromColumns $ hrebind "unnest" $ runIdentity $
+    hunvectorize (\_ -> pure . unnest) as
 
 
 -- | Expand a 'NonEmptyTable' into a 'Query', where each row in the query is an
@@ -86,8 +88,8 @@ catListTable (ListTable as) =
 -- @catNonEmptyTable@ is an inverse to 'some'.
 catNonEmptyTable :: Table Expr a => NonEmptyTable Expr a -> Query a
 catNonEmptyTable (NonEmptyTable as) =
-  fmap fromColumns $ hrebind "unnest" $ runIdentity $
-    hunvectorize (\Spec {info} -> pure . sunnest info) as
+  (>>= extract) $ fmap fromColumns $ hrebind "unnest" $ runIdentity $
+    hunvectorize (\_ -> pure . unnest) as
 
 
 -- | Expand an expression that contains a list into a 'Query', where each row
@@ -95,7 +97,7 @@ catNonEmptyTable (NonEmptyTable as) =
 --
 -- @catList@ is an inverse to 'manyExpr'.
 catList :: Sql DBType a => Expr [a] -> Query (Expr a)
-catList = rebind "unnest" . sunnest typeInformation
+catList = rebind "unnest" . unnest >=> extract
 
 
 -- | Expand an expression that contains a non-empty list into a 'Query', where
@@ -103,10 +105,17 @@ catList = rebind "unnest" . sunnest typeInformation
 --
 -- @catNonEmpty@ is an inverse to 'someExpr'.
 catNonEmpty :: Sql DBType a => Expr (NonEmpty a) -> Query (Expr a)
-catNonEmpty = rebind "unnest" . sunnest typeInformation
+catNonEmpty = rebind "unnest" . unnest >=> extract
 
 
-sunnest :: TypeInformation (Unnullify a) -> Expr (list a) -> Expr a
-sunnest info = mapPrimExpr $
-  extractArrayElement info .
-  Opaleye.UnExpr (Opaleye.UnOpOther "UNNEST")
+unnest :: Expr (list a) -> Expr a
+unnest = mapPrimExpr $ Opaleye.UnExpr (Opaleye.UnOpOther "UNNEST")
+
+
+extract :: Table Expr a => a -> Query a
+extract = rebind "extract" . fromColumns . go . toColumns
+  where
+    go as = htabulate $ \field ->
+      case hfield as field of
+        a -> case hfield hspecs field of
+          Spec {info} -> mapPrimExpr (extractArrayElement info) a
