@@ -33,7 +33,6 @@ import GHC.Generics ( Generic, Rep, from, to )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Exp, Eval )
 import Rel8.Generic.Record ( Record(..) )
@@ -170,30 +169,26 @@ class HTable (GColumns t) => Rel8able t where
   type GFromExprs t = t Result
 
   default gfromColumns :: forall context.
-    ( SRel8able t Aggregate
-    , SRel8able t Expr
+    ( SRel8able t Expr
     , forall table. SRel8able t (Field table)
     , SRel8able t Name
     , SSerialize t
     )
     => SContext context -> GColumns t context -> t context
   gfromColumns = \case
-    SAggregate -> sfromColumns
     SExpr -> sfromColumns
     SField -> sfromColumns
     SName -> sfromColumns
     SResult -> sfromResult
 
   default gtoColumns :: forall context.
-    ( SRel8able t Aggregate
-    , SRel8able t Expr
+    ( SRel8able t Expr
     , forall table. SRel8able t (Field table)
     , SRel8able t Name
     , SSerialize t
     )
     => SContext context -> t context -> GColumns t context
   gtoColumns = \case
-    SAggregate -> stoColumns
     SExpr -> stoColumns
     SField -> stoColumns
     SName -> stoColumns

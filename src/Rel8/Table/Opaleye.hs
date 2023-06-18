@@ -10,12 +10,12 @@
 {-# options_ghc -Wno-deprecations #-}
 
 module Rel8.Table.Opaleye
-  ( aggregator
-  , attributes
+  ( attributes
   , binaryspec
   , distinctspec
   , exprs
   , exprsWithNames
+  , ifPP
   , table
   , tableFields
   , unpackspec
@@ -33,7 +33,6 @@ import Prelude
 -- opaleye
 import qualified Opaleye.Adaptors as Opaleye
 import qualified Opaleye.Field as Opaleye ( Field_ )
-import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
@@ -42,7 +41,6 @@ import qualified Opaleye.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ), Aggregates )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
@@ -59,12 +57,6 @@ import Rel8.Type.Information ( typeName )
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
 import Data.Profunctor.Product ( ProductProfunctor )
-
-
-aggregator :: Aggregates aggregates exprs => Opaleye.Aggregator aggregates exprs
-aggregator = dimap toColumns fromColumns $
-             htraverseP $
-             lmap (\(Aggregate a) -> (a, ())) Opaleye.aggregatorApply
 
 
 attributes :: Selects names exprs => TableSchema names -> exprs
@@ -101,6 +93,10 @@ exprsWithNames :: Selects names exprs
 exprsWithNames names as = getConst $ htabulateA $ \field ->
   case (hfield (toColumns names) field, hfield (toColumns as) field) of
     (Name name, expr) -> Const (pure (name, toPrimExpr expr))
+
+
+ifPP :: Table Expr a => Opaleye.IfPP a a
+ifPP = fromOpaleyespec Opaleye.ifPPField
 
 
 table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs

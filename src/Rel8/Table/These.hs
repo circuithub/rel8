@@ -33,8 +33,11 @@ import Data.Kind ( Type )
 import Data.Maybe ( isJust )
 import Prelude hiding ( null, undefined )
 
+-- profunctors
+import Data.Profunctor (lmap)
+
 -- rel8
-import Rel8.Aggregate ( Aggregate )
+import Rel8.Aggregate (Aggregator', Aggregator1)
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), boolExpr, not_ )
 import Rel8.Expr.Null ( null, isNonNull )
@@ -325,17 +328,16 @@ theseTable f g h TheseTable {here, there} =
     there
 
 
--- | Lift a pair of aggregating functions to operate on an 'TheseTable'.
--- @thisTable@s, @thatTable@s and @thoseTable@s are grouped separately.
+-- | Lift a pair aggregators to operate on a 'TheseTable'. @thisTable@s,
+-- @thatTable@s are @thoseTable@s are grouped separately.
 aggregateTheseTable :: ()
-  => (exprs -> aggregates)
-  -> (exprs' -> aggregates')
-  -> TheseTable Expr exprs exprs'
-  -> TheseTable Aggregate aggregates aggregates'
-aggregateTheseTable f g (TheseTable here there) = TheseTable
-  { here = aggregateMaybeTable f here
-  , there = aggregateMaybeTable g there
-  }
+  => Aggregator' fold i a
+  -> Aggregator' fold' i' b
+  -> Aggregator1 (TheseTable Expr i i') (TheseTable Expr a b)
+aggregateTheseTable a b =
+  TheseTable
+    <$> lmap here (aggregateMaybeTable a)
+    <*> lmap there (aggregateMaybeTable b)
 
 
 -- | Construct a 'TheseTable' in the 'Name' context. This can be useful if you
