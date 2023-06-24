@@ -78,6 +78,8 @@ library
     Rel8.Expr.Default
     Rel8.Expr.Eq
     Rel8.Expr.Function
+    Rel8.Expr.List
+    Rel8.Expr.NonEmpty
     Rel8.Expr.Null
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord

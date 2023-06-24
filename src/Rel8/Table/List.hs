@@ -15,21 +15,25 @@ module Rel8.Table.List
   , ($*)
   , listTable
   , nameListTable
+  , head
+  , last
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Functor.Identity (Identity (Identity))
 import Data.Kind ( Type )
-import Prelude
+import Prelude hiding (head, last)
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
+import Rel8.Expr.List (headExpr, lastExpr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
+  , hnullify
   , happend, hempty
   , hproject, hcolumn
   )
@@ -48,6 +52,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Null (NullTable)
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection
   ( Projectable, Projecting, Projection, project, apply
@@ -147,4 +152,20 @@ nameListTable =
   ListTable .
   hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
+  toColumns
+
+
+-- | Get the first element of a 'ListTable' (or 'Rel8.nullTable' if empty).
+head :: Table Expr a => ListTable Expr a -> NullTable Expr a
+head =
+  fromColumns .
+  hnullify (const headExpr) .
+  toColumns
+
+
+-- | Get the last element of a 'ListTable' (or 'Rel8.nullTable' if empty).
+last :: Table Expr a => ListTable Expr a -> NullTable Expr a
+last =
+  fromColumns .
+  hnullify (const lastExpr) .
   toColumns

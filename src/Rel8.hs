@@ -100,6 +100,10 @@ module Rel8
   , manyExpr
   , catListTable
   , catList
+  , head
+  , headExpr
+  , last
+  , lastExpr
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
@@ -109,6 +113,10 @@ module Rel8
   , someExpr
   , catNonEmptyTable
   , catNonEmpty
+  , head1
+  , head1Expr
+  , last1
+  , last1Expr
 
     -- ** @NullTable@
   , NullTable
@@ -373,6 +381,8 @@ import Rel8.Expr.Bool
 import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
+import Rel8.Expr.List
+import Rel8.Expr.NonEmpty
 import Rel8.Expr.Null
 import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeLiteral)
 import Rel8.Expr.Ord
