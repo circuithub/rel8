@@ -9,6 +9,7 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
@@ -20,6 +21,7 @@
 module Rel8.Schema.HTable.Vectorize
   ( HVectorize
   , hvectorize, hvectorizeA, hunvectorize
+  , hnullify
   , happend, hempty
   , hproject
   , hcolumn
@@ -46,7 +48,8 @@ import Rel8.Schema.HTable.MapTable
   , Precompose( Precompose )
   )
 import qualified Rel8.Schema.HTable.MapTable as HMapTable ( hproject )
-import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
+import Rel8.Schema.HTable.Nullify (HNullify (HNullify))
+import Rel8.Schema.Null (Nullify, Unnullify, NotNull, Nullity (NotNull))
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
@@ -156,3 +159,13 @@ hproject f (HVectorize a) = HVectorize (HMapTable.hproject f a)
 
 hcolumn :: HVectorize list (HIdentity a) context -> context (list a)
 hcolumn (HVectorize (HMapTable (HIdentity (Precompose a)))) = a
+
+
+hnullify :: forall t list context. (HTable t, Vector list)
+  => (forall a. Spec a -> context (list a) -> context (Nullify a))
+  -> HVectorize list t context
+  -> HNullify t context
+hnullify f (HVectorize table) = HNullify $
+  htabulate $ \(HMapTableField field) -> case hfield hspecs field of
+    spec -> case hfield table (HMapTableField field) of
+      a -> f spec a

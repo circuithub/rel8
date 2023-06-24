@@ -15,11 +15,13 @@ module Rel8.Table.NonEmpty
   , ($+)
   , nonEmptyTable
   , nameNonEmptyTable
+  , head1
+  , last1
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
@@ -27,6 +29,7 @@ import Prelude hiding ( id )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
+import Rel8.Expr.NonEmpty (head1Expr, last1Expr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize
@@ -141,4 +144,22 @@ nameNonEmptyTable =
   NonEmptyTable .
   hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
+  toColumns
+
+
+-- | Get the first element of a 'NonEmptyTable'.
+head1 :: Table Expr a => NonEmptyTable Expr a -> a
+head1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\_ -> Identity . head1Expr) .
+  toColumns
+
+
+-- | Get the last element of a 'NonEmptyTable'.
+last1 :: Table Expr a => NonEmptyTable Expr a -> a
+last1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\_ -> Identity . last1Expr) .
   toColumns
