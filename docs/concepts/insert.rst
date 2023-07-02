@@ -3,14 +3,16 @@
 
 While the majority of Rel8 is about building and executing ``SELECT``
 statement, Rel8 also has support for ``INSERT``, ``UPDATE`` and ``DELETE``.
-These statements are all executed using the ``insert``, ``update`` and
-``delete`` functions, all of which take a record of parameters.
+These statements are all executed using the ``manipulate`` function, which
+takes a ``Insert``, ``Update`` or ``Delete`` value, all of which are records
+of parameters.
 
 .. note::
 
    This part of Rel8's API uses the ``DuplicateRecordFields`` language
-   extension. In code that needs to use this API, you should also enable this
-   language extension, or you may get errors about ambiguous field names.
+   extension. In code that needs to use this API, you should enable the
+   ``DisambiguateRecordFields`` language extension, or you may get errors
+   about ambiguous field names.
 
 ``DELETE``
 ----------
@@ -110,7 +112,7 @@ PostgreSQL has the ability to return extra information after a ``DELETE``,
 ``INSERT`` or ``UPDATE`` statement by attaching a ``RETURNING`` clause. A common
 use of this clause is to return any automatically generated sequence values for
 primary key columns. Rel8 supports ``RETURNING`` clauses by filling in the
-``returning`` field and specifying a ``Projection``. A ``Projection`` is a row
+``returning`` field and specifying a ``Returning``. A ``Returning`` is a row
 to row transformation, allowing you to project out a subset of fields.
 
 For example, if we are inserting orders, we might want the order ids returned::
@@ -119,16 +121,16 @@ For example, if we are inserting orders, we might want the order ids returned::
     { into = orderSchema
     , rows = values [ order ]
     , onConflict = Abort
-    , returning = Projection orderId
+    , returning = Returning orderId
     }
 
-If we don't want to return anything, we can use ``pure ()``::
+If we don't want to return anything, we can use ``NoReturning``::
 
   insert Insert
     { into = orderSchema
     , rows = values [ order ]
     , onConflict = Abort
-    , returning = pure ()
+    , returning = NoReturning
     }
 
 Default values
@@ -144,11 +146,11 @@ Rel8 does not have any special support for ``DEFAULT``. If you need to use
 default column values in inserts, you can use ``unsafeDefault`` to
 construct the ``DEFAULT`` expression::
 
-  insert Insert
+  Insert
     { into = orderSchema
     , rows = values [ Order { orderId = unsafeDefault, ... } ]
     , onConflict = Abort
-    , returning = Projection orderId
+    , returning = Returning orderId
     }
 
 .. warning::
@@ -162,6 +164,13 @@ construct the ``DEFAULT`` expression::
 
    will lead to a runtime crash.
 
+.. warning::
+   Also note PostgreSQL's syntax rules mean that ``DEFAULT``` can only appear
+   in ``INSERT``` expressions whose rows are specified using ``VALUES``. This
+   means that the ``rows`` field of your ``Insert`` record doesn't look like
+   ``values [..]``, then ``unsafeDefault`` won't work.
+
+
 Reimplement default values in Rel8
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -173,9 +182,9 @@ them in Rel8, rather than in your database schema.
    next value from a sequence. This can be done in Rel8 by using the ``nextval``
    function::
 
-     insert Insert
+     Insert
        { into = orderSchema
        , rows = values [ Order { orderId = nextval "order_id_seq", ... } ]
        , onConflict = Abort
-       , returning = Projection orderId
+       , returning = Returning orderId
        }

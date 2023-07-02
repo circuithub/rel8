@@ -128,6 +128,7 @@ tests =
     , testUpdate getTestDatabase
     , testDelete getTestDatabase
     , testUpsert getTestDatabase
+    , testWithStatement getTestDatabase
     , testSelectNestedPairs getTestDatabase
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
@@ -200,11 +201,11 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.insert Rel8.Insert
+      statement () $ Rel8.insert_ Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
         , onConflict = Rel8.DoNothing
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
       statement () $ Rel8.select do
@@ -727,14 +728,14 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.insert Rel8.Insert
+      statement () $ Rel8.insert_ Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
         , onConflict = Rel8.DoNothing
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
-      statement () $ Rel8.update Rel8.Update
+      statement () $ Rel8.update_ Rel8.Update
         { target = testTableSchema
         , from = pure ()
         , set = \_ r ->
@@ -752,7 +753,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
               r
               updates
         , updateWhere = \_ _ -> Rel8.lit True
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
       statement () $ Rel8.select do
@@ -771,18 +772,18 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
   transaction do
     (deleted, selected) <- lift do
-      statement () $ Rel8.insert Rel8.Insert
+      statement () $ Rel8.insert_ Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
         , onConflict = Rel8.DoNothing
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
       deleted <- statement () $ Rel8.delete Rel8.Delete
           { from = testTableSchema
           , using = pure ()
           , deleteWhere = const testTableColumn2
-          , returning = Rel8.Projection id
+          , returning = Rel8.Returning id
           }
 
       selected <- statement () $ Rel8.select do
@@ -791,6 +792,28 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       pure (deleted, selected)
 
     sort (deleted <> selected) === sort rows
+
+
+testWithStatement :: IO TmpPostgres.DB -> TestTree
+testWithStatement = databasePropertyTest "Can chain statements with WITH" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
+
+  transaction do
+    rows' <- lift do
+      statement () $ Rel8.runWith $ do
+        rows <- Rel8.withQuery $ Rel8.values $ map Rel8.lit rows
+
+        rows' <- Rel8.withInsert Rel8.Insert
+          { into = testTableSchema
+          , rows = rows
+          , onConflict = Rel8.DoNothing
+          , returning = Rel8.Returning id
+          }
+
+        pure $ rows <> rows'
+
+    sort rows' === sort (rows <> rows)
+
 
 
 data UniqueTable f = UniqueTable
@@ -832,14 +855,14 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.insert Rel8.Insert
+      statement () $ Rel8.insert_ Rel8.Insert
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> as
         , onConflict = Rel8.DoNothing
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
-      statement () $ Rel8.insert Rel8.Insert
+      statement () $ Rel8.insert_ Rel8.Insert
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> bs
         , onConflict = Rel8.DoUpdate Rel8.Upsert
@@ -847,7 +870,7 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
             , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
             , updateWhere = \_ _ -> Rel8.true
             }
-        , returning = pure ()
+        , returning = Rel8.NoReturning
         }
 
       statement () $ Rel8.select do
