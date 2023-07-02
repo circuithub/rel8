@@ -1,3 +1,4 @@
+{-# language DataKinds #-}
 {-# language DeriveTraversable #-}
 {-# language DerivingStrategies #-}
 {-# language FlexibleContexts #-}
@@ -9,7 +10,6 @@
 module Rel8.Statement.Select
   ( select
   , ppSelect
-
   , Optimized(..)
   , ppPrimSelect
   , ppRows
@@ -21,11 +21,6 @@ import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Data.Void ( Void )
 import Prelude hiding ( undefined )
-
--- hasql
-import qualified Hasql.Decoders as Hasql
-import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Statement as Hasql
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -48,52 +43,43 @@ import Rel8.Expr.Opaleye ( toPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( toOpaleye )
 import Rel8.Schema.Name ( Selects )
+import Rel8.Statement (Statement, statementReturning)
 import Rel8.Table ( Table )
 import Rel8.Table.Cols ( toCols )
 import Rel8.Table.Name ( namesFromLabels )
 import Rel8.Table.Opaleye ( castTable, exprsWithNames )
 import qualified Rel8.Table.Opaleye as T
-import Rel8.Table.Serialize ( Serializable, parse )
 import Rel8.Table.Undefined ( undefined )
 
--- text
-import qualified Data.Text as Text
-import Data.Text.Encoding ( encodeUtf8 )
+-- transformers
+import Control.Monad.Trans.State.Strict (State)
 
 
--- | Run a @SELECT@ statement, returning all rows.
-select :: forall exprs a. Serializable exprs a
-  => Query exprs -> Hasql.Statement () [a]
-select query = Hasql.Statement bytes params decode prepare
-  where
-    bytes = encodeUtf8 (Text.pack sql)
-    params = Hasql.noParams
-    decode = Hasql.rowList (parse @exprs @a)
-    prepare = False
-    sql = show doc
-    doc = ppSelect query
+-- | Build a @SELECT@ 'Statement'.
+select :: Table Expr a => Query a -> Statement (Query a)
+select query = statementReturning (ppSelect query)
 
 
-ppSelect :: Table Expr a => Query a -> Doc
-ppSelect query =
-  Opaleye.ppSql $ primSelectWith names (toCols exprs') primQuery'
-  where
-    names = namesFromLabels
-    (exprs, primQuery, _) =
-      Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
+ppSelect :: Table Expr a => Query a -> State Opaleye.Tag Doc
+ppSelect query = do
+  (exprs, primQuery) <- Opaleye.runSimpleSelect (toOpaleye query)
+  let
     (exprs', primQuery') = case optimize primQuery of
       Empty -> (undefined, Opaleye.Product (pure (pure Opaleye.Unit)) never)
       Unit -> (exprs, Opaleye.Unit)
       Optimized pq -> (exprs, pq)
+  pure $ Opaleye.ppSql $ primSelectWith names (toCols exprs') primQuery'
+  where
+    names = namesFromLabels
     never = pure (toPrimExpr false)
 
 
-ppRows :: Table Expr a => Query a -> Doc
+ppRows :: Table Expr a => Query a -> State Opaleye.Tag Doc
 ppRows query = case optimize primQuery of
   -- Special case VALUES because we can't use DEFAULT inside a SELECT
   Optimized (Opaleye.Values symbols rows)
     | eqSymbols symbols (toList (T.exprs a)) ->
-        Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
+        pure $ Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
   _ -> ppSelect query
   where
     (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
@@ -110,11 +96,10 @@ ppRows query = case optimize primQuery of
       = name == name' && tag == tag'
 
 
-ppPrimSelect :: Query a -> (Optimized Doc, a)
-ppPrimSelect query =
-  (Opaleye.ppSql . primSelect <$> optimize primQuery, a)
-  where
-    (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
+ppPrimSelect :: Query a -> State Opaleye.Tag (Optimized Doc, a)
+ppPrimSelect query = do
+  (a, primQuery) <- Opaleye.runSimpleSelect (toOpaleye query)
+  pure $ (Opaleye.ppSql . primSelect <$> optimize primQuery, a)
 
 
 type Optimized :: Type -> Type

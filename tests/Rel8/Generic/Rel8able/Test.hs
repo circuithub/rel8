@@ -7,6 +7,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
 
 {-# options_ghc -O0 #-}
