@@ -28,7 +28,7 @@ library
     , contravariant
     , hasql ^>= 1.6.1.2
     , network-ip
-    , opaleye ^>= 0.9.6.1
+    , opaleye ^>= 0.9.7.0
     , pretty
     , profunctors
     , product-profunctors
@@ -38,7 +38,9 @@ library
     , text
     , these
     , time
+    , transformers
     , uuid
+    , vector
   default-language:
     Haskell2010
   ghc-options:
@@ -162,6 +164,7 @@ library
     Rel8.Statement.Using
     Rel8.Statement.View
     Rel8.Statement.Where
+    Rel8.Statement.With
 
     Rel8.Table
     Rel8.Table.ADT

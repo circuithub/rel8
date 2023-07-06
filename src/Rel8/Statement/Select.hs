@@ -60,6 +60,9 @@ import Rel8.Table.Undefined ( undefined )
 import qualified Data.Text as Text
 import Data.Text.Encoding ( encodeUtf8 )
 
+-- transformers
+import Control.Monad.Trans.State.Strict (State, evalState)
+
 
 -- | Run a @SELECT@ statement, returning all rows.
 select :: forall exprs a. Serializable exprs a
@@ -71,29 +74,29 @@ select query = Hasql.Statement bytes params decode prepare
     decode = Hasql.rowList (parse @exprs @a)
     prepare = False
     sql = show doc
-    doc = ppSelect query
+    doc = evalState (ppSelect query) Opaleye.start
 
 
-ppSelect :: Table Expr a => Query a -> Doc
-ppSelect query =
-  Opaleye.ppSql $ primSelectWith names (toCols exprs') primQuery'
-  where
-    names = namesFromLabels
-    (exprs, primQuery, _) =
-      Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
+ppSelect :: Table Expr a => Query a -> State Opaleye.Tag Doc
+ppSelect query = do
+  (exprs, primQuery) <- Opaleye.runSimpleSelect (toOpaleye query)
+  let
     (exprs', primQuery') = case optimize primQuery of
       Empty -> (undefined, Opaleye.Product (pure (pure Opaleye.Unit)) never)
       Unit -> (exprs, Opaleye.Unit)
       Optimized pq -> (exprs, pq)
+  pure $ Opaleye.ppSql $ primSelectWith names (toCols exprs') primQuery'
+  where
+    names = namesFromLabels
     never = pure (toPrimExpr false)
 
 
-ppRows :: Table Expr a => Query a -> Doc
+ppRows :: Table Expr a => Query a -> State Opaleye.Tag Doc
 ppRows query = case optimize primQuery of
   -- Special case VALUES because we can't use DEFAULT inside a SELECT
   Optimized (Opaleye.Values symbols rows)
     | eqSymbols symbols (toList (T.exprs a)) ->
-        Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
+        pure $ Opaleye.ppValues_ (map Opaleye.sqlExpr <$> toList rows)
   _ -> ppSelect query
   where
     (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
@@ -110,12 +113,10 @@ ppRows query = case optimize primQuery of
       = name == name' && tag == tag'
 
 
-ppPrimSelect :: Query a -> (Optimized Doc, a)
-ppPrimSelect query =
-  (Opaleye.ppSql . primSelect <$> optimize primQuery, a)
-  where
-    (a, primQuery, _) = Opaleye.runSimpleQueryArrStart (toOpaleye query) ()
-
+ppPrimSelect :: Query a -> State Opaleye.Tag (Optimized Doc, a)
+ppPrimSelect query = do
+  (a, primQuery) <- Opaleye.runSimpleSelect (toOpaleye query)
+  pure $ (Opaleye.ppSql . primSelect <$> optimize primQuery, a)
 
 type Optimized :: Type -> Type
 data Optimized a = Empty | Unit | Optimized a

@@ -335,17 +335,20 @@ module Rel8
   , OnConflict(..)
   , Upsert(..)
   , insert
+  , insert_
   , unsafeDefault
   , showInsert
 
     -- ** @DELETE@
   , Delete(..)
   , delete
+  , delete_
   , showDelete
 
     -- ** @UPDATE@
   , Update(..)
   , update
+  , update_
   , showUpdate
 
     -- ** @.. RETURNING@
@@ -354,6 +357,12 @@ module Rel8
     -- ** @CREATE VIEW@
   , createView
   , createOrReplaceView
+
+    -- ** @WITH@
+  , runWith
+  , withQuery
+  , withInsert
+  , showWith
 
     -- ** Sequences
   , nextval
@@ -429,6 +438,7 @@ import Rel8.Statement.Select
 import Rel8.Statement.SQL
 import Rel8.Statement.Update
 import Rel8.Statement.View
+import Rel8.Statement.With
 import Rel8.Table
 import Rel8.Table.ADT
 import Rel8.Table.Aggregate
