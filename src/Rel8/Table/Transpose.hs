@@ -1,4 +1,3 @@
-{-# language CPP #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
@@ -14,10 +13,10 @@ where
 
 -- base
 import Data.Kind ( Constraint, Type )
-#if __GLASGOW_HASKELL__ >= 904
-import Data.Type.Equality (type (~))
-#endif
 import Prelude ()
+
+-- base-compat
+import Data.Type.Equality.Compat
 
 -- rel8
 import qualified Rel8.Schema.Kind as K
