@@ -15,19 +15,25 @@ import qualified Hasql.Decoders as Hasql
 import qualified Hasql.Encoders as Hasql
 import qualified Hasql.Statement as Hasql
 
+-- opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
+
 -- pretty
-import Text.PrettyPrint (Doc, text, ($$), (<+>))
+import Text.PrettyPrint ( Doc, (<+>), ($$), text )
 
 -- rel8
-import Rel8.Query (Query)
-import Rel8.Schema.Name (Selects)
-import Rel8.Schema.Table (TableSchema)
-import Rel8.Statement.Insert (ppInto)
-import Rel8.Statement.Select (ppSelect)
+import Rel8.Query ( Query )
+import Rel8.Schema.Name ( Selects )
+import Rel8.Schema.Table ( TableSchema )
+import Rel8.Statement.Insert ( ppInto )
+import Rel8.Statement.Select ( ppSelect )
 
 -- text
 import qualified Data.Text as Text
 import Data.Text.Encoding (encodeUtf8)
+
+-- transformers
+import Control.Monad.Trans.State.Strict (evalState)
 
 
 data CreateView = Create | CreateOrReplace
@@ -85,10 +91,10 @@ ppCreateView ::
   CreateView ->
   Doc
 ppCreateView schema query replace =
-  createOrReplace replace
-    <+> ppInto schema
-    $$ text "AS"
-    <+> ppSelect query
+  createOrReplace replace <+>
+  ppInto schema $$
+  text "AS" <+>
+  evalState (ppSelect query) Opaleye.start
   where
     createOrReplace Create = text "CREATE VIEW"
     createOrReplace CreateOrReplace = text "CREATE OR REPLACE VIEW"

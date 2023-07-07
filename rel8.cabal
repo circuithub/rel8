@@ -39,9 +39,11 @@ library
     , text
     , these
     , time
+    , transformers
     , uuid
-
-  default-language: Haskell2010
+    , vector
+  default-language:
+    Haskell2010
   ghc-options:
     -Werror=missing-methods -Werror=incomplete-patterns
     -Werror=missing-fields -Weverything -Wno-unsafe -Wno-safe
@@ -142,10 +144,14 @@ library
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Table
+
+    Rel8.Statement
     Rel8.Statement.Delete
     Rel8.Statement.Insert
     Rel8.Statement.OnConflict
     Rel8.Statement.Returning
+    Rel8.Statement.Rows
+    Rel8.Statement.Run
     Rel8.Statement.Select
     Rel8.Statement.Set
     Rel8.Statement.SQL
@@ -228,3 +234,4 @@ test-suite tests
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
+    -Wno-missing-kind-signatures
