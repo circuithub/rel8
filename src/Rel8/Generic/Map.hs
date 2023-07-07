@@ -1,24 +1,29 @@
-{-# language DataKinds #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Generic.Map
-  ( GMap
-  , Map
-  )
+module Rel8.Generic.Map (
+  GMap,
+  Map,
+)
 where
 
 -- base
-import Data.Kind ( Type )
-import GHC.Generics
-  ( (:+:), (:*:), K1, M1, U1, V1
-  )
+import Data.Kind (Type)
+import GHC.Generics (
+  K1,
+  M1,
+  U1,
+  V1,
+  (:*:),
+  (:+:),
+ )
 import Prelude ()
 
 -- rel8
-import Rel8.FCF ( Eval, Exp )
+import Rel8.FCF (Eval, Exp)
 
 
 type GMap :: (Type -> Exp Type) -> (Type -> Type) -> Type -> Type
@@ -31,15 +36,27 @@ type family GMap f rep where
   GMap f (K1 i a) = K1 i (Eval (f a))
 
 
--- | Map a @Type -> Type@ function over the @Type@-kinded type variables in
--- of a type constructor.
+{- | Map a @Type -> Type@ function over the @Type@-kinded type variables in
+of a type constructor.
+-}
 type Map :: (Type -> Exp Type) -> Type -> Type
 type family Map f a where
   Map p (t a b c d e f g) =
-    t (Eval (p a)) (Eval (p b)) (Eval (p c)) (Eval (p d)) (Eval (p e))
-      (Eval (p f)) (Eval (p g))
+    t
+      (Eval (p a))
+      (Eval (p b))
+      (Eval (p c))
+      (Eval (p d))
+      (Eval (p e))
+      (Eval (p f))
+      (Eval (p g))
   Map p (t a b c d e f) =
-    t (Eval (p a)) (Eval (p b)) (Eval (p c)) (Eval (p d)) (Eval (p e))
+    t
+      (Eval (p a))
+      (Eval (p b))
+      (Eval (p c))
+      (Eval (p d))
+      (Eval (p e))
       (Eval (p f))
   Map p (t a b c d e) =
     t (Eval (p a)) (Eval (p b)) (Eval (p c)) (Eval (p d)) (Eval (p e))

@@ -1,9 +1,9 @@
-module Rel8.Statement.SQL
-  ( showDelete
-  , showInsert
-  , showUpdate
-  , showStatement
-  )
+module Rel8.Statement.SQL (
+  showDelete,
+  showInsert,
+  showUpdate,
+  showStatement,
+)
 where
 
 -- base
@@ -14,11 +14,11 @@ import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
 import Rel8.Statement (Statement, ppDecodeStatement)
-import Rel8.Statement.Delete ( Delete, ppDelete )
-import Rel8.Statement.Insert ( Insert, ppInsert )
+import Rel8.Statement.Delete (Delete, ppDelete)
+import Rel8.Statement.Insert (Insert, ppInsert)
 import Rel8.Statement.Rows (Rows (Void))
 import Rel8.Statement.Select (ppSelect)
-import Rel8.Statement.Update ( Update, ppUpdate )
+import Rel8.Statement.Update (Update, ppUpdate)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (evalState)

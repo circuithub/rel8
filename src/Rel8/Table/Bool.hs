@@ -1,40 +1,42 @@
-{-# language FlexibleContexts #-}
-{-# language TypeFamilies #-}
-{-# language ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Rel8.Table.Bool
-  ( bool
-  , case_
-  , nullable
-  )
+module Rel8.Table.Bool (
+  bool,
+  case_,
+  nullable,
+)
 where
 
 -- base
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( boolExpr, caseExpr )
-import Rel8.Expr.Null ( isNull, unsafeUnnullify )
-import Rel8.Schema.HTable ( htabulate, hfield )
-import Rel8.Table ( Table, fromColumns, toColumns )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Bool (boolExpr, caseExpr)
+import Rel8.Expr.Null (isNull, unsafeUnnullify)
+import Rel8.Schema.HTable (hfield, htabulate)
+import Rel8.Table (Table, fromColumns, toColumns)
 
 
--- | An if-then-else expression on tables.
---
--- @bool x y p@ returns @x@ if @p@ is @False@, and returns @y@ if @p@ is
--- @True@.
+{- | An if-then-else expression on tables.
+
+@bool x y p@ returns @x@ if @p@ is @False@, and returns @y@ if @p@ is
+@True@.
+-}
 bool :: Table Expr a => a -> a -> Expr Bool -> a
 bool (toColumns -> false) (toColumns -> true) condition =
   fromColumns $ htabulate $ \field ->
     case (hfield false field, hfield true field) of
       (falseExpr, trueExpr) -> boolExpr falseExpr trueExpr condition
-{-# INLINABLE bool #-}
+{-# INLINEABLE bool #-}
 
 
--- | Produce a table expression from a list of alternatives. Returns the first
--- table where the @Expr Bool@ expression is @True@. If no alternatives are
--- true, the given default is returned.
+{- | Produce a table expression from a list of alternatives. Returns the first
+table where the @Expr Bool@ expression is @True@. If no alternatives are
+true, the given default is returned.
+-}
 case_ :: Table Expr a => [(Expr Bool, a)] -> a -> a
 case_ (map (fmap toColumns) -> branches) (toColumns -> fallback) =
   fromColumns $ htabulate $ \field -> case hfield fallback field of

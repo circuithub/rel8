@@ -1,29 +1,30 @@
-{-# language FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 
-module Rel8.Query.Either
-  ( keepLeftTable
-  , keepRightTable
-  , bitraverseEitherTable
-  )
+module Rel8.Query.Either (
+  keepLeftTable,
+  keepRightTable,
+  bitraverseEitherTable,
+)
 where
 
 -- base
 import Prelude
 
 -- comonad
-import Control.Comonad ( extract )
+import Control.Comonad (extract)
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Eq ( (==.) )
-import Rel8.Query ( Query )
-import Rel8.Query.Filter ( where_ )
-import Rel8.Query.Maybe ( optional )
-import Rel8.Table.Either
-  ( EitherTable( EitherTable )
-  , isLeftTable, isRightTable
-  )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Eq ((==.))
+import Rel8.Query (Query)
+import Rel8.Query.Filter (where_)
+import Rel8.Query.Maybe (optional)
+import Rel8.Table.Either (
+  EitherTable (EitherTable),
+  isLeftTable,
+  isRightTable,
+ )
+import Rel8.Table.Maybe (MaybeTable (MaybeTable), isJustTable)
 
 
 -- | Filter 'EitherTable's, keeping only 'leftTable's.
@@ -40,27 +41,29 @@ keepRightTable e@(EitherTable _ _ b) = do
   pure (extract b)
 
 
--- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and
--- all @rightTable@s through @g@. The results are then lifted back into
--- @leftTable@ and @rightTable@, respectively. This is similar to 'bitraverse'
--- for 'Either'.
---
--- For example,
---
--- >>> :{
--- select do
---   x <- values (map lit [ Left True, Right (42 :: Int32) ])
---   bitraverseEitherTable (\y -> values [y, not_ y]) (\y -> pure (y * 100)) x
--- :}
--- [ Left True
--- , Left False
--- , Right 4200
--- ]
-bitraverseEitherTable :: ()
-  => (a -> Query c)
-  -> (b -> Query d)
-  -> EitherTable Expr a b
-  -> Query (EitherTable Expr c d)
+{- | @bitraverseEitherTable f g x@ will pass all @leftTable@s through @f@ and
+all @rightTable@s through @g@. The results are then lifted back into
+@leftTable@ and @rightTable@, respectively. This is similar to 'bitraverse'
+for 'Either'.
+
+For example,
+
+>>> :{
+select do
+  x <- values (map lit [ Left True, Right (42 :: Int32) ])
+  bitraverseEitherTable (\y -> values [y, not_ y]) (\y -> pure (y * 100)) x
+:}
+[ Left True
+, Left False
+, Right 4200
+]
+-}
+bitraverseEitherTable ::
+  () =>
+  (a -> Query c) ->
+  (b -> Query d) ->
+  EitherTable Expr a b ->
+  Query (EitherTable Expr c d)
 bitraverseEitherTable f g e@(EitherTable tag _ _) = do
   mc@(MaybeTable _ c) <- optional (f =<< keepLeftTable e)
   md@(MaybeTable _ d) <- optional (g =<< keepRightTable e)

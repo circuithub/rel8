@@ -1,15 +1,15 @@
-{-# language ConstraintKinds #-}
-{-# language GADTs #-}
-{-# language PolyKinds #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Schema.Dict
-  ( Dict( Dict )
-  )
+module Rel8.Schema.Dict (
+  Dict (Dict),
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind (Constraint, Type)
 import Prelude ()
 
 

@@ -1,16 +1,22 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-{-# options_ghc -fno-warn-redundant-constraints #-}
-
-module Rel8.Expr.Ord
-  ( (<.), (<=.), (>.), (>=.)
-  , (<?), (<=?), (>?), (>=?)
-  , leastExpr, greatestExpr
-  )
+module Rel8.Expr.Ord (
+  (<.),
+  (<=.),
+  (>.),
+  (>=.),
+  (<?),
+  (<=?),
+  (>?),
+  (>=?),
+  leastExpr,
+  greatestExpr,
+)
 where
 
 -- base
@@ -20,12 +26,12 @@ import Prelude
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr( Expr ) )
-import Rel8.Expr.Bool ( (&&.), (||.), coalesce )
-import Rel8.Expr.Null ( isNull, isNonNull, nullableExpr, unsafeLiftOpNull )
-import Rel8.Expr.Opaleye ( toPrimExpr, zipPrimExprsWith )
-import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Type.Ord ( DBOrd )
+import Rel8.Expr (Expr (Expr))
+import Rel8.Expr.Bool (coalesce, (&&.), (||.))
+import Rel8.Expr.Null (isNonNull, isNull, nullableExpr, unsafeLiftOpNull)
+import Rel8.Expr.Opaleye (toPrimExpr, zipPrimExprsWith)
+import Rel8.Schema.Null (Nullity (NotNull, Null), Sql, nullable)
+import Rel8.Type.Ord (DBOrd)
 
 
 lt :: DBOrd a => Expr a -> Expr a -> Expr Bool
@@ -44,78 +50,103 @@ ge :: DBOrd a => Expr a -> Expr a -> Expr Bool
 ge = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:>=))
 
 
--- | Corresponds to the SQL @<@ operator. Note that this differs from SQL @<@
--- as @null@ will sort below any other value. For a version of @<@ that exactly
--- matches SQL, see '(<?)'.
+{- | Corresponds to the SQL @<@ operator. Note that this differs from SQL @<@
+as @null@ will sort below any other value. For a version of @<@ that exactly
+matches SQL, see '(<?)'.
+-}
 (<.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<.) = case nullable @a of
   Null -> \ma mb -> isNull ma &&. isNonNull mb ||. ma <? mb
   NotNull -> lt
+
+
 infix 4 <.
 
 
--- | Corresponds to the SQL @<=@ operator. Note that this differs from SQL @<=@
--- as @null@ will sort below any other value. For a version of @<=@ that exactly
--- matches SQL, see '(<=?)'.
+{- | Corresponds to the SQL @<=@ operator. Note that this differs from SQL @<=@
+as @null@ will sort below any other value. For a version of @<=@ that exactly
+matches SQL, see '(<=?)'.
+-}
 (<=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (<=.) = case nullable @a of
   Null -> \ma mb -> isNull ma ||. ma <=? mb
   NotNull -> le
+
+
 infix 4 <=.
 
 
--- | Corresponds to the SQL @>@ operator. Note that this differs from SQL @>@
--- as @null@ will sort below any other value. For a version of @>@ that exactly
--- matches SQL, see '(>?)'.
+{- | Corresponds to the SQL @>@ operator. Note that this differs from SQL @>@
+as @null@ will sort below any other value. For a version of @>@ that exactly
+matches SQL, see '(>?)'.
+-}
 (>.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>.) = case nullable @a of
   Null -> \ma mb -> isNonNull ma &&. isNull mb ||. ma >? mb
   NotNull -> gt
+
+
 infix 4 >.
 
 
--- | Corresponds to the SQL @>=@ operator. Note that this differs from SQL @>@
--- as @null@ will sort below any other value. For a version of @>=@ that
--- exactly matches SQL, see '(>=?)'.
+{- | Corresponds to the SQL @>=@ operator. Note that this differs from SQL @>@
+as @null@ will sort below any other value. For a version of @>=@ that
+exactly matches SQL, see '(>=?)'.
+-}
 (>=.) :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr Bool
 (>=.) = case nullable @a of
   Null -> \ma mb -> isNull mb ||. ma >=? mb
   NotNull -> ge
+
+
 infix 4 >=.
 
 
--- | Corresponds to the SQL @<@ operator. Returns @null@ if either arguments
--- are @null@.
+{- | Corresponds to the SQL @<@ operator. Returns @null@ if either arguments
+are @null@.
+-}
 (<?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a <? b = coalesce $ unsafeLiftOpNull lt a b
+
+
 infix 4 <?
 
 
--- | Corresponds to the SQL @<=@ operator. Returns @null@ if either arguments
--- are @null@.
+{- | Corresponds to the SQL @<=@ operator. Returns @null@ if either arguments
+are @null@.
+-}
 (<=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a <=? b = coalesce $ unsafeLiftOpNull le a b
+
+
 infix 4 <=?
 
 
--- | Corresponds to the SQL @>@ operator. Returns @null@ if either arguments
--- are @null@.
+{- | Corresponds to the SQL @>@ operator. Returns @null@ if either arguments
+are @null@.
+-}
 (>?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a >? b = coalesce $ unsafeLiftOpNull gt a b
+
+
 infix 4 >?
 
 
--- | Corresponds to the SQL @>=@ operator. Returns @null@ if either arguments
--- are @null@.
+{- | Corresponds to the SQL @>=@ operator. Returns @null@ if either arguments
+are @null@.
+-}
 (>=?) :: DBOrd a => Expr (Maybe a) -> Expr (Maybe a) -> Expr Bool
 a >=? b = coalesce $ unsafeLiftOpNull ge a b
+
+
 infix 4 >=?
 
 
--- | Given two expressions, return the expression that sorts less than the
--- other.
--- 
--- Corresponds to the SQL @least()@ function.
+{- | Given two expressions, return the expression that sorts less than the
+other.
+
+Corresponds to the SQL @least()@ function.
+-}
 leastExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 leastExpr ma mb = case nullable @a of
   Null -> nullableExpr ma (\a -> nullableExpr mb (least_ a) mb) ma
@@ -124,10 +155,11 @@ leastExpr ma mb = case nullable @a of
     least_ a b = Expr (Opaleye.FunExpr "LEAST" [toPrimExpr a, toPrimExpr b])
 
 
--- | Given two expressions, return the expression that sorts greater than the
--- other.
--- 
--- Corresponds to the SQL @greatest()@ function.
+{- | Given two expressions, return the expression that sorts greater than the
+other.
+
+Corresponds to the SQL @greatest()@ function.
+-}
 greatestExpr :: forall a. Sql DBOrd a => Expr a -> Expr a -> Expr a
 greatestExpr ma mb = case nullable @a of
   Null -> nullableExpr mb (\a -> nullableExpr ma (greatest_ a) mb) ma

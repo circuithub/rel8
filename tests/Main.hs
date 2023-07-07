@@ -1,95 +1,97 @@
-{-# language BangPatterns #-}
-{-# language BlockArguments #-}
-{-# language DeriveAnyClass #-}
-{-# language DeriveGeneric #-}
-{-# language DerivingVia #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MonoLocalBinds #-}
-{-# language NamedFieldPuns #-}
-{-# language OverloadedStrings #-}
-{-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
-{-# language TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Main
-  ( main
-  )
+module Main (
+  main,
+)
 where
 
+-- 
+import Hasql.Transaction (Transaction, condemn, statement)
+import qualified Hasql.Transaction.Sessions as Hasql
+
 -- base
-import Control.Applicative ( empty, liftA2, liftA3 )
-import Control.Exception ( bracket, throwIO )
+import Control.Applicative (empty, liftA2, liftA3)
+import Control.Exception (bracket, throwIO)
 import Control.Monad ((>=>))
-import Data.Bifunctor ( bimap )
+import Data.Bifunctor (bimap)
 import Data.Fixed (Fixed (MkFixed))
-import Data.Foldable ( for_ )
+import Data.Foldable (for_)
 import Data.Functor (void)
-import Data.Int ( Int32, Int64 )
-import Data.List ( nub, sort )
-import Data.Maybe ( catMaybes )
-import Data.String ( fromString )
+import Data.Int (Int32, Int64)
+import Data.List (nub, sort)
+import Data.Maybe (catMaybes)
+import Data.String (fromString)
 import Data.Word (Word32, Word8)
-import GHC.Generics ( Generic )
+import GHC.Generics (Generic)
 import Prelude hiding (truncate)
 
 -- bytestring
 import qualified Data.ByteString.Lazy
 
 -- case-insensitive
-import Data.CaseInsensitive ( mk )
+import Data.CaseInsensitive (mk)
 
 -- containers
-import Data.Containers.ListUtils ( nubOrdOn )
+import Data.Containers.ListUtils (nubOrdOn)
 import qualified Data.Map.Strict as Map
 
--- hasql
-import Hasql.Connection ( Connection, acquire, release )
-import Hasql.Session ( sql, run )
+-- data-dword
+import Data.DoubleWord (Word128 (..))
 
--- hasql-transaction
-import Hasql.Transaction ( Transaction, condemn, statement )
-import qualified Hasql.Transaction.Sessions as Hasql
+-- hasql
+import Hasql.Connection (Connection, acquire, release)
+import Hasql.Session (run, sql)
 
 -- hedgehog
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog (Gen, PropertyT, TestT, cover, diff, evalM, forAll, property, test, (===))
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 -- mmorph
-import Control.Monad.Morph ( hoist )
+import Control.Monad.Morph (hoist)
 
 -- network-ip
-import Network.IP.Addr (NetAddr, IP, IP4(..), IP6(..), IP46(..), net4Addr, net6Addr, fromNetAddr46, Net4Addr, Net6Addr)
-import Data.DoubleWord (Word128(..))
+import Network.IP.Addr (IP, IP4 (..), IP46 (..), IP6 (..), Net4Addr, Net6Addr, NetAddr, fromNetAddr46, net4Addr, net6Addr)
 
 -- rel8
-import Rel8 ( Result )
+import Rel8 (Result)
 import qualified Rel8
 
 -- scientific
-import Data.Scientific ( Scientific )
+import Data.Scientific (Scientific)
 
 -- tasty
 import Test.Tasty
 
 -- tasty-hedgehog
-import Test.Tasty.Hedgehog ( testProperty )
+import Test.Tasty.Hedgehog (testProperty)
 
 -- text
-import Data.Text ( Text, pack, unpack )
+import Data.Text (Text, pack, unpack)
+import Data.Text.Encoding (decodeUtf8)
 import qualified Data.Text.Lazy
-import Data.Text.Encoding ( decodeUtf8 )
 
 -- time
 import Data.Time
 
--- transformers
-import Control.Monad.Trans.Class ( lift )
-
 -- tmp-postgres
 import qualified Database.Postgres.Temp as TmpPostgres
+
+-- transformers
+import Control.Monad.Trans.Class (lift)
 
 -- uuid
 import qualified Data.UUID
@@ -102,43 +104,42 @@ main = defaultMain tests
 tests :: TestTree
 tests =
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
-  testGroup "rel8"
-    [ testSelectTestTable getTestDatabase
-    , testWithStatement getTestDatabase
-    , testWhere_ getTestDatabase
-    , testFilter getTestDatabase
-    , testLimit getTestDatabase
-    , testUnion getTestDatabase
-    , testDistinct getTestDatabase
-    , testExists getTestDatabase
-    , testOptional getTestDatabase
-    , testAnd getTestDatabase
-    , testOr getTestDatabase
-    , testNot getTestDatabase
-    , testBool getTestDatabase
-    , testAp getTestDatabase
-    , testDBType getTestDatabase
-    , testDBEq getTestDatabase
-    , testTableEquality getTestDatabase
-    , testFromString getTestDatabase
-    , testCatMaybeTable getTestDatabase
-    , testCatMaybe getTestDatabase
-    , testMaybeTable getTestDatabase
-    , testAggregateMaybeTable getTestDatabase
-    , testNestedTables getTestDatabase
-    , testMaybeTableApplicative getTestDatabase
-    , testLogicalFixities getTestDatabase
-    , testUpdate getTestDatabase
-    , testDelete getTestDatabase
-    , testUpsert getTestDatabase
-    , testSelectNestedPairs getTestDatabase
-    , testSelectArray getTestDatabase
-    , testNestedMaybeTable getTestDatabase
-    , testEvaluate getTestDatabase
-    ]
-
+    testGroup
+      "rel8"
+      [ testSelectTestTable getTestDatabase
+      , testWithStatement getTestDatabase
+      , testWhere_ getTestDatabase
+      , testFilter getTestDatabase
+      , testLimit getTestDatabase
+      , testUnion getTestDatabase
+      , testDistinct getTestDatabase
+      , testExists getTestDatabase
+      , testOptional getTestDatabase
+      , testAnd getTestDatabase
+      , testOr getTestDatabase
+      , testNot getTestDatabase
+      , testBool getTestDatabase
+      , testAp getTestDatabase
+      , testDBType getTestDatabase
+      , testDBEq getTestDatabase
+      , testTableEquality getTestDatabase
+      , testFromString getTestDatabase
+      , testCatMaybeTable getTestDatabase
+      , testCatMaybe getTestDatabase
+      , testMaybeTable getTestDatabase
+      , testAggregateMaybeTable getTestDatabase
+      , testNestedTables getTestDatabase
+      , testMaybeTableApplicative getTestDatabase
+      , testLogicalFixities getTestDatabase
+      , testUpdate getTestDatabase
+      , testDelete getTestDatabase
+      , testUpsert getTestDatabase
+      , testSelectNestedPairs getTestDatabase
+      , testSelectArray getTestDatabase
+      , testNestedMaybeTable getTestDatabase
+      , testEvaluate getTestDatabase
+      ]
   where
-
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
@@ -159,25 +160,27 @@ connect :: TmpPostgres.DB -> IO Connection
 connect = acquire . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
 
 
-databasePropertyTest
-  :: TestName
-  -> ((TestT Transaction () -> PropertyT IO ()) -> PropertyT IO ())
-  -> IO TmpPostgres.DB -> TestTree
+databasePropertyTest ::
+  TestName ->
+  ((TestT Transaction () -> PropertyT IO ()) -> PropertyT IO ()) ->
+  IO TmpPostgres.DB ->
+  TestTree
 databasePropertyTest testName f getTestDatabase =
   withResource (connect =<< getTestDatabase) release $ \c ->
-  testProperty testName $ property do
-    connection <- lift c
-    f $ test . hoist \m -> do
-      e <- run (Hasql.transaction Hasql.Serializable Hasql.Write (m <* condemn)) connection
-      either throwIO pure e
+    testProperty testName $ property do
+      connection <- lift c
+      f $
+        test . hoist \m -> do
+          e <- run (Hasql.transaction Hasql.Serializable Hasql.Write (m <* condemn)) connection
+          either throwIO pure e
 
 
 data TestTable f = TestTable
   { testTableColumn1 :: Rel8.Column f Text
   , testTableColumn2 :: Rel8.Column f Bool
   }
-  deriving stock Generic
-  deriving anyclass Rel8.Rel8able
+  deriving stock (Generic)
+  deriving anyclass (Rel8.Rel8able)
 
 
 deriving stock instance Eq (TestTable Result)
@@ -190,10 +193,11 @@ testTableSchema =
   Rel8.TableSchema
     { name = "test_table"
     , schema = Nothing
-    , columns = TestTable
-        { testTableColumn1 = "column1"
-        , testTableColumn2 = "column2"
-        }
+    , columns =
+        TestTable
+          { testTableColumn1 = "column1"
+          , testTableColumn2 = "column2"
+          }
     }
 
 
@@ -203,12 +207,15 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -337,7 +344,7 @@ testOptional = databasePropertyTest "Rel8.optional" \transaction -> do
 
     case rows of
       [] -> selected === [Nothing]
-      _  -> sort selected === fmap Just (sort rows)
+      _ -> sort selected === fmap Just (sort rows)
 
 
 testAnd :: IO TmpPostgres.DB -> TestTree
@@ -358,8 +365,11 @@ testOr = databasePropertyTest "OR (||.)" \transaction -> do
 
   transaction do
     result <- lift do
-      statement () $ Rel8.run1 $ Rel8.select $ pure $
-        Rel8.lit x Rel8.||. Rel8.lit y
+      statement () $
+        Rel8.run1 $
+          Rel8.select $
+            pure $
+              Rel8.lit x Rel8.||. Rel8.lit y
 
     result === (x || y)
 
@@ -402,10 +412,12 @@ testBool = databasePropertyTest "ifThenElse_" \transaction -> do
 
 testAp :: IO TmpPostgres.DB -> TestTree
 testAp = databasePropertyTest "Cartesian product (<*>)" \transaction -> do
-  (rows1, rows2) <- forAll $
-    liftA2 (,)
-      (Gen.list (Range.linear 1 10) genTestTable)
-      (Gen.list (Range.linear 1 10) genTestTable)
+  (rows1, rows2) <-
+    forAll $
+      liftA2
+        (,)
+        (Gen.list (Range.linear 1 10) genTestTable)
+        (Gen.list (Range.linear 1 10) genTestTable)
 
   transaction do
     result <- lift do
@@ -430,40 +442,45 @@ instance Rel8.DBComposite Composite where
 
 
 testDBType :: IO TmpPostgres.DB -> TestTree
-testDBType getTestDatabase = testGroup "DBType instances"
-  [ dbTypeTest "Bool" Gen.bool
-  , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
-  , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
-  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "Composite" genComposite
-  , dbTypeTest "Day" genDay
-  , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Float" $ (/ 10) . fromIntegral @Int @Float <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
-  , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
-  , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
-  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "LocalTime" genLocalTime
-  , dbTypeTest "Scientific" $ (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "TimeOfDay" genTimeOfDay
-  , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
-  , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
-  , dbTypeTest "INet" genNetAddrIP
-  ]
-
+testDBType getTestDatabase =
+  testGroup
+    "DBType instances"
+    [ dbTypeTest "Bool" Gen.bool
+    , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
+    , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
+    , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
+    , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
+    , dbTypeTest "Composite" genComposite
+    , dbTypeTest "Day" genDay
+    , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
+    , dbTypeTest "Float" $ (/ 10) . fromIntegral @Int @Float <$> Gen.integral (Range.linear (-100) 100)
+    , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
+    , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
+    , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
+    , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
+    , dbTypeTest "LocalTime" genLocalTime
+    , dbTypeTest "Scientific" $ (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
+    , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+    , dbTypeTest "TimeOfDay" genTimeOfDay
+    , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
+    , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
+    , dbTypeTest "INet" genNetAddrIP
+    ]
   where
     dbTypeTest :: (Eq a, Show a, Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a) => TestName -> Gen a -> TestTree
-    dbTypeTest name generator = testGroup name
-      [ databasePropertyTest name (t generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
-      ]
+    dbTypeTest name generator =
+      testGroup
+        name
+        [ databasePropertyTest name (t generator) getTestDatabase
+        , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+        ]
 
-    t :: forall a b. (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a)
-      => Gen a
-      -> (TestT Transaction () -> PropertyT IO b)
-      -> PropertyT IO b
+    t ::
+      forall a b.
+      (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a) =>
+      Gen a ->
+      (TestT Transaction () -> PropertyT IO b) ->
+      PropertyT IO b
     t generator transaction = do
       x <- forAll generator
       y <- forAll generator
@@ -486,21 +503,21 @@ testDBType getTestDatabase = testGroup "DBType instances"
             xs <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]])
             Rel8.catListTable xs
         diff res'' (==) [x, y]
-{-
-        res''' <- lift do
-          statement () $ Rel8.run $ Rel8.select do
-            xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
-            xs <- Rel8.catListTable xss
-            Rel8.catListTable xs
-        diff res''' (==) [x, y]
--}
+    {-
+            res''' <- lift do
+              statement () $ Rel8.run $ Rel8.select do
+                xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
+                xs <- Rel8.catListTable xss
+                Rel8.catListTable xs
+            diff res''' (==) [x, y]
+    -}
 
     genComposite :: Gen Composite
     genComposite = do
       bool <- Gen.bool
       char <- Gen.unicode
       array <- Gen.list (Range.linear 0 10) (Gen.int32 (Range.linear (-10000) 10000))
-      pure Composite {..}
+      pure Composite{..}
 
     genDay :: Gen Day
     genDay = do
@@ -535,7 +552,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     genWord128 :: Gen Word128
     genWord128 = Gen.integral Range.linearBounded
 
-    genNetAddrIP  :: Gen (NetAddr IP)
+    genNetAddrIP :: Gen (NetAddr IP)
     genNetAddrIP =
       let
         genIP4Mask :: Gen Word8
@@ -549,29 +566,34 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
         genIPv6 :: Gen (IP46 Net4Addr Net6Addr)
         genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
-
-       in fromNetAddr46 <$> Gen.choice [ genIPv4, genIPv6 ]
+       in
+        fromNetAddr46 <$> Gen.choice [genIPv4, genIPv6]
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
-testDBEq getTestDatabase = testGroup "DBEq instances"
-  [ dbEqTest "Bool" Gen.bool
-  , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
-  , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
-  , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
-  ]
-
+testDBEq getTestDatabase =
+  testGroup
+    "DBEq instances"
+    [ dbEqTest "Bool" Gen.bool
+    , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
+    , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
+    , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+    ]
   where
     dbEqTest :: (Eq a, Show a, Rel8.DBEq a) => TestName -> Gen a -> TestTree
-    dbEqTest name generator = testGroup name
-      [ databasePropertyTest name (t generator) getTestDatabase
-      , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
-      ]
+    dbEqTest name generator =
+      testGroup
+        name
+        [ databasePropertyTest name (t generator) getTestDatabase
+        , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
+        ]
 
-    t :: forall a. (Eq a, Show a, Rel8.Sql Rel8.DBEq a)
-      => Gen a
-      -> (TestT Transaction () -> PropertyT IO ())
-      -> PropertyT IO ()
+    t ::
+      forall a.
+      (Eq a, Show a, Rel8.Sql Rel8.DBEq a) =>
+      Gen a ->
+      (TestT Transaction () -> PropertyT IO ()) ->
+      PropertyT IO ()
     t generator transaction = do
       (x, y) <- forAll (liftA2 (,) generator generator)
 
@@ -584,14 +606,14 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
 testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
-   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
+  (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
 
-   transaction do
-     eq <- lift do
-       statement () $ Rel8.run1 $ Rel8.select do
-         pure $ Rel8.lit x Rel8.==: Rel8.lit y
+  transaction do
+    eq <- lift do
+      statement () $ Rel8.run1 $ Rel8.select do
+        pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
-     eq === (x == y)
+    eq === (x == y)
 
 
 testFromString :: IO TmpPostgres.DB -> TestTree
@@ -666,13 +688,12 @@ testAggregateMaybeTable = databasePropertyTest "aggregateMaybeTable" \transactio
     sort selected === aggregate rows
 
 
-data TwoTestTables f =
-  TwoTestTables
-    { testTable1 :: TestTable f
-    , testTable2 :: TestTable f
-    }
-  deriving stock Generic
-  deriving anyclass Rel8.Rel8able
+data TwoTestTables f = TwoTestTables
+  { testTable1 :: TestTable f
+  , testTable2 :: TestTable f
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8.Rel8able)
 
 
 deriving stock instance Eq (TwoTestTables Result)
@@ -730,33 +751,38 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      statement () $ Rel8.run_ $ Rel8.update Rel8.Update
-        { target = testTableSchema
-        , from = pure ()
-        , set = \_ r ->
-            let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
-            in
-            foldl
-              ( \e (x, y) ->
-                  Rel8.bool
-                    e
-                    y
-                    ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
-                      testTableColumn2 r Rel8.==. testTableColumn2 x
-                    )
-              )
-              r
-              updates
-        , updateWhere = \_ _ -> Rel8.lit True
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.update
+            Rel8.Update
+              { target = testTableSchema
+              , from = pure ()
+              , set = \_ r ->
+                  let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
+                   in foldl
+                        ( \e (x, y) ->
+                            Rel8.bool
+                              e
+                              y
+                              ( testTableColumn1 r Rel8.==. testTableColumn1 x
+                                  Rel8.&&. testTableColumn2 r Rel8.==. testTableColumn2 x
+                              )
+                        )
+                        r
+                        updates
+              , updateWhere = \_ _ -> Rel8.lit True
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -774,19 +800,26 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
   transaction do
     (deleted, selected) <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      deleted <- statement () $ Rel8.run $ Rel8.delete Rel8.Delete
-          { from = testTableSchema
-          , using = pure ()
-          , deleteWhere = const testTableColumn2
-          , returning = Rel8.Returning id
-          }
+      deleted <-
+        statement () $
+          Rel8.run $
+            Rel8.delete
+              Rel8.Delete
+                { from = testTableSchema
+                , using = pure ()
+                , deleteWhere = const testTableColumn2
+                , returning = Rel8.Returning id
+                }
 
       selected <- statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -798,14 +831,15 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 testWithStatement :: IO TmpPostgres.DB -> TestTree
 testWithStatement genTestDatabase =
-  testGroup "WITH"
+  testGroup
+    "WITH"
     [ selectUnionInsert genTestDatabase
     , rowsAffectedNoReturning genTestDatabase
     , rowsAffectedReturing genTestDatabase
     , pureQuery genTestDatabase
     ]
   where
-    selectUnionInsert = 
+    selectUnionInsert =
       databasePropertyTest "Can UNION results of SELECT with results of INSERT" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
@@ -814,50 +848,54 @@ testWithStatement genTestDatabase =
             statement () $ Rel8.run $ do
               values <- Rel8.select $ Rel8.values $ map Rel8.lit rows
 
-              inserted <- Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = values
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.Returning id
-                }
+              inserted <-
+                Rel8.insert $
+                  Rel8.Insert
+                    { into = testTableSchema
+                    , rows = values
+                    , onConflict = Rel8.DoNothing
+                    , returning = Rel8.Returning id
+                    }
 
               pure $ values <> inserted
 
           sort rows' === sort (rows <> rows)
 
-    rowsAffectedNoReturning = 
+    rowsAffectedNoReturning =
       databasePropertyTest "Can read rows affected from INSERT without RETURNING" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
         transaction do
           affected <- lift do
             statement () $ Rel8.runN $ do
-              Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.NoReturning
-                }
+              Rel8.insert $
+                Rel8.Insert
+                  { into = testTableSchema
+                  , rows = Rel8.values $ map Rel8.lit rows
+                  , onConflict = Rel8.DoNothing
+                  , returning = Rel8.NoReturning
+                  }
 
           length rows === fromIntegral affected
 
-    rowsAffectedReturing = 
+    rowsAffectedReturing =
       databasePropertyTest "Can read rows affected from INSERT with RETURNING" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
         transaction do
           affected <- lift do
             statement () $ Rel8.runN $ void $ do
-              Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.Returning id
-                }
+              Rel8.insert $
+                Rel8.Insert
+                  { into = testTableSchema
+                  , rows = Rel8.values $ map Rel8.lit rows
+                  , onConflict = Rel8.DoNothing
+                  , returning = Rel8.Returning id
+                  }
 
           length rows === fromIntegral affected
 
-    pureQuery = 
+    pureQuery =
       databasePropertyTest "Can read pure Query" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
@@ -869,13 +907,12 @@ testWithStatement genTestDatabase =
           sort rows === sort rows'
 
 
-
 data UniqueTable f = UniqueTable
   { uniqueTableKey :: Rel8.Column f Text
   , uniqueTableValue :: Rel8.Column f Text
   }
-  deriving stock Generic
-  deriving anyclass Rel8.Rel8able
+  deriving stock (Generic)
+  deriving anyclass (Rel8.Rel8able)
 
 
 deriving stock instance Eq (UniqueTable Result)
@@ -888,10 +925,11 @@ uniqueTableSchema =
   Rel8.TableSchema
     { name = "unique_table"
     , schema = Nothing
-    , columns = UniqueTable
-        { uniqueTableKey = "key"
-        , uniqueTableValue = "value"
-        }
+    , columns =
+        UniqueTable
+          { uniqueTableKey = "key"
+          , uniqueTableValue = "value"
+          }
     }
 
 
@@ -899,7 +937,7 @@ genUniqueTable :: Gen (UniqueTable Result)
 genUniqueTable = do
   uniqueTableKey <- Gen.text (Range.linear 0 5) Gen.alphaNum
   uniqueTableValue <- Gen.text (Range.linear 0 5) Gen.alphaNum
-  pure UniqueTable {..}
+  pure UniqueTable{..}
 
 
 testUpsert :: IO TmpPostgres.DB -> TestTree
@@ -909,23 +947,31 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = uniqueTableSchema
-        , rows = Rel8.values $ Rel8.lit <$> as
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = uniqueTableSchema
+              , rows = Rel8.values $ Rel8.lit <$> as
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = uniqueTableSchema
-        , rows = Rel8.values $ Rel8.lit <$> bs
-        , onConflict = Rel8.DoUpdate Rel8.Upsert
-            { index = uniqueTableKey
-            , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
-            , updateWhere = \_ _ -> Rel8.true
-            }
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = uniqueTableSchema
+              , rows = Rel8.values $ Rel8.lit <$> bs
+              , onConflict =
+                  Rel8.DoUpdate
+                    Rel8.Upsert
+                      { index = uniqueTableKey
+                      , set = \UniqueTable{uniqueTableValue} old -> old{uniqueTableValue}
+                      , updateWhere = \_ _ -> Rel8.true
+                      }
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each uniqueTableSchema
@@ -936,9 +982,10 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
     fromUniqueTables = Map.fromList . map \(UniqueTable key value) -> (key, value)
 
 
-newtype HKNestedPair f = HKNestedPair { pairOne :: (TestTable f, TestTable f) }
-  deriving stock Generic
-  deriving anyclass Rel8.Rel8able
+newtype HKNestedPair f = HKNestedPair {pairOne :: (TestTable f, TestTable f)}
+  deriving stock (Generic)
+  deriving anyclass (Rel8.Rel8able)
+
 
 deriving stock instance Eq (HKNestedPair Result)
 deriving stock instance Ord (HKNestedPair Result)
@@ -970,10 +1017,12 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
 
     selected' <- lift do
       statement () $ Rel8.run $ Rel8.select do
-        a <- Rel8.catListTable =<< do
-          Rel8.many $ Rel8.values (map Rel8.lit rows)
-        b <- Rel8.catListTable =<< do
-          Rel8.many $ Rel8.values (map Rel8.lit rows)
+        a <-
+          Rel8.catListTable =<< do
+            Rel8.many $ Rel8.values (map Rel8.lit rows)
+        b <-
+          Rel8.catListTable =<< do
+            Rel8.many $ Rel8.values (map Rel8.lit rows)
         pure (a, b)
 
     selected' === liftA2 (,) rows rows
@@ -983,8 +1032,8 @@ data NestedMaybeTable f = NestedMaybeTable
   { nmt1 :: Rel8.Column f Bool
   , nmt2 :: Rel8.HMaybe f (TestTable f)
   }
-  deriving stock Generic
-  deriving anyclass Rel8.Rel8able
+  deriving stock (Generic)
+  deriving anyclass (Rel8.Rel8able)
 
 
 deriving stock instance Eq (NestedMaybeTable Result)
@@ -994,7 +1043,7 @@ deriving stock instance Show (NestedMaybeTable Result)
 
 testNestedMaybeTable :: IO TmpPostgres.DB -> TestTree
 testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other tables" \transaction -> do
-  let example = NestedMaybeTable { nmt1 = True, nmt2 = Just (TestTable "Hi" True) }
+  let example = NestedMaybeTable{nmt1 = True, nmt2 = Just (TestTable "Hi" True)}
 
   transaction do
     selected <- lift do
@@ -1007,7 +1056,6 @@ testNestedMaybeTable = databasePropertyTest "Can nest MaybeTable within other ta
 
 testEvaluate :: IO TmpPostgres.DB -> TestTree
 testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect" \transaction -> do
-
   transaction do
     selected <- lift do
       statement () $ Rel8.run $ Rel8.select do
@@ -1015,11 +1063,11 @@ testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect
         y <- Rel8.evaluate (Rel8.nextval "test_seq")
         pure (x, (y, y))
 
-    normalize selected ===
-      [ ('a', (0, 0))
-      , ('b', (1, 1))
-      , ('c', (2, 2))
-      ]
+    normalize selected
+      === [ ('a', (0, 0))
+          , ('b', (1, 1))
+          , ('c', (2, 2))
+          ]
 
     selected' <- lift do
       statement () $ Rel8.run $ Rel8.select do
@@ -1028,18 +1076,17 @@ testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect
         z <- Rel8.evaluate (Rel8.nextval "test_seq")
         pure ((x, y), (z, z))
 
-    normalize selected' ===
-      [ (('a', 'd'), (0, 0))
-      , (('a', 'e'), (1, 1))
-      , (('a', 'f'), (2, 2))
-      , (('b', 'd'), (3, 3))
-      , (('b', 'e'), (4, 4))
-      , (('b', 'f'), (5, 5))
-      , (('c', 'd'), (6, 6))
-      , (('c', 'e'), (7, 7))
-      , (('c', 'f'), (8, 8))
-      ]
-
+    normalize selected'
+      === [ (('a', 'd'), (0, 0))
+          , (('a', 'e'), (1, 1))
+          , (('a', 'f'), (2, 2))
+          , (('b', 'd'), (3, 3))
+          , (('b', 'e'), (4, 4))
+          , (('b', 'f'), (5, 5))
+          , (('c', 'd'), (6, 6))
+          , (('c', 'e'), (7, 7))
+          , (('c', 'f'), (8, 8))
+          ]
   where
     normalize :: [(x, (Int64, Int64))] -> [(x, (Int64, Int64))]
     normalize [] = []

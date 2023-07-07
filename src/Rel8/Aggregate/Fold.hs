@@ -1,12 +1,12 @@
-{-# language DataKinds #-}
-{-# language GADTs #-}
-{-# language LambdaCase #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Aggregate.Fold
-  ( Fallback (Empty, Fallback)
-  , Fold (Semi, Full)
-  )
+module Rel8.Aggregate.Fold (
+  Fallback (Empty, Fallback),
+  Fold (Semi, Full),
+)
 where
 
 -- base
@@ -18,12 +18,13 @@ import Prelude
 import Data.Functor.Apply (Apply, liftF2)
 
 
--- | 'Fold' is a kind that parameterises aggregations. Aggregations
--- parameterised by 'Semi' are analogous to 'Data.Semigroup.Foldable.foldMap1'
--- (i.e, they can only produce results on a non-empty 'Rel8.Query') whereas
--- aggregations parameterised by 'Full' are analagous to 'foldMap' (given a
--- non-empty) query, they return the identity values of the aggregation
--- functions.
+{- | 'Fold' is a kind that parameterises aggregations. Aggregations
+parameterised by 'Semi' are analogous to 'Data.Semigroup.Foldable.foldMap1'
+(i.e, they can only produce results on a non-empty 'Rel8.Query') whereas
+aggregations parameterised by 'Full' are analagous to 'foldMap' (given a
+non-empty) query, they return the identity values of the aggregation
+functions.
+-}
 type Fold :: Type
 data Fold = Semi | Full
 

@@ -1,75 +1,82 @@
-{-# language DataKinds #-}
-{-# language DerivingStrategies #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Expr
-  ( Expr(..)
-  )
+module Rel8.Expr (
+  Expr (..),
+)
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
-import Data.String ( IsString, fromString )
-import Prelude hiding ( null )
+import Data.Functor.Identity (Identity (Identity))
+import Data.String (IsString, fromString)
+import Prelude hiding (null)
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr.Function ( function, nullaryFunction )
-import Rel8.Expr.Null ( liftOpNull, nullify )
-import Rel8.Expr.Opaleye
-  ( castExpr
-  , fromPrimExpr
-  , mapPrimExpr
-  , zipPrimExprsWith
-  )
-import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
+import Rel8.Expr.Function (function, nullaryFunction)
+import Rel8.Expr.Null (liftOpNull, nullify)
+import Rel8.Expr.Opaleye (
+  castExpr,
+  fromPrimExpr,
+  mapPrimExpr,
+  zipPrimExprsWith,
+ )
+import Rel8.Expr.Serialize (litExpr)
+import Rel8.Schema.HTable.Identity (HIdentity (HIdentity))
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Nullity( Null, NotNull ), Sql, nullable )
-import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns
-  , FromExprs, fromResult, toResult
-  , Transpose
-  )
-import Rel8.Type ( DBType )
-import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
-import Rel8.Type.Num ( DBFloating, DBFractional, DBNum )
-import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+import Rel8.Schema.Null (Nullity (NotNull, Null), Sql, nullable)
+import Rel8.Table (
+  Columns,
+  Context,
+  FromExprs,
+  Table,
+  Transpose,
+  fromColumns,
+  fromResult,
+  toColumns,
+  toResult,
+ )
+import Rel8.Type (DBType)
+import Rel8.Type.Monoid (DBMonoid, memptyExpr)
+import Rel8.Type.Num (DBFloating, DBFractional, DBNum)
+import Rel8.Type.Semigroup (DBSemigroup, (<>.))
 
 
 -- | Typed SQL expressions.
 type Expr :: K.Context
 newtype Expr a = Expr Opaleye.PrimExpr
-  deriving stock Show
+  deriving stock (Show)
 
 
 instance Sql DBSemigroup a => Semigroup (Expr a) where
   (<>) = case nullable @a of
     Null -> liftOpNull (<>.)
     NotNull -> (<>.)
-  {-# INLINABLE (<>) #-}
+  {-# INLINEABLE (<>) #-}
 
 
 instance Sql DBMonoid a => Monoid (Expr a) where
   mempty = case nullable @a of
     Null -> nullify memptyExpr
     NotNull -> memptyExpr
-  {-# INLINABLE mempty #-}
+  {-# INLINEABLE mempty #-}
 
 
 instance (Sql IsString a, Sql DBType a) => IsString (Expr a) where
-  fromString = litExpr . case nullable @a of
-    Null -> Just . fromString
-    NotNull -> fromString
+  fromString =
+    litExpr . case nullable @a of
+      Null -> Just . fromString
+      NotNull -> fromString
 
 
 instance Sql DBNum a => Num (Expr a) where
@@ -77,16 +84,20 @@ instance Sql DBNum a => Num (Expr a) where
   (*) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:*))
   (-) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:-))
 
+
   abs = mapPrimExpr (Opaleye.UnExpr Opaleye.OpAbs)
   negate = mapPrimExpr (Opaleye.UnExpr Opaleye.OpNegate)
 
+
   signum = castExpr . mapPrimExpr (Opaleye.UnExpr (Opaleye.UnOpOther "SIGN"))
+
 
   fromInteger = castExpr . fromPrimExpr . Opaleye.ConstExpr . Opaleye.IntegerLit
 
 
 instance Sql DBFractional a => Fractional (Expr a) where
   (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
+
 
   fromRational =
     castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
@@ -118,6 +129,7 @@ instance Sql DBType a => Table Expr (Expr a) where
   type Context (Expr a) = Expr
   type FromExprs (Expr a) = a
   type Transpose to (Expr a) = to a
+
 
   toColumns a = HIdentity a
   fromColumns (HIdentity a) = a

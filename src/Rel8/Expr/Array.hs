@@ -1,33 +1,37 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-{-# options_ghc -fno-warn-redundant-constraints #-}
-
-module Rel8.Expr.Array
-  ( listOf, nonEmptyOf
-  , slistOf, snonEmptyOf
-  , sappend, sappend1, sempty
-  )
+module Rel8.Expr.Array (
+  listOf,
+  nonEmptyOf,
+  slistOf,
+  snonEmptyOf,
+  sappend,
+  sappend1,
+  sempty,
+)
 where
 
 -- base
-import Data.List.NonEmpty ( NonEmpty )
+import Data.List.NonEmpty (NonEmpty)
 import Prelude
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye
-  ( fromPrimExpr, toPrimExpr
-  , zipPrimExprsWith
-  )
-import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( array )
-import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Schema.Null ( Unnullify, Sql )
+import {-# SOURCE #-} Rel8.Expr (Expr)
+import Rel8.Expr.Opaleye (
+  fromPrimExpr,
+  toPrimExpr,
+  zipPrimExprsWith,
+ )
+import Rel8.Schema.Null (Sql, Unnullify)
+import Rel8.Type (DBType, typeInformation)
+import Rel8.Type.Array (array)
+import Rel8.Type.Information (TypeInformation (..))
 
 
 sappend :: Expr [a] -> Expr [a] -> Expr [a]

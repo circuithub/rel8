@@ -1,81 +1,83 @@
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MonoLocalBinds #-}
-{-# language MultiWayIf #-}
-{-# language StandaloneKindSignatures #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Type
-  ( DBType (typeInformation)
-  )
+module Rel8.Type (
+  DBType (typeInformation),
+)
 where
 
 -- aeson
-import Data.Aeson ( Value )
+import Data.Aeson (Value)
 import qualified Data.Aeson as Aeson
 
 -- base
-import Data.Int ( Int16, Int32, Int64 )
-import Data.List.NonEmpty ( NonEmpty )
-import Data.Kind ( Constraint, Type )
+import Data.Int (Int16, Int32, Int64)
+import Data.Kind (Constraint, Type)
+import Data.List.NonEmpty (NonEmpty)
 import Prelude
 
 -- bytestring
-import Data.ByteString ( ByteString )
-import qualified Data.ByteString.Lazy as Lazy ( ByteString )
-import qualified Data.ByteString.Lazy as ByteString ( fromStrict, toStrict )
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as ByteString (fromStrict, toStrict)
+import qualified Data.ByteString.Lazy as Lazy (ByteString)
 
 -- case-insensitive
-import Data.CaseInsensitive ( CI )
+import Data.CaseInsensitive (CI)
 import qualified Data.CaseInsensitive as CI
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
 
+-- network-ip
+import Network.IP.Addr (IP, NetAddr, printNetAddr)
+
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
+import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye (quote)
 
 -- rel8
-import Rel8.Schema.Null ( NotNull, Sql, nullable )
-import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
-import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
+import Rel8.Schema.Null (NotNull, Sql, nullable)
+import Rel8.Type.Array (listTypeInformation, nonEmptyTypeInformation)
+import Rel8.Type.Information (TypeInformation (..), mapTypeInformation)
 
 -- scientific
-import Data.Scientific ( Scientific )
+import Data.Scientific (Scientific)
 
 -- text
-import Data.Text ( Text )
+import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Data.Text.Lazy as Lazy ( Text, unpack )
-import qualified Data.Text.Lazy as Text ( fromStrict, toStrict )
-import qualified Data.Text.Lazy.Encoding as Lazy ( decodeUtf8 )
+import qualified Data.Text.Lazy as Lazy (Text, unpack)
+import qualified Data.Text.Lazy as Text (fromStrict, toStrict)
+import qualified Data.Text.Lazy.Encoding as Lazy (decodeUtf8)
 
 -- time
-import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime )
-import Data.Time.LocalTime
-  ( CalendarDiffTime( CalendarDiffTime )
-  , LocalTime
-  , TimeOfDay
-  )
-import Data.Time.Format ( formatTime, defaultTimeLocale )
+import Data.Time.Calendar (Day)
+import Data.Time.Clock (UTCTime)
+import Data.Time.Format (defaultTimeLocale, formatTime)
+import Data.Time.LocalTime (
+  CalendarDiffTime (CalendarDiffTime),
+  LocalTime,
+  TimeOfDay,
+ )
 
 -- uuid
-import Data.UUID ( UUID )
+import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 
--- ip
-import Network.IP.Addr (NetAddr, IP, printNetAddr)
 
--- | Haskell types that can be represented as expressions in a database. There
--- should be an instance of @DBType@ for all column types in your database
--- schema (e.g., @int@, @timestamptz@, etc).
--- 
--- Rel8 comes with stock instances for most default types in PostgreSQL, so you
--- should only need to derive instances of this class for custom database
--- types, such as types defined in PostgreSQL extensions, or custom domain
--- types.
+{- | Haskell types that can be represented as expressions in a database. There
+should be an instance of @DBType@ for all column types in your database
+schema (e.g., @int@, @timestamptz@, etc).
+
+Rel8 comes with stock instances for most default types in PostgreSQL, so you
+should only need to derive instances of this class for custom database
+types, such as types defined in PostgreSQL extensions, or custom domain
+types.
+-}
 type DBType :: Type -> Constraint
 class NotNull a => DBType a where
   typeInformation :: TypeInformation a
@@ -83,146 +85,169 @@ class NotNull a => DBType a where
 
 -- | Corresponds to @bool@
 instance DBType Bool where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.BoolLit
-    , decode = Hasql.bool
-    , typeName = "bool"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.BoolLit
+      , decode = Hasql.bool
+      , typeName = "bool"
+      }
 
 
 -- | Corresponds to @char@
 instance DBType Char where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
-    , decode = Hasql.char
-    , typeName = "char"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
+      , decode = Hasql.char
+      , typeName = "char"
+      }
 
 
 -- | Corresponds to @int2@
 instance DBType Int16 where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-    , decode = Hasql.int2
-    , typeName = "int2"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
+      , decode = Hasql.int2
+      , typeName = "int2"
+      }
 
 
 -- | Corresponds to @int4@
 instance DBType Int32 where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-    , decode = Hasql.int4
-    , typeName = "int4"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
+      , decode = Hasql.int4
+      , typeName = "int4"
+      }
 
 
 -- | Corresponds to @int8@
 instance DBType Int64 where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-    , decode = Hasql.int8
-    , typeName = "int8"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
+      , decode = Hasql.int8
+      , typeName = "int8"
+      }
 
 
 -- | Corresponds to @float4@
 instance DBType Float where
-  typeInformation = TypeInformation
-    { encode = \x -> Opaleye.ConstExpr
-        if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
-           | isNaN x       -> Opaleye.OtherLit "'NaN'"
-           | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-           | otherwise     -> Opaleye.NumericLit $ realToFrac x
-    , decode = Hasql.float4
-    , typeName = "float4"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = \x ->
+          Opaleye.ConstExpr
+            if
+                | x == (1 / 0) -> Opaleye.OtherLit "'Infinity'"
+                | isNaN x -> Opaleye.OtherLit "'NaN'"
+                | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
+                | otherwise -> Opaleye.NumericLit $ realToFrac x
+      , decode = Hasql.float4
+      , typeName = "float4"
+      }
 
 
 -- | Corresponds to @float8@
 instance DBType Double where
-  typeInformation = TypeInformation
-    { encode = \x -> Opaleye.ConstExpr
-        if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
-           | isNaN x       -> Opaleye.OtherLit "'NaN'"
-           | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-           | otherwise     -> Opaleye.NumericLit $ realToFrac x
-    , decode = Hasql.float8
-    , typeName = "float8"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = \x ->
+          Opaleye.ConstExpr
+            if
+                | x == (1 / 0) -> Opaleye.OtherLit "'Infinity'"
+                | isNaN x -> Opaleye.OtherLit "'NaN'"
+                | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
+                | otherwise -> Opaleye.NumericLit $ realToFrac x
+      , decode = Hasql.float8
+      , typeName = "float8"
+      }
 
 
 -- | Corresponds to @numeric@
 instance DBType Scientific where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit
-    , decode = Hasql.numeric
-    , typeName = "numeric"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.NumericLit
+      , decode = Hasql.numeric
+      , typeName = "numeric"
+      }
 
 
 -- | Corresponds to @timestamptz@
 instance DBType UTCTime where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%FT%T%QZ'"
-    , decode = Hasql.timestamptz
-    , typeName = "timestamptz"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . formatTime defaultTimeLocale "'%FT%T%QZ'"
+      , decode = Hasql.timestamptz
+      , typeName = "timestamptz"
+      }
 
 
 -- | Corresponds to @date@
 instance DBType Day where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%F'"
-    , decode = Hasql.date
-    , typeName = "date"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . formatTime defaultTimeLocale "'%F'"
+      , decode = Hasql.date
+      , typeName = "date"
+      }
 
 
 -- | Corresponds to @timestamp@
 instance DBType LocalTime where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%FT%T%Q'"
-    , decode = Hasql.timestamp
-    , typeName = "timestamp"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . formatTime defaultTimeLocale "'%FT%T%Q'"
+      , decode = Hasql.timestamp
+      , typeName = "timestamp"
+      }
 
 
 -- | Corresponds to @time@
 instance DBType TimeOfDay where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%T%Q'"
-    , decode = Hasql.time
-    , typeName = "time"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . formatTime defaultTimeLocale "'%T%Q'"
+      , decode = Hasql.time
+      , typeName = "time"
+      }
 
 
 -- | Corresponds to @interval@
 instance DBType CalendarDiffTime where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        formatTime defaultTimeLocale "'%bmon %0Es'"
-    , decode = CalendarDiffTime 0 . realToFrac <$> Hasql.interval
-    , typeName = "interval"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . formatTime defaultTimeLocale "'%bmon %0Es'"
+      , decode = CalendarDiffTime 0 . realToFrac <$> Hasql.interval
+      , typeName = "interval"
+      }
 
 
 -- | Corresponds to @text@
 instance DBType Text where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
-    , decode = Hasql.text
-    , typeName = "text"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
+      , decode = Hasql.text
+      , typeName = "text"
+      }
 
 
 -- | Corresponds to @text@
@@ -233,62 +258,80 @@ instance DBType Lazy.Text where
 
 -- | Corresponds to @citext@
 instance DBType (CI Text) where
-  typeInformation = mapTypeInformation CI.mk CI.original typeInformation
-    { typeName = "citext"
-    }
+  typeInformation =
+    mapTypeInformation
+      CI.mk
+      CI.original
+      typeInformation
+        { typeName = "citext"
+        }
 
 
 -- | Corresponds to @citext@
 instance DBType (CI Lazy.Text) where
-  typeInformation = mapTypeInformation CI.mk CI.original typeInformation
-    { typeName = "citext"
-    }
+  typeInformation =
+    mapTypeInformation
+      CI.mk
+      CI.original
+      typeInformation
+        { typeName = "citext"
+        }
 
 
 -- | Corresponds to @bytea@
 instance DBType ByteString where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
-    , decode = Hasql.bytea
-    , typeName = "bytea"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
+      , decode = Hasql.bytea
+      , typeName = "bytea"
+      }
 
 
 -- | Corresponds to @bytea@
 instance DBType Lazy.ByteString where
   typeInformation =
-    mapTypeInformation ByteString.fromStrict ByteString.toStrict
+    mapTypeInformation
+      ByteString.fromStrict
+      ByteString.toStrict
       typeInformation
 
 
 -- | Corresponds to @uuid@
 instance DBType UUID where
-  typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
-    , decode = Hasql.uuid
-    , typeName = "uuid"
-    }
+  typeInformation =
+    TypeInformation
+      { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
+      , decode = Hasql.uuid
+      , typeName = "uuid"
+      }
 
 
 -- | Corresponds to @jsonb@
 instance DBType Value where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit .
-        Opaleye.quote .
-        Lazy.unpack . Lazy.decodeUtf8 . Aeson.encode
-    , decode = Hasql.jsonb
-    , typeName = "jsonb"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr
+            . Opaleye.OtherLit
+            . Opaleye.quote
+            . Lazy.unpack
+            . Lazy.decodeUtf8
+            . Aeson.encode
+      , decode = Hasql.jsonb
+      , typeName = "jsonb"
+      }
+
 
 -- | Corresponds to @inet@
 instance DBType (NetAddr IP) where
-  typeInformation = TypeInformation
-    { encode =
-        Opaleye.ConstExpr . Opaleye.StringLit . printNetAddr
-    , decode = Hasql.inet
-    , typeName = "inet"
-    }
+  typeInformation =
+    TypeInformation
+      { encode =
+          Opaleye.ConstExpr . Opaleye.StringLit . printNetAddr
+      , decode = Hasql.inet
+      , typeName = "inet"
+      }
 
 
 instance Sql DBType a => DBType [a] where

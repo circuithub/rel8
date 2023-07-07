@@ -1,37 +1,40 @@
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneKindSignatures #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Type.String
-  ( DBString
-  )
+module Rel8.Type.String (
+  DBString,
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind (Constraint, Type)
 import Prelude ()
 
 -- bytestring
-import Data.ByteString ( ByteString )
-import qualified Data.ByteString.Lazy as Lazy ( ByteString )
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as Lazy (ByteString)
 
 -- case-insensitive
-import Data.CaseInsensitive ( CI )
+import Data.CaseInsensitive (CI)
 
 -- rel8
-import Rel8.Type ( DBType )
+import Rel8.Type (DBType)
 
 -- text
-import Data.Text ( Text )
-import qualified Data.Text.Lazy as Lazy ( Text )
+import Data.Text (Text)
+import qualified Data.Text.Lazy as Lazy (Text)
 
 
--- | The class of data types that support the @string_agg()@ aggregation
--- function.
+{- | The class of data types that support the @string_agg()@ aggregation
+function.
+-}
 type DBString :: Type -> Constraint
 class DBType a => DBString a
+
+
 instance DBString Text
 instance DBString Lazy.Text
 instance DBString (CI Text)

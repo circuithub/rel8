@@ -1,54 +1,55 @@
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MonoLocalBinds #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneKindSignatures #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Type.Eq
-  ( DBEq
-  )
+module Rel8.Type.Eq (
+  DBEq,
+)
 where
 
 -- aeson
-import Data.Aeson ( Value )
+import Data.Aeson (Value)
 
 -- base
-import Data.List.NonEmpty ( NonEmpty )
-import Data.Int ( Int16, Int32, Int64 )
-import Data.Kind ( Constraint, Type )
+import Data.Int (Int16, Int32, Int64)
+import Data.Kind (Constraint, Type)
+import Data.List.NonEmpty (NonEmpty)
 import Prelude
 
 -- bytestring
-import Data.ByteString ( ByteString )
-import qualified Data.ByteString.Lazy as Lazy ( ByteString )
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as Lazy (ByteString)
 
 -- case-insensitive
-import Data.CaseInsensitive ( CI )
+import Data.CaseInsensitive (CI)
 
 -- rel8
-import Rel8.Schema.Null ( Sql )
-import Rel8.Type ( DBType )
+import Rel8.Schema.Null (Sql)
+import Rel8.Type (DBType)
 
 -- scientific
-import Data.Scientific ( Scientific )
+import Data.Scientific (Scientific)
 
 -- text
-import Data.Text ( Text )
-import qualified Data.Text.Lazy as Lazy ( Text )
+import Data.Text (Text)
+import qualified Data.Text.Lazy as Lazy (Text)
 
 -- time
-import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime )
-import Data.Time.LocalTime ( CalendarDiffTime, LocalTime, TimeOfDay )
+import Data.Time.Calendar (Day)
+import Data.Time.Clock (UTCTime)
+import Data.Time.LocalTime (CalendarDiffTime, LocalTime, TimeOfDay)
 
 -- uuid
-import Data.UUID ( UUID )
+import Data.UUID (UUID)
 
 
--- | Database types that can be compared for equality in queries. If a type is
--- an instance of 'DBEq', it means we can compare expressions for equality
--- using the SQL @=@ operator.
+{- | Database types that can be compared for equality in queries. If a type is
+an instance of 'DBEq', it means we can compare expressions for equality
+using the SQL @=@ operator.
+-}
 type DBEq :: Type -> Constraint
 class DBType a => DBEq a
 

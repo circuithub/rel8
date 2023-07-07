@@ -1,7 +1,7 @@
-module Rel8.Statement.Using
-  ( ppFrom
-  , ppUsing
-  )
+module Rel8.Statement.Using (
+  ppFrom,
+  ppUsing,
+)
 where
 
 -- base
@@ -11,12 +11,12 @@ import Prelude
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
-import Text.PrettyPrint ( Doc, (<+>), parens, text )
+import Text.PrettyPrint (Doc, parens, text, (<+>))
 
 -- rel8
-import Rel8.Query ( Query )
-import Rel8.Schema.Table ( TableSchema(..), ppTable )
-import Rel8.Statement.Select ( Optimized(..), ppPrimSelect )
+import Rel8.Query (Query)
+import Rel8.Schema.Table (TableSchema (..), ppTable)
+import Rel8.Statement.Select (Optimized (..), ppPrimSelect)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (State)
@@ -40,4 +40,4 @@ ppJoin clause join = do
       Optimized doc -> Just $ text clause <+> parens doc <+> ppTable alias
     pure (doc, a)
   where
-    alias = TableSchema {name = "T1", schema = Nothing, columns = ()}
+    alias = TableSchema{name = "T1", schema = Nothing, columns = ()}

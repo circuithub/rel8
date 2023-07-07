@@ -1,76 +1,87 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
-{-# language MultiParamTypeClasses #-}
-{-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Table.Nullify
-  ( Nullify
-  , aggregateNullify
-  , guard
-  , isNull
-  )
+module Rel8.Table.Nullify (
+  Nullify,
+  aggregateNullify,
+  guard,
+  isNull,
+)
 where
 
 -- base
-import Control.Applicative ( liftA2 )
-import Data.Functor.Const ( Const( Const ), getConst )
-import Data.Functor.Identity ( runIdentity )
-import Data.Kind ( Type )
+import Control.Applicative (liftA2)
+import Data.Functor.Const (Const (Const), getConst)
+import Data.Functor.Identity (runIdentity)
+import Data.Kind (Type)
 import Prelude
 
 -- comonad
-import Control.Comonad ( Comonad, duplicate, extract, ComonadApply, (<@>) )
+import Control.Comonad (Comonad, ComonadApply, duplicate, extract, (<@>))
 
 -- profunctors
 import Data.Profunctor (dimap)
 
 -- rel8
 import Rel8.Aggregate (Aggregator')
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( (||.), false )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Bool (false, (||.))
 import qualified Rel8.Expr.Null as Expr
-import Rel8.Kind.Context ( Reifiable, contextSing )
-import Rel8.Schema.Context.Nullify
-  ( Nullifiability( NExpr )
-  , NonNullifiability
-  , Nullifiable, nullifiability
-  , nullifiableOrNot, absurd
-  , guarder
-  , nullifier
-  , unnullifier
-  )
-import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Nullify
-  ( HNullify, hnulls, hnullify, hunnullify
-  , hguard
-  , hproject
-  )
+import Rel8.Kind.Context (Reifiable, contextSing)
+import Rel8.Schema.Context.Nullify (
+  NonNullifiability,
+  Nullifiability (NExpr),
+  Nullifiable,
+  absurd,
+  guarder,
+  nullifiability,
+  nullifiableOrNot,
+  nullifier,
+  unnullifier,
+ )
+import Rel8.Schema.Dict (Dict (Dict))
+import Rel8.Schema.HTable (HTable)
+import Rel8.Schema.HTable.Nullify (
+  HNullify,
+  hguard,
+  hnullify,
+  hnulls,
+  hproject,
+  hunnullify,
+ )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Nullity( NotNull, Null ) )
+import Rel8.Schema.Null (Nullity (NotNull, Null))
 import qualified Rel8.Schema.Result as R
-import Rel8.Table
-  ( Table, Columns, Context, toColumns, fromColumns
-  , FromExprs, fromResult, toResult
-  , Transpose
-  )
-import Rel8.Schema.Spec ( Spec( Spec, nullity ) )
-import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Ord ( OrdTable, ordTable )
-import Rel8.Table.Projection ( Projectable, apply, project )
+import Rel8.Schema.Spec (Spec (Spec, nullity))
+import Rel8.Table (
+  Columns,
+  Context,
+  FromExprs,
+  Table,
+  Transpose,
+  fromColumns,
+  fromResult,
+  toColumns,
+  toResult,
+ )
+import Rel8.Table.Eq (EqTable, eqTable)
+import Rel8.Table.Ord (OrdTable, ordTable)
+import Rel8.Table.Projection (Projectable, apply, project)
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>), liftF2 )
-import Data.Functor.Bind ( Bind, (>>-) )
-import Data.Functor.Extend ( Extend, duplicated )
+import Data.Functor.Apply (Apply, liftF2, (<.>))
+import Data.Functor.Bind (Bind, (>>-))
+import Data.Functor.Extend (Extend, duplicated)
 
 
 type Nullify :: K.Context -> Type -> Type
@@ -142,31 +153,36 @@ instance Nullifiable context => ComonadApply (Nullify context) where
   (<@>) = (<.>)
 
 
-instance (Table context a, Reifiable context, context ~ context') =>
+instance
+  (Table context a, Reifiable context, context ~ context') =>
   Table context' (Nullify context a)
- where
+  where
   type Columns (Nullify context a) = HNullify (Columns a)
   type Context (Nullify context a) = Context a
   type FromExprs (Nullify context a) = Maybe (FromExprs a)
   type Transpose to (Nullify context a) = Nullify to (Transpose to a)
 
+
   fromColumns = case nullifiableOrNot contextSing of
     Left notNullifiable -> Fields notNullifiable
     Right nullifiable ->
-      Table nullifiable .
-      fromColumns .
-      runIdentity .
-      hunnullify (\spec -> pure . unnullifier nullifiable spec)
+      Table nullifiable
+        . fromColumns
+        . runIdentity
+        . hunnullify (\spec -> pure . unnullifier nullifiable spec)
+
 
   toColumns = \case
     Table nullifiable a -> hnullify (nullifier nullifiable) (toColumns a)
     Fields _ a -> a
 
+
   fromResult = fmap (fromResult @_ @a) . hunnullify R.unnullifier
 
+
   toResult =
-    maybe (hnulls (const R.null)) (hnullify R.nullifier) .
-    fmap (toResult @_ @a)
+    maybe (hnulls (const R.null)) (hnullify R.nullifier)
+      . fmap (toResult @_ @a)
 
 
 instance (EqTable a, context ~ Expr) => EqTable (Nullify context a) where
@@ -177,9 +193,10 @@ instance (OrdTable a, context ~ Expr) => OrdTable (Nullify context a) where
   ordTable = hnullify (\_ Dict -> Dict) (ordTable @a)
 
 
-aggregateNullify :: ()
-  => Aggregator' fold i a
-  -> Aggregator' fold (Nullify Expr i) (Nullify Expr a)
+aggregateNullify ::
+  () =>
+  Aggregator' fold i a ->
+  Aggregator' fold (Nullify Expr i) (Nullify Expr a)
 aggregateNullify = dimap from to
   where
     from = \case
@@ -188,24 +205,27 @@ aggregateNullify = dimap from to
     to = Table NExpr
 
 
-guard :: (Reifiable context, HTable t)
-  => context tag
-  -> (tag -> Bool)
-  -> (Expr tag -> Expr Bool)
-  -> HNullify t context
-  -> HNullify t context
+guard ::
+  (Reifiable context, HTable t) =>
+  context tag ->
+  (tag -> Bool) ->
+  (Expr tag -> Expr Bool) ->
+  HNullify t context ->
+  HNullify t context
 guard tag isNonNull isNonNullExpr =
   hguard (guarder contextSing tag isNonNull isNonNullExpr)
 
 
 isNull :: forall a. Table Expr a => Nullify Expr a -> Expr Bool
 isNull =
-  maybe false getAny .
-  getConst .
-  hunnullify (\Spec {nullity} a -> Const $ case nullity of
-    NotNull -> Just $ Any $ Expr.isNull a
-    Null -> Nothing) .
-  toColumns
+  maybe false getAny
+    . getConst
+    . hunnullify
+      ( \Spec{nullity} a -> Const $ case nullity of
+          NotNull -> Just $ Any $ Expr.isNull a
+          Null -> Nothing
+      )
+    . toColumns
 
 
 newtype Any = Any

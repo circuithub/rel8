@@ -1,39 +1,41 @@
-{-# language DataKinds #-}
-{-# language DeriveAnyClass #-}
-{-# language DerivingVia #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Type.Tag
-  ( EitherTag( IsLeft, IsRight ), isLeft, isRight
-  , MaybeTag( IsJust )
-  , Tag( Tag )
-  )
+module Rel8.Type.Tag (
+  EitherTag (IsLeft, IsRight),
+  isLeft,
+  isRight,
+  MaybeTag (IsJust),
+  Tag (Tag),
+)
 where
 
 -- base
-import Data.Bool ( bool )
-import Data.Kind ( Type )
-import Data.Semigroup ( Min( Min ) )
+import Data.Bool (bool)
+import Data.Kind (Type)
+import Data.Semigroup (Min (Min))
 import Prelude
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( zipPrimExprsWith )
-import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Type.Eq ( DBEq )
-import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Information ( mapTypeInformation, parseTypeInformation )
-import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
-import Rel8.Type.Ord ( DBOrd )
-import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Eq ((==.))
+import Rel8.Expr.Opaleye (zipPrimExprsWith)
+import Rel8.Expr.Serialize (litExpr)
+import Rel8.Type (DBType, typeInformation)
+import Rel8.Type.Eq (DBEq)
+import Rel8.Type.Information (mapTypeInformation, parseTypeInformation)
+import Rel8.Type.Monoid (DBMonoid, memptyExpr)
+import Rel8.Type.Ord (DBOrd)
+import Rel8.Type.Semigroup (DBSemigroup, (<>.))
 
 -- text
-import Data.Text ( Text )
+import Data.Text (Text)
 
 
 type EitherTag :: Type
@@ -93,6 +95,11 @@ instance DBMonoid MaybeTag where
 type Tag :: Type
 newtype Tag = Tag Text
   deriving newtype
-    ( Eq, Ord, Read, Show
-    , DBType, DBEq, DBOrd
+    ( Eq
+    , Ord
+    , Read
+    , Show
+    , DBType
+    , DBEq
+    , DBOrd
     )

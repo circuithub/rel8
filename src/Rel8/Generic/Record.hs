@@ -1,31 +1,42 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language PolyKinds #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Generic.Record
-  ( Record(..)
-  , GRecordable, GRecord, grecord, gunrecord
-  )
+module Rel8.Generic.Record (
+  Record (..),
+  GRecordable,
+  GRecord,
+  grecord,
+  gunrecord,
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
-import GHC.Generics
-  ( Generic, Rep, from, to
-  , (:+:)( L1, R1 ), (:*:)( (:*:) ), M1( M1 )
-  , Meta( MetaCons, MetaSel ), D, C, S
-  )
-import GHC.TypeLits ( type (+), AppendSymbol, Div, Mod, Nat, Symbol )
-import Prelude hiding ( Show )
+import Data.Kind (Constraint, Type)
+import GHC.Generics (
+  C,
+  D,
+  Generic,
+  M1 (M1),
+  Meta (MetaCons, MetaSel),
+  Rep,
+  S,
+  from,
+  to,
+  (:*:) ((:*:)),
+  (:+:) (L1, R1),
+ )
+import GHC.TypeLits (AppendSymbol, Div, Mod, Nat, Symbol, type (+))
+import Prelude hiding (Show)
 
 
 type GRecord :: (Type -> Type) -> Type -> Type
@@ -103,9 +114,10 @@ instance (GRecordable l, GRecordable r) => GRecordable (l :+: r) where
   gunrecord (R1 a) = R1 (gunrecord a)
 
 
-instance Countable 0 rep =>
+instance
+  Countable 0 rep =>
   GRecordable (M1 C ('MetaCons name fixity 'False) rep)
- where
+  where
   grecord (M1 a) = M1 (count @0 a)
   gunrecord (M1 a) = M1 (uncount @0 a)
 
@@ -127,12 +139,13 @@ instance Countable n (M1 S ('MetaSel selector su ss ds) rep) where
 
 
 instance
-  ( Countable n a, Countable n' b
+  ( Countable n a
+  , Countable n' b
   , '(n', a') ~ Count n a
   , Snd (CountHelper2 a' (Count n' b)) ~ (a' :*: Snd (Count n' b))
-  )
-  => Countable n (a :*: b)
- where
+  ) =>
+  Countable n (a :*: b)
+  where
   count (a :*: b) = count @n a :*: count @n' b
   uncount (a :*: b) = uncount @n a :*: uncount @n' b
 
@@ -150,6 +163,7 @@ newtype Record a = Record
 
 instance (Generic a, GRecordable (Rep a)) => Generic (Record a) where
   type Rep (Record a) = GRecord (Rep a)
+
 
   from (Record a) = grecord (from a)
   to = Record . to . gunrecord

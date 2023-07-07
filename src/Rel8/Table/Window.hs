@@ -1,8 +1,8 @@
-{-# language MonoLocalBinds #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
-module Rel8.Table.Window
-  ( currentRow
-  )
+module Rel8.Table.Window (
+  currentRow,
+)
 where
 
 -- base

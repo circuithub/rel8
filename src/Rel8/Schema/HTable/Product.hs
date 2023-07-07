@@ -1,9 +1,9 @@
-{-# language DataKinds #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Schema.HTable.Product
-  ( HProduct(..)
-  )
+module Rel8.Schema.HTable.Product (
+  HProduct (..),
+)
 where
 
 -- base

@@ -1,40 +1,73 @@
-{-# language DataKinds #-}
+{-# LANGUAGE DataKinds #-}
 
-module Rel8.Expr.Text
-  (
-    -- * String concatenation
-    (++.)
+module Rel8.Expr.Text (
+  -- * String concatenation
+  (++.),
 
-    -- * Regular expression operators
-  , (~.), (~*), (!~), (!~*)
+  -- * Regular expression operators
+  (~.),
+  (~*),
+  (!~),
+  (!~*),
 
-    -- * Standard SQL functions
-  , bitLength, charLength, lower, octetLength, upper
+  -- * Standard SQL functions
+  bitLength,
+  charLength,
+  lower,
+  octetLength,
+  upper,
 
-    -- * PostgreSQL functions
-  , ascii, btrim, chr, convert, convertFrom, convertTo, decode, encode
-  , initcap, left, length, lengthEncoding, lpad, ltrim, md5
-  , pgClientEncoding, quoteIdent, quoteLiteral, quoteNullable, regexpReplace
-  , regexpSplitToArray, repeat, replace, reverse, right, rpad, rtrim
-  , splitPart, strpos, substr, translate
+  -- * PostgreSQL functions
+  ascii,
+  btrim,
+  chr,
+  convert,
+  convertFrom,
+  convertTo,
+  decode,
+  encode,
+  initcap,
+  left,
+  length,
+  lengthEncoding,
+  lpad,
+  ltrim,
+  md5,
+  pgClientEncoding,
+  quoteIdent,
+  quoteLiteral,
+  quoteNullable,
+  regexpReplace,
+  regexpSplitToArray,
+  repeat,
+  replace,
+  reverse,
+  right,
+  rpad,
+  rtrim,
+  splitPart,
+  strpos,
+  substr,
+  translate,
 
-    -- * @LIKE@ and @ILIKE@
-  , like, ilike
-  )
+  -- * @LIKE@ and @ILIKE@
+  like,
+  ilike,
+)
 where
 
 -- base
-import Data.Bool ( Bool )
-import Data.Int ( Int32 )
-import Data.Maybe ( Maybe( Nothing, Just ) )
-import Prelude ( flip )
+import Data.Bool (Bool)
+import Data.Int (Int32)
+import Data.Maybe (Maybe (Just, Nothing))
+import Prelude (flip)
 
 -- bytestring
-import Data.ByteString ( ByteString )
+import Data.ByteString (ByteString)
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Function (binaryOperator, function, nullaryFunction)
 
 -- text
 import Data.Text (Text)
@@ -43,43 +76,57 @@ import Data.Text (Text)
 -- | The PostgreSQL string concatenation operator.
 (++.) :: Expr Text -> Expr Text -> Expr Text
 (++.) = binaryOperator "||"
+
+
 infixr 6 ++.
 
 
 -- * Regular expression operators
 
+
 -- See https://www.postgresql.org/docs/9.5/static/functions-matching.html#FUNCTIONS-POSIX-REGEXP
 
+{- | Matches regular expression, case sensitive
 
--- | Matches regular expression, case sensitive
---
--- Corresponds to the @~.@ operator.
+Corresponds to the @~.@ operator.
+-}
 (~.) :: Expr Text -> Expr Text -> Expr Bool
 (~.) = binaryOperator "~."
+
+
 infix 2 ~.
 
 
--- | Matches regular expression, case insensitive
---
--- Corresponds to the @~*@ operator.
+{- | Matches regular expression, case insensitive
+
+Corresponds to the @~*@ operator.
+-}
 (~*) :: Expr Text -> Expr Text -> Expr Bool
 (~*) = binaryOperator "~*"
+
+
 infix 2 ~*
 
 
--- | Does not match regular expression, case sensitive
---
--- Corresponds to the @!~@ operator.
+{- | Does not match regular expression, case sensitive
+
+Corresponds to the @!~@ operator.
+-}
 (!~) :: Expr Text -> Expr Text -> Expr Bool
 (!~) = binaryOperator "!~"
+
+
 infix 2 !~
 
 
--- | Does not match regular expression, case insensitive
---
--- Corresponds to the @!~*@ operator.
+{- | Does not match regular expression, case insensitive
+
+Corresponds to the @!~*@ operator.
+-}
 (!~*) :: Expr Text -> Expr Text -> Expr Bool
 (!~*) = binaryOperator "!~*"
+
+
 infix 2 !~*
 
 
@@ -212,15 +259,24 @@ quoteNullable = function "quote_nullable"
 
 
 -- | Corresponds to the @regexp_replace@ function.
-regexpReplace :: ()
-  => Expr Text -> Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr Text
+regexpReplace ::
+  () =>
+  Expr Text ->
+  Expr Text ->
+  Expr Text ->
+  Maybe (Expr Text) ->
+  Expr Text
 regexpReplace a b c (Just d) = function "regexp_replace" a b c d
 regexpReplace a b c Nothing = function "regexp_replace" a b c
 
 
 -- | Corresponds to the @regexp_split_to_array@ function.
-regexpSplitToArray :: ()
-  => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr [Text]
+regexpSplitToArray ::
+  () =>
+  Expr Text ->
+  Expr Text ->
+  Maybe (Expr Text) ->
+  Expr [Text]
 regexpSplitToArray a b (Just c) = function "regexp_split_to_array" a b c
 regexpSplitToArray a b Nothing = function "regexp_split_to_array" a b
 
@@ -278,19 +334,21 @@ translate :: Expr Text -> Expr Text -> Expr Text -> Expr Text
 translate = function "translate"
 
 
--- | @like x y@ corresponds to the expression @y LIKE x@.
---
--- Note that the arguments to @like@ are swapped. This is to aid currying, so
--- you can write expressions like
--- @filter (like "Rel%" . packageName) =<< each haskellPackages@
+{- | @like x y@ corresponds to the expression @y LIKE x@.
+
+Note that the arguments to @like@ are swapped. This is to aid currying, so
+you can write expressions like
+@filter (like "Rel%" . packageName) =<< each haskellPackages@
+-}
 like :: Expr Text -> Expr Text -> Expr Bool
 like = flip (binaryOperator "LIKE")
 
 
--- | @ilike x y@ corresponds to the expression @y ILIKE x@.
---
--- Note that the arguments to @ilike@ are swapped. This is to aid currying, so
--- you can write expressions like
--- @filter (ilike "Rel%" . packageName) =<< each haskellPackages@
+{- | @ilike x y@ corresponds to the expression @y ILIKE x@.
+
+Note that the arguments to @ilike@ are swapped. This is to aid currying, so
+you can write expressions like
+@filter (ilike "Rel%" . packageName) =<< each haskellPackages@
+-}
 ilike :: Expr Text -> Expr Text -> Expr Bool
 ilike = flip (binaryOperator "ILIKE")

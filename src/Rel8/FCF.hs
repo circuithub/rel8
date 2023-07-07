@@ -1,16 +1,17 @@
-{-# language DataKinds #-}
-{-# language PolyKinds #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Rel8.FCF
-  ( Exp, Eval
-  , Id
-  )
+module Rel8.FCF (
+  Exp,
+  Eval,
+  Id,
+)
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Kind (Type)
 import Prelude ()
 
 

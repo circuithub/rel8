@@ -1,9 +1,9 @@
-{-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
-module Rel8.Query.SQL
-  ( showQuery
-  )
+module Rel8.Query.SQL (
+  showQuery,
+)
 where
 
 -- base
@@ -13,10 +13,10 @@ import Prelude
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Query ( Query )
-import Rel8.Statement.Select ( ppSelect )
-import Rel8.Table ( Table )
+import Rel8.Expr (Expr)
+import Rel8.Query (Query)
+import Rel8.Statement.Select (ppSelect)
+import Rel8.Table (Table)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (evalState)

@@ -1,5 +1,5 @@
 let
-  haskellNix = import (import ./nix/sources.nix)."haskell.nix" {};
+  haskellNix = import (import ./nix/sources.nix)."haskell.nix" { };
 
   nixpkgsSrc = haskellNix.sources.nixpkgs-unstable;
 
@@ -21,7 +21,8 @@ pkgs.haskell-nix.project {
   };
 
   modules = [
-    { packages.rel8 = {
+    {
+      packages.rel8 = {
         preCheck = ''
           export PATH="${pkgs.postgresql}/bin:${"$PATH"}"
         '';

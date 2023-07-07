@@ -1,21 +1,21 @@
-{-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Schema.Spec
-  ( Spec( Spec, labels, info, nullity )
-  , specification
-  )
+module Rel8.Schema.Spec (
+  Spec (Spec, labels, info, nullity),
+  specification,
+)
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Kind (Type)
 import Prelude
 
 -- rel8
-import Rel8.Schema.Null ( Nullity, Sql, Unnullify, nullable )
-import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Information ( TypeInformation )
+import Rel8.Schema.Null (Nullity, Sql, Unnullify, nullable)
+import Rel8.Type (DBType, typeInformation)
+import Rel8.Type.Information (TypeInformation)
 
 
 type Spec :: Type -> Type
@@ -27,8 +27,9 @@ data Spec a = Spec
 
 
 specification :: Sql DBType a => Spec a
-specification = Spec
-  { labels = []
-  , info = typeInformation
-  , nullity = nullable
-  }
+specification =
+  Spec
+    { labels = []
+    , info = typeInformation
+    , nullity = nullable
+    }
