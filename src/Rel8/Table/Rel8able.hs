@@ -13,12 +13,9 @@
 module Rel8.Table.Rel8able (
   )
 where
-
-
+ 
 -- base
-#if __GLASGOW_HASKELL__ >= 904
--- base
-import Data.Type.Equality (type (~))
+import Data.Type.Equality.Compat
 import Prelude ()
 
 -- rel8

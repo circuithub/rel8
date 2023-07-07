@@ -21,6 +21,7 @@ library
   build-depends:
       aeson
     , base                 >=4.14     && <4.17 || ^>=4.17
+    , base-compat
     , bifunctors
     , bytestring
     , case-insensitive
