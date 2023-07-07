@@ -224,7 +224,7 @@ test-suite tests
     , data-dword
     , hasql
     , hasql-transaction
-    , hedgehog          ^>= 1.0 || ^>= 1.1
+    , hedgehog          ^>= 1.0 || ^>= 1.1 || ^>= 1.2 || ^>=1.3
     , mmorph
     , network-ip
     , rel8
