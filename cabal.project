@@ -1,1 +1,2 @@
 packages: .
+constraints: ansi-wl-pprint < 1.0.0
