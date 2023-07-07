@@ -1,37 +1,38 @@
-cabal-version:       2.0
-name:                rel8
-version:             1.4.1.0
-synopsis:            Hey! Hey! Can u rel8?
-license:             BSD3
-license-file:        LICENSE
-author:              Oliver Charles
-maintainer:          ollie@ocharles.org.uk
-homepage:            https://github.com/circuithub/rel8
-bug-reports:         https://github.com/circuithub/rel8/issues
-build-type:          Simple
+cabal-version:   2.0
+name:            rel8
+version:         1.4.1.0
+synopsis:        Hey! Hey! Can u rel8?
+license:         BSD3
+license-file:    LICENSE
+author:          Oliver Charles
+maintainer:      ollie@ocharles.org.uk
+homepage:        https://github.com/circuithub/rel8
+bug-reports:     https://github.com/circuithub/rel8/issues
+build-type:      Simple
 extra-doc-files:
-    README.md
-    Changelog.md
+  Changelog.md
+  README.md
 
 source-repository head
-    type: git
-    location: https://github.com/circuithub/rel8
+  type:     git
+  location: https://github.com/circuithub/rel8
 
 library
   build-depends:
       aeson
-    , base ^>= 4.14 || ^>=4.15 || ^>=4.16 || ^>=4.17
+    , base                 >=4.14     && <4.17 || ^>=4.17
+    , base-compat
     , bifunctors
     , bytestring
     , case-insensitive
     , comonad
     , contravariant
-    , hasql ^>= 1.6.1.2
+    , hasql                ^>=1.6.1.2
     , network-ip
-    , opaleye ^>= 0.9.6.1
+    , opaleye              ^>=0.9.6.1
     , pretty
-    , profunctors
     , product-profunctors
+    , profunctors
     , scientific
     , semialign
     , semigroupoids
@@ -39,17 +40,16 @@ library
     , these
     , time
     , uuid
-  default-language:
-    Haskell2010
+
+  default-language: Haskell2010
   ghc-options:
-    -Werror=missing-methods -Werror=incomplete-patterns -Werror=missing-fields
-    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
-    -Wno-missing-import-lists -Wno-prepositive-qualified-module
-    -Wno-monomorphism-restriction
-    -Wno-missing-local-signatures
-    -Wno-missing-kind-signatures
-  hs-source-dirs:
-    src
+    -Werror=missing-methods -Werror=incomplete-patterns
+    -Werror=missing-fields -Weverything -Wno-unsafe -Wno-safe
+    -Wno-missing-safe-haskell-mode -Wno-missing-import-lists
+    -Wno-prepositive-qualified-module -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures -Wno-missing-kind-signatures
+
+  hs-source-dirs:   src
   exposed-modules:
     Rel8
     Rel8.Expr.Num
@@ -60,7 +60,6 @@ library
   other-modules:
     Rel8.Aggregate
     Rel8.Aggregate.Fold
-
     Rel8.Column
     Rel8.Column.ADT
     Rel8.Column.Either
@@ -70,7 +69,6 @@ library
     Rel8.Column.NonEmpty
     Rel8.Column.Null
     Rel8.Column.These
-
     Rel8.Expr
     Rel8.Expr.Aggregate
     Rel8.Expr.Array
@@ -87,12 +85,7 @@ library
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
     Rel8.Expr.Window
-
     Rel8.FCF
-
-    Rel8.Kind.Algebra
-    Rel8.Kind.Context
-
     Rel8.Generic.Construction
     Rel8.Generic.Construction.ADT
     Rel8.Generic.Construction.Record
@@ -102,9 +95,9 @@ library
     Rel8.Generic.Table
     Rel8.Generic.Table.ADT
     Rel8.Generic.Table.Record
-
+    Rel8.Kind.Algebra
+    Rel8.Kind.Context
     Rel8.Order
-
     Rel8.Query
     Rel8.Query.Aggregate
     Rel8.Query.Distinct
@@ -128,7 +121,6 @@ library
     Rel8.Query.These
     Rel8.Query.Values
     Rel8.Query.Window
-
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
     Rel8.Schema.Field
@@ -150,7 +142,6 @@ library
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Table
-
     Rel8.Statement.Delete
     Rel8.Statement.Insert
     Rel8.Statement.OnConflict
@@ -162,7 +153,6 @@ library
     Rel8.Statement.Using
     Rel8.Statement.View
     Rel8.Statement.Where
-
     Rel8.Table
     Rel8.Table.ADT
     Rel8.Table.Aggregate
@@ -188,15 +178,14 @@ library
     Rel8.Table.Transpose
     Rel8.Table.Undefined
     Rel8.Table.Window
-
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Composite
-    Rel8.Type.Eq
     Rel8.Type.Enum
+    Rel8.Type.Eq
     Rel8.Type.Information
-    Rel8.Type.JSONEncoded
     Rel8.Type.JSONBEncoded
+    Rel8.Type.JSONEncoded
     Rel8.Type.Monoid
     Rel8.Type.Num
     Rel8.Type.Ord
@@ -205,9 +194,7 @@ library
     Rel8.Type.String
     Rel8.Type.Sum
     Rel8.Type.Tag
-
     Rel8.Window
-
 
 test-suite tests
   type:             exitcode-stdio-1.0
@@ -219,7 +206,7 @@ test-suite tests
     , data-dword
     , hasql
     , hasql-transaction
-    , hedgehog          ^>= 1.0 || ^>= 1.1
+    , hedgehog           >=1.0       && <1.1 || ^>=1.1
     , mmorph
     , network-ip
     , rel8
@@ -228,13 +215,11 @@ test-suite tests
     , tasty-hedgehog
     , text
     , time
-    , tmp-postgres      ^>=1.34.1.0
+    , tmp-postgres       ^>=1.34.1.0
     , transformers
     , uuid
 
-  other-modules:
-    Rel8.Generic.Rel8able.Test
-
+  other-modules:    Rel8.Generic.Rel8able.Test
   main-is:          Main.hs
   hs-source-dirs:   tests
   default-language: Haskell2010

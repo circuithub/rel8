@@ -1,20 +1,20 @@
-{-# language DataKinds #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Rel8.Column.Lift
-  ( Lift
-  )
+module Rel8.Column.Lift (
+  Lift,
+)
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Kind (Type)
 import Prelude ()
 
 -- rel8
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Result ( Result )
-import Rel8.Table.HKD ( HKD )
+import Rel8.Schema.Result (Result)
+import Rel8.Table.HKD (HKD)
 
 
 type Lift :: K.Context -> Type -> Type

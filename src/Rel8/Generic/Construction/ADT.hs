@@ -1,66 +1,92 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language BlockArguments #-}
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TupleSections #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Generic.Construction.ADT
-  ( GConstructableADT
-  , GBuildADT, gbuildADT, gunbuildADT
-  , GConstructADT, gconstructADT, gdeconstructADT
-  , GFields, RepresentableFields, gftabulate, gfindex
-  , GConstructors, RepresentableConstructors, gctabulate, gcindex
-  , GConstructorADT, GMakeableADT, gmakeADT
-  )
+module Rel8.Generic.Construction.ADT (
+  GConstructableADT,
+  GBuildADT,
+  gbuildADT,
+  gunbuildADT,
+  GConstructADT,
+  gconstructADT,
+  gdeconstructADT,
+  GFields,
+  RepresentableFields,
+  gftabulate,
+  gfindex,
+  GConstructors,
+  RepresentableConstructors,
+  gctabulate,
+  gcindex,
+  GConstructorADT,
+  GMakeableADT,
+  gmakeADT,
+)
 where
 
 -- base
-import Data.Bifunctor ( first )
-import Data.Functor.Identity ( runIdentity )
-import Data.Kind ( Constraint, Type )
-import Data.List.NonEmpty ( NonEmpty )
-import Data.Proxy ( Proxy( Proxy ) )
-import GHC.Generics
-  ( (:+:), (:*:)( (:*:) ), M1, U1
-  , C, D
-  , Meta( MetaData, MetaCons )
-  )
-import GHC.TypeLits
-  ( ErrorMessage( (:<>:), Text ), TypeError
-  , Symbol, KnownSymbol, symbolVal
-  )
-import Prelude hiding ( null )
+import Data.Bifunctor (first)
+import Data.Functor.Identity (runIdentity)
+import Data.Kind (Constraint, Type)
+import Data.List.NonEmpty (NonEmpty)
+import Data.Proxy (Proxy (Proxy))
+import GHC.Generics (
+  C,
+  D,
+  M1,
+  Meta (MetaCons, MetaData),
+  U1,
+  (:*:) ((:*:)),
+  (:+:),
+ )
+import GHC.TypeLits (
+  ErrorMessage (Text, (:<>:)),
+  KnownSymbol,
+  Symbol,
+  TypeError,
+  symbolVal,
+ )
+import Prelude hiding (null)
 
 -- rel8
-import Rel8.FCF ( Exp )
-import Rel8.Generic.Construction.Record
-  ( GConstruct, GConstructable, gconstruct, gdeconstruct
-  , GFields, Representable, gtabulate, gindex
-  , FromColumns, ToColumns
-  )
-import Rel8.Generic.Table.ADT ( GColumnsADT, GColumnsADT' )
-import Rel8.Generic.Table.Record ( GColumns )
-import Rel8.Schema.HTable ( HTable )
-import Rel8.Schema.HTable.Identity ( HIdentity )
-import Rel8.Schema.HTable.Label ( HLabel, hlabel, hunlabel )
-import Rel8.Schema.HTable.Nullify ( HNullify, hnulls, hnullify, hunnullify )
-import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
-import Rel8.Schema.Null ( Nullify )
-import Rel8.Schema.Spec ( Spec )
+import Rel8.FCF (Exp)
+import Rel8.Generic.Construction.Record (
+  FromColumns,
+  GConstruct,
+  GConstructable,
+  GFields,
+  Representable,
+  ToColumns,
+  gconstruct,
+  gdeconstruct,
+  gindex,
+  gtabulate,
+ )
+import Rel8.Generic.Table.ADT (GColumnsADT, GColumnsADT')
+import Rel8.Generic.Table.Record (GColumns)
+import Rel8.Schema.HTable (HTable)
+import Rel8.Schema.HTable.Identity (HIdentity)
+import Rel8.Schema.HTable.Label (HLabel, hlabel, hunlabel)
+import Rel8.Schema.HTable.Nullify (HNullify, hnullify, hnulls, hunnullify)
+import Rel8.Schema.HTable.Product (HProduct (HProduct))
 import qualified Rel8.Schema.Kind as K
-import Rel8.Type.Tag ( Tag( Tag ) )
+import Rel8.Schema.Null (Nullify)
+import Rel8.Schema.Spec (Spec)
+import Rel8.Type.Tag (Tag (Tag))
 
 -- text
-import Data.Text ( pack )
+import Data.Text (pack)
 
 
 type Null :: K.Context -> Type
@@ -77,11 +103,11 @@ type Unnullifier context = forall a. Spec a -> context (Nullify a) -> context a
 
 type NoConstructor :: Symbol -> Symbol -> ErrorMessage
 type NoConstructor datatype constructor =
-  ( 'Text "The type `" ':<>:
-    'Text datatype ':<>:
-    'Text "` has no constructor `" ':<>:
-    'Text constructor ':<>:
-    'Text "`."
+  ( 'Text "The type `"
+      ':<>: 'Text datatype
+      ':<>: 'Text "` has no constructor `"
+      ':<>: 'Text constructor
+      ':<>: 'Text "`."
   )
 
 
@@ -101,9 +127,12 @@ type family GConstructorADT' name rep fallback where
   GConstructorADT' _ _ fallback = fallback
 
 
-type GConstructADT
-  :: (Type -> Exp Type)
-  -> (Type -> Type) -> Type -> Type -> Type
+type GConstructADT ::
+  (Type -> Exp Type) ->
+  (Type -> Type) ->
+  Type ->
+  Type ->
+  Type
 type family GConstructADT f rep r x where
   GConstructADT f (M1 D _ rep) r x = GConstructADT f rep r x
   GConstructADT f (a :+: b) r x = GConstructADT f a r (GConstructADT f b r x)
@@ -128,9 +157,10 @@ instance RepresentableConstructors f rep => RepresentableConstructors f (M1 D me
   gcindex = gcindex @f @rep
 
 
-instance (RepresentableConstructors f a, RepresentableConstructors f b) =>
+instance
+  (RepresentableConstructors f a, RepresentableConstructors f b) =>
   RepresentableConstructors f (a :+: b)
- where
+  where
   gctabulate f =
     gctabulate @f @a \a -> gctabulate @f @b \b -> f (a :*: b)
   gcindex f (a :*: b) = gcindex @f @b (gcindex @f @a f a) b
@@ -177,100 +207,127 @@ instance Representable f rep => RepresentableFields f (M1 C meta rep) where
   gfindex = gindex @f @rep
 
 
-type GConstructableADT
-  :: (Type -> Exp Constraint)
-  -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> K.Context -> (Type -> Type) -> Constraint
+type GConstructableADT ::
+  (Type -> Exp Constraint) ->
+  (Type -> Exp K.HTable) ->
+  (Type -> Exp Type) ->
+  K.Context ->
+  (Type -> Type) ->
+  Constraint
 class GConstructableADT _Table _Columns f context rep where
-  gbuildADT :: ()
-    => ToColumns _Table _Columns f context
-    -> (Tag -> Nullifier context)
-    -> HIdentity Tag context
-    -> GFieldsADT f rep
-    -> GColumnsADT _Columns rep context
+  gbuildADT ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    (Tag -> Nullifier context) ->
+    HIdentity Tag context ->
+    GFieldsADT f rep ->
+    GColumnsADT _Columns rep context
 
-  gunbuildADT :: ()
-    => FromColumns _Table _Columns f context
-    -> Unnullifier context
-    -> GColumnsADT _Columns rep context
-    -> (HIdentity Tag context, GFieldsADT f rep)
 
-  gconstructADT :: ()
-    => ToColumns _Table _Columns f context
-    -> Null context
-    -> Nullifier context
-    -> (Tag -> HIdentity Tag context)
-    -> GConstructors f rep (GColumnsADT _Columns rep context)
+  gunbuildADT ::
+    () =>
+    FromColumns _Table _Columns f context ->
+    Unnullifier context ->
+    GColumnsADT _Columns rep context ->
+    (HIdentity Tag context, GFieldsADT f rep)
 
-  gdeconstructADT :: ()
-    => FromColumns _Table _Columns f context
-    -> Unnullifier context
-    -> GConstructors f rep r
-    -> GColumnsADT _Columns rep context
-    -> (HIdentity Tag context, NonEmpty (Tag, r))
+
+  gconstructADT ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    Null context ->
+    Nullifier context ->
+    (Tag -> HIdentity Tag context) ->
+    GConstructors f rep (GColumnsADT _Columns rep context)
+
+
+  gdeconstructADT ::
+    () =>
+    FromColumns _Table _Columns f context ->
+    Unnullifier context ->
+    GConstructors f rep r ->
+    GColumnsADT _Columns rep context ->
+    (HIdentity Tag context, NonEmpty (Tag, r))
 
 
 instance
   ( htable ~ HLabel "tag" (HIdentity Tag)
   , GConstructableADT' _Table _Columns f context htable rep
-  )
-  => GConstructableADT _Table _Columns f context (M1 D meta rep)
- where
+  ) =>
+  GConstructableADT _Table _Columns f context (M1 D meta rep)
+  where
   gbuildADT toColumns nullifier =
-    gbuildADT' @_Table @_Columns @f @context @htable @rep toColumns nullifier .
-    hlabel
+    gbuildADT' @_Table @_Columns @f @context @htable @rep toColumns nullifier
+      . hlabel
+
 
   gunbuildADT fromColumns unnullifier =
-    first hunlabel .
-    gunbuildADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier
+    first hunlabel
+      . gunbuildADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier
+
 
   gconstructADT toColumns null nullifier mk =
-    gconstructADT' @_Table @_Columns @f @context @htable @rep toColumns null nullifier
+    gconstructADT' @_Table @_Columns @f @context @htable @rep
+      toColumns
+      null
+      nullifier
       (hlabel . mk)
 
+
   gdeconstructADT fromColumns unnullifier cases =
-    first hunlabel .
-    gdeconstructADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier cases
+    first hunlabel
+      . gdeconstructADT' @_Table @_Columns @f @context @htable @rep fromColumns unnullifier cases
 
 
-type GConstructableADT'
-  :: (Type -> Exp Constraint)
-  -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> K.Context -> K.HTable -> (Type -> Type) -> Constraint
+type GConstructableADT' ::
+  (Type -> Exp Constraint) ->
+  (Type -> Exp K.HTable) ->
+  (Type -> Exp Type) ->
+  K.Context ->
+  K.HTable ->
+  (Type -> Type) ->
+  Constraint
 class GConstructableADT' _Table _Columns f context htable rep where
-  gbuildADT' :: ()
-    => ToColumns _Table _Columns f context
-    -> (Tag -> Nullifier context)
-    -> htable context
-    -> GFieldsADT f rep
-    -> GColumnsADT' _Columns htable rep context
+  gbuildADT' ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    (Tag -> Nullifier context) ->
+    htable context ->
+    GFieldsADT f rep ->
+    GColumnsADT' _Columns htable rep context
 
-  gunbuildADT' :: ()
-    => FromColumns _Table _Columns f context
-    -> Unnullifier context
-    -> GColumnsADT' _Columns htable rep context
-    -> (htable context, GFieldsADT f rep)
 
-  gconstructADT' :: ()
-    => ToColumns _Table _Columns f context
-    -> Null context
-    -> Nullifier context
-    -> (Tag -> htable context)
-    -> GConstructors f rep (GColumnsADT' _Columns htable rep context)
+  gunbuildADT' ::
+    () =>
+    FromColumns _Table _Columns f context ->
+    Unnullifier context ->
+    GColumnsADT' _Columns htable rep context ->
+    (htable context, GFieldsADT f rep)
 
-  gdeconstructADT' :: ()
-    => FromColumns _Table _Columns f context
-    -> Unnullifier context
-    -> GConstructors f rep r
-    -> GColumnsADT' _Columns htable rep context
-    -> (htable context, NonEmpty (Tag, r))
 
-  gfill :: ()
-    => Null context
-    -> htable context
-    -> GColumnsADT' _Columns htable rep context
+  gconstructADT' ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    Null context ->
+    Nullifier context ->
+    (Tag -> htable context) ->
+    GConstructors f rep (GColumnsADT' _Columns htable rep context)
+
+
+  gdeconstructADT' ::
+    () =>
+    FromColumns _Table _Columns f context ->
+    Unnullifier context ->
+    GConstructors f rep r ->
+    GColumnsADT' _Columns htable rep context ->
+    (htable context, NonEmpty (Tag, r))
+
+
+  gfill ::
+    () =>
+    Null context ->
+    htable context ->
+    GColumnsADT' _Columns htable rep context
 
 
 instance
@@ -278,13 +335,16 @@ instance
   , Functor (GConstructors f a)
   , GConstructableADT' _Table _Columns f context htable a
   , GConstructableADT' _Table _Columns f context htable' b
-  )
-  => GConstructableADT' _Table _Columns f context htable (a :+: b)
- where
+  ) =>
+  GConstructableADT' _Table _Columns f context htable (a :+: b)
+  where
   gbuildADT' toColumns nullifier htable (a, b) =
-    gbuildADT' @_Table @_Columns @f @context @htable' @b toColumns nullifier
+    gbuildADT' @_Table @_Columns @f @context @htable' @b
+      toColumns
+      nullifier
       (gbuildADT' @_Table @_Columns @f @context @htable @a toColumns nullifier htable a)
       b
+
 
   gunbuildADT' fromColumns unnullifier columns =
     case gunbuildADT' @_Table @_Columns @f @context @htable' @b fromColumns unnullifier columns of
@@ -292,9 +352,11 @@ instance
         case gunbuildADT' @_Table @_Columns @f @context @htable @a fromColumns unnullifier htable' of
           (htable, a) -> (htable, (a, b))
 
+
   gconstructADT' toColumns null nullifier mk =
-    fmap (gfill @_Table @_Columns @f @context @htable' @b null) (gconstructADT' @_Table @_Columns @f @context @htable @a toColumns null nullifier mk) :*:
-    gconstructADT' @_Table @_Columns @f @context @htable' @b toColumns null nullifier (gfill @_Table @_Columns @f @context @htable @a null . mk)
+    fmap (gfill @_Table @_Columns @f @context @htable' @b null) (gconstructADT' @_Table @_Columns @f @context @htable @a toColumns null nullifier mk)
+      :*: gconstructADT' @_Table @_Columns @f @context @htable' @b toColumns null nullifier (gfill @_Table @_Columns @f @context @htable @a null . mk)
+
 
   gdeconstructADT' fromColumns unnullifier (a :*: b) columns =
     case gdeconstructADT' @_Table @_Columns @f @context @htable' @b fromColumns unnullifier b columns of
@@ -302,16 +364,18 @@ instance
         case gdeconstructADT' @_Table @_Columns @f @context @htable @a fromColumns unnullifier a htable' of
           (htable, cases') -> (htable, cases' <> cases)
 
+
   gfill null =
-    gfill @_Table @_Columns @f @context @htable' @b null .
-    gfill @_Table @_Columns @f @context @htable @a null
+    gfill @_Table @_Columns @f @context @htable' @b null
+      . gfill @_Table @_Columns @f @context @htable @a null
 
 
-instance (meta ~ 'MetaCons label _fixity _isRecord, KnownSymbol label) =>
+instance
+  (meta ~ 'MetaCons label _fixity _isRecord, KnownSymbol label) =>
   GConstructableADT' _Table _Columns f context htable (M1 C meta U1)
- where
+  where
   gbuildADT' _ _ = const
-  gunbuildADT' _ _ = (, ())
+  gunbuildADT' _ _ = (,())
   gconstructADT' _ _ _ f _ = f tag
     where
       tag = Tag $ pack $ symbolVal (Proxy @label)
@@ -321,70 +385,80 @@ instance (meta ~ 'MetaCons label _fixity _isRecord, KnownSymbol label) =>
   gfill _ = id
 
 
-instance {-# OVERLAPPABLE #-}
+instance
+  {-# OVERLAPPABLE #-}
   ( HTable (GColumns _Columns rep)
   , KnownSymbol label
   , meta ~ 'MetaCons label _fixity _isRecord
   , GConstructable _Table _Columns f context rep
-  , GColumnsADT' _Columns htable (M1 C meta rep) ~
-      HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
-  )
-  => GConstructableADT' _Table _Columns f context htable (M1 C meta rep)
- where
+  , GColumnsADT' _Columns htable (M1 C meta rep)
+      ~ HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
+  ) =>
+  GConstructableADT' _Table _Columns f context htable (M1 C meta rep)
+  where
   gbuildADT' toColumns nullifier htable =
-    HProduct htable .
-    hlabel .
-    hnullify (nullifier tag) .
-    gconstruct @_Table @_Columns @f @context @rep toColumns
+    HProduct htable
+      . hlabel
+      . hnullify (nullifier tag)
+      . gconstruct @_Table @_Columns @f @context @rep toColumns
     where
       tag = Tag $ pack $ symbolVal (Proxy @label)
+
 
   gunbuildADT' fromColumns unnullifier (HProduct htable a) =
     ( htable
     , gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
         runIdentity $
-        hunnullify (\spec -> pure . unnullifier spec) $
-        hunlabel
-        a
+          hunnullify (\spec -> pure . unnullifier spec) $
+            hunlabel
+              a
     )
 
+
   gconstructADT' toColumns _ nullifier mk =
-    HProduct htable .
-    hlabel .
-    hnullify nullifier .
-    gconstruct @_Table @_Columns @f @context @rep toColumns
+    HProduct htable
+      . hlabel
+      . hnullify nullifier
+      . gconstruct @_Table @_Columns @f @context @rep toColumns
     where
       tag = Tag $ pack $ symbolVal (Proxy @label)
       htable = mk tag
+
 
   gdeconstructADT' fromColumns unnullifier r (HProduct htable columns) =
     ( htable
     , pure (tag, r a)
     )
     where
-      a = gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
-        runIdentity $
-        hunnullify (\spec -> pure . unnullifier spec) $
-        hunlabel
-        columns
+      a =
+        gdeconstruct @_Table @_Columns @f @context @rep fromColumns $
+          runIdentity $
+            hunnullify (\spec -> pure . unnullifier spec) $
+              hunlabel
+                columns
       tag = Tag $ pack $ symbolVal (Proxy @label)
+
 
   gfill null htable = HProduct htable (hlabel (hnulls null))
 
 
-type GMakeableADT
-  :: (Type -> Exp Constraint)
-  -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> K.Context -> Symbol -> (Type -> Type) -> Constraint
+type GMakeableADT ::
+  (Type -> Exp Constraint) ->
+  (Type -> Exp K.HTable) ->
+  (Type -> Exp Type) ->
+  K.Context ->
+  Symbol ->
+  (Type -> Type) ->
+  Constraint
 class GMakeableADT _Table _Columns f context name rep where
-  gmakeADT :: ()
-    => ToColumns _Table _Columns f context
-    -> Null context
-    -> Nullifier context
-    -> (Tag -> HIdentity Tag context)
-    -> GFields f (GConstructorADT name rep)
-    -> GColumnsADT _Columns rep context
+  gmakeADT ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    Null context ->
+    Nullifier context ->
+    (Tag -> HIdentity Tag context) ->
+    GFields f (GConstructorADT name rep) ->
+    GColumnsADT _Columns rep context
 
 
 instance
@@ -394,85 +468,113 @@ instance
   , fields ~ GFields f (GConstructorADT' name rep fallback)
   , GMakeableADT' _Table _Columns f context htable name rep fields
   , KnownSymbol name
-  )
-  => GMakeableADT _Table _Columns f context name (M1 D meta rep)
- where
+  ) =>
+  GMakeableADT _Table _Columns f context name (M1 D meta rep)
+  where
   gmakeADT toColumns null nullifier wrap =
     gmakeADT'
-      @_Table @_Columns @f @context @htable @name @rep @fields
-      toColumns null nullifier htable
+      @_Table
+      @_Columns
+      @f
+      @context
+      @htable
+      @name
+      @rep
+      @fields
+      toColumns
+      null
+      nullifier
+      htable
     where
       tag = Tag $ pack $ symbolVal (Proxy @name)
       htable = hlabel (wrap tag)
 
 
-type GMakeableADT'
-  :: (Type -> Exp Constraint)
-  -> (Type -> Exp K.HTable)
-  -> (Type -> Exp Type)
-  -> K.Context -> K.HTable -> Symbol -> (Type -> Type) -> Type -> Constraint
+type GMakeableADT' ::
+  (Type -> Exp Constraint) ->
+  (Type -> Exp K.HTable) ->
+  (Type -> Exp Type) ->
+  K.Context ->
+  K.HTable ->
+  Symbol ->
+  (Type -> Type) ->
+  Type ->
+  Constraint
 class GMakeableADT' _Table _Columns f context htable name rep fields where
-  gmakeADT' :: ()
-    => ToColumns _Table _Columns f context
-    -> Null context
-    -> Nullifier context
-    -> htable context
-    -> fields
-    -> GColumnsADT' _Columns htable rep context
+  gmakeADT' ::
+    () =>
+    ToColumns _Table _Columns f context ->
+    Null context ->
+    Nullifier context ->
+    htable context ->
+    fields ->
+    GColumnsADT' _Columns htable rep context
 
 
 instance
   ( htable' ~ GColumnsADT' _Columns htable a
   , GMakeableADT' _Table _Columns f context htable name a fields
   , GMakeableADT' _Table _Columns f context htable' name b fields
-  )
-  => GMakeableADT' _Table _Columns f context htable name (a :+: b) fields
- where
+  ) =>
+  GMakeableADT' _Table _Columns f context htable name (a :+: b) fields
+  where
   gmakeADT' toColumns null nullifier htable x =
     gmakeADT' @_Table @_Columns @f @context @htable' @name @b @fields
-      toColumns null nullifier
-      (gmakeADT'
-         @_Table @_Columns @f @context @htable @name @a @fields toColumns
-         null nullifier htable x)
+      toColumns
+      null
+      nullifier
+      ( gmakeADT'
+          @_Table
+          @_Columns
+          @f
+          @context
+          @htable
+          @name
+          @a
+          @fields
+          toColumns
+          null
+          nullifier
+          htable
+          x
+      )
       x
 
 
-instance {-# OVERLAPPING #-}
-  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) U1) fields
- where
+instance {-# OVERLAPPING #-} GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) U1) fields where
   gmakeADT' _ _ _ = const
 
 
-instance {-# OVERLAPS #-}
-  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) U1) fields
- where
+instance {-# OVERLAPS #-} GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) U1) fields where
   gmakeADT' _ _ _ = const
 
 
-instance {-# OVERLAPS #-}
+instance
+  {-# OVERLAPS #-}
   ( HTable (GColumns _Columns rep)
   , GConstructable _Table _Columns f context rep
   , fields ~ GFields f rep
-  , GColumnsADT' _Columns htable (M1 C ('MetaCons name _fixity _isRecord) rep) ~
-      HProduct htable (HLabel name (HNullify (GColumns _Columns rep)))
-  )
-  => GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) rep) fields
- where
+  , GColumnsADT' _Columns htable (M1 C ('MetaCons name _fixity _isRecord) rep)
+      ~ HProduct htable (HLabel name (HNullify (GColumns _Columns rep)))
+  ) =>
+  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons name _fixity _isRecord) rep) fields
+  where
   gmakeADT' toColumns _ nullifier htable =
-    HProduct htable .
-    hlabel .
-    hnullify nullifier .
-    gconstruct @_Table @_Columns @f @context @rep toColumns
+    HProduct htable
+      . hlabel
+      . hnullify nullifier
+      . gconstruct @_Table @_Columns @f @context @rep toColumns
 
 
-instance {-# OVERLAPPABLE #-}
+instance
+  {-# OVERLAPPABLE #-}
   ( HTable (GColumns _Columns rep)
-  , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep) ~
-      HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
-  )
-  => GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) rep) fields
- where
+  , GColumnsADT' _Columns htable (M1 C ('MetaCons label _fixity _isRecord) rep)
+      ~ HProduct htable (HLabel label (HNullify (GColumns _Columns rep)))
+  ) =>
+  GMakeableADT' _Table _Columns f context htable name (M1 C ('MetaCons label _fixity _isRecord) rep) fields
+  where
   gmakeADT' _ null _ htable _ =
     HProduct htable $
-    hlabel $
-    hnulls null
+      hlabel $
+        hnulls null

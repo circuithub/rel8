@@ -1,29 +1,35 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Schema.HTable.Identity
-  ( HIdentity( HIdentity, unHIdentity )
-  )
+module Rel8.Schema.HTable.Identity (
+  HIdentity (HIdentity, unHIdentity),
+)
 where
 
 -- base
-import Data.Kind ( Type )
-import Data.Type.Equality ( (:~:)( Refl ) )
+import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
 import Prelude
 
 -- rel8
-import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable
-  ( HTable, HConstrainTable, HField
-  , hfield, htabulate, htraverse, hdicts, hspecs
-  )
+import Rel8.Schema.Dict (Dict (Dict))
+import Rel8.Schema.HTable (
+  HConstrainTable,
+  HField,
+  HTable,
+  hdicts,
+  hfield,
+  hspecs,
+  htabulate,
+  htraverse,
+ )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.Spec ( specification )
-import Rel8.Type ( DBType )
+import Rel8.Schema.Null (Sql)
+import Rel8.Schema.Spec (specification)
+import Rel8.Type (DBType)
 
 
 type HIdentity :: Type -> K.HTable
@@ -35,6 +41,7 @@ newtype HIdentity a context = HIdentity
 instance Sql DBType a => HTable (HIdentity a) where
   type HConstrainTable (HIdentity a) constraint = constraint a
   type HField (HIdentity a) = (:~:) a
+
 
   hfield (HIdentity a) Refl = a
   htabulate f = HIdentity $ f Refl

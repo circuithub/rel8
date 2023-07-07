@@ -1,17 +1,17 @@
-{-# language DataKinds #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Schema.HTable.List
-  ( HListTable
-  )
+module Rel8.Schema.HTable.List (
+  HListTable,
+)
 where
 
 -- base
 import Prelude ()
 
 -- rel8
+import Rel8.Schema.HTable.Vectorize (HVectorize)
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.HTable.Vectorize ( HVectorize )
 
 
 type HListTable :: K.HTable -> K.HTable

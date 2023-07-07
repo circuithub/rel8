@@ -1,14 +1,14 @@
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Schema.Kind
-  ( Rel8able
-  , Context
-  , HTable
-  )
+module Rel8.Schema.Kind (
+  Rel8able,
+  Context,
+  HTable,
+)
 where
 
 -- base
-import Data.Kind ( Type )
+import Data.Kind (Type)
 import Prelude ()
 
 

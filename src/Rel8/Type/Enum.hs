@@ -1,35 +1,42 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Rel8.Type.Enum
-  ( Enum( Enum )
-  , DBEnum( enumValue, enumTypeName )
-  , Enumable
-  )
+module Rel8.Type.Enum (
+  Enum (Enum),
+  DBEnum (enumValue, enumTypeName),
+  Enumable,
+)
 where
 
 -- base
-import Control.Applicative ( (<|>) )
-import Control.Arrow ( (&&&) )
-import Data.Kind ( Constraint, Type )
-import Data.Proxy ( Proxy( Proxy ) )
-import GHC.Generics
-  ( Generic, Rep, from, to
-  , (:+:)( L1, R1 ), M1( M1 ), U1( U1 )
-  , D, C, Meta( MetaCons )
-  )
-import GHC.TypeLits ( KnownSymbol, symbolVal )
-import Prelude hiding ( Enum )
+import Control.Applicative ((<|>))
+import Control.Arrow ((&&&))
+import Data.Kind (Constraint, Type)
+import Data.Proxy (Proxy (Proxy))
+import GHC.Generics (
+  C,
+  D,
+  Generic,
+  M1 (M1),
+  Meta (MetaCons),
+  Rep,
+  U1 (U1),
+  from,
+  to,
+  (:+:) (L1, R1),
+ )
+import GHC.TypeLits (KnownSymbol, symbolVal)
+import Prelude hiding (Enum)
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -38,25 +45,26 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
+import Rel8.Type (DBType, typeInformation)
+import Rel8.Type.Eq (DBEq)
+import Rel8.Type.Information (TypeInformation (..))
+import Rel8.Type.Ord (DBMax, DBMin, DBOrd)
 
 -- text
-import Data.Text ( pack )
+import Data.Text (pack)
 
 
--- | A deriving-via helper type for column types that store an \"enum\" type
--- (in Haskell terms, a sum type where all constructors are nullary) using a
--- Postgres @enum@ type.
---
--- Note that this should map to a specific type in your database's schema
--- (explicitly created with @CREATE TYPE ... AS ENUM@). Use 'DBEnum' to
--- specify the name of this Postgres type and the names of the individual
--- values. If left unspecified, the names of the values of the Postgres
--- @enum@ are assumed to match exactly exactly the names of the constructors
--- of the Haskell type (up to and including case sensitivity).
+{- | A deriving-via helper type for column types that store an \"enum\" type
+(in Haskell terms, a sum type where all constructors are nullary) using a
+Postgres @enum@ type.
+
+Note that this should map to a specific type in your database's schema
+(explicitly created with @CREATE TYPE ... AS ENUM@). Use 'DBEnum' to
+specify the name of this Postgres type and the names of the individual
+values. If left unspecified, the names of the values of the Postgres
+@enum@ are assumed to match exactly exactly the names of the constructors
+of the Haskell type (up to and including case sensitivity).
+-}
 type Enum :: Type -> Type
 newtype Enum a = Enum
   { unEnum :: a
@@ -64,19 +72,20 @@ newtype Enum a = Enum
 
 
 instance DBEnum a => DBType (Enum a) where
-  typeInformation = TypeInformation
-    { decode =
-        Hasql.enum $
-        flip lookup $
-        map ((pack . enumValue &&& Enum) . to) $
-        genumerate @(Rep a)
-    , encode =
-        Opaleye.ConstExpr .
-        Opaleye.StringLit .
-        enumValue @a .
-        unEnum
-    , typeName = enumTypeName @a
-    }
+  typeInformation =
+    TypeInformation
+      { decode =
+          Hasql.enum $
+            flip lookup $
+              map ((pack . enumValue &&& Enum) . to) $
+                genumerate @(Rep a)
+      , encode =
+          Opaleye.ConstExpr
+            . Opaleye.StringLit
+            . enumValue @a
+            . unEnum
+      , typeName = enumTypeName @a
+      }
 
 
 instance DBEnum a => DBEq (Enum a)
@@ -100,14 +109,18 @@ class (DBType a, Enumable a) => DBEnum a where
   enumValue :: a -> String
   enumValue = gshow @(Rep a) . from
 
+
   -- | The name of the PostgreSQL @enum@ type that @a@ maps to.
   enumTypeName :: String
 
 
--- | Types that are sum types, where each constructor is unary (that is, has no
--- fields).
+{- | Types that are sum types, where each constructor is unary (that is, has no
+fields).
+-}
 type Enumable :: Type -> Constraint
 class (Generic a, GEnumable (Rep a)) => Enumable a
+
+
 instance (Generic a, GEnumable (Rep a)) => Enumable a
 
 
@@ -132,8 +145,8 @@ instance (GEnumable a, GEnumable b) => GEnumable (a :+: b) where
 instance
   ( meta ~ 'MetaCons name _fixity _isRecord
   , KnownSymbol name
-  )
-  => GEnumable (M1 C meta U1)
- where
+  ) =>
+  GEnumable (M1 C meta U1)
+  where
   genumerate = [M1 U1]
   gshow (M1 U1) = symbolVal (Proxy @name)

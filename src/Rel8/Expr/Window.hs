@@ -1,21 +1,26 @@
-module Rel8.Expr.Window
-  ( cumulative
-  , rowNumber
-  , rank
-  , denseRank
-  , percentRank
-  , cumeDist
-  , ntile
-  , lag, lagOn
-  , lead, leadOn
-  , firstValue, firstValueOn
-  , lastValue, lastValueOn
-  , nthValue, nthValueOn
-  )
+module Rel8.Expr.Window (
+  cumulative,
+  rowNumber,
+  rank,
+  denseRank,
+  percentRank,
+  cumeDist,
+  ntile,
+  lag,
+  lagOn,
+  lead,
+  leadOn,
+  firstValue,
+  firstValueOn,
+  lastValue,
+  lastValueOn,
+  nthValue,
+  nthValueOn,
+)
 where
 
 -- base
-import Data.Int ( Int32, Int64 )
+import Data.Int (Int32, Int64)
 import Prelude
 
 -- opaleye
@@ -29,16 +34,17 @@ import Data.Profunctor (dimap, lmap)
 
 -- rel8
 import Rel8.Aggregate (Aggregator' (Aggregator))
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr, toColumn, toPrimExpr )
-import Rel8.Schema.Null ( Nullify )
-import Rel8.Window ( Window( Window ) )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Opaleye (fromColumn, fromPrimExpr, toColumn, toPrimExpr)
+import Rel8.Schema.Null (Nullify)
+import Rel8.Window (Window (Window))
 
 
--- | 'cumulative' allows the use of aggregation functions in 'Window'
--- expressions. In particular, @'cumulative' 'Rel8.sum'@
--- (when combined with 'Rel8.Window.orderPartitionBy') gives a running total,
--- also known as a \"cumulative sum\", hence the name @cumulative@.
+{- | 'cumulative' allows the use of aggregation functions in 'Window'
+expressions. In particular, @'cumulative' 'Rel8.sum'@
+(when combined with 'Rel8.Window.orderPartitionBy') gives a running total,
+also known as a \"cumulative sum\", hence the name @cumulative@.
+-}
 cumulative :: Aggregator' fold i a -> Window i a
 cumulative f =
   fromWindowFunction $ Opaleye.aggregatorWindowFunction (fromAggregate f) id
@@ -71,8 +77,10 @@ cumeDist = fromWindowFunction $ fromPrimExpr . fromColumn <$> Opaleye.cumeDist
 
 -- | [@ntile(num_buckets)@](https://www.postgresql.org/docs/current/functions-window.html)
 ntile :: Expr Int32 -> Window i (Expr Int32)
-ntile buckets = fromWindowFunction $ fromPrimExpr . fromColumn <$>
-  Opaleye.ntile (toColumn (toPrimExpr buckets))
+ntile buckets =
+  fromWindowFunction $
+    fromPrimExpr . fromColumn
+      <$> Opaleye.ntile (toColumn (toPrimExpr buckets))
 
 
 -- | [@lag(value, offset, default)@](https://www.postgresql.org/docs/current/functions-window.html)
@@ -105,7 +113,9 @@ leadOn offset def f = lmap f (lead offset def)
 firstValue :: Window (Expr a) (Expr a)
 firstValue =
   fromWindowFunction $
-    dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn)
+    dimap
+      (toColumn . toPrimExpr)
+      (fromPrimExpr . fromColumn)
       Opaleye.firstValue
 
 
@@ -118,7 +128,9 @@ firstValueOn f = lmap f firstValue
 lastValue :: Window (Expr a) (Expr a)
 lastValue =
   fromWindowFunction $
-    dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn)
+    dimap
+      (toColumn . toPrimExpr)
+      (fromPrimExpr . fromColumn)
       Opaleye.lastValue
 
 

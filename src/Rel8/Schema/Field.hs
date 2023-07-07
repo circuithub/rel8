@@ -1,32 +1,38 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Rel8.Schema.Field
-  ( Field(..)
-  , fields
-  )
+module Rel8.Schema.Field (
+  Field (..),
+  fields,
+)
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
-import Data.Kind ( Type )
+import Data.Functor.Identity (Identity (Identity))
+import Data.Kind (Type)
 import Prelude
 
 -- rel8
-import Rel8.Schema.HTable ( HField, htabulate )
-import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
+import Rel8.Schema.HTable (HField, htabulate)
+import Rel8.Schema.HTable.Identity (HIdentity (HIdentity))
 import Rel8.Schema.Kind as K
-import Rel8.Schema.Null ( Sql )
-import Rel8.Table
-  ( Table, Columns, Context, fromColumns, toColumns
-  , FromExprs, fromResult, toResult
-  , Transpose
-  )
-import Rel8.Table.Transpose ( Transposes )
-import Rel8.Type ( DBType )
+import Rel8.Schema.Null (Sql)
+import Rel8.Table (
+  Columns,
+  Context,
+  FromExprs,
+  Table,
+  Transpose,
+  fromColumns,
+  fromResult,
+  toColumns,
+  toResult,
+ )
+import Rel8.Table.Transpose (Transposes)
+import Rel8.Type (DBType)
 
 
 -- | A special context used in the construction of 'Rel8.Projection's.
@@ -39,6 +45,7 @@ instance Sql DBType a => Table (Field table) (Field table a) where
   type Context (Field table a) = Field table
   type FromExprs (Field table a) = a
   type Transpose to (Field table a) = to a
+
 
   toColumns = HIdentity
   fromColumns (HIdentity a) = a

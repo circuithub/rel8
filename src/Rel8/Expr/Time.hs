@@ -1,42 +1,49 @@
-module Rel8.Expr.Time
-  ( -- * Working with @Day@
-    today
-  , toDay
-  , fromDay
-  , addDays
-  , diffDays
-  , subtractDays
+module Rel8.Expr.Time (
+  -- * Working with @Day@
+  today,
+  toDay,
+  fromDay,
+  addDays,
+  diffDays,
+  subtractDays,
 
-    -- * Working with @UTCTime@
-  , now
-  , addTime
-  , diffTime
-  , subtractTime
+  -- * Working with @UTCTime@
+  now,
+  addTime,
+  diffTime,
+  subtractTime,
 
   -- * Working with @CalendarDiffTime@
-  , scaleInterval
-  , second, seconds
-  , minute, minutes
-  , hour, hours
-  , day, days
-  , week, weeks
-  , month, months
-  , year, years
-  ) where
+  scaleInterval,
+  second,
+  seconds,
+  minute,
+  minutes,
+  hour,
+  hours,
+  day,
+  days,
+  week,
+  weeks,
+  month,
+  months,
+  year,
+  years,
+) where
 
 -- base
-import Data.Int ( Int32 )
+import Data.Int (Int32)
 import Prelude
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, nullaryFunction )
-import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Function (binaryOperator, nullaryFunction)
+import Rel8.Expr.Opaleye (castExpr, unsafeCastExpr, unsafeLiteral)
 
 -- time
-import Data.Time.Calendar ( Day )
-import Data.Time.Clock ( UTCTime )
-import Data.Time.LocalTime ( CalendarDiffTime )
+import Data.Time.Calendar (Day)
+import Data.Time.Clock (UTCTime)
+import Data.Time.LocalTime (CalendarDiffTime)
 
 
 -- | Corresponds to @date(now())@.
@@ -64,7 +71,7 @@ diffDays :: Expr Day -> Expr Day -> Expr Int32
 diffDays = binaryOperator "-"
 
 
--- | Subtract a given number of days from a particular 'Day'. 
+-- | Subtract a given number of days from a particular 'Day'.
 subtractDays :: Expr Int32 -> Expr Day -> Expr Day
 subtractDays = flip (binaryOperator "-")
 
@@ -129,7 +136,7 @@ day = singleton "day"
 
 
 -- | Create a literal interval from a number of days.
-days ::  Expr Double -> Expr CalendarDiffTime
+days :: Expr Double -> Expr CalendarDiffTime
 days = (`scaleInterval` day)
 
 
@@ -139,7 +146,7 @@ week = singleton "week"
 
 
 -- | Create a literal interval from a number of weeks.
-weeks ::  Expr Double -> Expr CalendarDiffTime
+weeks :: Expr Double -> Expr CalendarDiffTime
 weeks = (`scaleInterval` week)
 
 
@@ -149,7 +156,7 @@ month = singleton "month"
 
 
 -- | Create a literal interval from a number of months.
-months ::  Expr Double -> Expr CalendarDiffTime
+months :: Expr Double -> Expr CalendarDiffTime
 months = (`scaleInterval` month)
 
 
@@ -159,7 +166,7 @@ year = singleton "year"
 
 
 -- | Create a literal interval from a number of years.
-years ::  Expr Double -> Expr CalendarDiffTime
+years :: Expr Double -> Expr CalendarDiffTime
 years = (`scaleInterval` year)
 
 

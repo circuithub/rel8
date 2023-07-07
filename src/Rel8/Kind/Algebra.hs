@@ -1,17 +1,17 @@
-{-# language DataKinds #-}
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Kind.Algebra
-  ( Algebra( Product, Sum )
-  , SAlgebra( SProduct, SSum )
-  , KnownAlgebra( algebraSing )
-  )
+module Rel8.Kind.Algebra (
+  Algebra (Product, Sum),
+  SAlgebra (SProduct, SSum),
+  KnownAlgebra (algebraSing),
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind (Constraint, Type)
 import Prelude ()
 
 

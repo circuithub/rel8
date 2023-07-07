@@ -1,41 +1,47 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language BlockArguments #-}
-{-# language ConstraintKinds #-}
-{-# language DataKinds #-}
-{-# language FlexibleInstances #-}
-{-# language GADTs #-}
-{-# language InstanceSigs #-}
-{-# language MultiParamTypeClasses #-}
-{-# language RankNTypes #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
-{-# language TypeFamilies #-}
-{-# language UndecidableInstances #-}
-{-# language UndecidableSuperClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
-module Rel8.Schema.HTable.MapTable
-  ( HMapTable(..)
-  , MapSpec(..)
-  , Precompose(..)
-  , HMapTableField(..)
-  , hproject
-  )
+module Rel8.Schema.HTable.MapTable (
+  HMapTable (..),
+  MapSpec (..),
+  Precompose (..),
+  HMapTableField (..),
+  hproject,
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind (Constraint, Type)
 import Prelude
 
 -- rel8
-import Rel8.FCF ( Exp, Eval )
-import Rel8.Schema.HTable
-  ( HTable, HConstrainTable, HField
-  , hfield, htabulate, htraverse, hdicts, hspecs
-  )
-import Rel8.Schema.Spec ( Spec )
+import Rel8.FCF (Eval, Exp)
+import Rel8.Schema.Dict (Dict (Dict))
+import Rel8.Schema.HTable (
+  HConstrainTable,
+  HField,
+  HTable,
+  hdicts,
+  hfield,
+  hspecs,
+  htabulate,
+  htraverse,
+ )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.Dict ( Dict( Dict ) )
+import Rel8.Schema.Spec (Spec)
 
 
 type HMapTable :: (Type -> Exp Type) -> K.HTable -> K.HTable
@@ -56,31 +62,39 @@ data HMapTableField f t x where
 
 
 instance (HTable t, MapSpec f) => HTable (HMapTable f t) where
-  type HField (HMapTable f t) = 
-    HMapTableField f t
+  type
+    HField (HMapTable f t) =
+      HMapTableField f t
 
-  type HConstrainTable (HMapTable f t) c =
-    HConstrainTable t (ComposeConstraint f c)
 
-  hfield (HMapTable x) (HMapTableField i) = 
-    precomposed (hfield x i) 
+  type
+    HConstrainTable (HMapTable f t) c =
+      HConstrainTable t (ComposeConstraint f c)
 
-  htabulate f = 
+
+  hfield (HMapTable x) (HMapTableField i) =
+    precomposed (hfield x i)
+
+
+  htabulate f =
     HMapTable $ htabulate (Precompose . f . HMapTableField)
 
-  htraverse f (HMapTable x) = 
+
+  htraverse f (HMapTable x) =
     HMapTable <$> htraverse (fmap Precompose . f . precomposed) x
-  {-# INLINABLE htraverse #-}
+  {-# INLINEABLE htraverse #-}
+
 
   hdicts :: forall c. HConstrainTable (HMapTable f t) c => HMapTable f t (Dict c)
-  hdicts = 
+  hdicts =
     htabulate \(HMapTableField j) ->
       case hfield (hdicts @_ @(ComposeConstraint f c)) j of
         Dict -> Dict
 
-  hspecs = 
+
+  hspecs =
     HMapTable $ htabulate $ Precompose . mapInfo @f . hfield hspecs
-  {-# INLINABLE hspecs #-}
+  {-# INLINEABLE hspecs #-}
 
 
 type MapSpec :: (Type -> Exp Type) -> Constraint
@@ -93,7 +107,9 @@ class c (Eval (f a)) => ComposeConstraint f c a
 instance c (Eval (f a)) => ComposeConstraint f c a
 
 
-hproject :: ()
-  => (forall ctx. t ctx -> t' ctx)
-  -> HMapTable f t context -> HMapTable f t' context
+hproject ::
+  () =>
+  (forall ctx. t ctx -> t' ctx) ->
+  HMapTable f t context ->
+  HMapTable f t' context
 hproject f (HMapTable a) = HMapTable (f a)

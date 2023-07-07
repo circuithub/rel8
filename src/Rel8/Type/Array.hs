@@ -1,21 +1,23 @@
-{-# language GADTs #-}
-{-# language LambdaCase #-}
-{-# language NamedFieldPuns #-}
-{-# language OverloadedStrings #-}
-{-# language TypeApplications #-}
-{-# language ViewPatterns #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Rel8.Type.Array
-  ( array, encodeArrayElement, extractArrayElement
-  , listTypeInformation
-  , nonEmptyTypeInformation
-  )
+module Rel8.Type.Array (
+  array,
+  encodeArrayElement,
+  extractArrayElement,
+  listTypeInformation,
+  nonEmptyTypeInformation,
+)
 where
 
 -- base
-import Data.Foldable ( toList )
-import Data.List.NonEmpty ( NonEmpty, nonEmpty )
-import Prelude hiding ( null, repeat, zipWith )
+import Data.Foldable (toList)
+import Data.List.NonEmpty (NonEmpty, nonEmpty)
+import Prelude hiding (null, repeat, zipWith)
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -24,23 +26,29 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ) )
-import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
+import Rel8.Schema.Null (Nullity (NotNull, Null), Unnullify)
+import Rel8.Type.Information (TypeInformation (..), parseTypeInformation)
 
 
-array :: Foldable f
-  => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
+array ::
+  Foldable f =>
+  TypeInformation a ->
+  f Opaleye.PrimExpr ->
+  Opaleye.PrimExpr
 array info =
-  Opaleye.CastExpr (arrayType info <> "[]") .
-  Opaleye.ArrayExpr . map (encodeArrayElement info) . toList
-{-# INLINABLE array #-}
+  Opaleye.CastExpr (arrayType info <> "[]")
+    . Opaleye.ArrayExpr
+    . map (encodeArrayElement info)
+    . toList
+{-# INLINEABLE array #-}
 
 
-listTypeInformation :: ()
-  => Nullity a
-  -> TypeInformation (Unnullify a)
-  -> TypeInformation [a]
-listTypeInformation nullity info@TypeInformation {encode, decode} =
+listTypeInformation ::
+  () =>
+  Nullity a ->
+  TypeInformation (Unnullify a) ->
+  TypeInformation [a]
+listTypeInformation nullity info@TypeInformation{encode, decode} =
   TypeInformation
     { decode = case nullity of
         Null ->
@@ -49,21 +57,22 @@ listTypeInformation nullity info@TypeInformation {encode, decode} =
           Hasql.listArray (decodeArrayElement info (Hasql.nonNullable decode))
     , encode = case nullity of
         Null ->
-          Opaleye.ArrayExpr .
-          fmap (encodeArrayElement info . maybe null encode)
+          Opaleye.ArrayExpr
+            . fmap (encodeArrayElement info . maybe null encode)
         NotNull ->
-          Opaleye.ArrayExpr .
-          fmap (encodeArrayElement info . encode)
+          Opaleye.ArrayExpr
+            . fmap (encodeArrayElement info . encode)
     , typeName = arrayType info <> "[]"
     }
   where
     null = Opaleye.ConstExpr Opaleye.NullLit
 
 
-nonEmptyTypeInformation :: ()
-  => Nullity a
-  -> TypeInformation (Unnullify a)
-  -> TypeInformation (NonEmpty a)
+nonEmptyTypeInformation ::
+  () =>
+  Nullity a ->
+  TypeInformation (Unnullify a) ->
+  TypeInformation (NonEmpty a)
 nonEmptyTypeInformation nullity =
   parseTypeInformation parse toList . listTypeInformation nullity
   where
@@ -124,6 +133,6 @@ extractArrayElement info
           where
             unescape char a =
               Opaleye.FunExpr "replace" [a, pattern, replacement]
-                where
-                  pattern = string [char, char]
-                  replacement = string [char]
+              where
+                pattern = string [char, char]
+                replacement = string [char]

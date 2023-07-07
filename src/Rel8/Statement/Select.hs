@@ -1,26 +1,25 @@
-{-# language DeriveTraversable #-}
-{-# language DerivingStrategies #-}
-{-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Rel8.Statement.Select
-  ( select
-  , ppSelect
-
-  , Optimized(..)
-  , ppPrimSelect
-  , ppRows
-  )
+module Rel8.Statement.Select (
+  select,
+  ppSelect,
+  Optimized (..),
+  ppPrimSelect,
+  ppRows,
+)
 where
 
 -- base
-import Data.Foldable ( toList )
-import Data.Kind ( Type )
-import Data.Void ( Void )
-import Prelude hiding ( undefined )
+import Data.Foldable (toList)
+import Data.Kind (Type)
+import Data.Void (Void)
+import Prelude hiding (undefined)
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -31,39 +30,42 @@ import qualified Hasql.Statement as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+import qualified Opaleye.Internal.Optimize as Opaleye
 import qualified Opaleye.Internal.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Print as Opaleye
-import qualified Opaleye.Internal.Optimize as Opaleye
-import qualified Opaleye.Internal.QueryArr as Opaleye hiding ( Select )
-import qualified Opaleye.Internal.Sql as Opaleye hiding ( Values )
+import qualified Opaleye.Internal.QueryArr as Opaleye hiding (Select)
+import qualified Opaleye.Internal.Sql as Opaleye hiding (Values)
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
-import Text.PrettyPrint ( Doc )
+import Text.PrettyPrint (Doc)
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( false )
-import Rel8.Expr.Opaleye ( toPrimExpr )
-import Rel8.Query ( Query )
-import Rel8.Query.Opaleye ( toOpaleye )
-import Rel8.Schema.Name ( Selects )
-import Rel8.Table ( Table )
-import Rel8.Table.Cols ( toCols )
-import Rel8.Table.Name ( namesFromLabels )
-import Rel8.Table.Opaleye ( castTable, exprsWithNames )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Bool (false)
+import Rel8.Expr.Opaleye (toPrimExpr)
+import Rel8.Query (Query)
+import Rel8.Query.Opaleye (toOpaleye)
+import Rel8.Schema.Name (Selects)
+import Rel8.Table (Table)
+import Rel8.Table.Cols (toCols)
+import Rel8.Table.Name (namesFromLabels)
+import Rel8.Table.Opaleye (castTable, exprsWithNames)
 import qualified Rel8.Table.Opaleye as T
-import Rel8.Table.Serialize ( Serializable, parse )
-import Rel8.Table.Undefined ( undefined )
+import Rel8.Table.Serialize (Serializable, parse)
+import Rel8.Table.Undefined (undefined)
 
 -- text
 import qualified Data.Text as Text
-import Data.Text.Encoding ( encodeUtf8 )
+import Data.Text.Encoding (encodeUtf8)
 
 
 -- | Run a @SELECT@ statement, returning all rows.
-select :: forall exprs a. Serializable exprs a
-  => Query exprs -> Hasql.Statement () [a]
+select ::
+  forall exprs a.
+  Serializable exprs a =>
+  Query exprs ->
+  Hasql.Statement () [a]
 select query = Hasql.Statement bytes params decode prepare
   where
     bytes = encodeUtf8 (Text.pack sql)
@@ -106,8 +108,8 @@ ppRows query = case optimize primQuery of
 
     eqSymbol
       (Opaleye.Symbol name (Opaleye.UnsafeTag tag))
-      (Opaleye.Symbol name' (Opaleye.UnsafeTag tag'))
-      = name == name' && tag == tag'
+      (Opaleye.Symbol name' (Opaleye.UnsafeTag tag')) =
+        name == name' && tag == tag'
 
 
 ppPrimSelect :: Query a -> (Optimized Doc, a)
@@ -133,13 +135,18 @@ primSelect :: Opaleye.PrimQuery' Void -> Opaleye.Select
 primSelect = Opaleye.foldPrimQuery Opaleye.sqlQueryGenerator
 
 
-primSelectWith :: Selects names exprs
-  => names -> exprs -> Opaleye.PrimQuery' Void -> Opaleye.Select
+primSelectWith ::
+  Selects names exprs =>
+  names ->
+  exprs ->
+  Opaleye.PrimQuery' Void ->
+  Opaleye.Select
 primSelectWith names exprs query =
-  Opaleye.SelectFrom $ Opaleye.newSelect
-    { Opaleye.attrs = Opaleye.SelectAttrs attrs
-    , Opaleye.tables = Opaleye.oneTable (primSelect query)
-    }
+  Opaleye.SelectFrom $
+    Opaleye.newSelect
+      { Opaleye.attrs = Opaleye.SelectAttrs attrs
+      , Opaleye.tables = Opaleye.oneTable (primSelect query)
+      }
   where
     attrs = makeAttr <$> exprsWithNames names (castTable exprs)
       where

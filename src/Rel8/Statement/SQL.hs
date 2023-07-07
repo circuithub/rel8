@@ -1,17 +1,17 @@
-module Rel8.Statement.SQL
-  ( showDelete
-  , showInsert
-  , showUpdate
-  )
+module Rel8.Statement.SQL (
+  showDelete,
+  showInsert,
+  showUpdate,
+)
 where
 
 -- base
 import Prelude
 
 -- rel8
-import Rel8.Statement.Delete ( Delete, ppDelete )
-import Rel8.Statement.Insert ( Insert, ppInsert )
-import Rel8.Statement.Update ( Update, ppUpdate )
+import Rel8.Statement.Delete (Delete, ppDelete)
+import Rel8.Statement.Insert (Insert, ppInsert)
+import Rel8.Statement.Update (Update, ppUpdate)
 
 
 -- | Convert a 'Delete' to a 'String' containing a @DELETE@ statement.

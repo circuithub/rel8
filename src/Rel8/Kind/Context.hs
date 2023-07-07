@@ -1,24 +1,24 @@
-{-# language DataKinds #-}
-{-# language GADTs #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeSynonymInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
-module Rel8.Kind.Context
-  ( Reifiable( contextSing )
-  , SContext(..)
-  )
+module Rel8.Kind.Context (
+  Reifiable (contextSing),
+  SContext (..),
+)
 where
 
 -- base
-import Data.Kind ( Constraint, Type )
+import Data.Kind (Constraint, Type)
 import Prelude ()
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Schema.Field ( Field )
-import Rel8.Schema.Kind ( Context )
-import Rel8.Schema.Name ( Name )
-import Rel8.Schema.Result ( Result )
+import Rel8.Expr (Expr)
+import Rel8.Schema.Field (Field)
+import Rel8.Schema.Kind (Context)
+import Rel8.Schema.Name (Name)
+import Rel8.Schema.Result (Result)
 
 
 type SContext :: Context -> Type

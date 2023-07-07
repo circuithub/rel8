@@ -1,364 +1,459 @@
-{-# language DuplicateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
-module Rel8
-  ( -- * Database types
-    -- ** @DBType@
-    DBType(..)
+module Rel8 (
+  -- * Database types
 
-    -- *** Deriving-via helpers
-    -- **** @JSONEncoded@
-  , JSONEncoded(..)
-  , JSONBEncoded(..)
+  -- ** @DBType@
+  DBType (..),
 
-    -- **** @ReadShow@
-  , ReadShow(..)
+  -- *** Deriving-via helpers
 
-    -- **** Generic
-  , Composite(..), DBComposite(..), compose, decompose
-  , Enum(..), DBEnum(..), Enumable
+  -- **** @JSONEncoded@
+  JSONEncoded (..),
+  JSONBEncoded (..),
 
-    -- *** @TypeInformation@
-  , TypeInformation(..)
-  , mapTypeInformation
-  , parseTypeInformation
+  -- **** @ReadShow@
+  ReadShow (..),
 
-    -- ** The @DBType@ hierarchy
-  , DBSemigroup(..)
-  , DBMonoid(..)
-  , DBNum
-  , DBIntegral
-  , DBFractional
-  , DBFloating
+  -- **** Generic
+  Composite (..),
+  DBComposite (..),
+  compose,
+  decompose,
+  Enum (..),
+  DBEnum (..),
+  Enumable,
 
-    -- * Tables and higher-kinded tables
-  , Rel8able, KRel8able
-  , Column
-  , HADT
-  , HEither
-  , HMaybe
-  , HList
-  , HNonEmpty
-  , HNull
-  , HThese
-  , Lift
+  -- *** @TypeInformation@
+  TypeInformation (..),
+  mapTypeInformation,
+  parseTypeInformation,
 
-  , Table(..)
-  , HTable
-  , Transposes
-  , AltTable((<|>:))
-  , AlternativeTable( emptyTable )
-  , EqTable(..), (==:), (/=:)
-  , OrdTable(..), (<:), (<=:), (>:), (>=:), ascTable, descTable, greatest, least
-  , lit
-  , bool
-  , case_
-  , castTable
+  -- ** The @DBType@ hierarchy
+  DBSemigroup (..),
+  DBMonoid (..),
+  DBNum,
+  DBIntegral,
+  DBFractional,
+  DBFloating,
 
-    -- ** @MaybeTable@
-  , MaybeTable
-  , maybeTable, ($?), nothingTable, justTable
-  , isNothingTable, isJustTable
-  , fromMaybeTable
-  , optional
-  , catMaybeTable
-  , traverseMaybeTable
-  , aggregateMaybeTable
-  , nameMaybeTable
+  -- * Tables and higher-kinded tables
+  Rel8able,
+  KRel8able,
+  Column,
+  HADT,
+  HEither,
+  HMaybe,
+  HList,
+  HNonEmpty,
+  HNull,
+  HThese,
+  Lift,
+  Table (..),
+  HTable,
+  Transposes,
+  AltTable ((<|>:)),
+  AlternativeTable (emptyTable),
+  EqTable (..),
+  (==:),
+  (/=:),
+  OrdTable (..),
+  (<:),
+  (<=:),
+  (>:),
+  (>=:),
+  ascTable,
+  descTable,
+  greatest,
+  least,
+  lit,
+  bool,
+  case_,
+  castTable,
 
-    -- ** @EitherTable@
-  , EitherTable
-  , eitherTable, leftTable, rightTable
-  , isLeftTable, isRightTable
-  , keepLeftTable
-  , keepRightTable
-  , bitraverseEitherTable
-  , aggregateEitherTable
-  , nameEitherTable
+  -- ** @MaybeTable@
+  MaybeTable,
+  maybeTable,
+  ($?),
+  nothingTable,
+  justTable,
+  isNothingTable,
+  isJustTable,
+  fromMaybeTable,
+  optional,
+  catMaybeTable,
+  traverseMaybeTable,
+  aggregateMaybeTable,
+  nameMaybeTable,
 
-    -- ** @TheseTable@
-  , TheseTable
-  , theseTable, thisTable, thatTable, thoseTable
-  , isThisTable, isThatTable, isThoseTable
-  , hasHereTable, hasThereTable
-  , justHereTable, justThereTable
-  , alignMaybeTable
-  , alignBy
-  , keepHereTable, loseHereTable
-  , keepThereTable, loseThereTable
-  , keepThisTable, loseThisTable
-  , keepThatTable, loseThatTable
-  , keepThoseTable, loseThoseTable
-  , bitraverseTheseTable
-  , aggregateTheseTable
-  , nameTheseTable
+  -- ** @EitherTable@
+  EitherTable,
+  eitherTable,
+  leftTable,
+  rightTable,
+  isLeftTable,
+  isRightTable,
+  keepLeftTable,
+  keepRightTable,
+  bitraverseEitherTable,
+  aggregateEitherTable,
+  nameEitherTable,
 
-    -- ** @ListTable@
-  , ListTable
-  , listTable, ($*)
-  , nameListTable
-  , many
-  , manyExpr
-  , catListTable
-  , catList
-  , head
-  , headExpr
-  , last
-  , lastExpr
+  -- ** @TheseTable@
+  TheseTable,
+  theseTable,
+  thisTable,
+  thatTable,
+  thoseTable,
+  isThisTable,
+  isThatTable,
+  isThoseTable,
+  hasHereTable,
+  hasThereTable,
+  justHereTable,
+  justThereTable,
+  alignMaybeTable,
+  alignBy,
+  keepHereTable,
+  loseHereTable,
+  keepThereTable,
+  loseThereTable,
+  keepThisTable,
+  loseThisTable,
+  keepThatTable,
+  loseThatTable,
+  keepThoseTable,
+  loseThoseTable,
+  bitraverseTheseTable,
+  aggregateTheseTable,
+  nameTheseTable,
 
-    -- ** @NonEmptyTable@
-  , NonEmptyTable
-  , nonEmptyTable, ($+)
-  , nameNonEmptyTable
-  , some
-  , someExpr
-  , catNonEmptyTable
-  , catNonEmpty
-  , head1
-  , head1Expr
-  , last1
-  , last1Expr
+  -- ** @ListTable@
+  ListTable,
+  listTable,
+  ($*),
+  nameListTable,
+  many,
+  manyExpr,
+  catListTable,
+  catList,
+  head,
+  headExpr,
+  last,
+  lastExpr,
 
-    -- ** @NullTable@
-  , NullTable
-  , nullableTable, nullTable, nullifyTable
-  , isNullTable, isNonNullTable
-  , catNullTable
-  , nameNullTable
-  , toNullTable, toMaybeTable
+  -- ** @NonEmptyTable@
+  NonEmptyTable,
+  nonEmptyTable,
+  ($+),
+  nameNonEmptyTable,
+  some,
+  someExpr,
+  catNonEmptyTable,
+  catNonEmpty,
+  head1,
+  head1Expr,
+  last1,
+  last1Expr,
 
-    -- ** Algebraic data types / sum types
-    -- $adts
+  -- ** @NullTable@
+  NullTable,
+  nullableTable,
+  nullTable,
+  nullifyTable,
+  isNullTable,
+  isNonNullTable,
+  catNullTable,
+  nameNullTable,
+  toNullTable,
+  toMaybeTable,
 
-    -- *** Naming of ADTs
-    -- $naming
-  , NameADT, nameADT
-  , ADT, ADTable
+  -- ** Algebraic data types / sum types
+  -- $adts
 
-    -- *** Deconstruction of ADTs
-    -- $deconstruction
-  , DeconstructADT, deconstructADT
+  -- *** Naming of ADTs
+  -- $naming
+  NameADT,
+  nameADT,
+  ADT,
+  ADTable,
 
-    -- *** Construction of ADTs
-    -- $construction
-  , BuildADT, buildADT
-  , ConstructADT, constructADT
+  -- *** Deconstruction of ADTs
+  -- $deconstruction
+  DeconstructADT,
+  deconstructADT,
 
-    -- *** Miscellaneous notes
-    -- $misc-notes
+  -- *** Construction of ADTs
+  -- $construction
+  BuildADT,
+  buildADT,
+  ConstructADT,
+  constructADT,
 
-    -- ** @HKD@
-  , HKD, HKDable
-  , BuildHKD, buildHKD
-  , ConstructHKD, constructHKD
-  , DeconstructHKD, deconstructHKD
-  , NameHKD, nameHKD
+  -- *** Miscellaneous notes
+  -- $misc-notes
 
-    -- ** Table schemas
-  , TableSchema(..)
-  , Name
-  , namesFromLabels
-  , namesFromLabelsWith
+  -- ** @HKD@
+  HKD,
+  HKDable,
+  BuildHKD,
+  buildHKD,
+  ConstructHKD,
+  constructHKD,
+  DeconstructHKD,
+  deconstructHKD,
+  NameHKD,
+  nameHKD,
 
-    -- * Expressions
-  , Expr
-  , Sql
-  , litExpr
-  , unsafeCastExpr
-  , unsafeLiteral
+  -- ** Table schemas
+  TableSchema (..),
+  Name,
+  namesFromLabels,
+  namesFromLabelsWith,
 
-    -- ** @null@
-  , NotNull
-  , Nullable
-  , Homonullable
-  , null
-  , nullify
-  , nullable
-  , isNull
-  , isNonNull
-  , mapNull
-  , liftOpNull
-  , catNull
-  , coalesce
+  -- * Expressions
+  Expr,
+  Sql,
+  litExpr,
+  unsafeCastExpr,
+  unsafeLiteral,
 
-    -- ** Boolean operations
-  , DBEq
-  , true, false, not_
-  , (&&.), and_
-  , (||.), or_
-  , (==.), (/=.), (==?), (/=?)
-  , in_
-  , boolExpr, caseExpr
-  , like, ilike
+  -- ** @null@
+  NotNull,
+  Nullable,
+  Homonullable,
+  null,
+  nullify,
+  nullable,
+  isNull,
+  isNonNull,
+  mapNull,
+  liftOpNull,
+  catNull,
+  coalesce,
 
-    -- ** Ordering
-  , DBOrd
-  , (<.), (<=.), (>.), (>=.)
-  , (<?), (<=?), (>?), (>=?)
-  , leastExpr, greatestExpr
+  -- ** Boolean operations
+  DBEq,
+  true,
+  false,
+  not_,
+  (&&.),
+  and_,
+  (||.),
+  or_,
+  (==.),
+  (/=.),
+  (==?),
+  (/=?),
+  in_,
+  boolExpr,
+  caseExpr,
+  like,
+  ilike,
 
-    -- ** Functions
-  , Function
-  , function
-  , nullaryFunction
-  , binaryOperator
+  -- ** Ordering
+  DBOrd,
+  (<.),
+  (<=.),
+  (>.),
+  (>=.),
+  (<?),
+  (<=?),
+  (>?),
+  (>=?),
+  leastExpr,
+  greatestExpr,
 
-    -- * Queries
-  , Query
-  , showQuery
+  -- ** Functions
+  Function,
+  function,
+  nullaryFunction,
+  binaryOperator,
 
-    -- ** Projection
-  , Projection
-  , Projectable( project )
-  , Biprojectable( biproject )
-  , Projecting
-  , Field
+  -- * Queries
+  Query,
+  showQuery,
 
-    -- ** Selecting rows
-  , Selects
-  , each
-  , values
+  -- ** Projection
+  Projection,
+  Projectable (project),
+  Biprojectable (biproject),
+  Projecting,
+  Field,
 
-    -- ** Filtering
-  , filter
-  , where_
-  , present
-  , absent
-  , distinct
-  , distinctOn
-  , distinctOnBy
+  -- ** Selecting rows
+  Selects,
+  each,
+  values,
 
-    -- ** @LIMIT@/@OFFSET@
-  , limit
-  , offset
+  -- ** Filtering
+  filter,
+  where_,
+  present,
+  absent,
+  distinct,
+  distinctOn,
+  distinctOnBy,
 
-    -- ** @UNION@
-  , union
-  , unionAll
+  -- ** @LIMIT@/@OFFSET@
+  limit,
+  offset,
 
-    -- ** @INTERSECT@
-  , intersect
-  , intersectAll
+  -- ** @UNION@
+  union,
+  unionAll,
 
-    -- ** @EXCEPT@
-  , except
-  , exceptAll
+  -- ** @INTERSECT@
+  intersect,
+  intersectAll,
 
-    -- ** @EXISTS@
-  , exists
-  , with
-  , withBy
-  , without
-  , withoutBy
+  -- ** @EXCEPT@
+  except,
+  exceptAll,
 
-    -- ** @WITH@
-  , materialize
+  -- ** @EXISTS@
+  exists,
+  with,
+  withBy,
+  without,
+  withoutBy,
 
-    -- ** @WITH RECURSIVE@
-  , loop
+  -- ** @WITH@
+  materialize,
 
-    -- ** Aggregation
-  , Aggregator
-  , Aggregator1
-  , Aggregator'
-  , Fold (Semi, Full)
-  , toAggregator
-  , toAggregator1
-  , aggregate
-  , aggregate1
-  , filterWhere
-  , filterWhereOptional
-  , distinctAggregate
-  , orderAggregateBy
-  , optionalAggregate
-  , countRows
-  , groupBy, groupByOn
-  , listAgg, listAggOn, listAggExpr, listAggExprOn
-  , mode
-  , nonEmptyAgg, nonEmptyAggOn, nonEmptyAggExpr, nonEmptyAggExprOn
-  , DBMax, max, maxOn
-  , DBMin, min, minOn
-  , DBSum, sum, sumOn, sumWhere, avg, avgOn
-  , DBString, stringAgg
-  , count, countOn
-  , countStar
-  , countDistinct, countDistinctOn
-  , countWhere, countWhereOn
-  , and, andOn
-  , or, orOn
+  -- ** @WITH RECURSIVE@
+  loop,
 
-    -- ** Ordering
-  , orderBy
-  , Order
-  , asc
-  , desc
-  , nullsFirst
-  , nullsLast
+  -- ** Aggregation
+  Aggregator,
+  Aggregator1,
+  Aggregator',
+  Fold (Semi, Full),
+  toAggregator,
+  toAggregator1,
+  aggregate,
+  aggregate1,
+  filterWhere,
+  filterWhereOptional,
+  distinctAggregate,
+  orderAggregateBy,
+  optionalAggregate,
+  countRows,
+  groupBy,
+  groupByOn,
+  listAgg,
+  listAggOn,
+  listAggExpr,
+  listAggExprOn,
+  mode,
+  nonEmptyAgg,
+  nonEmptyAggOn,
+  nonEmptyAggExpr,
+  nonEmptyAggExprOn,
+  DBMax,
+  max,
+  maxOn,
+  DBMin,
+  min,
+  minOn,
+  DBSum,
+  sum,
+  sumOn,
+  sumWhere,
+  avg,
+  avgOn,
+  DBString,
+  stringAgg,
+  count,
+  countOn,
+  countStar,
+  countDistinct,
+  countDistinctOn,
+  countWhere,
+  countWhereOn,
+  and,
+  andOn,
+  or,
+  orOn,
 
-    -- ** Window functions
-  , Window
-  , window
-  , Partition
-  , over
-  , partitionBy
-  , orderPartitionBy
-  , cumulative
-  , currentRow
-  , rowNumber
-  , rank
-  , denseRank
-  , percentRank
-  , cumeDist
-  , ntile
-  , lag, lagOn
-  , lead, leadOn
-  , firstValue, firstValueOn
-  , lastValue, lastValueOn
-  , nthValue, nthValueOn
-  , indexed
+  -- ** Ordering
+  orderBy,
+  Order,
+  asc,
+  desc,
+  nullsFirst,
+  nullsLast,
 
-    -- ** Bindings
-  , rebind
+  -- ** Window functions
+  Window,
+  window,
+  Partition,
+  over,
+  partitionBy,
+  orderPartitionBy,
+  cumulative,
+  currentRow,
+  rowNumber,
+  rank,
+  denseRank,
+  percentRank,
+  cumeDist,
+  ntile,
+  lag,
+  lagOn,
+  lead,
+  leadOn,
+  firstValue,
+  firstValueOn,
+  lastValue,
+  lastValueOn,
+  nthValue,
+  nthValueOn,
+  indexed,
 
-    -- * IO
-  , Serializable
-  , ToExprs
-  , Result
+  -- ** Bindings
+  rebind,
 
-    -- * Running statements
-    -- $running
+  -- * IO
+  Serializable,
+  ToExprs,
+  Result,
 
-    -- ** @SELECT@
-  , select
+  -- * Running statements
+  -- $running
 
-    -- ** @INSERT@
-  , Insert(..)
-  , OnConflict(..)
-  , Upsert(..)
-  , insert
-  , unsafeDefault
-  , showInsert
+  -- ** @SELECT@
+  select,
 
-    -- ** @DELETE@
-  , Delete(..)
-  , delete
-  , showDelete
+  -- ** @INSERT@
+  Insert (..),
+  OnConflict (..),
+  Upsert (..),
+  insert,
+  unsafeDefault,
+  showInsert,
 
-    -- ** @UPDATE@
-  , Update(..)
-  , update
-  , showUpdate
+  -- ** @DELETE@
+  Delete (..),
+  delete,
+  showDelete,
 
-    -- ** @.. RETURNING@
-  , Returning(..)
+  -- ** @UPDATE@
+  Update (..),
+  update,
+  showUpdate,
 
-    -- ** @CREATE VIEW@
-  , createView
-  , createOrReplaceView
+  -- ** @.. RETURNING@
+  Returning (..),
 
-    -- ** Sequences
-  , nextval
-  , evaluate
-  ) where
+  -- ** @CREATE VIEW@
+  createView,
+  createOrReplaceView,
+
+  -- ** Sequences
+  nextval,
+  evaluate,
+) where
 
 -- base
 import Prelude ()
@@ -387,11 +482,11 @@ import Rel8.Expr.Null
 import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeLiteral)
 import Rel8.Expr.Ord
 import Rel8.Expr.Order
-import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
-import Rel8.Expr.Text ( like, ilike )
+import Rel8.Expr.Serialize
+import Rel8.Expr.Text (ilike, like)
 import Rel8.Expr.Window
-import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
+import Rel8.Generic.Rel8able (KRel8able, Rel8able)
 import Rel8.Order
 import Rel8.Query
 import Rel8.Query.Aggregate
@@ -418,15 +513,15 @@ import Rel8.Query.Window
 import Rel8.Schema.Field
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
-import Rel8.Schema.Null hiding ( nullable )
-import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Null hiding (nullable)
+import Rel8.Schema.Result (Result)
 import Rel8.Schema.Table
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
-import Rel8.Statement.Select
 import Rel8.Statement.SQL
+import Rel8.Statement.Select
 import Rel8.Statement.Update
 import Rel8.Statement.View
 import Rel8.Table
@@ -442,7 +537,7 @@ import Rel8.Table.Maybe
 import Rel8.Table.Name
 import Rel8.Table.NonEmpty
 import Rel8.Table.Null
-import Rel8.Table.Opaleye ( castTable )
+import Rel8.Table.Opaleye (castTable)
 import Rel8.Table.Ord
 import Rel8.Table.Order
 import Rel8.Table.Projection
@@ -453,8 +548,8 @@ import Rel8.Table.Transpose
 import Rel8.Table.Window
 import Rel8.Type
 import Rel8.Type.Composite
-import Rel8.Type.Eq
 import Rel8.Type.Enum
+import Rel8.Type.Eq
 import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded
 import Rel8.Type.JSONEncoded
@@ -468,213 +563,223 @@ import Rel8.Type.Sum
 import Rel8.Window
 
 
--- $running
--- To run queries and otherwise interact with a PostgreSQL database, Rel8
--- provides 'select', 'insert', 'update' and 'delete' functions. Note that
--- 'insert', 'update' and 'delete' will generally need the
--- `DuplicateRecordFields` language extension enabled.
+{- $running
+To run queries and otherwise interact with a PostgreSQL database, Rel8
+provides 'select', 'insert', 'update' and 'delete' functions. Note that
+'insert', 'update' and 'delete' will generally need the
+`DuplicateRecordFields` language extension enabled.
+-}
 
--- $adts
--- Algebraic data types can be modelled between Haskell and SQL.
---
--- * Your SQL table needs a certain text field that tags which Haskell constructor is in use.
--- * You have to use a few combinators to specify the sum type's individual constructors.
--- * If you want to do case analysis at the @Expr@ (SQL) level, you can use 'maybe'/'either'-like eliminators.
---
--- The documentation in this section will assume a set of database types like this:
---
--- @
--- data Thing f = ThingEmployer (Employer f) | ThingPotato (Potato f) | Nullary
---     deriving stock Generic
---
--- data Employer f = Employer { employerId :: f Int32, employerName :: f Text}
---   deriving stock Generic
---   deriving anyclass Rel8able
---
--- data Potato f = Potato { size :: f Int32, grower :: f Text }
---   deriving stock Generic
---   deriving anyclass Rel8able
--- @
 
--- $naming
---
--- First, in your 'TableSchema', name your type like this:
---
--- @
--- thingSchema :: TableSchema (ADT Thing Name)
--- thingSchema =
---   TableSchema
---     { schema = Nothing,
---       name = \"thing\",
---       columns =
---         nameADT @Thing
---           \"tag\"
---           Employer
---             { employerName = \"name\",
---               employerId = \"id\"
---             }
---           Potato {size = \"size\", grower = \"Mary\"}
---     }
--- @
---
--- Note that @nameADT \@Thing "tag"@ is variadic: it accepts one
--- argument per constructor, except the nullary ones (Nullary) because
--- there's nothing to do for them.
+{- $adts
+Algebraic data types can be modelled between Haskell and SQL.
 
--- $deconstruction
---
--- To deconstruct sum types at the SQL level, use 'deconstructADT',
--- which is also variadic, and has one argument for each
--- constructor. Similar to 'maybe'.
---
--- @
--- query :: Query (ADT Thing Expr)
--- query = do
---   thingExpr <- each thingSchema
---   where_ $
---     deconstructADT @Thing
---       (\employer -> employerName employer ==. lit \"Mary\")
---       (\potato -> grower potato ==. lit \"Mary\")
---       (lit False) -- Nullary case
---       thingExpr
---   pure thingExpr
--- @
---
--- SQL output:
---
--- @
--- SELECT
--- CAST("tag0_1" AS text) as "tag",
--- CAST("id1_1" AS int4) as "ThingEmployer/_1/employerId",
--- CAST("name2_1" AS text) as "ThingEmployer/_1/employerName",
--- CAST("size3_1" AS int4) as "ThingPotato/_1/size",
--- CAST("Mary4_1" AS text) as "ThingPotato/_1/grower"
--- FROM (SELECT
---       *
---       FROM (SELECT
---             "tag" as "tag0_1",
---             "id" as "id1_1",
---             "name" as "name2_1",
---             "size" as "size3_1",
---             "Mary" as "Mary4_1"
---             FROM "thing" as "T1") as "T1"
---       WHERE (CASE WHEN ("tag0_1") = (CAST(E'ThingPotato' AS text)) THEN ("Mary4_1") = (CAST(E'Mary' AS text))
---                   WHEN ("tag0_1") = (CAST(E'Nullary' AS text)) THEN CAST(FALSE AS bool) ELSE ("name2_1") = (CAST(E'Mary' AS text)) END)) as "T1"
--- @
+* Your SQL table needs a certain text field that tags which Haskell constructor is in use.
+* You have to use a few combinators to specify the sum type's individual constructors.
+* If you want to do case analysis at the @Expr@ (SQL) level, you can use 'maybe'/'either'-like eliminators.
 
--- $construction
---
--- To construct an ADT, you can use 'buildADT' or 'constructADT'. Consider the following type:
---
--- @
--- data Task f = Pending | Complete (CompletedTask f)
--- @
---
--- 'buildADT' is for constructing values of 'Task' in the 'Expr'
--- context. 'buildADT' needs two type-level arguments before its type
--- makes any sense. The first argument is the type of the "ADT", which
--- in our case is 'Task'. The second is the name of the constructor we
--- want to use. So that means we have the following possible
--- instantiations of 'buildADT' for 'Task':
---
--- @
--- > :t buildADT @Task @\"Pending\"
--- buildADT @Task @\"Pending\" :: ADT Task Expr
--- > :t buildADT @Task @\"Complete\"
--- buildADT @Task @\"Complete\" :: CompletedTask Expr -> ADT Task Expr
--- @
---
--- Note that as the "Pending" constructor has no fields, @buildADT
--- \@Task \@"Pending"@ is equivalent to @lit Pending@. But @buildADT
--- \@Task \@"Complete"@ is not the same as @lit . Complete@:
---
--- @
--- > :t lit . Complete
--- lit . Complete :: CompletedTask Result -> ADT Task Expr
--- @
---
---
--- Note that the former takes a @CompletedTask Expr@ while the latter
--- takes a @CompletedTask Result@. The former is more powerful because
--- you can construct @Task@s using dynamic values coming a database
--- query.
---
--- To show what this can look like in SQL, consider:
---
--- @
--- > :{
--- showQuery $ values
---   [ buildADT @Task @\"Pending\"
---   , buildADT @Task @\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
---   ]
--- :}
--- @
---
--- This produces the following SQL:
---
--- @
--- SELECT
--- CAST(\"values0_1\" AS text) as \"tag\",
--- CAST(\"values1_1\" AS timestamptz) as \"Complete/_1/date\"
--- FROM (SELECT
---       *
---       FROM (SELECT \"column1\" as \"values0_1\",
---                    \"column2\" as \"values1_1\"
---             FROM
---             (VALUES
---              (CAST(E'Pending' AS text),CAST(NULL AS timestamptz)),
---              (CAST(E'Complete' AS text),CAST(now() AS timestamptz))) as \"V\") as \"T1\") as \"T1\"
--- @
---
--- This is what you get if you run it in @psql@:
---
---
--- @
---    tag    |       Complete/_1/date
--- ----------+-------------------------------
---  Pending  |
---  Complete | 2022-05-19 21:28:23.969065+00
--- (2 rows)
--- @
---
--- "constructADT" is less convenient but more general alternative to
--- "buildADT". It requires only one type-level argument for its type
--- to make sense:
---
--- @
--- > :t constructADT @Task
--- constructADT @Task
---   :: (forall r. r -> (CompletedTask Expr -> r) -> r) -> ADT Task Expr
--- @
---
--- This might still seem a bit opaque, but basically it gives you a
--- Church-encoded constructor for arbitrary algebraic data types. You
--- might use it as follows:
---
--- @
--- let
---   pending :: ADT Task Expr
---   pending = constructADT @Task $ \pending _complete -> pending
---
---   complete :: ADT Task Expr
---   complete = constructADT @Task $ \_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
--- @
---
--- These values are otherwise identical to the ones we saw above with
--- @buildADT@, it's just a different style of constructing them.
---
+The documentation in this section will assume a set of database types like this:
 
--- $misc-notes
---
--- 1. Note that the order of the arguments for all of these functions
--- is determined by the order of the constructors in the data
--- definition. If it were @data Task = Complete (CompletedTask f) |
--- Pending@ then the order of all the invocations of @constructADT@
--- and @deconstructADT@ would need to change.
---
--- 2. Maybe this is obvious, but just to spell it out: once you're in
--- the @Result@ context, you can of course construct @Task@ values
--- normally and use standard Haskell pattern-matching. @constructADT@
--- and @deconstructADT@ are specifically only needed in the @Expr@
--- context, and they allow you to do the equivalent of pattern
--- matching in PostgreSQL.
+@
+data Thing f = ThingEmployer (Employer f) | ThingPotato (Potato f) | Nullary
+    deriving stock Generic
+
+data Employer f = Employer { employerId :: f Int32, employerName :: f Text}
+  deriving stock Generic
+  deriving anyclass Rel8able
+
+data Potato f = Potato { size :: f Int32, grower :: f Text }
+  deriving stock Generic
+  deriving anyclass Rel8able
+@
+-}
+
+
+{- $naming
+
+First, in your 'TableSchema', name your type like this:
+
+@
+thingSchema :: TableSchema (ADT Thing Name)
+thingSchema =
+  TableSchema
+    { schema = Nothing,
+      name = \"thing\",
+      columns =
+        nameADT @Thing
+          \"tag\"
+          Employer
+            { employerName = \"name\",
+              employerId = \"id\"
+            }
+          Potato {size = \"size\", grower = \"Mary\"}
+    }
+@
+
+Note that @nameADT \@Thing "tag"@ is variadic: it accepts one
+argument per constructor, except the nullary ones (Nullary) because
+there's nothing to do for them.
+-}
+
+
+{- $deconstruction
+
+To deconstruct sum types at the SQL level, use 'deconstructADT',
+which is also variadic, and has one argument for each
+constructor. Similar to 'maybe'.
+
+@
+query :: Query (ADT Thing Expr)
+query = do
+  thingExpr <- each thingSchema
+  where_ $
+    deconstructADT @Thing
+      (\employer -> employerName employer ==. lit \"Mary\")
+      (\potato -> grower potato ==. lit \"Mary\")
+      (lit False) -- Nullary case
+      thingExpr
+  pure thingExpr
+@
+
+SQL output:
+
+@
+SELECT
+CAST("tag0_1" AS text) as "tag",
+CAST("id1_1" AS int4) as "ThingEmployer/_1/employerId",
+CAST("name2_1" AS text) as "ThingEmployer/_1/employerName",
+CAST("size3_1" AS int4) as "ThingPotato/_1/size",
+CAST("Mary4_1" AS text) as "ThingPotato/_1/grower"
+FROM (SELECT
+      *
+      FROM (SELECT
+            "tag" as "tag0_1",
+            "id" as "id1_1",
+            "name" as "name2_1",
+            "size" as "size3_1",
+            "Mary" as "Mary4_1"
+            FROM "thing" as "T1") as "T1"
+      WHERE (CASE WHEN ("tag0_1") = (CAST(E'ThingPotato' AS text)) THEN ("Mary4_1") = (CAST(E'Mary' AS text))
+                  WHEN ("tag0_1") = (CAST(E'Nullary' AS text)) THEN CAST(FALSE AS bool) ELSE ("name2_1") = (CAST(E'Mary' AS text)) END)) as "T1"
+@
+-}
+
+
+{- $construction
+
+To construct an ADT, you can use 'buildADT' or 'constructADT'. Consider the following type:
+
+@
+data Task f = Pending | Complete (CompletedTask f)
+@
+
+'buildADT' is for constructing values of 'Task' in the 'Expr'
+context. 'buildADT' needs two type-level arguments before its type
+makes any sense. The first argument is the type of the "ADT", which
+in our case is 'Task'. The second is the name of the constructor we
+want to use. So that means we have the following possible
+instantiations of 'buildADT' for 'Task':
+
+@
+> :t buildADT @Task @\"Pending\"
+buildADT @Task @\"Pending\" :: ADT Task Expr
+> :t buildADT @Task @\"Complete\"
+buildADT @Task @\"Complete\" :: CompletedTask Expr -> ADT Task Expr
+@
+
+Note that as the "Pending" constructor has no fields, @buildADT
+\@Task \@"Pending"@ is equivalent to @lit Pending@. But @buildADT
+\@Task \@"Complete"@ is not the same as @lit . Complete@:
+
+@
+> :t lit . Complete
+lit . Complete :: CompletedTask Result -> ADT Task Expr
+@
+
+
+Note that the former takes a @CompletedTask Expr@ while the latter
+takes a @CompletedTask Result@. The former is more powerful because
+you can construct @Task@s using dynamic values coming a database
+query.
+
+To show what this can look like in SQL, consider:
+
+@
+> :{
+showQuery $ values
+  [ buildADT @Task @\"Pending\"
+  , buildADT @Task @\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
+  ]
+:}
+@
+
+This produces the following SQL:
+
+@
+SELECT
+CAST(\"values0_1\" AS text) as \"tag\",
+CAST(\"values1_1\" AS timestamptz) as \"Complete/_1/date\"
+FROM (SELECT
+      *
+      FROM (SELECT \"column1\" as \"values0_1\",
+                   \"column2\" as \"values1_1\"
+            FROM
+            (VALUES
+             (CAST(E'Pending' AS text),CAST(NULL AS timestamptz)),
+             (CAST(E'Complete' AS text),CAST(now() AS timestamptz))) as \"V\") as \"T1\") as \"T1\"
+@
+
+This is what you get if you run it in @psql@:
+
+
+@
+   tag    |       Complete/_1/date
+----------+-------------------------------
+ Pending  |
+ Complete | 2022-05-19 21:28:23.969065+00
+(2 rows)
+@
+
+"constructADT" is less convenient but more general alternative to
+"buildADT". It requires only one type-level argument for its type
+to make sense:
+
+@
+> :t constructADT @Task
+constructADT @Task
+  :: (forall r. r -> (CompletedTask Expr -> r) -> r) -> ADT Task Expr
+@
+
+This might still seem a bit opaque, but basically it gives you a
+Church-encoded constructor for arbitrary algebraic data types. You
+might use it as follows:
+
+@
+let
+  pending :: ADT Task Expr
+  pending = constructADT @Task $ \pending _complete -> pending
+
+  complete :: ADT Task Expr
+  complete = constructADT @Task $ \_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
+@
+
+These values are otherwise identical to the ones we saw above with
+@buildADT@, it's just a different style of constructing them.
+-}
+
+
+{- $misc-notes
+
+1. Note that the order of the arguments for all of these functions
+is determined by the order of the constructors in the data
+definition. If it were @data Task = Complete (CompletedTask f) |
+Pending@ then the order of all the invocations of @constructADT@
+and @deconstructADT@ would need to change.
+
+2. Maybe this is obvious, but just to spell it out: once you're in
+the @Result@ context, you can of course construct @Task@ values
+normally and use standard Haskell pattern-matching. @constructADT@
+and @deconstructADT@ are specifically only needed in the @Expr@
+context, and they allow you to do the equivalent of pattern
+matching in PostgreSQL.
+-}

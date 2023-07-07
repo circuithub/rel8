@@ -1,0 +1,24 @@
+[formatter.cabal]
+command = "cabal-fmt"
+options = [ "--tabular", "-i" ]
+includes = [ "*.cabal" ]
+excludes = []
+
+[formatter.nix]
+command = "nixpkgs-fmt"
+options = []
+includes = ["*.nix"]
+
+# A bit of a hack, but until https://github.com/numtide/treefmt/issues/77 is
+# resolved we need to manually sequence our Haskell formatters.
+[formatter.haskell]
+command = "/bin/sh"
+options = [
+  "-euc",
+  """
+fourmolu -i "$@"
+ch-hs-imports --overwrite --local-modules-from-current-dir --report-progress "$@"
+  """,
+  "format-haskell"
+]
+includes = [ "*.hs" ]

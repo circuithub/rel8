@@ -1,22 +1,27 @@
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 
-module Rel8.Query.These
-  ( alignBy
-  , keepHereTable, loseHereTable
-  , keepThereTable, loseThereTable
-  , keepThisTable, loseThisTable
-  , keepThatTable, loseThatTable
-  , keepThoseTable, loseThoseTable
-  , bitraverseTheseTable
-  )
+module Rel8.Query.These (
+  alignBy,
+  keepHereTable,
+  loseHereTable,
+  keepThereTable,
+  loseThereTable,
+  keepThisTable,
+  loseThisTable,
+  keepThatTable,
+  loseThatTable,
+  keepThoseTable,
+  loseThoseTable,
+  bitraverseTheseTable,
+)
 where
 
 -- base
 import Prelude
 
 -- comonad
-import Control.Comonad ( extract )
+import Control.Comonad (extract)
 
 -- opaleye
 import qualified Opaleye.Internal.PackMap as Opaleye
@@ -25,29 +30,35 @@ import qualified Opaleye.Internal.QueryArr as Opaleye
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( boolExpr, not_ )
-import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( toPrimExpr, traversePrimExpr )
-import Rel8.Expr.Serialize ( litExpr )
-import Rel8.Query ( Query )
-import Rel8.Query.Filter ( where_ )
-import Rel8.Query.Maybe ( optional )
-import Rel8.Query.Opaleye ( zipOpaleyeWith )
-import Rel8.Table.Either ( EitherTable( EitherTable ) )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), isJustTable )
-import Rel8.Table.These
-  ( TheseTable( TheseTable, here, there )
-  , hasHereTable, hasThereTable
-  , isThisTable, isThatTable, isThoseTable
-  )
-import Rel8.Type.Tag ( EitherTag( IsLeft, IsRight ) )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Bool (boolExpr, not_)
+import Rel8.Expr.Eq ((==.))
+import Rel8.Expr.Opaleye (toPrimExpr, traversePrimExpr)
+import Rel8.Expr.Serialize (litExpr)
+import Rel8.Query (Query)
+import Rel8.Query.Filter (where_)
+import Rel8.Query.Maybe (optional)
+import Rel8.Query.Opaleye (zipOpaleyeWith)
+import Rel8.Table.Either (EitherTable (EitherTable))
+import Rel8.Table.Maybe (MaybeTable (MaybeTable), isJustTable)
+import Rel8.Table.These (
+  TheseTable (TheseTable, here, there),
+  hasHereTable,
+  hasThereTable,
+  isThatTable,
+  isThisTable,
+  isThoseTable,
+ )
+import Rel8.Type.Tag (EitherTag (IsLeft, IsRight))
 
 
 -- | Corresponds to a @FULL OUTER JOIN@ between two queries.
-alignBy :: ()
-  => (a -> b -> Expr Bool)
-  -> Query a -> Query b -> Query (TheseTable Expr a b)
+alignBy ::
+  () =>
+  (a -> b -> Expr Bool) ->
+  Query a ->
+  Query b ->
+  Query (TheseTable Expr a b)
 alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.stateQueryArr $ \_ t -> case t of
   tag -> (tab, join', tag''')
     where
@@ -67,7 +78,7 @@ alignBy condition = zipOpaleyeWith $ \left right -> Opaleye.stateQueryArr $ \_ t
           right'' = (Opaleye.NonLateral, Opaleye.toPrimQuery (right' <> Opaleye.aRebind rbindings))
       ma' = MaybeTable hasHere' a
       mb' = MaybeTable hasThere' b
-      tab = TheseTable {here = ma', there = mb'}
+      tab = TheseTable{here = ma', there = mb'}
       join' = Opaleye.aProduct join
 
 
@@ -125,11 +136,12 @@ loseThoseTable t@(TheseTable (MaybeTable _ a) (MaybeTable _ b)) = do
     tag = boolExpr (litExpr IsLeft) (litExpr IsRight) (isThatTable t)
 
 
-bitraverseTheseTable :: ()
-  => (a -> Query c)
-  -> (b -> Query d)
-  -> TheseTable Expr a b
-  -> Query (TheseTable Expr c d)
+bitraverseTheseTable ::
+  () =>
+  (a -> Query c) ->
+  (b -> Query d) ->
+  TheseTable Expr a b ->
+  Query (TheseTable Expr c d)
 bitraverseTheseTable f g t = do
   mc <- optional (f . fst =<< keepHereTable t)
   md <- optional (g . snd =<< keepThereTable t)
