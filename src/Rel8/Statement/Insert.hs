@@ -27,15 +27,15 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import Text.PrettyPrint (Doc, parens, text, ($$), (<+>))
 
 -- rel8
-import Rel8.Query ( Query )
-import Rel8.Schema.Name ( Name, Selects, ppColumn )
-import Rel8.Schema.Table ( TableSchema(..), ppTable )
+import Rel8.Query (Query)
+import Rel8.Schema.Name (Name, Selects, ppColumn)
+import Rel8.Schema.Table (TableSchema (..), ppTable)
 import Rel8.Statement (Statement)
-import Rel8.Statement.OnConflict ( OnConflict, ppOnConflict )
+import Rel8.Statement.OnConflict (OnConflict, ppOnConflict)
 import Rel8.Statement.Returning (Returning, ppReturning, runReturning)
-import Rel8.Statement.Select ( ppRows )
-import Rel8.Table ( Table )
-import Rel8.Table.Name ( showNames )
+import Rel8.Statement.Select (ppRows)
+import Rel8.Table (Table)
+import Rel8.Table.Name (showNames)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (State)
@@ -62,22 +62,22 @@ data Insert a where
 
 -- | Build an @INSERT@ 'Statement'.
 insert :: Insert a -> Statement a
-insert statement@Insert {returning} =
+insert statement@Insert{returning} =
   runReturning (ppInsert statement) returning
 
 
 ppInsert :: Insert a -> State Opaleye.Tag Doc
-ppInsert Insert {..} = do
+ppInsert Insert{..} = do
   rows' <- ppRows rows
   pure $
-    text "INSERT INTO" <+>
-    ppInto into $$
-    rows' $$
-    ppOnConflict into onConflict $$
-    ppReturning into returning
+    text "INSERT INTO"
+      <+> ppInto into
+      $$ rows'
+      $$ ppOnConflict into onConflict
+      $$ ppReturning into returning
 
 
 ppInto :: Table Name a => TableSchema a -> Doc
-ppInto table@TableSchema {columns} =
-  ppTable table <+>
-  parens (Opaleye.commaV ppColumn (toList (showNames columns)))
+ppInto table@TableSchema{columns} =
+  ppTable table
+    <+> parens (Opaleye.commaV ppColumn (toList (showNames columns)))

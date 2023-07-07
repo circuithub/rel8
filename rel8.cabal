@@ -21,7 +21,6 @@ library
   build-depends:
       aeson
     , base                 >=4.14     && <4.17 || ^>=4.17
-    , base-compat
     , bifunctors
     , bytestring
     , case-insensitive
@@ -42,8 +41,8 @@ library
     , transformers
     , uuid
     , vector
-  default-language:
-    Haskell2010
+
+  default-language: Haskell2010
   ghc-options:
     -Werror=missing-methods -Werror=incomplete-patterns
     -Werror=missing-fields -Weverything -Wno-unsafe -Wno-safe
@@ -144,7 +143,6 @@ library
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Table
-
     Rel8.Statement
     Rel8.Statement.Delete
     Rel8.Statement.Insert

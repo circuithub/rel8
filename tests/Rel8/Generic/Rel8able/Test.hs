@@ -1,14 +1,15 @@
-{-# language DataKinds #-}
-{-# language DeriveAnyClass #-}
-{-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
-{-# language DuplicateRecordFields #-}
-{-# language FlexibleInstances #-}
-{-# language MultiParamTypeClasses #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeFamilies #-}
-{-# language TypeOperators #-}
-{-# language UndecidableInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -O0 #-}
 
 module Rel8.Generic.Rel8able.Test (
   module Rel8.Generic.Rel8able.Test,

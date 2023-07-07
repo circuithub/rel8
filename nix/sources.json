@@ -1,16 +1,4 @@
 {
-    "ch-hs-imports": {
-        "branch": "master",
-        "description": null,
-        "homepage": null,
-        "owner": "circuithub",
-        "repo": "ch-hs-imports",
-        "rev": "e3dc32bb2e945334261b6d72dc5c3df490cebc2b",
-        "sha256": "08z7hishpp1j7nxwhap4c0ggwhpm15i5swy91r96jh70ql20j3yi",
-        "type": "tarball",
-        "url": "https://github.com/circuithub/ch-hs-imports/archive/e3dc32bb2e945334261b6d72dc5c3df490cebc2b.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
     "haskell.nix": {
         "branch": "master",
         "description": "Alternative Haskell Infrastructure for Nixpkgs",

@@ -23,19 +23,19 @@ import Hasql.Transaction (Transaction, condemn, statement)
 import qualified Hasql.Transaction.Sessions as Hasql
 
 -- base
-import Control.Applicative ( empty, liftA2, liftA3 )
-import Control.Exception ( bracket, throwIO )
+import Control.Applicative (empty, liftA2, liftA3)
+import Control.Exception (bracket, throwIO)
 import Control.Monad ((>=>))
-import Data.Bifunctor ( bimap )
+import Data.Bifunctor (bimap)
 import Data.Fixed (Fixed (MkFixed))
-import Data.Foldable ( for_ )
+import Data.Foldable (for_)
 import Data.Functor (void)
-import Data.Int ( Int32, Int64 )
-import Data.List ( nub, sort )
-import Data.Maybe ( catMaybes )
-import Data.String ( fromString )
+import Data.Int (Int32, Int64)
+import Data.List (nub, sort)
+import Data.Maybe (catMaybes)
+import Data.String (fromString)
 import Data.Word (Word32, Word8)
-import GHC.Generics ( Generic )
+import GHC.Generics (Generic)
 import Prelude hiding (truncate)
 
 -- bytestring
@@ -104,41 +104,41 @@ main = defaultMain tests
 tests :: TestTree
 tests =
   withResource startTestDatabase stopTestDatabase \getTestDatabase ->
-  testGroup "rel8"
-    [ testSelectTestTable getTestDatabase
-    , testWithStatement getTestDatabase
-    , testWhere_ getTestDatabase
-    , testFilter getTestDatabase
-    , testLimit getTestDatabase
-    , testUnion getTestDatabase
-    , testDistinct getTestDatabase
-    , testExists getTestDatabase
-    , testOptional getTestDatabase
-    , testAnd getTestDatabase
-    , testOr getTestDatabase
-    , testNot getTestDatabase
-    , testBool getTestDatabase
-    , testAp getTestDatabase
-    , testDBType getTestDatabase
-    , testDBEq getTestDatabase
-    , testTableEquality getTestDatabase
-    , testFromString getTestDatabase
-    , testCatMaybeTable getTestDatabase
-    , testCatMaybe getTestDatabase
-    , testMaybeTable getTestDatabase
-    , testAggregateMaybeTable getTestDatabase
-    , testNestedTables getTestDatabase
-    , testMaybeTableApplicative getTestDatabase
-    , testLogicalFixities getTestDatabase
-    , testUpdate getTestDatabase
-    , testDelete getTestDatabase
-    , testUpsert getTestDatabase
-    , testSelectNestedPairs getTestDatabase
-    , testSelectArray getTestDatabase
-    , testNestedMaybeTable getTestDatabase
-    , testEvaluate getTestDatabase
-    ]
-
+    testGroup
+      "rel8"
+      [ testSelectTestTable getTestDatabase
+      , testWithStatement getTestDatabase
+      , testWhere_ getTestDatabase
+      , testFilter getTestDatabase
+      , testLimit getTestDatabase
+      , testUnion getTestDatabase
+      , testDistinct getTestDatabase
+      , testExists getTestDatabase
+      , testOptional getTestDatabase
+      , testAnd getTestDatabase
+      , testOr getTestDatabase
+      , testNot getTestDatabase
+      , testBool getTestDatabase
+      , testAp getTestDatabase
+      , testDBType getTestDatabase
+      , testDBEq getTestDatabase
+      , testTableEquality getTestDatabase
+      , testFromString getTestDatabase
+      , testCatMaybeTable getTestDatabase
+      , testCatMaybe getTestDatabase
+      , testMaybeTable getTestDatabase
+      , testAggregateMaybeTable getTestDatabase
+      , testNestedTables getTestDatabase
+      , testMaybeTableApplicative getTestDatabase
+      , testLogicalFixities getTestDatabase
+      , testUpdate getTestDatabase
+      , testDelete getTestDatabase
+      , testUpsert getTestDatabase
+      , testSelectNestedPairs getTestDatabase
+      , testSelectArray getTestDatabase
+      , testNestedMaybeTable getTestDatabase
+      , testEvaluate getTestDatabase
+      ]
   where
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
@@ -207,12 +207,15 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -362,8 +365,11 @@ testOr = databasePropertyTest "OR (||.)" \transaction -> do
 
   transaction do
     result <- lift do
-      statement () $ Rel8.run1 $ Rel8.select $ pure $
-        Rel8.lit x Rel8.||. Rel8.lit y
+      statement () $
+        Rel8.run1 $
+          Rel8.select $
+            pure $
+              Rel8.lit x Rel8.||. Rel8.lit y
 
     result === (x || y)
 
@@ -497,14 +503,14 @@ testDBType getTestDatabase =
             xs <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]])
             Rel8.catListTable xs
         diff res'' (==) [x, y]
-{-
-        res''' <- lift do
-          statement () $ Rel8.run $ Rel8.select do
-            xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
-            xs <- Rel8.catListTable xss
-            Rel8.catListTable xs
-        diff res''' (==) [x, y]
--}
+    {-
+            res''' <- lift do
+              statement () $ Rel8.run $ Rel8.select do
+                xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
+                xs <- Rel8.catListTable xss
+                Rel8.catListTable xs
+            diff res''' (==) [x, y]
+    -}
 
     genComposite :: Gen Composite
     genComposite = do
@@ -602,10 +608,10 @@ testTableEquality :: IO TmpPostgres.DB -> TestTree
 testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
   (x, y) <- forAll $ liftA2 (,) genTestTable genTestTable
 
-   transaction do
-     eq <- lift do
-       statement () $ Rel8.run1 $ Rel8.select do
-         pure $ Rel8.lit x Rel8.==: Rel8.lit y
+  transaction do
+    eq <- lift do
+      statement () $ Rel8.run1 $ Rel8.select do
+        pure $ Rel8.lit x Rel8.==: Rel8.lit y
 
     eq === (x == y)
 
@@ -745,33 +751,38 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      statement () $ Rel8.run_ $ Rel8.update Rel8.Update
-        { target = testTableSchema
-        , from = pure ()
-        , set = \_ r ->
-            let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
-            in
-            foldl
-              ( \e (x, y) ->
-                  Rel8.bool
-                    e
-                    y
-                    ( testTableColumn1 r Rel8.==. testTableColumn1 x Rel8.&&.
-                      testTableColumn2 r Rel8.==. testTableColumn2 x
-                    )
-              )
-              r
-              updates
-        , updateWhere = \_ _ -> Rel8.lit True
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.update
+            Rel8.Update
+              { target = testTableSchema
+              , from = pure ()
+              , set = \_ r ->
+                  let updates = map (bimap Rel8.lit Rel8.lit) $ Map.toList rows
+                   in foldl
+                        ( \e (x, y) ->
+                            Rel8.bool
+                              e
+                              y
+                              ( testTableColumn1 r Rel8.==. testTableColumn1 x
+                                  Rel8.&&. testTableColumn2 r Rel8.==. testTableColumn2 x
+                              )
+                        )
+                        r
+                        updates
+              , updateWhere = \_ _ -> Rel8.lit True
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -789,19 +800,26 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
   transaction do
     (deleted, selected) <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = testTableSchema
-        , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = testTableSchema
+              , rows = Rel8.values $ map Rel8.lit rows
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      deleted <- statement () $ Rel8.run $ Rel8.delete Rel8.Delete
-          { from = testTableSchema
-          , using = pure ()
-          , deleteWhere = const testTableColumn2
-          , returning = Rel8.Returning id
-          }
+      deleted <-
+        statement () $
+          Rel8.run $
+            Rel8.delete
+              Rel8.Delete
+                { from = testTableSchema
+                , using = pure ()
+                , deleteWhere = const testTableColumn2
+                , returning = Rel8.Returning id
+                }
 
       selected <- statement () $ Rel8.run $ Rel8.select do
         Rel8.each testTableSchema
@@ -813,14 +831,15 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
 
 testWithStatement :: IO TmpPostgres.DB -> TestTree
 testWithStatement genTestDatabase =
-  testGroup "WITH"
+  testGroup
+    "WITH"
     [ selectUnionInsert genTestDatabase
     , rowsAffectedNoReturning genTestDatabase
     , rowsAffectedReturing genTestDatabase
     , pureQuery genTestDatabase
     ]
   where
-    selectUnionInsert = 
+    selectUnionInsert =
       databasePropertyTest "Can UNION results of SELECT with results of INSERT" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
@@ -829,50 +848,54 @@ testWithStatement genTestDatabase =
             statement () $ Rel8.run $ do
               values <- Rel8.select $ Rel8.values $ map Rel8.lit rows
 
-              inserted <- Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = values
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.Returning id
-                }
+              inserted <-
+                Rel8.insert $
+                  Rel8.Insert
+                    { into = testTableSchema
+                    , rows = values
+                    , onConflict = Rel8.DoNothing
+                    , returning = Rel8.Returning id
+                    }
 
               pure $ values <> inserted
 
           sort rows' === sort (rows <> rows)
 
-    rowsAffectedNoReturning = 
+    rowsAffectedNoReturning =
       databasePropertyTest "Can read rows affected from INSERT without RETURNING" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
         transaction do
           affected <- lift do
             statement () $ Rel8.runN $ do
-              Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.NoReturning
-                }
+              Rel8.insert $
+                Rel8.Insert
+                  { into = testTableSchema
+                  , rows = Rel8.values $ map Rel8.lit rows
+                  , onConflict = Rel8.DoNothing
+                  , returning = Rel8.NoReturning
+                  }
 
           length rows === fromIntegral affected
 
-    rowsAffectedReturing = 
+    rowsAffectedReturing =
       databasePropertyTest "Can read rows affected from INSERT with RETURNING" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
         transaction do
           affected <- lift do
             statement () $ Rel8.runN $ void $ do
-              Rel8.insert $ Rel8.Insert
-                { into = testTableSchema
-                , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
-                , returning = Rel8.Returning id
-                }
+              Rel8.insert $
+                Rel8.Insert
+                  { into = testTableSchema
+                  , rows = Rel8.values $ map Rel8.lit rows
+                  , onConflict = Rel8.DoNothing
+                  , returning = Rel8.Returning id
+                  }
 
           length rows === fromIntegral affected
 
-    pureQuery = 
+    pureQuery =
       databasePropertyTest "Can read pure Query" \transaction -> do
         rows <- forAll $ Gen.list (Range.linear 0 50) genTestTable
 
@@ -882,7 +905,6 @@ testWithStatement genTestDatabase =
               Rel8.values $ map Rel8.lit rows
 
           sort rows === sort rows'
-
 
 
 data UniqueTable f = UniqueTable
@@ -925,23 +947,31 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
 
   transaction do
     selected <- lift do
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = uniqueTableSchema
-        , rows = Rel8.values $ Rel8.lit <$> as
-        , onConflict = Rel8.DoNothing
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = uniqueTableSchema
+              , rows = Rel8.values $ Rel8.lit <$> as
+              , onConflict = Rel8.DoNothing
+              , returning = Rel8.NoReturning
+              }
 
-      statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
-        { into = uniqueTableSchema
-        , rows = Rel8.values $ Rel8.lit <$> bs
-        , onConflict = Rel8.DoUpdate Rel8.Upsert
-            { index = uniqueTableKey
-            , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
-            , updateWhere = \_ _ -> Rel8.true
-            }
-        , returning = Rel8.NoReturning
-        }
+      statement () $
+        Rel8.run_ $
+          Rel8.insert
+            Rel8.Insert
+              { into = uniqueTableSchema
+              , rows = Rel8.values $ Rel8.lit <$> bs
+              , onConflict =
+                  Rel8.DoUpdate
+                    Rel8.Upsert
+                      { index = uniqueTableKey
+                      , set = \UniqueTable{uniqueTableValue} old -> old{uniqueTableValue}
+                      , updateWhere = \_ _ -> Rel8.true
+                      }
+              , returning = Rel8.NoReturning
+              }
 
       statement () $ Rel8.run $ Rel8.select do
         Rel8.each uniqueTableSchema
@@ -987,10 +1017,12 @@ testSelectArray = databasePropertyTest "Can SELECT Arrays (with aggregation)" \t
 
     selected' <- lift do
       statement () $ Rel8.run $ Rel8.select do
-        a <- Rel8.catListTable =<< do
-          Rel8.many $ Rel8.values (map Rel8.lit rows)
-        b <- Rel8.catListTable =<< do
-          Rel8.many $ Rel8.values (map Rel8.lit rows)
+        a <-
+          Rel8.catListTable =<< do
+            Rel8.many $ Rel8.values (map Rel8.lit rows)
+        b <-
+          Rel8.catListTable =<< do
+            Rel8.many $ Rel8.values (map Rel8.lit rows)
         pure (a, b)
 
     selected' === liftA2 (,) rows rows

@@ -1,10 +1,10 @@
-{-# language DuplicateRecordFields #-}
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language NamedFieldPuns #-}
-{-# language RecordWildCards #-}
-{-# language StandaloneKindSignatures #-}
-{-# language StrictData #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE StrictData #-}
 
 module Rel8.Statement.Update (
   Update (..),
@@ -24,15 +24,15 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import Text.PrettyPrint (Doc, text, ($$), (<+>))
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Query ( Query )
-import Rel8.Schema.Name ( Selects )
-import Rel8.Schema.Table ( TableSchema(..), ppTable )
+import Rel8.Expr (Expr)
+import Rel8.Query (Query)
+import Rel8.Schema.Name (Selects)
+import Rel8.Schema.Table (TableSchema (..), ppTable)
 import Rel8.Statement (Statement)
 import Rel8.Statement.Returning (Returning, ppReturning, runReturning)
-import Rel8.Statement.Set ( ppSet )
-import Rel8.Statement.Using ( ppFrom )
-import Rel8.Statement.Where ( ppWhere )
+import Rel8.Statement.Set (ppSet)
+import Rel8.Statement.Using (ppFrom)
+import Rel8.Statement.Where (ppWhere)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (State)
@@ -60,21 +60,23 @@ data Update a where
 
 -- | Build an @UPDATE@ 'Statement'.
 update :: Update a -> Statement a
-update statement@Update {returning} =
+update statement@Update{returning} =
   runReturning (ppUpdate statement) returning
 
 
 ppUpdate :: Update a -> State Opaleye.Tag Doc
-ppUpdate Update {..} = do
+ppUpdate Update{..} = do
   mfrom <- ppFrom from
   pure $ case mfrom of
-    Nothing -> 
-      text "UPDATE" <+> ppTable target $$
-      ppSet target id $$
-      text "WHERE false"
+    Nothing ->
+      text "UPDATE"
+        <+> ppTable target
+        $$ ppSet target id
+        $$ text "WHERE false"
     Just (fromDoc, i) ->
-      text "UPDATE" <+> ppTable target $$
-      ppSet target (set i) $$
-      fromDoc $$
-      ppWhere target (updateWhere i) $$
-      ppReturning target returning
+      text "UPDATE"
+        <+> ppTable target
+        $$ ppSet target (set i)
+        $$ fromDoc
+        $$ ppWhere target (updateWhere i)
+        $$ ppReturning target returning

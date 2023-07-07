@@ -1,19 +1,19 @@
-{-# language DataKinds #-}
-{-# language DeriveTraversable #-}
-{-# language DerivingStrategies #-}
-{-# language FlexibleContexts #-}
-{-# language MonoLocalBinds #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Rel8.Statement.Select
-  ( select
-  , ppSelect
-  , Optimized(..)
-  , ppPrimSelect
-  , ppRows
-  )
+module Rel8.Statement.Select (
+  select,
+  ppSelect,
+  Optimized (..),
+  ppPrimSelect,
+  ppRows,
+)
 where
 
 -- base
@@ -37,19 +37,19 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import Text.PrettyPrint (Doc)
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Expr.Bool ( false )
-import Rel8.Expr.Opaleye ( toPrimExpr )
-import Rel8.Query ( Query )
-import Rel8.Query.Opaleye ( toOpaleye )
-import Rel8.Schema.Name ( Selects )
+import Rel8.Expr (Expr)
+import Rel8.Expr.Bool (false)
+import Rel8.Expr.Opaleye (toPrimExpr)
+import Rel8.Query (Query)
+import Rel8.Query.Opaleye (toOpaleye)
+import Rel8.Schema.Name (Selects)
 import Rel8.Statement (Statement, statementReturning)
-import Rel8.Table ( Table )
-import Rel8.Table.Cols ( toCols )
-import Rel8.Table.Name ( namesFromLabels )
-import Rel8.Table.Opaleye ( castTable, exprsWithNames )
+import Rel8.Table (Table)
+import Rel8.Table.Cols (toCols)
+import Rel8.Table.Name (namesFromLabels)
+import Rel8.Table.Opaleye (castTable, exprsWithNames)
 import qualified Rel8.Table.Opaleye as T
-import Rel8.Table.Undefined ( undefined )
+import Rel8.Table.Undefined (undefined)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (State)

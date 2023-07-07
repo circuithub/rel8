@@ -1,10 +1,10 @@
-{-# language DuplicateRecordFields #-}
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language NamedFieldPuns #-}
-{-# language RecordWildCards #-}
-{-# language StandaloneKindSignatures #-}
-{-# language StrictData #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE StrictData #-}
 
 module Rel8.Statement.Delete (
   Delete (..),
@@ -24,14 +24,14 @@ import qualified Opaleye.Internal.Tag as Opaleye
 import Text.PrettyPrint (Doc, text, ($$), (<+>))
 
 -- rel8
-import Rel8.Expr ( Expr )
-import Rel8.Query ( Query )
-import Rel8.Schema.Name ( Selects )
-import Rel8.Schema.Table ( TableSchema, ppTable )
+import Rel8.Expr (Expr)
+import Rel8.Query (Query)
+import Rel8.Schema.Name (Selects)
+import Rel8.Schema.Table (TableSchema, ppTable)
 import Rel8.Statement (Statement)
 import Rel8.Statement.Returning (Returning, ppReturning, runReturning)
-import Rel8.Statement.Using ( ppUsing )
-import Rel8.Statement.Where ( ppWhere )
+import Rel8.Statement.Using (ppUsing)
+import Rel8.Statement.Where (ppWhere)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (State)
@@ -57,19 +57,21 @@ data Delete a where
 
 -- | Build a @DELETE@ 'Statement'.
 delete :: Delete a -> Statement a
-delete statement@Delete {returning} =
+delete statement@Delete{returning} =
   runReturning (ppDelete statement) returning
 
 
 ppDelete :: Delete a -> State Opaleye.Tag Doc
-ppDelete Delete {..} = do
+ppDelete Delete{..} = do
   musing <- ppUsing using
   pure $ case musing of
     Nothing ->
-      text "DELETE FROM" <+> ppTable from $$
-      text "WHERE false"
+      text "DELETE FROM"
+        <+> ppTable from
+        $$ text "WHERE false"
     Just (usingDoc, i) ->
-      text "DELETE FROM" <+> ppTable from $$
-      usingDoc $$
-      ppWhere from (deleteWhere i) $$
-      ppReturning from returning
+      text "DELETE FROM"
+        <+> ppTable from
+        $$ usingDoc
+        $$ ppWhere from (deleteWhere i)
+        $$ ppReturning from returning

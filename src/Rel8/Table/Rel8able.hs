@@ -14,11 +14,12 @@ module Rel8.Table.Rel8able (
   )
 where
 
--- base
-import Prelude ()
 
--- base-compat
-import Data.Type.Equality.Compat
+-- base
+#if __GLASGOW_HASKELL__ >= 904
+-- base
+import Data.Type.Equality (type (~))
+import Prelude ()
 
 -- rel8
 import Rel8.Expr (Expr)

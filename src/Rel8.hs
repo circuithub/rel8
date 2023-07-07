@@ -414,17 +414,19 @@ module Rel8 (
   -- ** Bindings
   rebind,
 
-    -- * Running statements
-    -- $running
-  , run
-  , run_
-  , runN
-  , run1
-  , runMaybe
-  , runVector
+  -- * IO
+  Serializable,
+  ToExprs,
+  Result,
 
   -- * Running statements
   -- $running
+  run,
+  run_,
+  runN,
+  run1,
+  runMaybe,
+  runVector,
 
   -- ** @SELECT@
   select,
@@ -447,13 +449,12 @@ module Rel8 (
   update,
   showUpdate,
 
-    -- ** @WITH@
-  , Statement
-  , showStatement
+  -- ** @.. RETURNING@
+  Returning (..),
 
-    -- ** @CREATE VIEW@
-  , createView
-  , createOrReplaceView
+  -- ** @WITH@
+  Statement,
+  showStatement,
 
   -- ** @CREATE VIEW@
   createView,
@@ -531,7 +532,6 @@ import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
 import Rel8.Statement.Run
-import Rel8.Statement.Select
 import Rel8.Statement.SQL
 import Rel8.Statement.Select
 import Rel8.Statement.Update
@@ -575,19 +575,20 @@ import Rel8.Type.Sum
 import Rel8.Window
 
 
--- $running
--- To run queries and otherwise interact with a PostgreSQL database, Rel8
--- provides the @run@ functions. These produce a 'Hasql.Statement.Statement's
--- which can be passed to 'Hasql.Session.statement' to execute the statement
--- against a PostgreSQL 'Hasql.Connection.Connection'.
---
--- 'run' takes a 'Statement', which can be constructed using either 'select',
--- 'insert', 'update' or 'delete'. It decodes the rows returned by the
--- statement as a list of Haskell of values. See 'run_', 'runN', 'run1',
--- 'runMaybe' and 'runVector' for other variations.
---
--- Note that constructing an 'Insert', 'Update' or 'Delete' will require the
--- @DisambiguateRecordFields@ language extension to be enabled.
+{- $running
+To run queries and otherwise interact with a PostgreSQL database, Rel8
+provides the @run@ functions. These produce a 'Hasql.Statement.Statement's
+which can be passed to 'Hasql.Session.statement' to execute the statement
+against a PostgreSQL 'Hasql.Connection.Connection'.
+
+'run' takes a 'Statement', which can be constructed using either 'select',
+'insert', 'update' or 'delete'. It decodes the rows returned by the
+statement as a list of Haskell of values. See 'run_', 'runN', 'run1',
+'runMaybe' and 'runVector' for other variations.
+
+Note that constructing an 'Insert', 'Update' or 'Delete' will require the
+@DisambiguateRecordFields@ language extension to be enabled.
+-}
 
 
 {- $adts

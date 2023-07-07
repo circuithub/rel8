@@ -1,21 +1,21 @@
-{-# language DeriveFunctor #-}
-{-# language DerivingVia #-}
-{-# language FlexibleContexts #-}
-{-# language GADTs #-}
-{-# language LambdaCase #-}
-{-# language NamedFieldPuns #-}
-{-# language RankNTypes #-}
-{-# language RecordWildCards #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Rel8.Statement
-  ( Statement
-  , statementReturning
-  , statementNoReturning
-  , ppDecodeStatement
-  )
+module Rel8.Statement (
+  Statement,
+  statementReturning,
+  statementNoReturning,
+  ppDecodeStatement,
+)
 where
 
 -- base
@@ -35,18 +35,18 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
-import Text.PrettyPrint
-  ( Doc
-  , (<+>)
-  , ($$)
-  , comma
-  , doubleQuotes
-  , hcat
-  , parens
-  , punctuate
-  , text
-  , vcat
-  )
+import Text.PrettyPrint (
+  Doc,
+  comma,
+  doubleQuotes,
+  hcat,
+  parens,
+  punctuate,
+  text,
+  vcat,
+  ($$),
+  (<+>),
+ )
 
 -- rel8
 import Rel8.Expr (Expr)
@@ -99,54 +99,55 @@ getResult = \case
 type Returning :: Type
 data Returning where
   NoReturning :: Returning
-  Returning :: Query (Expr Int64) -> Returning 
+  Returning :: Query (Expr Int64) -> Returning
 
 
--- | 'Statement' represents a single PostgreSQL statement. Most commonly,
--- this is constructed using 'Rel8.select', 'Rel8.insert', 'Rel8.update'
--- or 'Rel8.delete'.
---
--- However, in addition to @SELECT@, @INSERT@, @UPDATE@ and @DELETE@,
--- PostgreSQL also supports compositions thereof via its statement-level
--- @WITH@ syntax (with some caveats). Each such \"sub-statement\" can
--- reference the results of previous sub-statements. 'Statement' provides a
--- 'Monad' instance that captures this \"binding\" pattern.
---
--- The caveat with this is that the [side-effects of these sub-statements
--- are not visible to other sub-statements](https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-MODIFYING);
--- only the explicit results of previous sub-statements (from @SELECT@s or
--- @RETURNING@ clauses) are visible. So, for example, an @INSERT@ into a table
--- followed immediately by a @SELECT@ therefrom will not return the inserted
--- rows. However, it is possible to return the inserted rows using
--- @RETURNING@, 'Rel8.unionAll'ing this with the result of a @SELECT@
--- from the same table will produce the desired result.
---
--- An example of where this can be useful is if you want to delete rows from
--- a table and simultaneously log their deletion in a log table.
---
--- @
--- deleteFoo :: (Foo Expr -> Expr Bool) -> Statement ()
--- deleteFoo predicate = do
---   foos <-
---     delete Delete
---       { from = fooSchema
---       , using = pure ()
---       , deleteWhere = \_ -> predicate
---       , returning = Returning id
---       }
---   insert Insert
---     { into = deletedFooSchema
---     , rows = do
---         Foo {..} <- foos
---         let
---           deletedAt = 'Rel8.Expr.Time.now'
---         pure DeletedFoo {..}
---     , onConflict = Abort
---     , returning = NoReturning
---     }
--- @
-newtype Statement a =
-  Statement (WriterT (Endo [Binding]) (State Opaleye.Tag) (Result a))
+{- | 'Statement' represents a single PostgreSQL statement. Most commonly,
+this is constructed using 'Rel8.select', 'Rel8.insert', 'Rel8.update'
+or 'Rel8.delete'.
+
+However, in addition to @SELECT@, @INSERT@, @UPDATE@ and @DELETE@,
+PostgreSQL also supports compositions thereof via its statement-level
+@WITH@ syntax (with some caveats). Each such \"sub-statement\" can
+reference the results of previous sub-statements. 'Statement' provides a
+'Monad' instance that captures this \"binding\" pattern.
+
+The caveat with this is that the [side-effects of these sub-statements
+are not visible to other sub-statements](https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-MODIFYING);
+only the explicit results of previous sub-statements (from @SELECT@s or
+@RETURNING@ clauses) are visible. So, for example, an @INSERT@ into a table
+followed immediately by a @SELECT@ therefrom will not return the inserted
+rows. However, it is possible to return the inserted rows using
+@RETURNING@, 'Rel8.unionAll'ing this with the result of a @SELECT@
+from the same table will produce the desired result.
+
+An example of where this can be useful is if you want to delete rows from
+a table and simultaneously log their deletion in a log table.
+
+@
+deleteFoo :: (Foo Expr -> Expr Bool) -> Statement ()
+deleteFoo predicate = do
+  foos <-
+    delete Delete
+      { from = fooSchema
+      , using = pure ()
+      , deleteWhere = \_ -> predicate
+      , returning = Returning id
+      }
+  insert Insert
+    { into = deletedFooSchema
+    , rows = do
+        Foo {..} <- foos
+        let
+          deletedAt = 'Rel8.Expr.Time.now'
+        pure DeletedFoo {..}
+    , onConflict = Abort
+    , returning = NoReturning
+    }
+@
+-}
+newtype Statement a
+  = Statement (WriterT (Endo [Binding]) (State Opaleye.Tag) (Result a))
   deriving stock (Functor)
   deriving (Apply) via WrappedApplicative Statement
 
@@ -177,14 +178,16 @@ statementNoReturning pp = Statement $ do
       relation = Opaleye.tagWith tag "statement"
       columns = Nothing
       returning = NoReturning
-      binding = Binding {..}
+      binding = Binding{..}
     pure binding
   tell (Endo (binding :))
   pure $ Unmodified ()
 
 
-statementReturning :: Table Expr a 
-  => State Opaleye.Tag Doc -> Statement (Query a)
+statementReturning ::
+  Table Expr a =>
+  State Opaleye.Tag Doc ->
+  Statement (Query a)
 statementReturning pp = Statement $ do
   (binding, query) <- lift $ do
     doc <- pp
@@ -201,22 +204,26 @@ statementReturning pp = Statement $ do
       names = namesFromLabelsWithA symbol `evalState` Opaleye.start
       columns = Just $ showNames names
       query =
-        fromCols <$> each
-          TableSchema
-            { name = relation
-            , schema = Nothing
-            , columns = names
-            }
+        fromCols
+          <$> each
+            TableSchema
+              { name = relation
+              , schema = Nothing
+              , columns = names
+              }
       returning = Returning (countRows query)
-      binding = Binding {..}
+      binding = Binding{..}
     pure (binding, query)
   tell (Endo (binding :))
   pure $ Unmodified query
 
 
-ppDecodeStatement :: ()
-  => (forall x. Table Expr x => Query x -> State Opaleye.Tag Doc)
-  -> Rows exprs a -> Statement exprs -> (Doc, Hasql.Result a)
+ppDecodeStatement ::
+  () =>
+  (forall x. Table Expr x => Query x -> State Opaleye.Tag Doc) ->
+  Rows exprs a ->
+  Statement exprs ->
+  (Doc, Hasql.Result a)
 ppDecodeStatement ppSelect rows (Statement m) = evalState go Opaleye.start
   where
     go = do
@@ -243,7 +250,7 @@ ppDecodeStatement ppSelect rows (Statement m) = evalState go Opaleye.start
           Vector @exprs @a -> do
             doc <- ppSelect (getResult result)
             pure (doc, Hasql.rowVector (parse @exprs @a))
-        Just (bindings, binding@Binding {doc = after}) -> case rows of
+        Just (bindings, binding@Binding{doc = after}) -> case rows of
           Void -> pure (doc, Hasql.noResult)
             where
               doc = ppWith bindings after
@@ -255,7 +262,7 @@ ppDecodeStatement ppSelect rows (Statement m) = evalState go Opaleye.start
               Modified _ -> case returning binding of
                 NoReturning -> pure (doc, Hasql.rowsAffected)
                   where
-                    doc = ppWith bindings after 
+                    doc = ppWith bindings after
                 Returning query -> do
                   doc <- ppWith bindings' <$> ppSelect query
                   pure (doc, Hasql.singleRow parse)
@@ -299,20 +306,20 @@ ppWith bindings after = pre $$ after
     pre = case bindings of
       [] -> mempty
       _ ->
-        text "WITH" <+>
-        vcat (punctuate comma (map go bindings))
-    go binding@Binding {doc = before} =
-      ppAlias binding $$
-      text "AS" <+>
-      parens before
+        text "WITH"
+          <+> vcat (punctuate comma (map go bindings))
+    go binding@Binding{doc = before} =
+      ppAlias binding
+        $$ text "AS"
+        <+> parens before
 
 
 ppAlias :: Binding -> Doc
-ppAlias Binding {relation, columns = mcolumns} = case mcolumns of
+ppAlias Binding{relation, columns = mcolumns} = case mcolumns of
   Nothing -> escape relation
-  Just columns -> 
-    escape relation <+>
-    parens (hcat (punctuate comma (escape <$> toList columns)))
+  Just columns ->
+    escape relation
+      <+> parens (hcat (punctuate comma (escape <$> toList columns)))
 
 
 escape :: String -> Doc

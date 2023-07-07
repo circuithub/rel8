@@ -1,10 +1,10 @@
-{-# language DataKinds #-}
-{-# language GADTs #-}
-{-# language StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
-module Rel8.Statement.Rows
-  ( Rows (..)    
-  )
+module Rel8.Statement.Rows (
+  Rows (..),
+)
 where
 
 -- base
