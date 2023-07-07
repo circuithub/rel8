@@ -12,6 +12,7 @@
 module Rel8.Table.Name
   ( namesFromLabels
   , namesFromLabelsWith
+  , namesFromLabelsWithA
   , showLabels
   , showNames
   )
@@ -20,15 +21,19 @@ where
 -- base
 import Data.Foldable ( fold )
 import Data.Functor.Const ( Const( Const ), getConst )
+import Data.Functor.Identity (runIdentity)
 import Data.List.NonEmpty ( NonEmpty, intersperse, nonEmpty )
 import Data.Maybe ( fromMaybe )
 import Prelude
 
 -- rel8
-import Rel8.Schema.HTable ( htabulate, htabulateA, hfield, hspecs )
+import Rel8.Schema.HTable (htabulateA, hfield, hspecs)
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Table ( Table(..) )
+
+-- semigroupoids
+import Data.Functor.Apply (Apply)
 
 
 -- | Construct a table in the 'Name' context containing the names of all
@@ -58,9 +63,14 @@ namesFromLabels = namesFromLabelsWith go
 -- to the name of the Haskell field.
 namesFromLabelsWith :: Table Name a
   => (NonEmpty String -> String) -> a
-namesFromLabelsWith f = fromColumns $ htabulate $ \field ->
+namesFromLabelsWith = runIdentity . namesFromLabelsWithA . (pure .)
+
+
+namesFromLabelsWithA :: (Apply f, Table Name a)
+  => (NonEmpty String -> f String) -> f a
+namesFromLabelsWithA f = fmap fromColumns $ htabulateA $ \field ->
   case hfield hspecs field of
-    Spec {labels} -> Name (f (renderLabels labels))
+    Spec {labels} -> Name <$> f (renderLabels labels)
 
 
 showLabels :: forall a. Table (Context a) a => a -> [NonEmpty String]

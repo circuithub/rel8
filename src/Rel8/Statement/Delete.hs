@@ -1,7 +1,7 @@
 {-# language DuplicateRecordFields #-}
+{-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
-{-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
 {-# language StrictData #-}
@@ -17,9 +17,8 @@ where
 import Data.Kind ( Type )
 import Prelude
 
--- hasql
-import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Statement as Hasql
+-- opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
@@ -29,13 +28,13 @@ import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema, ppTable )
-import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
+import Rel8.Statement (Statement)
+import Rel8.Statement.Returning (Returning, ppReturning, runReturning)
 import Rel8.Statement.Using ( ppUsing )
 import Rel8.Statement.Where ( ppWhere )
 
--- text
-import qualified Data.Text as Text
-import Data.Text.Encoding ( encodeUtf8 )
+-- transformers
+import Control.Monad.Trans.State.Strict (State)
 
 
 -- | The constituent parts of a @DELETE@ statement.
@@ -55,25 +54,21 @@ data Delete a where
     -> Delete a
 
 
-ppDelete :: Delete a -> Doc
-ppDelete Delete {..} = case ppUsing using of
-  Nothing ->
-    text "DELETE FROM" <+> ppTable from $$
-    text "WHERE false"
-  Just (usingDoc, i) ->
-    text "DELETE FROM" <+> ppTable from $$
-    usingDoc $$
-    ppWhere from (deleteWhere i) $$
-    ppReturning from returning
+-- | Build a @DELETE@ 'Statement'.
+delete :: Delete a -> Statement a
+delete statement@Delete {returning} =
+  runReturning (ppDelete statement) returning
 
 
--- | Run a 'Delete' statement.
-delete :: Delete a -> Hasql.Statement () a
-delete d@Delete {returning} = Hasql.Statement bytes params decode prepare
-  where
-    bytes = encodeUtf8 $ Text.pack sql
-    params = Hasql.noParams
-    decode = decodeReturning returning
-    prepare = False
-    sql = show doc
-    doc = ppDelete d
+ppDelete :: Delete a -> State Opaleye.Tag Doc
+ppDelete Delete {..} = do
+  musing <- ppUsing using
+  pure $ case musing of
+    Nothing ->
+      text "DELETE FROM" <+> ppTable from $$
+      text "WHERE false"
+    Just (usingDoc, i) ->
+      text "DELETE FROM" <+> ppTable from $$
+      usingDoc $$
+      ppWhere from (deleteWhere i) $$
+      ppReturning from returning
