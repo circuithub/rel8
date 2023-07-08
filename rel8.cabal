@@ -29,7 +29,7 @@ library
     , contravariant
     , hasql ^>= 1.6.1.2
     , network-ip
-    , opaleye ^>= 0.9.6.1
+    , opaleye ^>= 0.9.7.0
     , pretty
     , profunctors
     , product-profunctors
