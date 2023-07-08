@@ -198,9 +198,8 @@ module Rel8
   , leastExpr, greatestExpr
 
     -- ** Functions
-  , Function
+  , Arguments
   , function
-  , nullaryFunction
   , binaryOperator
 
     -- * Queries

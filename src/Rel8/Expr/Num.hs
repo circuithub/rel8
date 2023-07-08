@@ -19,7 +19,7 @@ import Prelude ( (+), (-), fst, negate, signum, snd )
 -- rel
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Function ( function )
+import Rel8.Expr.Function (function)
 import Rel8.Expr.Opaleye ( castExpr )
 import Rel8.Schema.Null ( Homonullable, Sql )
 import Rel8.Table.Bool ( bool )
@@ -72,13 +72,13 @@ divMod n d = bool qr (q - 1, r + d) (signum r ==. negate (signum d))
 -- PostgreSQL, which behaves like Haskell's 'Prelude.quot' rather than
 -- 'Prelude.div'.
 quot :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-quot = function "div"
+quot n d = function "div" (n, d)
 
 
 -- | Corresponds to the @mod()@ function in PostgreSQL, which behaves like
 -- Haskell's 'Prelude.rem' rather than 'Prelude.mod'.
 rem :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-rem = function "mod"
+rem n d = function "mod" (n, d)
 
 
 -- | Simultaneous 'quot' and 'rem'.

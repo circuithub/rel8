@@ -32,7 +32,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, nullaryFunction )
+import Rel8.Expr.Function (binaryOperator, function)
 import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral )
 
 -- time
@@ -73,7 +73,7 @@ subtractDays = flip (binaryOperator "-")
 
 -- | Corresponds to @now()@.
 now :: Expr UTCTime
-now = nullaryFunction "now"
+now = function "now" ()
 
 
 -- | Add a time interval to a point in time, yielding a new point in time.

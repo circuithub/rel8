@@ -24,7 +24,7 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr.Function ( function, nullaryFunction )
+import Rel8.Expr.Function (function)
 import Rel8.Expr.Null ( liftOpNull, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
@@ -94,12 +94,12 @@ instance Sql DBFractional a => Fractional (Expr a) where
 
 
 instance Sql DBFloating a => Floating (Expr a) where
-  pi = nullaryFunction "PI"
+  pi = function "PI" ()
   exp = function "exp"
   log = function "ln"
   sqrt = function "sqrt"
   (**) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:^))
-  logBase = function "log"
+  logBase a b = function "log" (a, b)
   sin = function "sin"
   cos = function "cos"
   tan = function "tan"
