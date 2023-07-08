@@ -1,3 +1,5 @@
+{-# language OverloadedStrings #-}
+
 module Rel8.Statement.Using
   ( ppFrom
   , ppUsing
@@ -40,4 +42,4 @@ ppJoin clause join = do
       Optimized doc -> Just $ text clause <+> parens doc <+> ppTable alias
     pure (doc, a)
   where
-    alias = TableSchema {name = "T1", schema = Nothing, columns = ()}
+    alias = TableSchema {name = "T1", columns = ()}

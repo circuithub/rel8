@@ -27,6 +27,7 @@ import Rel8.Expr.Opaleye
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   )
 import Rel8.Schema.Null ( Sql )
+import Rel8.Schema.QualifiedName (QualifiedName, ppQualifiedName)
 import Rel8.Type ( DBType )
 
 
@@ -48,13 +49,15 @@ instance (arg ~ Expr a, Function args res) => Function arg (args -> res) where
 
 -- | Construct an n-ary function that produces an 'Expr' that when called runs
 -- a SQL function.
-function :: Function args result => String -> args -> result
-function = applyArgument . Opaleye.FunExpr
+function :: Function args result => QualifiedName -> args -> result
+function = applyArgument . Opaleye.FunExpr . show . ppQualifiedName
 
 
 -- | Construct a function call for functions with no arguments.
-nullaryFunction :: Sql DBType a => String -> Expr a
-nullaryFunction name = castExpr $ Expr (Opaleye.FunExpr name [])
+nullaryFunction :: Sql DBType a => QualifiedName -> Expr a
+nullaryFunction qualified = castExpr $ Expr (Opaleye.FunExpr name [])
+  where
+    name = show $ ppQualifiedName qualified
 
 
 -- | Construct an expression by applying an infix binary operator to two

@@ -49,6 +49,7 @@ import Rel8.Expr.Opaleye
 import Rel8.Schema.HTable ( htabulateA, hfield, hspecs, htabulate,
                             htraverseP, htraversePWithField )
 import Rel8.Schema.Name ( Name( Name ), Selects, ppColumn )
+import Rel8.Schema.QualifiedName (QualifiedName (QualifiedName))
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Table ( Table, fromColumns, toColumns )
@@ -100,7 +101,7 @@ ifPP = fromOpaleyespec Opaleye.ifPPField
 
 
 table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
-table (TableSchema name schema columns) =
+table (TableSchema (QualifiedName name schema) columns) =
   case schema of
     Nothing -> Opaleye.table name (tableFields columns)
     Just schemaName -> Opaleye.tableWithSchema schemaName name (tableFields columns)

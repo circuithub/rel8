@@ -1,3 +1,5 @@
+{-# language OverloadedStrings #-}
+
 module Rel8.Expr.Time
   ( -- * Working with @Day@
     today
