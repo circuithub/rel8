@@ -35,7 +35,7 @@ import Data.ByteString ( ByteString )
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
+import Rel8.Expr.Function (binaryOperator, function)
 
 -- text
 import Data.Text (Text)
@@ -121,7 +121,7 @@ ascii = function "ascii"
 
 -- | Corresponds to the @btrim@ function.
 btrim :: Expr Text -> Maybe (Expr Text) -> Expr Text
-btrim a (Just b) = function "btrim" a b
+btrim a (Just b) = function "btrim" (a, b)
 btrim a Nothing = function "btrim" a
 
 
@@ -132,27 +132,27 @@ chr = function "chr"
 
 -- | Corresponds to the @convert@ function.
 convert :: Expr ByteString -> Expr Text -> Expr Text -> Expr ByteString
-convert = function "convert"
+convert a b c = function "convert" (a, b, c)
 
 
 -- | Corresponds to the @convert_from@ function.
 convertFrom :: Expr ByteString -> Expr Text -> Expr Text
-convertFrom = function "convert_from"
+convertFrom a b = function "convert_from" (a, b)
 
 
 -- | Corresponds to the @convert_to@ function.
 convertTo :: Expr Text -> Expr Text -> Expr ByteString
-convertTo = function "convert_to"
+convertTo a b = function "convert_to" (a, b)
 
 
 -- | Corresponds to the @decode@ function.
 decode :: Expr Text -> Expr Text -> Expr ByteString
-decode = function "decode"
+decode a b = function "decode" (a, b)
 
 
 -- | Corresponds to the @encode@ function.
 encode :: Expr ByteString -> Expr Text -> Expr Text
-encode = function "encode"
+encode a b = function "encode" (a, b)
 
 
 -- | Corresponds to the @initcap@ function.
@@ -162,7 +162,7 @@ initcap = function "initcap"
 
 -- | Corresponds to the @left@ function.
 left :: Expr Text -> Expr Int32 -> Expr Text
-left = function "left"
+left a b = function "left" (a, b)
 
 
 -- | Corresponds to the @length@ function.
@@ -172,18 +172,18 @@ length = function "length"
 
 -- | Corresponds to the @length@ function.
 lengthEncoding :: Expr ByteString -> Expr Text -> Expr Int32
-lengthEncoding = function "length"
+lengthEncoding a b = function "length" (a, b)
 
 
 -- | Corresponds to the @lpad@ function.
 lpad :: Expr Text -> Expr Int32 -> Maybe (Expr Text) -> Expr Text
-lpad a b (Just c) = function "lpad" a b c
-lpad a b Nothing = function "lpad" a b
+lpad a b (Just c) = function "lpad" (a, b, c)
+lpad a b Nothing = function "lpad" (a, b)
 
 
 -- | Corresponds to the @ltrim@ function.
 ltrim :: Expr Text -> Maybe (Expr Text) -> Expr Text
-ltrim a (Just b) = function "ltrim" a b
+ltrim a (Just b) = function "ltrim" (a, b)
 ltrim a Nothing = function "ltrim" a
 
 
@@ -194,7 +194,7 @@ md5 = function "md5"
 
 -- | Corresponds to the @pg_client_encoding()@ expression.
 pgClientEncoding :: Expr Text
-pgClientEncoding = nullaryFunction "pg_client_encoding"
+pgClientEncoding = function "pg_client_encoding" ()
 
 
 -- | Corresponds to the @quote_ident@ function.
@@ -215,25 +215,25 @@ quoteNullable = function "quote_nullable"
 -- | Corresponds to the @regexp_replace@ function.
 regexpReplace :: ()
   => Expr Text -> Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr Text
-regexpReplace a b c (Just d) = function "regexp_replace" a b c d
-regexpReplace a b c Nothing = function "regexp_replace" a b c
+regexpReplace a b c (Just d) = function "regexp_replace" (a, b, c, d)
+regexpReplace a b c Nothing = function "regexp_replace" (a, b, c)
 
 
 -- | Corresponds to the @regexp_split_to_array@ function.
 regexpSplitToArray :: ()
   => Expr Text -> Expr Text -> Maybe (Expr Text) -> Expr [Text]
-regexpSplitToArray a b (Just c) = function "regexp_split_to_array" a b c
-regexpSplitToArray a b Nothing = function "regexp_split_to_array" a b
+regexpSplitToArray a b (Just c) = function "regexp_split_to_array" (a, b, c)
+regexpSplitToArray a b Nothing = function "regexp_split_to_array" (a, b)
 
 
 -- | Corresponds to the @repeat@ function.
 repeat :: Expr Text -> Expr Int32 -> Expr Text
-repeat = function "repeat"
+repeat a b = function "repeat" (a, b)
 
 
 -- | Corresponds to the @replace@ function.
 replace :: Expr Text -> Expr Text -> Expr Text -> Expr Text
-replace = function "replace"
+replace a b c = function "replace" (a, b, c)
 
 
 -- | Corresponds to the @reverse@ function.
@@ -243,40 +243,40 @@ reverse = function "reverse"
 
 -- | Corresponds to the @right@ function.
 right :: Expr Text -> Expr Int32 -> Expr Text
-right = function "right"
+right a b = function "right" (a, b)
 
 
 -- | Corresponds to the @rpad@ function.
 rpad :: Expr Text -> Expr Int32 -> Maybe (Expr Text) -> Expr Text
-rpad a b (Just c) = function "rpad" a b c
-rpad a b Nothing = function "rpad" a b
+rpad a b (Just c) = function "rpad" (a, b, c)
+rpad a b Nothing = function "rpad" (a, b)
 
 
 -- | Corresponds to the @rtrim@ function.
 rtrim :: Expr Text -> Maybe (Expr Text) -> Expr Text
-rtrim a (Just b) = function "rtrim" a b
+rtrim a (Just b) = function "rtrim" (a, b)
 rtrim a Nothing = function "rtrim" a
 
 
 -- | Corresponds to the @split_part@ function.
 splitPart :: Expr Text -> Expr Text -> Expr Int32 -> Expr Text
-splitPart = function "split_part"
+splitPart a b c = function "split_part" (a, b, c)
 
 
 -- | Corresponds to the @strpos@ function.
 strpos :: Expr Text -> Expr Text -> Expr Int32
-strpos = function "strpos"
+strpos a b = function "strpos" (a, b)
 
 
 -- | Corresponds to the @substr@ function.
 substr :: Expr Text -> Expr Int32 -> Maybe (Expr Int32) -> Expr Text
-substr a b (Just c) = function "substr" a b c
-substr a b Nothing = function "substr" a b
+substr a b (Just c) = function "substr" (a, b, c)
+substr a b Nothing = function "substr" (a, b)
 
 
 -- | Corresponds to the @translate@ function.
 translate :: Expr Text -> Expr Text -> Expr Text -> Expr Text
-translate = function "translate"
+translate a b c = function "translate" (a, b, c)
 
 
 -- | @like x y@ corresponds to the expression @y LIKE x@.
