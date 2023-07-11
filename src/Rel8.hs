@@ -155,6 +155,7 @@ module Rel8
 
     -- ** Table schemas
   , TableSchema(..)
+  , QualifiedName(..)
   , Name
   , namesFromLabels
   , namesFromLabelsWith
@@ -426,6 +427,7 @@ import Rel8.Schema.Field
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
+import Rel8.Schema.QualifiedName
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
 import Rel8.Statement

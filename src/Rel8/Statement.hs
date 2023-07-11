@@ -26,6 +26,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty, intersperse)
 import Data.Monoid (Endo (Endo))
+import Data.String (fromString)
 import Prelude
 
 -- hasql
@@ -203,8 +204,7 @@ statementReturning pp = Statement $ do
       query =
         fromCols <$> each
           TableSchema
-            { name = relation
-            , schema = Nothing
+            { name = fromString relation
             , columns = names
             }
       returning = Returning (countRows query)

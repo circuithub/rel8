@@ -150,6 +150,7 @@ library
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
+    Rel8.Schema.QualifiedName
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Table

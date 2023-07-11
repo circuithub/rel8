@@ -1,4 +1,5 @@
 {-# language DataKinds #-}
+{-# language OverloadedStrings #-}
 
 module Rel8.Expr.Text
   (

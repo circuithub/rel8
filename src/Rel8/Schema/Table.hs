@@ -1,8 +1,9 @@
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
-{-# language DisambiguateRecordFields #-}
+{-# language DuplicateRecordFields #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
+{-# language StrictData #-}
 
 module Rel8.Schema.Table
   ( TableSchema(..)
@@ -14,12 +15,11 @@ where
 import Data.Kind ( Type )
 import Prelude
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
-import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
-
 -- pretty
 import Text.PrettyPrint ( Doc )
+
+-- rel8
+import Rel8.Schema.QualifiedName (QualifiedName, ppQualifiedName)
 
 
 -- | The schema for a table. This is used to specify the name and schema that a
@@ -30,20 +30,14 @@ import Text.PrettyPrint ( Doc )
 -- @TableSchema@ in order to interact with the table via Rel8.
 type TableSchema :: Type -> Type
 data TableSchema names = TableSchema
-  { name :: String
+  { name :: QualifiedName
     -- ^ The name of the table.
-  , schema :: Maybe String
-    -- ^ The schema that this table belongs to. If 'Nothing', whatever is on
-    -- the connection's @search_path@ will be used.
   , columns :: names
-    -- ^ The columns of the table. Typically you would use a a higher-kinded
-    -- data type here, parameterized by the 'Rel8.ColumnSchema.ColumnSchema' functor.
+    -- ^ The columns of the table. Typically you would use a 'Rel8.Rel8able'
+    -- data type here, parameterized by the 'Rel8.Name' context.
   }
   deriving stock Functor
 
 
 ppTable :: TableSchema a -> Doc
-ppTable TableSchema {name, schema} = Opaleye.ppTable Opaleye.SqlTable
-  { sqlTableSchemaName = schema
-  , sqlTableName = name
-  }
+ppTable TableSchema {name} = ppQualifiedName name

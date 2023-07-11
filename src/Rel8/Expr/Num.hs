@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language OverloadedStrings #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}

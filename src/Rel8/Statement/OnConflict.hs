@@ -3,6 +3,7 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language OverloadedStrings #-}
 {-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
 {-# language StrictData #-}
@@ -94,8 +95,7 @@ ppUpsert schema@TableSchema {columns} Upsert {..} =
   ppWhere schema (updateWhere excluded)
   where
     excluded = attributes TableSchema
-      { schema = Nothing
-      , name = "excluded"
+      { name = "excluded"
       , columns
       }
 

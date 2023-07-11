@@ -189,7 +189,6 @@ testTableSchema :: Rel8.TableSchema (TestTable Rel8.Name)
 testTableSchema =
   Rel8.TableSchema
     { name = "test_table"
-    , schema = Nothing
     , columns = TestTable
         { testTableColumn1 = "column1"
         , testTableColumn2 = "column2"
@@ -887,7 +886,6 @@ uniqueTableSchema :: Rel8.TableSchema (UniqueTable Rel8.Name)
 uniqueTableSchema =
   Rel8.TableSchema
     { name = "unique_table"
-    , schema = Nothing
     , columns = UniqueTable
         { uniqueTableKey = "key"
         , uniqueTableValue = "value"
