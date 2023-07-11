@@ -7,7 +7,9 @@
 {-# language UndecidableInstances #-}
 
 module Rel8.Expr.Function
-  ( Arguments, function
+  ( Arguments
+  , function
+  , primFunction
   , binaryOperator
   )
 where
@@ -52,7 +54,12 @@ instance {-# OVERLAPS #-} Arguments () where
 -- the arguments @arguments@ returning an @'Expr' a@.
 function :: (Arguments arguments, Sql DBType a)
   => QualifiedName -> arguments -> Expr a
-function qualified = castExpr . fromPrimExpr . Opaleye.FunExpr name . arguments
+function qualified = castExpr . fromPrimExpr . primFunction qualified
+
+
+primFunction :: Arguments arguments
+  => QualifiedName -> arguments -> Opaleye.PrimExpr
+primFunction qualified = Opaleye.FunExpr name . arguments
   where
     name = show (ppQualifiedName qualified)
 
