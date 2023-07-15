@@ -7,6 +7,7 @@
 module Rel8.Schema.QualifiedName
   ( QualifiedName (..)
   , ppQualifiedName
+  , showQualifiedName
   )
 where
 
@@ -15,12 +16,11 @@ import Data.Kind (Type)
 import Data.String (IsString, fromString)
 import Prelude
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.Sql as Opaleye
-import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
-
 -- pretty
-import Text.PrettyPrint (Doc)
+import Text.PrettyPrint (Doc, text)
+
+-- rel8
+import Rel8.Schema.Escape (escape)
 
 
 -- | A name of an object (such as a table, view, function or sequence)
@@ -43,7 +43,12 @@ instance IsString QualifiedName where
 
 
 ppQualifiedName :: QualifiedName -> Doc
-ppQualifiedName QualifiedName {..} = Opaleye.ppTable Opaleye.SqlTable
-  { sqlTableSchemaName = schema
-  , sqlTableName = name
-  }
+ppQualifiedName QualifiedName {schema = mschema, ..} = case mschema of
+  Nothing -> name'
+  Just schema -> escape schema <> text "." <> name'
+  where
+    name' = escape name
+
+
+showQualifiedName :: QualifiedName -> String
+showQualifiedName = show . ppQualifiedName

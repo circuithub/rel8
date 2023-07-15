@@ -135,6 +135,7 @@ library
 
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
+    Rel8.Schema.Escape
     Rel8.Schema.Field
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
