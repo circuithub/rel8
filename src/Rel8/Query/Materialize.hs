@@ -33,11 +33,12 @@ import Rel8.Table.Opaleye ( unpackspec )
 -- 'materialize' to use the newer @WITH foo AS MATERIALIZED bar@ syntax
 -- introduced in PostgreSQL 12 in the future. Currently Rel8 does not use
 -- @AS MATERIALIZED@ to support earlier PostgreSQL versions.
-materialize :: Table Expr a => Query a -> (Query a -> Query b) -> Query b
+materialize :: (Table Expr a, Table Expr b)
+  => Query a -> (Query a -> Query b) -> Query b
 materialize query f =
-  fromOpaleye $
+  (>>= rebind "with") . fromOpaleye $
     withExplicit unpackspec
       (toOpaleye query')
       (toOpaleye . f . fromOpaleye)
   where
-    query' = query >>= rebind "with"
+    query' = query >>= rebind "materialize"
