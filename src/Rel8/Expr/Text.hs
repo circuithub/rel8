@@ -33,9 +33,13 @@ import Prelude ( flip )
 -- bytestring
 import Data.ByteString ( ByteString )
 
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Function (binaryOperator, function)
+import Rel8.Expr.Opaleye (zipPrimExprsWith)
 
 -- text
 import Data.Text (Text)
@@ -285,7 +289,7 @@ translate a b c = function "translate" (a, b, c)
 -- you can write expressions like
 -- @filter (like "Rel%" . packageName) =<< each haskellPackages@
 like :: Expr Text -> Expr Text -> Expr Bool
-like = flip (binaryOperator "LIKE")
+like = flip (zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpLike))
 
 
 -- | @ilike x y@ corresponds to the expression @y ILIKE x@.
@@ -294,4 +298,4 @@ like = flip (binaryOperator "LIKE")
 -- you can write expressions like
 -- @filter (ilike "Rel%" . packageName) =<< each haskellPackages@
 ilike :: Expr Text -> Expr Text -> Expr Bool
-ilike = flip (binaryOperator "ILIKE")
+ilike = flip (zipPrimExprsWith (Opaleye.BinExpr Opaleye.OpILike))

@@ -55,6 +55,7 @@ import Rel8.Expr.Bool (false)
 import Rel8.Query (Query)
 import Rel8.Query.Aggregate (countRows)
 import Rel8.Query.Each (each)
+import Rel8.Schema.Escape (escape)
 import Rel8.Schema.Table (TableSchema (..))
 import Rel8.Statement.Rows (Rows (..))
 import Rel8.Table (Table)
@@ -313,14 +314,6 @@ ppAlias Binding {relation, columns = mcolumns} = case mcolumns of
   Just columns -> 
     escape relation <+>
     parens (hcat (punctuate comma (escape <$> toList columns)))
-
-
-escape :: String -> Doc
-escape = doubleQuotes . text . concatMap go
-  where
-    go = \case
-      '"' -> "\"\""
-      c -> [c]
 
 
 unsnoc :: [a] -> Maybe ([a], a)

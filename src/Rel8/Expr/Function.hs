@@ -1,6 +1,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
@@ -21,15 +22,19 @@ import Prelude
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
+-- pretty
+import Text.PrettyPrint (parens, text)
+
 -- rel8
 import {-# SOURCE #-} Rel8.Expr (Expr)
 import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   )
+import Rel8.Schema.Escape (escape)
 import Rel8.Schema.HTable (hfoldMap)
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.QualifiedName (QualifiedName, ppQualifiedName)
+import Rel8.Schema.QualifiedName (QualifiedName (..), showQualifiedName)
 import Rel8.Table (Table, toColumns)
 import Rel8.Type ( DBType )
 
@@ -61,11 +66,20 @@ primFunction :: Arguments arguments
   => QualifiedName -> arguments -> Opaleye.PrimExpr
 primFunction qualified = Opaleye.FunExpr name . arguments
   where
-    name = show (ppQualifiedName qualified)
+    name = showQualifiedName qualified
 
 
 -- | Construct an expression by applying an infix binary operator to two
 -- operands.
-binaryOperator :: Sql DBType c => String -> Expr a -> Expr b -> Expr c
+binaryOperator :: Sql DBType c => QualifiedName -> Expr a -> Expr b -> Expr c
 binaryOperator operator a b =
-  castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther operator)) a b
+  castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther name)) a b
+  where
+    name = showQualifiedOperator operator
+
+
+showQualifiedOperator :: QualifiedName -> String
+showQualifiedOperator QualifiedName {schema = mschema, ..} = case mschema of
+  Nothing -> name
+  Just schema ->
+    show $ text "OPERATOR" <> parens (escape schema <> text "." <> text name)
