@@ -251,6 +251,9 @@ module Rel8
   , without
   , withoutBy
 
+    -- ** @WITH@
+  , materialize
+
     -- ** @WITH RECURSIVE@
   , loop
 
