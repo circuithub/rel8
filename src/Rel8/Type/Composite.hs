@@ -36,6 +36,7 @@ import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
+import Rel8.Schema.QualifiedName (QualifiedName)
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Spec ( Spec( Spec, nullity, info ) )
 import Rel8.Table ( fromColumns, toColumns, fromResult, toResult )
@@ -47,6 +48,7 @@ import Rel8.Table.Serialize ( litHTable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
+import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
 
 -- semigroupoids
@@ -70,7 +72,12 @@ instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
     { decode = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
     , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
-    , typeName = compositeTypeName @a
+    , typeName =
+        TypeName
+          { name = compositeTypeName @a
+          , modifiers = []
+          , arrayDepth = 0
+          }
     }
 
 
@@ -94,7 +101,7 @@ class (DBType a, HKDable a) => DBComposite a where
   compositeFields :: HKD a Name
 
   -- | The name of the composite type that @a@ maps to.
-  compositeTypeName :: String
+  compositeTypeName :: QualifiedName
 
 
 -- | Collapse a 'HKD' into a PostgreSQL composite type.

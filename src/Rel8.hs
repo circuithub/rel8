@@ -19,6 +19,7 @@ module Rel8
 
     -- *** @TypeInformation@
   , TypeInformation(..)
+  , TypeName(..)
   , mapTypeInformation
   , parseTypeInformation
 
@@ -474,6 +475,7 @@ import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded
 import Rel8.Type.JSONEncoded
 import Rel8.Type.Monoid
+import Rel8.Type.Name
 import Rel8.Type.Num
 import Rel8.Type.Ord
 import Rel8.Type.ReadShow

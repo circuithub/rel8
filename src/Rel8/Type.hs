@@ -2,6 +2,7 @@
 {-# language FlexibleInstances #-}
 {-# language MonoLocalBinds #-}
 {-# language MultiWayIf #-}
+{-# language OverloadedStrings #-}
 {-# language StandaloneKindSignatures #-}
 {-# language UndecidableInstances #-}
 
@@ -40,6 +41,7 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 import Rel8.Schema.Null ( NotNull, Sql, nullable )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
+import Rel8.Type.Name (TypeName (..))
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -95,7 +97,12 @@ instance DBType Char where
   typeInformation = TypeInformation
     { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
     , decode = Hasql.char
-    , typeName = "char"
+    , typeName =
+        TypeName
+          { name = "bpchar"
+          , modifiers = ["1"]
+          , arrayDepth = 0
+          }
     }
 
 

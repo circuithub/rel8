@@ -26,6 +26,7 @@ import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Schema.Null ( Unnullify, Sql )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Information ( TypeInformation(..) )
+import Rel8.Type.Name (showTypeName)
 
 -- profunctors
 import Data.Profunctor ( Profunctor, dimap )
@@ -48,7 +49,7 @@ scastExpr = sunsafeCastExpr
 sunsafeCastExpr :: ()
   => TypeInformation (Unnullify b) -> Expr a -> Expr b
 sunsafeCastExpr TypeInformation {typeName} =
-  fromPrimExpr . Opaleye.CastExpr typeName . toPrimExpr
+  fromPrimExpr . Opaleye.CastExpr (showTypeName typeName) . toPrimExpr
 
 
 -- | Unsafely construct an expression from literal SQL.

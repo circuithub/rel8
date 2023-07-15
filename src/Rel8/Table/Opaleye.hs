@@ -56,6 +56,7 @@ import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Type.Information ( typeName )
+import Rel8.Type.Name (showTypeName)
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
@@ -135,7 +136,7 @@ valuesspec :: Table Expr a => Opaleye.Valuesspec a a
 valuesspec = dimap toColumns fromColumns $
   htraversePWithField (traverseFieldP . Opaleye.valuesspecFieldType . typeName)
   where
-    typeName = Rel8.Type.Information.typeName . info . hfield hspecs
+    typeName = showTypeName . Rel8.Type.Information.typeName . info . hfield hspecs
 
 
 view :: Selects names exprs => names -> exprs

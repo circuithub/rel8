@@ -1,3 +1,4 @@
+{-# language OverloadedStrings #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Type.JSONBEncoded ( JSONBEncoded(..) ) where
