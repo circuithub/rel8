@@ -25,13 +25,18 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ) )
-import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
+import Rel8.Schema.QualifiedName (QualifiedName, showQualifiedName)
+import Rel8.Type.Information
+  ( TypeInformation(..)
+  , parseTypeInformation
+  , showTypeName
+  )
 
 
 array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
 array info =
-  Opaleye.CastExpr (arrayType info <> "[]") .
+  Opaleye.CastExpr (showQualifiedName (arrayType info) <> "[]") .
   Opaleye.ArrayExpr . map (encodeArrayElement info) . toList
 {-# INLINABLE array #-}
 
@@ -54,7 +59,8 @@ listTypeInformation nullity info@TypeInformation {encode, decode} =
         NotNull ->
           Opaleye.ArrayExpr .
           fmap (encodeArrayElement info . encode)
-    , typeName = arrayType info <> "[]"
+    , typeName = arrayType info
+    , arrayDepth = 1
     }
   where
     null = Opaleye.ConstExpr Opaleye.NullLit
@@ -72,12 +78,10 @@ nonEmptyTypeInformation nullity =
 
 
 isArray :: TypeInformation a -> Bool
-isArray = \case
-  (reverse . typeName -> ']' : '[' : _) -> True
-  _ -> False
+isArray = (> 0) . arrayDepth
 
 
-arrayType :: TypeInformation a -> String
+arrayType :: TypeInformation a -> QualifiedName
 arrayType info
   | isArray info = "record"
   | otherwise = typeName info
@@ -107,7 +111,7 @@ extractArrayElement info
         minus a b = Opaleye.BinExpr (Opaleye.:-) a b
         len = Opaleye.FunExpr "length" . pure
         substr s a b = Opaleye.FunExpr "substr" [s, a, b]
-        cast = Opaleye.CastExpr (typeName info)
+        cast = Opaleye.CastExpr (showTypeName info)
         text = Opaleye.CastExpr "text" input
         unrow =
           Opaleye.CaseExpr

@@ -34,6 +34,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
 import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
+import Rel8.Schema.QualifiedName (QualifiedName)
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.Result ( Result )
@@ -71,6 +72,7 @@ instance DBComposite a => DBType (Composite a) where
     { decode = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
     , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
     , typeName = compositeTypeName @a
+    , arrayDepth = 0
     }
 
 
@@ -94,7 +96,7 @@ class (DBType a, HKDable a) => DBComposite a where
   compositeFields :: HKD a Name
 
   -- | The name of the composite type that @a@ maps to.
-  compositeTypeName :: String
+  compositeTypeName :: QualifiedName
 
 
 -- | Collapse a 'HKD' into a PostgreSQL composite type.

@@ -7,6 +7,7 @@
 module Rel8.Schema.QualifiedName
   ( QualifiedName (..)
   , ppQualifiedName
+  , showQualifiedName
   )
 where
 
@@ -47,3 +48,7 @@ ppQualifiedName QualifiedName {..} = Opaleye.ppTable Opaleye.SqlTable
   { sqlTableSchemaName = schema
   , sqlTableName = name
   }
+
+
+showQualifiedName :: QualifiedName -> String
+showQualifiedName = show . ppQualifiedName

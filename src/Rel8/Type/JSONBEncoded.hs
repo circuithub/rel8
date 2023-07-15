@@ -1,3 +1,4 @@
+{-# language OverloadedStrings #-}
 {-# language StandaloneKindSignatures #-}
 
 module Rel8.Type.JSONBEncoded ( JSONBEncoded(..) ) where
@@ -32,4 +33,5 @@ instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
     { encode = encode typeInformation . toJSON . fromJSONBEncoded
     , decode = Hasql.refine (first pack . fmap JSONBEncoded . parseEither parseJSON) Hasql.jsonb
     , typeName = "jsonb"
+    , arrayDepth = 0
     }

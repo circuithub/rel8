@@ -29,7 +29,7 @@ import Rel8.Expr.Opaleye
   )
 import Rel8.Schema.HTable (hfoldMap)
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.QualifiedName (QualifiedName, ppQualifiedName)
+import Rel8.Schema.QualifiedName (QualifiedName, showQualifiedName)
 import Rel8.Table (Table, toColumns)
 import Rel8.Type ( DBType )
 
@@ -61,7 +61,7 @@ primFunction :: Arguments arguments
   => QualifiedName -> arguments -> Opaleye.PrimExpr
 primFunction qualified = Opaleye.FunExpr name . arguments
   where
-    name = show (ppQualifiedName qualified)
+    name = showQualifiedName qualified
 
 
 -- | Construct an expression by applying an infix binary operator to two

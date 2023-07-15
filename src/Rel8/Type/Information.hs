@@ -6,12 +6,14 @@ module Rel8.Type.Information
   ( TypeInformation(..)
   , mapTypeInformation
   , parseTypeInformation
+  , showTypeName
   )
 where
 
 -- base
 import Data.Bifunctor ( first )
 import Data.Kind ( Type )
+import Data.Semigroup (mtimesDefault)
 import Prelude
 
 -- hasql
@@ -19,6 +21,9 @@ import qualified Hasql.Decoders as Hasql
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+
+-- rel8
+import Rel8.Schema.QualifiedName (QualifiedName, showQualifiedName)
 
 -- text
 import qualified Data.Text as Text
@@ -33,8 +38,10 @@ data TypeInformation a = TypeInformation
     -- ^ How to encode a single Haskell value as a SQL expression.
   , decode :: Hasql.Value a
     -- ^ How to deserialize a single result back to Haskell.
-  , typeName :: String
+  , typeName :: QualifiedName
     -- ^ The name of the SQL type.
+  , arrayDepth :: Word
+    -- ^ How many levels of @[]@ (or 0 if type is not array).
   }
 
 
@@ -59,9 +66,15 @@ mapTypeInformation = parseTypeInformation . fmap pure
 parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
-parseTypeInformation to from TypeInformation {encode, decode, typeName} =
+parseTypeInformation to from TypeInformation {encode, decode, typeName, arrayDepth} =
   TypeInformation
     { encode = encode . from
     , decode = Hasql.refine (first Text.pack . to) decode
     , typeName
+    , arrayDepth
     }
+
+
+showTypeName :: TypeInformation a -> String
+showTypeName TypeInformation {typeName, arrayDepth} =
+  showQualifiedName typeName <> mtimesDefault arrayDepth "[]"
