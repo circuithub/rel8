@@ -38,9 +38,11 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Schema.QualifiedName (QualifiedName)
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
+import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
 
 -- text
@@ -75,7 +77,12 @@ instance DBEnum a => DBType (Enum a) where
         Opaleye.StringLit .
         enumValue @a .
         unEnum
-    , typeName = enumTypeName @a
+    , typeName =
+        TypeName
+          { name = enumTypeName @a
+          , modifiers = []
+          , arrayDepth = 0
+          }
     }
 
 
@@ -101,7 +108,7 @@ class (DBType a, Enumable a) => DBEnum a where
   enumValue = gshow @(Rep a) . from
 
   -- | The name of the PostgreSQL @enum@ type that @a@ maps to.
-  enumTypeName :: String
+  enumTypeName :: QualifiedName
 
 
 -- | Types that are sum types, where each constructor is unary (that is, has no

@@ -207,6 +207,7 @@ library
     Rel8.Type.JSONEncoded
     Rel8.Type.JSONBEncoded
     Rel8.Type.Monoid
+    Rel8.Type.Name
     Rel8.Type.Num
     Rel8.Type.Ord
     Rel8.Type.ReadShow

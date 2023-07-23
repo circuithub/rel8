@@ -41,7 +41,6 @@ import Text.PrettyPrint
   , (<+>)
   , ($$)
   , comma
-  , doubleQuotes
   , hcat
   , parens
   , punctuate

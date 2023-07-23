@@ -1,6 +1,7 @@
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
+{-# language StrictData #-}
 
 module Rel8.Type.Information
   ( TypeInformation(..)
@@ -20,6 +21,9 @@ import qualified Hasql.Decoders as Hasql
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
+-- rel8
+import Rel8.Type.Name (TypeName)
+
 -- text
 import qualified Data.Text as Text
 
@@ -33,7 +37,7 @@ data TypeInformation a = TypeInformation
     -- ^ How to encode a single Haskell value as a SQL expression.
   , decode :: Hasql.Value a
     -- ^ How to deserialize a single result back to Haskell.
-  , typeName :: String
+  , typeName :: TypeName
     -- ^ The name of the SQL type.
   }
 
