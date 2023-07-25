@@ -23,12 +23,14 @@ import Prelude
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Print as Opaleye
+import qualified Opaleye.Internal.Sql as Opaleye
 
 -- pretty
 import Text.PrettyPrint ( Doc, (<+>), ($$), parens, text )
 
 -- rel8
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Opaleye (toPrimExpr)
 import Rel8.Schema.Name ( Name, Selects, ppColumn )
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Statement.Set ( ppSet )
@@ -36,7 +38,7 @@ import Rel8.Statement.Where ( ppWhere )
 import Rel8.Table ( Table, toColumns )
 import Rel8.Table.Cols ( Cols( Cols ) )
 import Rel8.Table.Name ( showNames )
-import Rel8.Table.Opaleye ( attributes )
+import Rel8.Table.Opaleye (attributes, view)
 import Rel8.Table.Projection ( Projecting, Projection, apply )
 
 
@@ -62,15 +64,20 @@ data OnConflict names
 -- can still be referenced from the @SET@ and @WHERE@ clauses of the @UPDATE@
 -- statement.
 --
--- Upsert in Postgres requires an explicit set of \"conflict targets\" — the
--- set of columns comprising the @UNIQUE@ index from conflicts with which we
--- would like to recover.
+-- Upsert in Postgres a \"conflict target\" to be specified — this is the
+-- @UNIQUE@ index from conflicts with which we would like to recover. Indexes
+-- are specified by listing the columns that comprise them along with an
+-- optional predicate in the case of partial indexes.
 type Upsert :: Type -> Type
 data Upsert names where
   Upsert :: (Selects names exprs, Projecting names index, excluded ~ exprs) =>
     { index :: Projection names index
-      -- ^ The set of conflict targets, projected from the set of columns for
-      -- the whole table
+      -- ^ The set of columns comprising the @UNIQUE@ index that forms our
+      -- conflict target, projected from the set of columns for the whole
+      -- table
+    , predicate :: Maybe (exprs -> Expr Bool)
+      -- ^ An optional predicate used to specify a
+      -- [partial index](https://www.postgresql.org/docs/current/indexes-partial.html).
     , set :: excluded -> exprs -> exprs
       -- ^ How to update each selected row.
     , updateWhere :: excluded -> exprs -> Expr Bool
@@ -89,7 +96,7 @@ ppOnConflict schema = \case
 ppUpsert :: TableSchema names -> Upsert names -> Doc
 ppUpsert schema@TableSchema {columns} Upsert {..} =
   text "ON CONFLICT" <+>
-  ppIndex schema index <+>
+  ppIndex columns index <+> foldMap (ppPredicate columns) predicate <+>
   text "DO UPDATE" $$
   ppSet schema (set excluded) $$
   ppWhere schema (updateWhere excluded)
@@ -101,7 +108,15 @@ ppUpsert schema@TableSchema {columns} Upsert {..} =
 
 
 ppIndex :: (Table Name names, Projecting names index)
-  => TableSchema names -> Projection names index -> Doc
-ppIndex TableSchema {columns} index =
+  => names -> Projection names index -> Doc
+ppIndex columns index =
   parens $ Opaleye.commaV ppColumn $ toList $
     showNames $ Cols $ apply index $ toColumns columns
+
+
+ppPredicate :: Selects names exprs
+  => names -> (exprs -> Expr Bool) -> Doc
+ppPredicate schema where_ = text "WHERE" <+> ppExpr condition
+  where
+    ppExpr = Opaleye.ppSqlExpr . Opaleye.sqlExpr . toPrimExpr
+    condition = where_ (view schema)
