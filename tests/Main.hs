@@ -919,6 +919,7 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
         , rows = Rel8.values $ Rel8.lit <$> bs
         , onConflict = Rel8.DoUpdate Rel8.Upsert
             { index = uniqueTableKey
+            , predicate = Nothing
             , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
             , updateWhere = \_ _ -> Rel8.true
             }
