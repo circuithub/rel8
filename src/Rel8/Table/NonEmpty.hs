@@ -17,11 +17,13 @@ module Rel8.Table.NonEmpty
   , nameNonEmptyTable
   , head1
   , last1
+  , length1
   )
 where
 
 -- base
 import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.Int (Int32)
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
@@ -29,13 +31,14 @@ import Prelude hiding ( id )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
-import Rel8.Expr.NonEmpty (head1Expr, last1Expr)
+import Rel8.Expr.NonEmpty (length1Expr, shead1Expr, slast1Expr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
   , happend
   , hproject, hcolumn
+  , First (..)
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
@@ -152,7 +155,7 @@ head1 :: Table Expr a => NonEmptyTable Expr a -> a
 head1 =
   fromColumns .
   runIdentity .
-  hunvectorize (\_ -> Identity . head1Expr) .
+  hunvectorize (\Spec {info} -> Identity . shead1Expr info) .
   toColumns
 
 
@@ -161,5 +164,13 @@ last1 :: Table Expr a => NonEmptyTable Expr a -> a
 last1 =
   fromColumns .
   runIdentity .
-  hunvectorize (\_ -> Identity . last1Expr) .
+  hunvectorize (\Spec {info} -> Identity . slast1Expr info) .
+  toColumns
+
+
+-- | Get the length of a 'NonEmptyTable'
+length1 :: Table Expr a => NonEmptyTable Expr a -> Expr Int32
+length1 =
+  getFirst .
+  hunvectorize (\_ -> First . length1Expr) .
   toColumns

@@ -2,8 +2,9 @@
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
+{-# language DeriveFunctor #-}
 {-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
@@ -25,12 +26,14 @@ module Rel8.Schema.HTable.Vectorize
   , happend, hempty
   , hproject
   , hcolumn
+  , First (..)
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import qualified Data.Semigroup as Base
 import GHC.Generics (Generic)
 import Prelude
 
@@ -55,7 +58,8 @@ import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
-import Data.Zip ( Unzip, Zip, Zippy(..) )
+import Data.Align (Semialign, alignWith)
+import Data.Zip (Unzip, Zip, Zippy(..), zipWith)
 
 -- semigroupoids
 import Data.Functor.Apply (Apply)
@@ -169,3 +173,16 @@ hnullify f (HVectorize table) = HNullify $
   htabulate $ \(HMapTableField field) -> case hfield hspecs field of
     spec -> case hfield table (HMapTableField field) of
       a -> f spec a
+
+
+newtype First a b = First {getFirst :: a}
+  deriving stock Functor
+  deriving (Semigroup) via (Base.First a)
+
+
+instance Semialign (First a) where
+  alignWith _ (First a) _ = First a
+
+
+instance Zip (First a) where
+  zipWith _ (First a) _ = First a

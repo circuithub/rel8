@@ -105,6 +105,8 @@ module Rel8
   , headExpr
   , last
   , lastExpr
+  , length
+  , lengthExpr
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
@@ -118,6 +120,8 @@ module Rel8
   , head1Expr
   , last1
   , last1Expr
+  , length1
+  , length1Expr
 
     -- ** @NullTable@
   , NullTable
