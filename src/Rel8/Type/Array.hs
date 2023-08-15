@@ -9,13 +9,14 @@ module Rel8.Type.Array
   ( array, encodeArrayElement, extractArrayElement
   , listTypeInformation
   , nonEmptyTypeInformation
+  , head, last, length
   )
 where
 
 -- base
 import Data.Foldable ( toList )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
-import Prelude hiding ( null, repeat, zipWith )
+import Prelude hiding ( head, last, length, null, repeat, zipWith )
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -126,3 +127,31 @@ extractArrayElement info
                 where
                   pattern = string [char, char]
                   replacement = string [char]
+
+
+head :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+head info a = extractArrayElement info $ index (lower a) a
+
+
+last :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+last info a = extractArrayElement info $ index (upper a) a
+
+
+index :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+index i a = Opaleye.ArrayIndex a i
+
+
+lower :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+lower a = Opaleye.FunExpr "array_lower" [a, one]
+
+
+upper :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+upper a = Opaleye.FunExpr "array_lower" [a, one]
+
+
+length :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+length a = Opaleye.FunExpr "array_length" [a, one]
+
+
+one :: Opaleye.PrimExpr
+one = Opaleye.ConstExpr (Opaleye.IntegerLit 1)

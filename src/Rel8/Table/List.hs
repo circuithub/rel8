@@ -17,18 +17,20 @@ module Rel8.Table.List
   , nameListTable
   , head
   , last
+  , length
   )
 where
 
 -- base
 import Data.Functor.Identity (Identity (Identity))
+import Data.Int (Int32)
 import Data.Kind ( Type )
-import Prelude hiding (head, last)
+import Prelude hiding (head, last, length)
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
-import Rel8.Expr.List (headExpr, lastExpr)
+import Rel8.Expr.List (lengthExpr, sheadExpr, slastExpr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize
@@ -36,6 +38,7 @@ import Rel8.Schema.HTable.Vectorize
   , hnullify
   , happend, hempty
   , hproject, hcolumn
+  , First (..)
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
@@ -159,7 +162,7 @@ nameListTable =
 head :: Table Expr a => ListTable Expr a -> NullTable Expr a
 head =
   fromColumns .
-  hnullify (const headExpr) .
+  hnullify (\Spec {info} -> sheadExpr info) .
   toColumns
 
 
@@ -167,5 +170,13 @@ head =
 last :: Table Expr a => ListTable Expr a -> NullTable Expr a
 last =
   fromColumns .
-  hnullify (const lastExpr) .
+  hnullify (\Spec {info} -> slastExpr info) .
+  toColumns
+
+
+-- | Get the length of a 'ListTable'
+length :: Table Expr a => ListTable Expr a -> Expr Int32
+length =
+  getFirst .
+  hunvectorize (\_ -> First . lengthExpr) .
   toColumns
