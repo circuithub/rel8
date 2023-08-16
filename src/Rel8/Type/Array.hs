@@ -150,8 +150,12 @@ upper a = Opaleye.FunExpr "array_lower" [a, one]
 
 
 length :: Opaleye.PrimExpr -> Opaleye.PrimExpr
-length a = Opaleye.FunExpr "array_length" [a, one]
+length a = Opaleye.FunExpr "coalesce" [Opaleye.FunExpr "array_length" [a, one], zero]
 
 
 one :: Opaleye.PrimExpr
 one = Opaleye.ConstExpr (Opaleye.IntegerLit 1)
+
+
+zero :: Opaleye.PrimExpr
+zero = Opaleye.ConstExpr (Opaleye.IntegerLit 0)
