@@ -25,6 +25,7 @@ module Rel8.Schema.HTable.Vectorize
   , hnullify
   , happend, hempty
   , hproject
+  , htraverseVectorP
   , hcolumn
   , First (..)
   )
@@ -37,12 +38,19 @@ import qualified Data.Semigroup as Base
 import GHC.Generics (Generic)
 import Prelude
 
+-- product-profunctors
+import Data.Profunctor.Product (ProductProfunctor)
+
+-- profunctors
+import Data.Profunctor (dimap)
+
 -- rel8
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.HTable
   ( HField, HTable, hfield, htabulate, htabulateA, hspecs
+  , htraversePWithField
   )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.MapTable
@@ -159,6 +167,15 @@ hproject :: ()
   => (forall ctx. t ctx -> t' ctx)
   -> HVectorize list t context -> HVectorize list t' context
 hproject f (HVectorize a) = HVectorize (HMapTable.hproject f a)
+
+
+htraverseVectorP :: (HTable t, ProductProfunctor p)
+  => (forall a. HField t a -> p (f (list a)) (g (list' a)))
+  -> p (HVectorize list t f) (HVectorize list' t g)
+htraverseVectorP f =
+  dimap (\(HVectorize (HMapTable a)) -> a) (HVectorize . HMapTable) $
+    htraversePWithField $ \field ->
+      dimap (\(Precompose a) -> a) Precompose (f field)
 
 
 hcolumn :: HVectorize list (HIdentity a) context -> context (list a)

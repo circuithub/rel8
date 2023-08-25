@@ -7,6 +7,7 @@
 
 module Rel8.Type.Array
   ( array, encodeArrayElement, extractArrayElement
+  , arrayTypeName
   , listTypeInformation
   , nonEmptyTypeInformation
   , head, last, length
@@ -75,7 +76,7 @@ listTypeInformation nullity info@TypeInformation {encode, decode} =
         NotNull ->
           Opaleye.ArrayExpr .
           fmap (encodeArrayElement info . encode)
-    , typeName = (arrayType info) {arrayDepth = 1}
+    , typeName = arrayTypeName info
     }
   where
     null = Opaleye.ConstExpr Opaleye.NullLit
@@ -90,6 +91,10 @@ nonEmptyTypeInformation nullity =
   where
     fromList = maybe (Left message) Right . nonEmpty
     message = "failed to decode NonEmptyList: got empty list"
+
+
+arrayTypeName :: TypeInformation a -> TypeName
+arrayTypeName info = (arrayType info) {arrayDepth = 1}
 
 
 isArray :: TypeInformation a -> Bool
@@ -111,7 +116,7 @@ decodeArrayElement info
 
 encodeArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 encodeArrayElement info
-  | isArray info = Opaleye.CastExpr "text"
+  | isArray info = Opaleye.CastExpr "text" . Opaleye.CastExpr (showTypeName (typeName info))
   | otherwise = id
 
 

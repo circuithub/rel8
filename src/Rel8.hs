@@ -279,8 +279,10 @@ module Rel8
   , countRows
   , groupBy, groupByOn
   , listAgg, listAggOn, listAggExpr, listAggExprOn
+  , listCat, listCatOn, listCatExpr, listCatExprOn
   , mode
   , nonEmptyAgg, nonEmptyAggOn, nonEmptyAggExpr, nonEmptyAggExprOn
+  , nonEmptyCat, nonEmptyCatOn, nonEmptyCatExpr, nonEmptyCatExprOn
   , DBMax, max, maxOn
   , DBMin, min, minOn
   , DBSum, sum, sumOn, sumWhere, avg, avgOn

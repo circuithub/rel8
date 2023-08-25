@@ -466,6 +466,8 @@ testDBType getTestDatabase = testGroup "DBType instances"
     t generator transaction = do
       x <- forAll generator
       y <- forAll generator
+      xss <- forAll $ Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) generator)
+      xsss <- forAll $ Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) generator))
 
       transaction do
         res <- lift do
@@ -487,10 +489,23 @@ testDBType getTestDatabase = testGroup "DBType instances"
         diff res'' (==) [x, y]
         res''' <- lift do
           statement () $ Rel8.run $ Rel8.select do
-            xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
-            xs <- Rel8.catListTable xss
+            xss' <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
+            xs <- Rel8.catListTable xss'
             Rel8.catListTable xs
         diff res''' (==) [x, y]
+        res'''' <- lift do
+          statement () $ Rel8.run1 $ Rel8.select $
+            Rel8.aggregate Rel8.listCatExpr $
+              Rel8.values $ map Rel8.litExpr xss
+        diff res'''' (==) (concat xss)
+        res''''' <- lift do
+          statement () $ Rel8.run1 $ Rel8.select $
+            Rel8.aggregate Rel8.listCatExpr $
+              Rel8.values $ map Rel8.litExpr xsss
+        diff res''''' (==) (concat xsss)
+      
+
+      
 
     genComposite :: Gen Composite
     genComposite = do
