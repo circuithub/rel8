@@ -20,13 +20,16 @@ source-repository head
 library
   build-depends:
       aeson
+    , attoparsec
     , base ^>= 4.14 || ^>=4.15 || ^>=4.16 || ^>=4.17
+    , base16 >= 1.0
     , base-compat ^>= 0.11 || ^>= 0.12 || ^>= 0.13
     , bifunctors
     , bytestring
     , case-insensitive
     , comonad
     , contravariant
+    , data-textual
     , hasql ^>= 1.6.1.2
     , network-ip
     , opaleye ^>= 0.10.0.0
@@ -40,8 +43,10 @@ library
     , these
     , time
     , transformers
+    , utf8-string
     , uuid
     , vector
+
   default-language:
     Haskell2010
   ghc-options:
@@ -201,6 +206,7 @@ library
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Composite
+    Rel8.Type.Decoder
     Rel8.Type.Eq
     Rel8.Type.Enum
     Rel8.Type.Information
@@ -210,6 +216,9 @@ library
     Rel8.Type.Name
     Rel8.Type.Num
     Rel8.Type.Ord
+    Rel8.Type.Parser
+    Rel8.Type.Parser.ByteString
+    Rel8.Type.Parser.Time
     Rel8.Type.ReadShow
     Rel8.Type.Semigroup
     Rel8.Type.String

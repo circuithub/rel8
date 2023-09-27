@@ -13,10 +13,19 @@ module Rel8.Type.Array
   )
 where
 
+-- attoparsec
+import qualified Data.Attoparsec.ByteString.Char8 as A
+
 -- base
-import Data.Foldable ( toList )
+import Control.Applicative ((<|>), many)
+import Data.Bifunctor (first)
+import Data.Foldable (fold, toList)
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
 import Prelude hiding ( head, last, length, null, repeat, zipWith )
+
+-- bytestring
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as BS
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -26,8 +35,13 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ) )
+import Rel8.Type.Decoder (Decoder (..), NullableOrNot (..), Parser)
 import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 import Rel8.Type.Name (TypeName (..), showTypeName)
+import Rel8.Type.Parser (parse)
+
+-- text
+import qualified Data.Text as Text
 
 
 array :: Foldable f
@@ -44,11 +58,16 @@ listTypeInformation :: ()
   -> TypeInformation [a]
 listTypeInformation nullity info@TypeInformation {encode, decode} =
   TypeInformation
-    { decode = case nullity of
-        Null ->
-          Hasql.listArray (decodeArrayElement info (Hasql.nullable decode))
-        NotNull ->
-          Hasql.listArray (decodeArrayElement info (Hasql.nonNullable decode))
+    { decode =
+        Decoder
+          { binary = Hasql.listArray $ case nullity of
+              Null -> Hasql.nullable (decodeArrayElement info decode)
+              NotNull -> Hasql.nonNullable (decodeArrayElement info decode)
+          , parser = case nullity of
+              Null -> arrayParser (Nullable decode)
+              NotNull -> arrayParser (NonNullable decode)
+          , delimiter = ','
+          }
     , encode = case nullity of
         Null ->
           Opaleye.ArrayExpr .
@@ -67,9 +86,9 @@ nonEmptyTypeInformation :: ()
   -> TypeInformation (Unnullify a)
   -> TypeInformation (NonEmpty a)
 nonEmptyTypeInformation nullity =
-  parseTypeInformation parse toList . listTypeInformation nullity
+  parseTypeInformation fromList toList . listTypeInformation nullity
   where
-    parse = maybe (Left message) Right . nonEmpty
+    fromList = maybe (Left message) Right . nonEmpty
     message = "failed to decode NonEmptyList: got empty list"
 
 
@@ -79,54 +98,57 @@ isArray = (> 0) . arrayDepth . typeName
 
 arrayType :: TypeInformation a -> TypeName
 arrayType info
-  | isArray info = "record"
+  | isArray info = "text"
   | otherwise = typeName info
 
 
-decodeArrayElement :: TypeInformation a -> Hasql.NullableOrNot Hasql.Value x -> Hasql.NullableOrNot Hasql.Value x
+decodeArrayElement :: TypeInformation a -> Decoder x -> Hasql.Value x
 decodeArrayElement info
-  | isArray info = Hasql.nonNullable . Hasql.composite . Hasql.field
-  | otherwise = id
+  | isArray info = \decoder ->
+      Hasql.refine (first Text.pack . parser decoder) Hasql.bytea
+  | otherwise = binary
 
 
 encodeArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 encodeArrayElement info
-  | isArray info = Opaleye.UnExpr (Opaleye.UnOpOther "ROW")
+  | isArray info = Opaleye.CastExpr "text"
   | otherwise = id
 
 
 extractArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 extractArrayElement info
-  | isArray info = extract
+  | isArray info = Opaleye.CastExpr (showTypeName (typeName info))
   | otherwise = id
+
+
+parseArray :: Char -> ByteString -> Either String [Maybe ByteString]
+parseArray delimiter = parse $ do
+  A.char '{' *> A.sepBy element (A.char delimiter) <* A.char '}'
   where
-    extract input = cast unrow
+    element = null <|> nonNull
       where
-        string = Opaleye.ConstExpr . Opaleye.StringLit
-        int = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger @Int
-        minus a b = Opaleye.BinExpr (Opaleye.:-) a b
-        len = Opaleye.FunExpr "length" . pure
-        substr s a b = Opaleye.FunExpr "substr" [s, a, b]
-        cast = Opaleye.CastExpr (showTypeName (typeName info))
-        text = Opaleye.CastExpr "text" input
-        unrow =
-          Opaleye.CaseExpr
-            [ (quoted, unquote)
-            ]
-            unparen
+        null = Nothing <$ A.string "NULL"
+        nonNull = Just <$> (quoted <|> unquoted)
           where
-            quoted = Opaleye.BinExpr Opaleye.OpLike text pattern
+            unquoted = A.takeWhile1 (A.notInClass (delimiter : "\"{}"))
+            quoted = A.char '"' *> contents <* A.char '"'
               where
-                pattern = string "(\"%\")"
-        unparen = unwrap 1
-        unwrap n = substr text (int (1 + n)) (minus (len text) (int (n * 2)))
-        unquote = unescape '"' $ unescape '\\' $ unwrap 2
-          where
-            unescape char a =
-              Opaleye.FunExpr "replace" [a, pattern, replacement]
-                where
-                  pattern = string [char, char]
-                  replacement = string [char]
+                contents = fold <$> many (unquote <|> unescape)
+                  where
+                    unquote = A.takeWhile1 (A.notInClass "\"\\")
+                    unescape = A.char '\\' *> do
+                      BS.singleton <$> do
+                        A.char '\\' <|> A.char '"'
+
+
+arrayParser :: NullableOrNot Decoder a -> Parser [a]
+arrayParser = \case
+  Nullable Decoder {parser, delimiter} -> \input -> do
+    elements <- parseArray delimiter input
+    traverse (traverse parser) elements
+  NonNullable Decoder {parser, delimiter} -> \input -> do
+    elements <- parseArray delimiter input
+    traverse (maybe (Left "array: unexpected null") parser) elements
 
 
 head :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr

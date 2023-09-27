@@ -485,14 +485,12 @@ testDBType getTestDatabase = testGroup "DBType instances"
             xs <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]])
             Rel8.catListTable xs
         diff res'' (==) [x, y]
-{-
         res''' <- lift do
           statement () $ Rel8.run $ Rel8.select do
             xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
             xs <- Rel8.catListTable xss
             Rel8.catListTable xs
         diff res''' (==) [x, y]
--}
 
     genComposite :: Gen Composite
     genComposite = do
