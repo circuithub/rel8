@@ -8,6 +8,7 @@
 module Rel8.Table.Aggregate
   ( groupBy, groupByOn
   , listAgg, listAggOn, nonEmptyAgg, nonEmptyAggOn
+  , listCat, listCatOn, nonEmptyCat, nonEmptyCatOn
   , filterWhere, filterWhereOptional
   , orderAggregateBy
   , optionalAggregate
@@ -34,13 +35,15 @@ import Rel8.Expr.Aggregate
   ( filterWhereExplicit
   , groupByExprOn
   , slistAggExpr
+  , slistCatExpr
   , snonEmptyAggExpr
+  , snonEmptyCatExpr
   )
 import Rel8.Expr.Opaleye (toColumn, toPrimExpr)
 import Rel8.Order (Order (Order))
 import Rel8.Schema.Dict ( Dict( Dict ) )
-import Rel8.Schema.HTable (HTable, hfield, htabulateA)
-import Rel8.Schema.HTable.Vectorize (hvectorizeA)
+import Rel8.Schema.HTable (HTable, hfield, hspecs, htabulateA)
+import Rel8.Schema.HTable.Vectorize (htraverseVectorP, hvectorizeA)
 import Rel8.Schema.Null ( Sql )
 import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table (Table, toColumns, fromColumns)
@@ -144,6 +147,35 @@ nonEmptyAgg =
 nonEmptyAggOn :: Table Expr a
   => (i -> a) -> Aggregator1 i (NonEmptyTable Expr a)
 nonEmptyAggOn f = lmap f nonEmptyAgg
+
+
+-- | Concatenate lists into a single list.
+listCat :: Table Expr a
+  => Aggregator' fold (ListTable Expr a) (ListTable Expr a)
+listCat = dimap toColumns fromColumns $
+  htraverseVectorP (\field -> case hfield hspecs field of
+    Spec {info} -> slistCatExpr info)
+
+
+-- | Applies 'listCat' to the list selected by the given function.
+listCatOn :: Table Expr a
+  => (i -> ListTable Expr a) -> Aggregator' fold i (ListTable Expr a)
+listCatOn f = lmap f listCat
+
+
+-- | Concatenate non-empty lists into a single non-empty list.
+nonEmptyCat :: Table Expr a
+  => Aggregator1 (NonEmptyTable Expr a) (NonEmptyTable Expr a)
+nonEmptyCat = dimap toColumns fromColumns $
+  htraverseVectorP (\field -> case hfield hspecs field of
+    Spec {info} -> snonEmptyCatExpr info)
+
+
+-- | Applies 'nonEmptyCat' to the non-empty list selected by the given
+-- function.
+nonEmptyCatOn :: Table Expr a
+  => (i -> NonEmptyTable Expr a) -> Aggregator1 i (NonEmptyTable Expr a)
+nonEmptyCatOn f = lmap f nonEmptyCat
 
 
 -- | Order the values within each aggregation in an `Aggregator` using the

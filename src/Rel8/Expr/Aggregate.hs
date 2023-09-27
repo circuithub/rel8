@@ -1,5 +1,7 @@
 {-# language DataKinds #-}
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
+{-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
 {-# language TypeFamilies #-}
@@ -19,7 +21,9 @@ module Rel8.Expr.Aggregate
   , distinctAggregate
   , filterWhereExplicit
   , listAggExpr, listAggExprOn, nonEmptyAggExpr, nonEmptyAggExprOn
+  , listCatExpr, listCatExprOn, nonEmptyCatExpr, nonEmptyCatExprOn
   , slistAggExpr, snonEmptyAggExpr
+  , slistCatExpr, snonEmptyCatExpr
   )
 where
 
@@ -27,7 +31,7 @@ where
 import Data.Int ( Int64 )
 import Data.List.NonEmpty ( NonEmpty )
 import Data.String (IsString)
-import Prelude hiding ( and, max, min, null, or, sum )
+import Prelude hiding (and, max, min, null, or, show, sum)
 
 -- opaleye
 import qualified Opaleye.Aggregate as Opaleye
@@ -48,6 +52,7 @@ import Rel8.Aggregate.Fold (Fallback (Empty, Fallback))
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array (sempty)
 import Rel8.Expr.Bool (false, true)
+import Rel8.Expr.Eq ((/=.))
 import Rel8.Expr.Opaleye
   ( castExpr
   , fromColumn
@@ -55,11 +60,14 @@ import Rel8.Expr.Opaleye
   , toColumn
   , toPrimExpr
   )
+import Rel8.Expr.Read (sread)
+import Rel8.Expr.Show (show)
+import qualified Rel8.Expr.Text as Text
 import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( encodeArrayElement )
+import Rel8.Type.Array (arrayTypeName, encodeArrayElement)
 import Rel8.Type.Eq ( DBEq )
-import Rel8.Type.Information ( TypeInformation )
+import Rel8.Type.Information (TypeInformation)
 import Rel8.Type.Num ( DBNum )
 import Rel8.Type.Ord ( DBMax, DBMin )
 import Rel8.Type.String ( DBString )
@@ -267,6 +275,29 @@ nonEmptyAggExprOn :: Sql DBType a
 nonEmptyAggExprOn f = lmap f nonEmptyAggExpr
 
 
+-- | Concatenate lists into a single list.
+listCatExpr :: Sql DBType a => Aggregator' fold (Expr [a]) (Expr [a])
+listCatExpr = slistCatExpr typeInformation
+
+
+-- | Applies 'listCatExpr' to the column selected by the given function.
+listCatExprOn :: Sql DBType a
+  => (i -> Expr [a]) -> Aggregator' fold i (Expr [a])
+listCatExprOn f = lmap f listCatExpr
+
+
+-- | Concatenate non-empty lists into a single non-empty list.
+nonEmptyCatExpr :: Sql DBType a
+  => Aggregator1 (Expr (NonEmpty a)) (Expr (NonEmpty a))
+nonEmptyCatExpr = snonEmptyCatExpr typeInformation
+
+
+-- | Applies 'nonEmptyCatExpr' to the column selected by the given function.
+nonEmptyCatExprOn :: Sql DBType a
+  => (i -> Expr (NonEmpty a)) -> Aggregator1 i (Expr (NonEmpty a))
+nonEmptyCatExprOn f = lmap f nonEmptyCatExpr
+
+
 -- | 'distinctAggregate' modifies an 'Aggregator' to consider only distinct
 -- values of a particular column.
 distinctAggregate :: Sql DBEq a
@@ -293,6 +324,27 @@ snonEmptyAggExpr info =
     (fromPrimExpr . fromColumn)
     Empty
     Opaleye.arrayAgg
+
+
+slistCatExpr :: ()
+  => TypeInformation (Unnullify a) -> Aggregator' fold (Expr [a]) (Expr [a])
+slistCatExpr info = dimap (unbracket . show) (sread name . bracket) agg
+  where
+    bracket a = "{" <> a <> "}"
+    unbracket a = Text.substr a 2 (Just (Text.length a - 2))
+    agg = filterWhereExplicit ifPP (/=. "") (stringAgg ",")
+    name = arrayTypeName info
+
+
+snonEmptyCatExpr :: ()
+  => TypeInformation (Unnullify a)
+  -> Aggregator1 (Expr (NonEmpty a)) (Expr (NonEmpty a))
+snonEmptyCatExpr info = dimap (unbracket . show) (sread name . bracket) agg
+  where
+    bracket a = "{" <> a <> "}"
+    unbracket a = Text.substr a 2 (Just (Text.length a - 2))
+    agg = filterWhereExplicit ifPP (/=. "") (stringAgg ",")
+    name = arrayTypeName info
 
 
 ifPP :: Opaleye.IfPP (Expr a) (Expr a)

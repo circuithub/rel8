@@ -92,8 +92,10 @@ library
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Order
+    Rel8.Expr.Read
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
+    Rel8.Expr.Show
     Rel8.Expr.Window
 
     Rel8.FCF
