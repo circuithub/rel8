@@ -33,7 +33,7 @@ library
     , data-textual
     , hasql ^>= 1.6.1.2
     , network-ip
-    , opaleye ^>= 0.10.0.0
+    , opaleye ^>= 0.10.1.0
     , pretty
     , profunctors
     , product-profunctors
