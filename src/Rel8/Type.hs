@@ -15,10 +15,12 @@ where
 -- aeson
 import Data.Aeson ( Value )
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Parser as Aeson
 
 -- attoparsec
 import qualified Data.Attoparsec.ByteString.Char8 as A
+
+-- attoparsec-aeson
+import qualified Data.Aeson.Parser as Aeson
 
 -- base
 import Control.Applicative ((<|>))
