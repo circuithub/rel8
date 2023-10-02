@@ -261,6 +261,7 @@ module Rel8
 
     -- ** @WITH RECURSIVE@
   , loop
+  , loopDistinct
 
     -- ** Aggregation
   , Aggregator
