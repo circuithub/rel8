@@ -209,6 +209,7 @@ library
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Composite
+    Rel8.Type.Decimal
     Rel8.Type.Decoder
     Rel8.Type.Eq
     Rel8.Type.Enum

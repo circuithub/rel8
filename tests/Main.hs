@@ -25,6 +25,7 @@ import Control.Monad ((>=>))
 import Data.Bifunctor ( bimap )
 import Data.Fixed (Fixed (MkFixed))
 import Data.Foldable ( for_ )
+import Data.Fixed (Centi)
 import Data.Functor (void)
 import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
@@ -438,6 +439,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Composite" genComposite
   , dbTypeTest "Day" genDay
   , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Fixed" $ toEnum @Centi <$> Gen.integral (Range.linear (-10000) 10000)
   , dbTypeTest "Float" $ (/ 10) . fromIntegral @Int @Float <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
