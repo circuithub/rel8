@@ -12,12 +12,14 @@ module Rel8.Type.Num
 where
 
 -- base
+import Data.Fixed (Fixed)
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Prelude
 
 -- rel8
 import Rel8.Type ( DBType )
+import Rel8.Type.Decimal (PowerOf10)
 import Rel8.Type.Ord ( DBOrd )
 
 -- scientific
@@ -31,6 +33,7 @@ class DBType a => DBNum a
 instance DBNum Int16
 instance DBNum Int32
 instance DBNum Int64
+instance PowerOf10 n => DBNum (Fixed n)
 instance DBNum Float
 instance DBNum Double
 instance DBNum Scientific
@@ -49,6 +52,7 @@ instance DBIntegral Int64
 -- | The class of database types that support the @/@ operator.
 type DBFractional :: Type -> Constraint
 class DBNum a => DBFractional a
+instance PowerOf10 n => DBFractional (Fixed n)
 instance DBFractional Float
 instance DBFractional Double
 instance DBFractional Scientific
