@@ -23,10 +23,12 @@ module Rel8.Table.Opaleye
   , valuesspec
   , view
   , castTable
+  , fromOrder
   )
 where
 
 -- base
+import Data.Foldable (traverse_)
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -36,6 +38,9 @@ import qualified Opaleye.Adaptors as Opaleye
 import qualified Opaleye.Field as Opaleye ( Field_ )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Operators as Opaleye
+import qualified Opaleye.Internal.Order as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
 
@@ -48,8 +53,10 @@ import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , scastExpr, traverseFieldP
   )
-import Rel8.Schema.HTable ( htabulateA, hfield, hspecs, htabulate,
-                            htraverseP, htraversePWithField )
+import Rel8.Schema.HTable
+  ( htabulateA, hfield, hspecs, htabulate
+  , htraverseP, htraversePWithField
+  )
 import Rel8.Schema.Name ( Name( Name ), Selects, ppColumn )
 import Rel8.Schema.QualifiedName (QualifiedName (QualifiedName))
 import Rel8.Schema.Spec ( Spec(..) )
@@ -153,3 +160,9 @@ castTable (toColumns -> as) = fromColumns $ htabulate \field ->
   case hfield hspecs field of
     Spec {info} -> case hfield as field of
         expr -> scastExpr info expr
+
+
+fromOrder :: Opaleye.Order a -> Opaleye.Unpackspec a a
+fromOrder (Opaleye.Order o) =
+  Opaleye.Unpackspec $ Opaleye.PackMap $ \f a ->
+    a <$ traverse_ (f . snd) (o a)

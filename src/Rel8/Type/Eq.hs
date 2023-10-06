@@ -14,9 +14,10 @@ where
 import Data.Aeson ( Value )
 
 -- base
-import Data.List.NonEmpty ( NonEmpty )
+import Data.Fixed (Fixed)
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
+import Data.List.NonEmpty ( NonEmpty )
 import Prelude
 
 -- bytestring
@@ -29,6 +30,7 @@ import Data.CaseInsensitive ( CI )
 -- rel8
 import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
+import Rel8.Type.Decimal (PowerOf10)
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -58,6 +60,7 @@ instance DBEq Char
 instance DBEq Int16
 instance DBEq Int32
 instance DBEq Int64
+instance PowerOf10 n => DBEq (Fixed n)
 instance DBEq Float
 instance DBEq Double
 instance DBEq Scientific

@@ -33,7 +33,7 @@ fromIntegral :: (Sql DBIntegral a, Sql DBNum b, Homonullable a b)
 fromIntegral (Expr a) = castExpr (Expr a)
 
 
--- | Cast 'DBNum' types to 'DBFractional' types. For example, his can be useful
+-- | Cast 'DBNum' types to 'DBFractional' types. For example, this can be useful
 -- to convert @Expr Float@ to @Expr Double@.
 realToFrac :: (Sql DBNum a, Sql DBFractional b, Homonullable a b)
   => Expr a -> Expr b

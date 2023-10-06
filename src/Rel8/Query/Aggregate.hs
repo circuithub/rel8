@@ -6,13 +6,11 @@ module Rel8.Query.Aggregate
   ( aggregate
   , aggregate1
   , countRows
-  , mode
   )
 where
 
 -- base
 import Control.Applicative (liftA2)
-import Data.Functor.Contravariant ( (>$<) )
 import Data.Int ( Int64 )
 import Prelude
 
@@ -24,15 +22,10 @@ import Rel8.Aggregate (Aggregator' (Aggregator), Aggregator)
 import Rel8.Aggregate.Fold (Fallback (Fallback))
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate ( countStar )
-import Rel8.Expr.Order ( desc )
 import Rel8.Query ( Query )
-import Rel8.Query.Limit ( limit )
 import Rel8.Query.Maybe ( optional )
 import Rel8.Query.Opaleye ( mapOpaleye )
-import Rel8.Query.Order ( orderBy )
 import Rel8.Table (Table)
-import Rel8.Table.Aggregate (groupBy)
-import Rel8.Table.Eq (EqTable)
 import Rel8.Table.Maybe (fromMaybeTable)
 
 
@@ -55,11 +48,3 @@ aggregate1 (Aggregator _ aggregator) = mapOpaleye (Opaleye.aggregate aggregator)
 -- will return @0@.
 countRows :: Query a -> Query (Expr Int64)
 countRows = aggregate countStar
-
-
--- | Return the most common row in a query.
-mode :: forall a. EqTable a => Query a -> Query a
-mode rows =
-  limit 1 $ fmap snd $
-    orderBy (fst >$< desc) $ do
-      aggregate1 (liftA2 (,) countStar groupBy) rows
