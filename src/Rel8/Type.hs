@@ -4,7 +4,9 @@
 {-# language MonoLocalBinds #-}
 {-# language MultiWayIf #-}
 {-# language OverloadedStrings #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
 {-# language UndecidableInstances #-}
 
 module Rel8.Type
@@ -24,6 +26,7 @@ import qualified Data.Aeson.Parser as Aeson
 
 -- base
 import Control.Applicative ((<|>))
+import Data.Fixed (Fixed)
 import Data.Int ( Int16, Int32, Int64 )
 import Data.List.NonEmpty ( NonEmpty )
 import Data.Kind ( Constraint, Type )
@@ -55,6 +58,7 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 -- rel8
 import Rel8.Schema.Null ( NotNull, Sql, nullable )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
+import Rel8.Type.Decimal (PowerOf10, resolution)
 import Rel8.Type.Decoder ( Decoder(..) )
 import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 import Rel8.Type.Name (TypeName (..))
@@ -191,7 +195,7 @@ instance DBType Float where
         if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
            | isNaN x       -> Opaleye.OtherLit "'NaN'"
            | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-           | otherwise     -> Opaleye.NumericLit $ realToFrac x
+           | otherwise     -> Opaleye.DoubleLit $ realToFrac x
     , decode =
         Decoder
           { binary = Hasql.float4
@@ -209,7 +213,7 @@ instance DBType Double where
         if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
            | isNaN x       -> Opaleye.OtherLit "'NaN'"
            | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-           | otherwise     -> Opaleye.NumericLit $ realToFrac x
+           | otherwise     -> Opaleye.DoubleLit x
     , decode =
         Decoder
           { binary = Hasql.float8
@@ -223,7 +227,7 @@ instance DBType Double where
 -- | Corresponds to @numeric@
 instance DBType Scientific where
   typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit 
     , decode =
         Decoder
           { binary = Hasql.numeric
@@ -231,6 +235,26 @@ instance DBType Scientific where
           , delimiter = ','
           }
     , typeName = "numeric"
+    }
+
+
+-- | Corresponds to @numeric(1000, log₁₀ n)@
+instance PowerOf10 n => DBType (Fixed n) where
+  typeInformation = TypeInformation
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    , decode =
+        realToFrac <$>
+        Decoder
+          { binary = Hasql.numeric
+          , parser = parse A.scientific
+          , delimiter = ','
+          }
+    , typeName =    
+        TypeName
+          { name = "numeric"
+          , modifiers = ["1000", show (resolution @n)]
+          , arrayDepth = 0
+          }
     }
 
 
