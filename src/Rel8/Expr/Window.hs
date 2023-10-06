@@ -6,11 +6,11 @@ module Rel8.Expr.Window
   , percentRank
   , cumeDist
   , ntile
-  , lag, lagOn
-  , lead, leadOn
-  , firstValue, firstValueOn
-  , lastValue, lastValueOn
-  , nthValue, nthValueOn
+  , lagExpr, lagExprOn
+  , leadExpr, leadExprOn
+  , firstValueExpr, firstValueExprOn
+  , lastValueExpr, lastValueExprOn
+  , nthValueExpr, nthValueExprOn
   )
 where
 
@@ -76,68 +76,68 @@ ntile buckets = fromWindowFunction $ fromPrimExpr . fromColumn <$>
 
 
 -- | [@lag(value, offset, default)@](https://www.postgresql.org/docs/current/functions-window.html)
-lag :: Expr Int32 -> Expr a -> Window (Expr a) (Expr a)
-lag offset def =
+lagExpr :: Expr Int32 -> Expr a -> Window (Expr a) (Expr a)
+lagExpr offset def =
   fromWindowFunction $
     dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn) $
       Opaleye.lag (toColumn (toPrimExpr offset)) (toColumn (toPrimExpr def))
 
 
 -- | Applies 'lag' to the column selected by the given function.
-lagOn :: Expr Int32 -> Expr a -> (i -> Expr a) -> Window i (Expr a)
-lagOn offset def f = lmap f (lag offset def)
+lagExprOn :: Expr Int32 -> Expr a -> (i -> Expr a) -> Window i (Expr a)
+lagExprOn offset def f = lmap f (lagExpr offset def)
 
 
 -- | [@lead(value, offset, default)@](https://www.postgresql.org/docs/current/functions-window.html)
-lead :: Expr Int32 -> Expr a -> Window (Expr a) (Expr a)
-lead offset def =
+leadExpr :: Expr Int32 -> Expr a -> Window (Expr a) (Expr a)
+leadExpr offset def =
   fromWindowFunction $
     dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn) $
       Opaleye.lead (toColumn (toPrimExpr offset)) (toColumn (toPrimExpr def))
 
 
 -- | Applies 'lead' to the column selected by the given function.
-leadOn :: Expr Int32 -> Expr a -> (i -> Expr a) -> Window i (Expr a)
-leadOn offset def f = lmap f (lead offset def)
+leadExprOn :: Expr Int32 -> Expr a -> (i -> Expr a) -> Window i (Expr a)
+leadExprOn offset def f = lmap f (leadExpr offset def)
 
 
 -- | [@first_value(value)@](https://www.postgresql.org/docs/current/functions-window.html)
-firstValue :: Window (Expr a) (Expr a)
-firstValue =
+firstValueExpr :: Window (Expr a) (Expr a)
+firstValueExpr =
   fromWindowFunction $
     dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn)
       Opaleye.firstValue
 
 
 -- | Applies 'firstValue' to the column selected by the given function.
-firstValueOn :: (i -> Expr a) -> Window i (Expr a)
-firstValueOn f = lmap f firstValue
+firstValueExprOn :: (i -> Expr a) -> Window i (Expr a)
+firstValueExprOn f = lmap f firstValueExpr
 
 
 -- | [@last_value(value)@](https://www.postgresql.org/docs/current/functions-window.html)
-lastValue :: Window (Expr a) (Expr a)
-lastValue =
+lastValueExpr :: Window (Expr a) (Expr a)
+lastValueExpr =
   fromWindowFunction $
     dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn)
       Opaleye.lastValue
 
 
 -- | Applies 'lastValue' to the column selected by the given function.
-lastValueOn :: (i -> Expr a) -> Window i (Expr a)
-lastValueOn f = lmap f lastValue
+lastValueExprOn :: (i -> Expr a) -> Window i (Expr a)
+lastValueExprOn f = lmap f lastValueExpr
 
 
 -- | [@nth_value(value, n)@](https://www.postgresql.org/docs/current/functions-window.html)
-nthValue :: Expr Int32 -> Window (Expr a) (Expr (Nullify a))
-nthValue n =
+nthValueExpr :: Expr Int32 -> Window (Expr a) (Expr (Nullify a))
+nthValueExpr n =
   fromWindowFunction $
     dimap (toColumn . toPrimExpr) (fromPrimExpr . fromColumn) $
       Opaleye.nthValue (toColumn (toPrimExpr n))
 
 
 -- | [@nth_value(value, n)@](https://www.postgresql.org/docs/current/functions-window.html)
-nthValueOn :: Expr Int32 -> (i -> Expr a) -> Window i (Expr (Nullify a))
-nthValueOn n f = lmap f (nthValue n)
+nthValueExprOn :: Expr Int32 -> (i -> Expr a) -> Window i (Expr (Nullify a))
+nthValueExprOn n f = lmap f (nthValueExpr n)
 
 
 fromAggregate :: Aggregator' fold i a -> Opaleye.Aggregator i a
