@@ -281,6 +281,15 @@ module Rel8
   , countWhere, countWhereOn
   , and, andOn
   , or, orOn
+  , aggregateFunction
+
+  , mode, modeOn
+  , percentile, percentileOn
+  , percentileContinuous, percentileContinuousOn
+  , hypotheticalRank
+  , hypotheticalDenseRank
+  , hypotheticalPercentRank
+  , hypotheticalCumeDist
 
   , mode, modeOn
   , percentile, percentileOn
@@ -380,6 +389,7 @@ import Prelude ()
 -- rel8
 import Rel8.Aggregate
 import Rel8.Aggregate.Fold
+import Rel8.Aggregate.Function
 import Rel8.Column
 import Rel8.Column.ADT
 import Rel8.Column.Either
