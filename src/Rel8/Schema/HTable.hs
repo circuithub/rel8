@@ -16,7 +16,7 @@
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
   , hfield, htabulate, htraverse, hdicts, hspecs
-  , hfoldMap, hmap, htabulateA, htraverseP, htraversePWithField
+  , hfoldMap, hmap, htabulateA, htabulateP, htraverseP, htraversePWithField
   )
 where
 
@@ -136,6 +136,12 @@ htabulateA f = htraverse getCompose $ htabulate $ Compose . f
 {-# INLINABLE htabulateA #-}
 
 
+htabulateP :: (HTable t, ProductProfunctor p)
+  => (forall a. HField t a -> p i (context a)) -> p i (t context)
+htabulateP f = unApplyP $ htraverse (ApplyP . getCompose) $ htabulate $ Compose . f
+{-# INLINABLE htabulateP #-}
+
+
 newtype ApplyP p a b = ApplyP { unApplyP :: p a b }
 
 
@@ -154,8 +160,8 @@ htraverseP f = htraversePWithField (const f)
 
 htraversePWithField :: (HTable t, ProductProfunctor p)
   => (forall a. HField t a -> p (f a) (g a)) -> p (t f) (t g)
-htraversePWithField f = unApplyP $ htabulateA $ \field -> ApplyP $
-  lmap (flip hfield field) (f field)
+htraversePWithField f =
+  htabulateP $ \field -> lmap (flip hfield field) (f field)
 
 
 type GHField :: K.HTable -> Type -> Type
