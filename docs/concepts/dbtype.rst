@@ -36,7 +36,7 @@ and Haskell will make sure we don't accidentally use an ``OrderId`` when we're
 looking up a user.
 
 If you would like to use this approach but can't use generalized newtype
-deriving, the same can be achived by using ``mapTypeInformation``::
+deriving, the same can be achieved by using ``mapTypeInformation``::
 
   instance DBType UserId where
     typeInformation = mapTypeInformation UserId getUserId typeInformation
