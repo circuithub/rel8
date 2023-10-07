@@ -94,7 +94,7 @@ instance Sql DBFractional a => Fractional (Expr a) where
 
 
 instance Sql DBFloating a => Floating (Expr a) where
-  pi = function "PI" ()
+  pi = function "pi" ()
   exp = function "exp"
   log = function "ln"
   sqrt = function "sqrt"

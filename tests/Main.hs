@@ -25,6 +25,7 @@ import Control.Monad ((>=>))
 import Data.Bifunctor ( bimap )
 import Data.Fixed (Fixed (MkFixed))
 import Data.Foldable ( for_ )
+import Data.Fixed (Centi)
 import Data.Functor (void)
 import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
@@ -438,6 +439,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Composite" genComposite
   , dbTypeTest "Day" genDay
   , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Fixed" $ toEnum @Centi <$> Gen.integral (Range.linear (-10000) 10000)
   , dbTypeTest "Float" $ (/ 10) . fromIntegral @Int @Float <$> Gen.integral (Range.linear (-100) 100)
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
@@ -466,6 +468,8 @@ testDBType getTestDatabase = testGroup "DBType instances"
     t generator transaction = do
       x <- forAll generator
       y <- forAll generator
+      xss <- forAll $ Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) generator)
+      xsss <- forAll $ Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) (Gen.list (Range.linear 0 10) generator))
 
       transaction do
         res <- lift do
@@ -485,14 +489,25 @@ testDBType getTestDatabase = testGroup "DBType instances"
             xs <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]])
             Rel8.catListTable xs
         diff res'' (==) [x, y]
-{-
         res''' <- lift do
           statement () $ Rel8.run $ Rel8.select do
-            xss <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
-            xs <- Rel8.catListTable xss
+            xss' <- Rel8.catListTable (Rel8.listTable [Rel8.listTable [Rel8.listTable [Rel8.litExpr x, Rel8.litExpr y]]])
+            xs <- Rel8.catListTable xss'
             Rel8.catListTable xs
         diff res''' (==) [x, y]
--}
+        res'''' <- lift do
+          statement () $ Rel8.run1 $ Rel8.select $
+            Rel8.aggregate Rel8.listCatExpr $
+              Rel8.values $ map Rel8.litExpr xss
+        diff res'''' (==) (concat xss)
+        res''''' <- lift do
+          statement () $ Rel8.run1 $ Rel8.select $
+            Rel8.aggregate Rel8.listCatExpr $
+              Rel8.values $ map Rel8.litExpr xsss
+        diff res''''' (==) (concat xsss)
+      
+
+      
 
     genComposite :: Gen Composite
     genComposite = do
