@@ -2,13 +2,14 @@
 
 module Rel8.Query.Materialize
   ( materialize
-  ) where
+  )
+where
 
 -- base
 import Prelude
 
 -- opaleye
-import Opaleye.With ( withExplicit )
+import Opaleye.With ( withMaterializedExplicit )
 
 -- rel8
 import Rel8.Expr ( Expr )
@@ -26,19 +27,16 @@ import Rel8.Table.Opaleye ( unpackspec )
 -- you're doing this can sometimes help to nudge it in a particular direction.
 --
 -- 'materialize' is currently implemented in terms of Postgres'
--- [@WITH](https://www.postgresql.org/docs/current/queries-with.html) syntax.
--- Note that on newer versions of PostgreSQL starting with version 12, @WITH@
--- doesn't always automatically materialize if the results of the query aren't
--- used more than once. We reserve the right to change the implementation of
--- 'materialize' to use the newer @WITH foo AS MATERIALIZED bar@ syntax
--- introduced in PostgreSQL 12 in the future. Currently Rel8 does not use
--- @AS MATERIALIZED@ to support earlier PostgreSQL versions.
+-- [@WITH](https://www.postgresql.org/docs/current/queries-with.html) syntax,
+-- specifically the @WITH _ AS MATERIALIZED (_)@ form introduced in PostgreSQL
+-- 12. This means that 'materialize' can only be used with PostgreSQL 12 or
+-- newer.
 materialize :: (Table Expr a, Table Expr b)
   => Query a -> (Query a -> Query b) -> Query b
 materialize query f =
   (>>= rebind "with") . fromOpaleye $
-    withExplicit unpackspec
+    withMaterializedExplicit unpackspec
       (toOpaleye query')
       (toOpaleye . f . fromOpaleye)
   where
-    query' = query >>= rebind "materialize"
+    query' = query
