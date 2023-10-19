@@ -10,7 +10,7 @@ module Rel8.Type.Array
   , arrayTypeName
   , listTypeInformation
   , nonEmptyTypeInformation
-  , head, last, length
+  , head, index, last, length
   )
 where
 
@@ -157,15 +157,19 @@ arrayParser = \case
 
 
 head :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-head info a = extractArrayElement info $ index (lower a) a
+head info a = extractArrayElement info $ subscript (lower a) a
 
 
 last :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-last info a = extractArrayElement info $ index (upper a) a
+last info a = extractArrayElement info $ subscript (upper a) a
 
 
-index :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-index i a = Opaleye.ArrayIndex a i
+subscript :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+subscript i a = Opaleye.ArrayIndex a i
+
+
+index :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+index info i a = extractArrayElement info $ subscript (plus (lower a) i) a
 
 
 lower :: Opaleye.PrimExpr -> Opaleye.PrimExpr
@@ -186,3 +190,7 @@ one = Opaleye.ConstExpr (Opaleye.IntegerLit 1)
 
 zero :: Opaleye.PrimExpr
 zero = Opaleye.ConstExpr (Opaleye.IntegerLit 0)
+
+
+plus :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+plus = Opaleye.BinExpr (Opaleye.:+)

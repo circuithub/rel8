@@ -3,6 +3,7 @@
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
+{-# language NoFieldSelectors #-}
 {-# language OverloadedStrings #-}
 {-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
