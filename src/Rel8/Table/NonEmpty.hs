@@ -16,6 +16,7 @@ module Rel8.Table.NonEmpty
   , nonEmptyTable
   , nameNonEmptyTable
   , head1
+  , index1
   , last1
   , length1
   )
@@ -31,11 +32,12 @@ import Prelude hiding ( id )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
-import Rel8.Expr.NonEmpty (length1Expr, shead1Expr, slast1Expr)
+import Rel8.Expr.NonEmpty (length1Expr, shead1Expr, sindex1Expr, slast1Expr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
+  , hnullify
   , happend
   , hproject, hcolumn
   , First (..)
@@ -52,6 +54,7 @@ import Rel8.Table
   )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Null (NullTable)
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection
   ( Projectable, Projecting, Projection, project, apply
@@ -156,6 +159,16 @@ head1 =
   fromColumns .
   runIdentity .
   hunvectorize (\Spec {info} -> Identity . shead1Expr info) .
+  toColumns
+
+
+-- | @'index1' i as@ extracts a single element from @as@, returning
+-- 'Rel8.nullTable' if @i@ is out of range. Note that although PostgreSQL
+-- array indexes are 1-based (by default), this function is always 0-based.
+index1 :: Table Expr a => Expr Int32 -> NonEmptyTable Expr a -> NullTable Expr a
+index1 i =
+  fromColumns .
+  hnullify (\Spec {info} -> sindex1Expr info i) .
   toColumns
 
 

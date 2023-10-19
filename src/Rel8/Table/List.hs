@@ -16,6 +16,7 @@ module Rel8.Table.List
   , listTable
   , nameListTable
   , head
+  , index
   , last
   , length
   )
@@ -30,7 +31,7 @@ import Prelude hiding (head, last, length)
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
-import Rel8.Expr.List (lengthExpr, sheadExpr, slastExpr)
+import Rel8.Expr.List (lengthExpr, sheadExpr, sindexExpr, slastExpr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize
@@ -163,6 +164,16 @@ head :: Table Expr a => ListTable Expr a -> NullTable Expr a
 head =
   fromColumns .
   hnullify (\Spec {info} -> sheadExpr info) .
+  toColumns
+
+
+-- | @'index' i as@ extracts a single element from @as@, returning
+-- 'Rel8.nullTable' if @i@ is out of range. Note that although PostgreSQL
+-- array indexes are 1-based (by default), this function is always 0-based.
+index :: Table Expr a => Expr Int32 -> ListTable Expr a -> NullTable Expr a
+index i =
+  fromColumns .
+  hnullify (\Spec {info} -> sindexExpr info i) .
   toColumns
 
 

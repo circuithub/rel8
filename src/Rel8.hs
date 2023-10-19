@@ -101,12 +101,10 @@ module Rel8
   , manyExpr
   , catListTable
   , catList
-  , head
-  , headExpr
-  , last
-  , lastExpr
-  , length
-  , lengthExpr
+  , head, headExpr
+  , index, indexExpr
+  , last, lastExpr
+  , length, lengthExpr
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
@@ -116,12 +114,10 @@ module Rel8
   , someExpr
   , catNonEmptyTable
   , catNonEmpty
-  , head1
-  , head1Expr
-  , last1
-  , last1Expr
-  , length1
-  , length1Expr
+  , head1, head1Expr
+  , index1, index1Expr
+  , last1, last1Expr
+  , length1, length1Expr
 
     -- ** @NullTable@
   , NullTable
