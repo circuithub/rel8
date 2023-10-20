@@ -299,9 +299,9 @@ nonEmptyCatExprOn f = lmap f nonEmptyCatExpr
 
 
 -- | 'distinctAggregate' modifies an 'Aggregator' to consider only distinct
--- values of a particular column.
-distinctAggregate :: Sql DBEq a
-  => Aggregator' fold i (Expr a) -> Aggregator' fold i (Expr a)
+-- values of each particular column. Note that this "distinction" only happens
+-- within each column individually, not across all columns simultaneously.
+distinctAggregate :: Aggregator' fold i a -> Aggregator' fold i a
 distinctAggregate (Aggregator fallback a) =
   Aggregator fallback (Opaleye.distinctAggregator a)
 
