@@ -23,6 +23,9 @@ module Rel8
   , mapTypeInformation
   , parseTypeInformation
 
+    -- *** @Decoder@
+  , Decoder(..)
+
     -- ** The @DBType@ hierarchy
   , DBSemigroup(..)
   , DBMonoid(..)
@@ -462,6 +465,7 @@ import Rel8.Table.Transpose
 import Rel8.Table.Window
 import Rel8.Type
 import Rel8.Type.Composite
+import Rel8.Type.Decoder
 import Rel8.Type.Eq
 import Rel8.Type.Enum
 import Rel8.Type.Information
