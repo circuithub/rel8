@@ -28,7 +28,7 @@
         };
 
         rel8 = pkgs.haskell-nix.project {
-          compiler-nix-name = "ghc962";
+          compiler-nix-name = "ghc963";
 
           cabalProjectLocal = builtins.readFile ./cabal.project.haskell-nix;
 
