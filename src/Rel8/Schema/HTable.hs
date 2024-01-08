@@ -15,15 +15,17 @@
 
 module Rel8.Schema.HTable
   ( HTable (HField, HConstrainTable)
-  , hfield, htabulate, htraverse, hdicts, hspecs
-  , hfoldMap, hmap, htabulateA, htabulateP, htraverseP, htraversePWithField
+  , hfield, htabulate, hdicts, hspecs
+  , hfoldMap, hmap, htabulateA, htabulateP
+  , htraverse, htraverse_, htraverseP, htraversePWithField
   )
 where
 
 -- base
+import Data.Functor (void)
+import Data.Functor.Compose ( Compose( Compose ), getCompose )
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.Kind ( Constraint, Type )
-import Data.Functor.Compose ( Compose( Compose ), getCompose )
 import Data.Proxy ( Proxy )
 import GHC.Generics
   ( (:*:)( (:*:) )
@@ -46,7 +48,7 @@ import Rel8.Schema.HTable.Product ( HProduct( HProduct ) )
 import qualified Rel8.Schema.Kind as K
 
 -- semigroupoids
-import Data.Functor.Apply ( Apply, (<.>) )
+import Data.Functor.Apply (Apply, (<.>), liftF2)
 
 -- | A @HTable@ is a functor-indexed/higher-kinded data type that is
 -- representable ('htabulate'/'hfield'), constrainable ('hdicts'), and
@@ -128,6 +130,20 @@ hfoldMap f a = getConst $ htraverse (Const . f) a
 hmap :: HTable t
   => (forall a. context a -> context' a) -> t context -> t context'
 hmap f a = htabulate $ \field -> f (hfield a field)
+
+
+newtype Ap f a = Ap
+  { getAp :: f a
+  }
+
+
+instance (Apply f, Semigroup a) => Semigroup (Ap f a) where
+  Ap a <> Ap b = Ap (liftF2 (<>) a b)
+
+
+htraverse_ :: (HTable t, Apply f)
+  => (forall a. context a -> f b) -> t context -> f ()
+htraverse_ f a = getAp $ hfoldMap (Ap . void . f) a
 
 
 htabulateA :: (HTable t, Apply m)

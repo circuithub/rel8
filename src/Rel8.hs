@@ -272,7 +272,6 @@ module Rel8
   , groupBy, groupByOn
   , listAgg, listAggOn, listAggExpr, listAggExprOn
   , listCat, listCatOn, listCatExpr, listCatExprOn
-  , mode
   , nonEmptyAgg, nonEmptyAggOn, nonEmptyAggExpr, nonEmptyAggExprOn
   , nonEmptyCat, nonEmptyCatOn, nonEmptyCatExpr, nonEmptyCatExprOn
   , DBMax, max, maxOn
@@ -285,6 +284,14 @@ module Rel8
   , countWhere, countWhereOn
   , and, andOn
   , or, orOn
+
+  , mode, modeOn
+  , percentile, percentileOn
+  , percentileContinuous, percentileContinuousOn
+  , hypotheticalRank
+  , hypotheticalDenseRank
+  , hypotheticalPercentRank
+  , hypotheticalCumeDist
 
     -- ** Ordering
   , orderBy

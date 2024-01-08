@@ -4,6 +4,7 @@
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
@@ -17,6 +18,13 @@ module Rel8.Expr.Aggregate
   , sum, sumOn, sumWhere
   , avg, avgOn
   , stringAgg, stringAggOn
+  , mode, modeOn
+  , percentile, percentileOn
+  , percentileContinuous, percentileContinuousOn
+  , hypotheticalRank
+  , hypotheticalDenseRank
+  , hypotheticalPercentRank
+  , hypotheticalCumeDist
   , groupByExpr, groupByExprOn
   , distinctAggregate
   , filterWhereExplicit
@@ -28,6 +36,7 @@ module Rel8.Expr.Aggregate
 where
 
 -- base
+import Data.Functor.Contravariant ((>$<))
 import Data.Int ( Int64 )
 import Data.List.NonEmpty ( NonEmpty )
 import Data.String (IsString)
@@ -36,6 +45,7 @@ import Prelude hiding (and, max, min, null, or, show, sum)
 -- opaleye
 import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Internal.Aggregate as Opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.Operators as Opaleye
 
 -- profunctors
@@ -59,17 +69,22 @@ import Rel8.Expr.Opaleye
   , fromPrimExpr
   , toColumn
   , toPrimExpr
+  , unsafeCastExpr
   )
+import Rel8.Expr.Order (asc)
 import Rel8.Expr.Read (sread)
 import Rel8.Expr.Show (show)
 import qualified Rel8.Expr.Text as Text
+import Rel8.Order (Order (Order))
 import Rel8.Schema.Null ( Sql, Unnullify )
+import Rel8.Table.Opaleye (fromOrder, unpackspec)
+import Rel8.Table.Order (ascTable)
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Array (arrayTypeName, encodeArrayElement)
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information (TypeInformation)
-import Rel8.Type.Num ( DBNum )
-import Rel8.Type.Ord ( DBMax, DBMin )
+import Rel8.Type.Num (DBFractional, DBNum)
+import Rel8.Type.Ord (DBMax, DBMin, DBOrd)
 import Rel8.Type.String ( DBString )
 import Rel8.Type.Sum ( DBSum )
 
@@ -239,6 +254,132 @@ stringAggOn :: (Sql IsString a, Sql DBString a)
 stringAggOn delimiter f = lmap f (stringAgg delimiter)
 
 
+-- | Corresponds to @mode() WITHIN GROUP (ORDER BY _)@.
+mode :: Sql DBOrd a => Aggregator1 (Expr a) (Expr a)
+mode =
+  unsafeMakeAggregator
+    id
+    (fromPrimExpr . fromColumn)
+    Empty
+    (Opaleye.withinGroup ((\(Order o) -> o) ascTable)
+      (Opaleye.makeAggrExplicit (pure ()) (Opaleye.AggrOther "mode")))
+
+
+-- | Applies 'mode' to the column selected by the given function.
+modeOn :: Sql DBOrd a => (i -> Expr a) -> Aggregator1 i (Expr a)
+modeOn f = lmap f mode
+
+
+-- | Corresponds to @percentile_disc(_) WITHIN GROUP (ORDER BY _)@.
+percentile :: Sql DBOrd a => Expr Double -> Aggregator1 (Expr a) (Expr a)
+percentile fraction = 
+  unsafeMakeAggregator
+    (\a -> (fraction, a))
+    (castExpr . fromPrimExpr . fromColumn)
+    Empty
+    (Opaleye.withinGroup ((\(Order o) -> o) (snd >$< ascTable))
+      (Opaleye.makeAggrExplicit
+        (lmap fst unpackspec)
+        (Opaleye.AggrOther "percentile_disc")))
+
+
+-- | Applies 'percentile' to the column selected by the given function.
+percentileOn ::
+  Sql DBOrd a =>
+  Expr Double ->
+  (i -> Expr a) ->
+  Aggregator1 i (Expr a)
+percentileOn fraction f = lmap f (percentile fraction)
+
+
+-- | Corresponds to @percentile_cont(_) WITHIN GROUP (ORDER BY _)@.
+percentileContinuous ::
+  Sql DBFractional a =>
+  Expr Double ->
+  Aggregator1 (Expr a) (Expr a)
+percentileContinuous fraction = 
+  unsafeMakeAggregator
+    (\a -> (fraction, a))
+    (castExpr . fromPrimExpr . fromColumn)
+    Empty
+    (Opaleye.withinGroup ((\(Order o) -> o) (unsafeCastExpr @Double . snd >$< asc))
+      (Opaleye.makeAggrExplicit
+        (lmap fst unpackspec)
+        (Opaleye.AggrOther "percentile_disc")))
+
+
+
+-- | Applies 'percentileContinuous' to the column selected by the given
+-- function.
+percentileContinuousOn ::
+  Sql DBFractional a =>
+  Expr Double ->
+  (i -> Expr a) ->
+  Aggregator1 i (Expr a)
+percentileContinuousOn fraction f = lmap f (percentileContinuous fraction)
+
+
+-- | Corresponds to @rank(_) WITHIN GROUP (ORDER BY _)@.
+hypotheticalRank ::
+  Order a ->
+  a ->
+  Aggregator' fold a (Expr Int64)
+hypotheticalRank (Order order) args = 
+  unsafeMakeAggregator
+    (\a -> (args, a))
+    (castExpr . fromPrimExpr . fromColumn)
+    (Fallback 1)
+    (Opaleye.withinGroup (snd >$< order)
+      (Opaleye.makeAggrExplicit
+        (fromOrder (fst >$< order))
+        (Opaleye.AggrOther "rank")))
+
+
+-- | Corresponds to @dense_rank(_) WITHIN GROUP (ORDER BY _)@.
+hypotheticalDenseRank ::
+  Order a ->
+  a ->
+  Aggregator' fold a (Expr Int64)
+hypotheticalDenseRank (Order order) args = 
+  unsafeMakeAggregator
+    (const args)
+    (castExpr . fromPrimExpr . fromColumn)
+    (Fallback 1)
+    (Opaleye.withinGroup order
+      (Opaleye.makeAggrExplicit (fromOrder order)
+        (Opaleye.AggrOther "dense_rank")))
+
+
+-- | Corresponds to @percent_rank(_) WITHIN GROUP (ORDER BY _)@.
+hypotheticalPercentRank ::
+  Order a ->
+  a ->
+  Aggregator' fold a (Expr Double)
+hypotheticalPercentRank (Order order) args = 
+  unsafeMakeAggregator
+    (const args)
+    (castExpr . fromPrimExpr . fromColumn)
+    (Fallback 0)
+    (Opaleye.withinGroup order
+      (Opaleye.makeAggrExplicit (fromOrder order)
+        (Opaleye.AggrOther "percent_rank")))
+
+
+-- | Corresponds to @cume_dist(_) WITHIN GROUP (ORDER BY _)@.
+hypotheticalCumeDist ::
+  Order a ->
+  a ->
+  Aggregator' fold a (Expr Double)
+hypotheticalCumeDist (Order order) args = 
+  unsafeMakeAggregator
+    (const args)
+    (castExpr . fromPrimExpr . fromColumn)
+    (Fallback 1)
+    (Opaleye.withinGroup order
+      (Opaleye.makeAggrExplicit (fromOrder order)
+        (Opaleye.AggrOther "cume_dist")))
+
+
 -- | Aggregate a value by grouping by it.
 groupByExpr :: Sql DBEq a => Aggregator1 (Expr a) (Expr a)
 groupByExpr =
@@ -249,7 +390,7 @@ groupByExpr =
     Opaleye.groupBy
 
 
--- | Applies 'groupByExprOn' to the column selected by the given function.
+-- | Applies 'groupByExpr' to the column selected by the given function.
 groupByExprOn :: Sql DBEq a => (i -> Expr a) -> Aggregator1 i (Expr a)
 groupByExprOn f = lmap f groupByExpr
 
