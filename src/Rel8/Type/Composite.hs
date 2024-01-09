@@ -194,9 +194,10 @@ parseRow = parse $ do
         unquoted = A.takeWhile1 (A.notInClass ",\"()")
         quoted = A.char '"' *> contents <* A.char '"'
           where
-            contents = fold <$> many (unquote <|> unescape)
+            contents = fold <$> many (unquote <|> unescape <|> quote)
               where
                 unquote = A.takeWhile1 (A.notInClass "\"\\")
                 unescape = A.char '\\' *> do
                   BS.singleton <$> do
                     A.char '\\' <|> A.char '"'
+                quote = "\"" <$ A.string "\"\""
