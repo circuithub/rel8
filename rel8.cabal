@@ -70,6 +70,7 @@ library
   other-modules:
     Rel8.Aggregate
     Rel8.Aggregate.Fold
+    Rel8.Aggregate.Function
 
     Rel8.Column
     Rel8.Column.ADT
