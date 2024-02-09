@@ -177,7 +177,7 @@ maxOn :: Sql DBMax a => (i -> Expr a) -> Aggregator1 i (Expr a)
 maxOn f = lmap f max
 
 
--- | Produce an aggregation for @Expr a@ using the @max@ function.
+-- | Produce an aggregation for @Expr a@ using the @min@ function.
 min :: Sql DBMin a => Aggregator1 (Expr a) (Expr a)
 min =
   unsafeMakeAggregator
