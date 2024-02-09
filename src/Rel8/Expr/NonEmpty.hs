@@ -18,7 +18,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr (Expr)
-import Rel8.Expr.Opaleye (fromPrimExpr, mapPrimExpr, toPrimExpr)
+import Rel8.Expr.Opaleye (mapPrimExpr, toPrimExpr)
 import Rel8.Schema.Null (Nullify, Sql, Unnullify)
 import Rel8.Type (DBType, typeInformation)
 import Rel8.Type.Information (TypeInformation)

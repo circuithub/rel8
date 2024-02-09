@@ -17,13 +17,13 @@ import Rel8.Order ( Order( Order ) )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( mapOpaleye )
 import Rel8.Table.Eq ( EqTable )
-import Rel8.Table.Opaleye ( distinctspec, unpackspec )
+import Rel8.Table.Opaleye (distinctspec, unpackspec)
 
 
 -- | Select all distinct rows from a query, removing duplicates.  @distinct q@
 -- is equivalent to the SQL statement @SELECT DISTINCT q@.
 distinct :: EqTable a => Query a -> Query a
-distinct = mapOpaleye (Opaleye.distinctExplicit distinctspec)
+distinct = mapOpaleye (Opaleye.distinctExplicit unpackspec distinctspec)
 
 
 -- | Select all distinct rows from a query, where rows are equivalent according

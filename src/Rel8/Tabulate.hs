@@ -338,7 +338,7 @@ lookup k (Tabulation f) = do
 -- the given aggregator, and every other possible key contains a single
 -- \"fallback\" row is returned, composed of the identity elements of the
 -- constituent aggregation functions.
-aggregate :: (EqTable k, Table Expr a)
+aggregate :: (EqTable k, Table Expr i, Table Expr a)
   => Aggregator i a -> Tabulation k i -> Tabulation k a
 aggregate aggregator@(Aggregator (Fallback fallback) _) =
   fmap (fromMaybeTable fallback) . optional . aggregate1 aggregator
@@ -346,10 +346,10 @@ aggregate aggregator@(Aggregator (Fallback fallback) _) =
 
 -- | 'aggregate1' aggregates the values within each key of a
 -- 'Tabulation'. There is an implicit @GROUP BY@ on all the key columns.
-aggregate1 :: EqTable k
+aggregate1 :: (EqTable k, Table Expr i)
   => Aggregator' fold i a -> Tabulation k i -> Tabulation k a
 aggregate1 aggregator (Tabulation f) =
-  Tabulation $ Q.aggregate1 (keyed groupBy (toAggregator1 aggregator)) . f
+  Tabulation $ Q.aggregateU (keyed unpackspec unpackspec) (keyed groupBy (toAggregator1 aggregator)) . f
 
 
 -- | 'distinct' ensures a 'Tabulation' has at most one value for
@@ -416,7 +416,7 @@ order ordering (Tabulation f) =
 -- The resulting 'Tabulation' is \"magic\" in that the value @0@ exists at
 -- every possible key that wasn't in the given 'Tabulation'.
 count :: EqTable k => Tabulation k a -> Tabulation k (Expr Int64)
-count = aggregate countStar
+count = aggregate countStar . (true <$)
 
 
 -- | 'optional' produces a \"magic\" 'Tabulation' whereby each
