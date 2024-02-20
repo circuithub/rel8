@@ -30,6 +30,7 @@ import Data.Functor (void)
 import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
 import Data.Maybe ( catMaybes )
+import Data.Ratio ((%))
 import Data.String ( fromString )
 import Data.Word (Word32, Word8)
 import GHC.Generics ( Generic )
@@ -121,6 +122,7 @@ tests =
     , testDBType getTestDatabase
     , testDBEq getTestDatabase
     , testTableEquality getTestDatabase
+    , testFromRational getTestDatabase
     , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testCatMaybe getTestDatabase
@@ -608,8 +610,27 @@ testTableEquality = databasePropertyTest "TestTable equality" \transaction -> do
      eq === (x == y)
 
 
+testFromRational :: IO TmpPostgres.DB -> TestTree
+testFromRational = databasePropertyTest "fromRational" \transaction -> do
+  numerator <- forAll $ Gen.int64 Range.linearBounded
+  denominator <- forAll $ Gen.int64 $ Range.linear 1 maxBound
+
+  let
+    rational = toInteger numerator % toInteger denominator
+    double = fromRational @Double rational
+
+  transaction do
+    result <- lift do
+      statement () $ Rel8.run1 $ Rel8.select do
+        pure $ fromRational rational
+    diff result (~=) double
+  where
+    a ~= b = abs (a - b) < 1e-15
+    infix 4 ~=
+
+
 testFromString :: IO TmpPostgres.DB -> TestTree
-testFromString = databasePropertyTest "FromString" \transaction -> do
+testFromString = databasePropertyTest "fromString" \transaction -> do
   str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
 
   transaction do

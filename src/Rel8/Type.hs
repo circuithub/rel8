@@ -227,7 +227,7 @@ instance DBType Double where
 -- | Corresponds to @numeric@
 instance DBType Scientific where
   typeInformation = TypeInformation
-    { encode = Opaleye.ConstExpr . Opaleye.NumericLit 
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit
     , decode =
         Decoder
           { binary = Hasql.numeric
@@ -249,7 +249,7 @@ instance PowerOf10 n => DBType (Fixed n) where
           , parser = parse A.scientific
           , delimiter = ','
           }
-    , typeName =    
+    , typeName =
         TypeName
           { name = "numeric"
           , modifiers = ["1000", show (resolution @n)]

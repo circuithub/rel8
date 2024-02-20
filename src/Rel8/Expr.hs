@@ -17,6 +17,7 @@ where
 
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Ratio (denominator, numerator)
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
 
@@ -45,6 +46,9 @@ import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Num ( DBFloating, DBFractional, DBNum )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+
+-- scientific
+import Data.Scientific (fromRationalRepetendLimited)
 
 
 -- | Typed SQL expressions.
@@ -89,8 +93,15 @@ instance Sql DBNum a => Num (Expr a) where
 instance Sql DBFractional a => Fractional (Expr a) where
   (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
 
-  fromRational =
-    castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+  fromRational = castExpr . Expr . toScientific
+    where
+      toScientific r = case fromRationalRepetendLimited 20 r of
+        Right (s, Nothing) -> Opaleye.ConstExpr (Opaleye.NumericLit s)
+        _ -> Opaleye.BinExpr (Opaleye.:/) (int n) (int d)
+          where
+            int = Opaleye.ConstExpr . Opaleye.NumericLit . fromInteger
+            n = numerator r
+            d = denominator r
 
 
 instance Sql DBFloating a => Floating (Expr a) where
