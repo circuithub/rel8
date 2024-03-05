@@ -55,9 +55,9 @@ infix 4 ==.
 -- | Test if two expressions are different (not equal).
 --
 -- This corresponds to the SQL @IS DISTINCT FROM@ operator, and will return
--- @false@ when comparing two @null@ values. This differs from ordinary @=@
--- which would return @null@. This operator is closer to Haskell's '=='
--- operator. For an operator identical to SQL @=@, see '/=?'.
+-- @false@ when comparing two @null@ values. This differs from ordinary @<>@
+-- which would return @null@. This operator is closer to Haskell's '/='
+-- operator. For an operator identical to SQL @<>@, see '/=?'.
 (/=.) :: forall a. Sql DBEq a => Expr a -> Expr a -> Expr Bool
 (/=.) = case nullable @a of
   Null -> \ma mb -> isNull ma `ne` isNull mb ||. ma /=? mb
