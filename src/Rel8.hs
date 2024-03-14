@@ -563,9 +563,9 @@ import Rel8.Window
 -- query = do
 --   thingExpr <- each thingSchema
 --   where_ $
---     deconstructADT @Thing
---       (\employer -> employerName employer ==. lit \"Mary\")
---       (\potato -> grower potato ==. lit \"Mary\")
+--     deconstructADT \@Thing
+--       (\\employer -> employerName employer ==. lit \"Mary\")
+--       (\\potato -> grower potato ==. lit \"Mary\")
 --       (lit False) -- Nullary case
 --       thingExpr
 --   pure thingExpr
@@ -609,10 +609,10 @@ import Rel8.Window
 -- instantiations of 'buildADT' for 'Task':
 --
 -- @
--- > :t buildADT @Task @\"Pending\"
--- buildADT @Task @\"Pending\" :: ADT Task Expr
--- > :t buildADT @Task @\"Complete\"
--- buildADT @Task @\"Complete\" :: CompletedTask Expr -> ADT Task Expr
+-- > :t buildADT \@Task \@\"Pending\"
+-- buildADT \@Task \@\"Pending\" :: ADT Task Expr
+-- > :t buildADT \@Task @\"Complete\"
+-- buildADT \@Task \@\"Complete\" :: CompletedTask Expr -> ADT Task Expr
 -- @
 --
 -- Note that as the "Pending" constructor has no fields, @buildADT
@@ -635,8 +635,8 @@ import Rel8.Window
 -- @
 -- > :{
 -- showQuery $ values
---   [ buildADT @Task @\"Pending\"
---   , buildADT @Task @\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
+--   [ buildADT \@Task \@\"Pending\"
+--   , buildADT \@Task \@\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
 --   ]
 -- :}
 -- @
@@ -685,10 +685,10 @@ import Rel8.Window
 -- @
 -- let
 --   pending :: ADT Task Expr
---   pending = constructADT @Task $ \pending _complete -> pending
+--   pending = constructADT \@Task $ \\pending _complete -> pending
 --
 --   complete :: ADT Task Expr
---   complete = constructADT @Task $ \_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
+--   complete = constructADT \@Task $ \\_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
 -- @
 --
 -- These values are otherwise identical to the ones we saw above with
