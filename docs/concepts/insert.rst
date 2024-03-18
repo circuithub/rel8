@@ -167,7 +167,7 @@ construct the ``DEFAULT`` expression::
 .. warning::
    Also note PostgreSQL's syntax rules mean that ``DEFAULT``` can only appear
    in ``INSERT``` expressions whose rows are specified using ``VALUES``. This
-   means if that the ``rows`` field of your ``Insert`` record doesn't look like
+   means that if the ``rows`` field of your ``Insert`` record doesn't look like
    ``values [..]``, then ``unsafeDefault`` won't work.
 
 
