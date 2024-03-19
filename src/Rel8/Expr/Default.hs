@@ -27,6 +27,11 @@ import Rel8.Expr.Opaleye ( fromPrimExpr )
 -- 3. @DEFAULT@ values can not be transformed. For example, the innocuous Rel8
 -- code @unsafeDefault + 1@ will crash, despite type checking.
 --
+-- Also note, PostgreSQL's syntax rules mean that @DEFAULT@ can only appear in
+-- @INSERT@ expressions whose rows are specified using @VALUES@. This means
+-- that if the @rows@ field of your 'Rel8.Insert' record doesn\'t look like
+-- @values [..]@, then @unsafeDefault@ won't work.
+--
 -- Given all these caveats, we suggest avoiding the use of default values where
 -- possible, instead being explicit. A common scenario where default values are
 -- used is with auto-incrementing identifier columns. In this case, we suggest
