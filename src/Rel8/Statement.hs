@@ -132,7 +132,7 @@ data Returning where
 --     delete Delete
 --       { from = fooSchema
 --       , using = pure ()
---       , deleteWhere = \_ -> predicate
+--       , deleteWhere = \\_ -> predicate
 --       , returning = Returning id
 --       }
 --   insert Insert
