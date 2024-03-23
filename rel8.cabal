@@ -187,6 +187,7 @@ library
     Rel8.Table.Aggregate
     Rel8.Table.Alternative
     Rel8.Table.Bool
+    Rel8.Table.Case
     Rel8.Table.Cols
     Rel8.Table.Either
     Rel8.Table.Eq

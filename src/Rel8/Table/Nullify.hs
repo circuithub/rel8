@@ -165,8 +165,7 @@ instance (Table context a, Reifiable context, context ~ context') =>
   fromResult = fmap (fromResult @_ @a) . hunnullify R.unnullifier
 
   toResult =
-    maybe (hnulls (const R.null)) (hnullify R.nullifier) .
-    fmap (toResult @_ @a)
+    maybe (hnulls (const R.null)) (hnullify R.nullifier . toResult @_ @a)
 
 
 instance (EqTable a, context ~ Expr) => EqTable (Nullify context a) where

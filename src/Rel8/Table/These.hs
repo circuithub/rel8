@@ -55,6 +55,7 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
+import Rel8.Table.Case ( Case )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
@@ -319,7 +320,7 @@ thoseTable a b = TheseTable (justTable a) (justTable b)
 
 
 -- | Pattern match on a 'TheseTable'. Corresponds to 'these'.
-theseTable :: Table Expr c
+theseTable :: Case c
   => (a -> c) -> (b -> c) -> (a -> b -> c) -> TheseTable Expr a b -> c
 theseTable f g h TheseTable {here, there} =
   maybeTable
