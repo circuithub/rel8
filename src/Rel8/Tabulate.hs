@@ -527,7 +527,7 @@ alignWith f (Tabulation as) (Tabulation bs) = Tabulation $ \p -> do
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (,) left (optional right). You can also
+-- @\\left right -> liftA2 (,) left (optional right)@. You can also
 -- use @do@-notation.
 leftAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (a, MaybeTable Expr b)
@@ -540,7 +540,7 @@ leftAlign = leftAlignWith (,)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 f left (optional right). You can also
+-- @\\f left right -> liftA2 f left (optional right)@. You can also
 -- use @do@-notation.
 leftAlignWith :: EqTable k
   => (a -> MaybeTable Expr b -> c)
@@ -554,7 +554,7 @@ leftAlignWith f left right = liftA2 f left (optional right)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (flip (,)) right (optional left). You can
+-- @\\left right -> liftA2 (flip (,)) right (optional left)@. You can
 -- also use @do@-notation.
 rightAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (MaybeTable Expr a, b)
@@ -567,7 +567,7 @@ rightAlign = rightAlignWith (,)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 (flip f) right (optional left). You can
+-- @\\f left right -> liftA2 (flip f) right (optional left)@. You can
 -- also use @do@-notation.
 rightAlignWith :: EqTable k
   => (MaybeTable Expr a -> b -> c)
@@ -607,7 +607,7 @@ zipWith = liftA2
 --
 -- Note that you can achieve a similar effect with 'present' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* present right@. You can also use
+-- @\\left right -> left <* present right@. You can also use
 -- @do@-notation.
 similarity :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 similarity a b = a <* present b
@@ -621,7 +621,7 @@ similarity a b = a <* present b
 --
 -- Note that you can achieve a similar effect with 'absent' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* absent right@. You can also use
+-- @\\left right -> left <* absent right@. You can also use
 -- @do@-notation.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 difference a b = a <* absent b
