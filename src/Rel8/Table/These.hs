@@ -22,12 +22,18 @@ module Rel8.Table.These
   , hasHereTable, hasThereTable
   , justHereTable, justThereTable
   , alignMaybeTable
+  , aggregateThisTable, aggregateThisTable1
+  , aggregateThatTable, aggregateThatTable1
+  , aggregateThoseTable, aggregateThoseTable1
+  , aggregateHereTable, aggregateHereTable1
+  , aggregateThereTable, aggregateThereTable1
   , aggregateTheseTable
   , nameTheseTable
   )
 where
 
 -- base
+import Control.Arrow ((&&&))
 import Data.Bifunctor ( Bifunctor, bimap )
 import Data.Kind ( Type )
 import Data.Maybe ( isJust )
@@ -37,7 +43,7 @@ import Prelude hiding ( null, undefined )
 import Data.Profunctor (lmap)
 
 -- rel8
-import Rel8.Aggregate (Aggregator', Aggregator1)
+import Rel8.Aggregate (Aggregator, Aggregator', Aggregator1)
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( (&&.), (||.), boolExpr, not_ )
 import Rel8.Expr.Null ( null, isNonNull )
@@ -55,13 +61,19 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
+import Rel8.Table.Aggregate (filterWhere)
+import Rel8.Table.Aggregate.Maybe
+  ( aggregateJustTable, aggregateJustTable1
+  , aggregateMaybeTable
+  , filterWhereOptional
+  )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Maybe
   ( MaybeTable(..)
   , maybeTable, justTable, nothingTable
   , isJustTable
-  , aggregateMaybeTable
   , nameMaybeTable
+  , unsafeFromJustTable
   )
 import Rel8.Table.Nullify ( Nullify, guard )
 import Rel8.Table.Ord ( OrdTable, ordTable )
@@ -328,8 +340,118 @@ theseTable f g h TheseTable {here, there} =
     there
 
 
--- | Lift a pair aggregators to operate on a 'TheseTable'. @thisTable@s,
--- @thatTable@s are @thoseTable@s are grouped separately.
+-- | Lift an 'Aggregator' to operate on a 'TheseTable'. If the input query has
+-- @'thisTable' a@s, they are folded into a single @c@ by the given aggregator
+-- — in the case where the input query is all 'thatTable's or 'thoseTable's,
+-- the 'Aggregator'\'s fallback @c@ is returned.
+aggregateThisTable :: Table Expr c
+  => Aggregator a c
+  -> Aggregator' fold (TheseTable Expr a b) c
+aggregateThisTable =
+  filterWhere isThisTable . lmap (unsafeFromJustTable . here)
+
+
+-- | Lift an 'Aggregator1' to operate on a 'TheseTable'. If the input query
+-- has @'thisTable' a@s, they are folded into a single @'Rel8.justTable' c@
+-- by the given aggregator — in the case where the input query is all
+-- 'thatTable's or 'thoseTable's, a single 'nothingTable' row is returned.
+aggregateThisTable1 :: Table Expr c
+  => Aggregator' fold a c
+  -> Aggregator' fold' (TheseTable Expr a b) (MaybeTable Expr c)
+aggregateThisTable1 =
+  filterWhereOptional isThisTable . lmap (unsafeFromJustTable . here)
+
+
+-- | Lift an 'Aggregator' to operate on a 'TheseTable'. If the input query has
+-- @'thatTable' b@s, they are folded into a single @c@ by the given aggregator
+-- — in the case where the input query is all 'thisTable's or 'thoseTable's,
+-- the 'Aggregator'\'s fallback @c@ is returned.
+aggregateThatTable :: Table Expr c
+  => Aggregator b c
+  -> Aggregator' fold (TheseTable Expr a b) c
+aggregateThatTable =
+  filterWhere isThatTable . lmap (unsafeFromJustTable . there)
+
+
+-- | Lift an 'Aggregator1' to operate on a 'TheseTable'. If the input query
+-- has @'thatTable' b@s, they are folded into a single @'Rel8.justTable' c@
+-- by the given aggregator — in the case where the input query is all
+-- 'thisTable's or 'thoseTable's, a single 'nothingTable' row is returned.
+aggregateThatTable1 :: Table Expr c
+  => Aggregator' fold b c
+  -> Aggregator' fold' (TheseTable Expr a b) (MaybeTable Expr c)
+aggregateThatTable1 =
+  filterWhereOptional isThatTable . lmap (unsafeFromJustTable . there)
+
+
+-- | Lift an 'Aggregator' to operate on a 'ThoseTable'. If the input query has
+-- @'thoseTable' a b@s, they are folded into a single @c@ by the given
+-- aggregator — in the case where the input query is all 'thisTable's or
+-- 'thatTable's, the 'Aggregator'\'s fallback @c@ is returned.
+aggregateThoseTable :: Table Expr c
+  => Aggregator (a, b) c
+  -> Aggregator' fold (TheseTable Expr a b) c
+aggregateThoseTable =
+  filterWhere isThoseTable
+    . lmap (unsafeFromJustTable . here &&& unsafeFromJustTable . there)
+
+
+-- | Lift an 'Aggregator1' to operate on a 'TheseTable'. If the input query
+-- has @'thoseTable' a b@s, they are folded into a single @'Rel8.justTable' c@
+-- by the given aggregator — in the case where the input query is all
+-- 'thisTable's or 'thatTable's, a single 'nothingTable' row is returned.
+aggregateThoseTable1 :: Table Expr c
+  => Aggregator' fold (a, b) c
+  -> Aggregator' fold' (TheseTable Expr a b) (MaybeTable Expr c)
+aggregateThoseTable1 =
+  filterWhereOptional isThoseTable
+    . lmap (unsafeFromJustTable . here &&& unsafeFromJustTable . there)
+
+
+-- | Lift an 'Aggregator' to operate on a 'TheseTable'. If the input query has
+-- @'thisTable' a@s or @'thoseTable' a _@s, the @a@s are folded into a single
+-- @c@ by the given aggregator — in the case where the input query is all
+-- 'thatTable's, the 'Aggregator'\'s fallback @c@ is returned.
+aggregateHereTable :: Table Expr c
+  => Aggregator a c
+  -> Aggregator' fold (TheseTable Expr a b) c
+aggregateHereTable = lmap here . aggregateJustTable
+
+
+-- | Lift an 'Aggregator1' to operate on an 'TheseTable'. If the input query
+-- has @'thisTable' a@s or @'thoseTable' a _@s, the @a@s are folded into a
+-- single @'Rel8.justTable' c@ by the given aggregator — in the case where
+-- the input query is all 'thatTable's, a single 'nothingTable' row is
+-- returned.
+aggregateHereTable1 :: Table Expr c
+  => Aggregator' fold a c
+  -> Aggregator' fold' (TheseTable Expr a b) (MaybeTable Expr c)
+aggregateHereTable1 = lmap here . aggregateJustTable1
+
+
+-- | Lift an 'Aggregator' to operate on a 'TheseTable'. If the input query has
+-- @'thatTable' b@s or @'thoseTable' _ b@s, the @b@s are folded into a single
+-- @c@ by the given aggregator — in the case where the input query is all
+-- 'thisTable's, the 'Aggregator'\'s fallback @c@ is returned.
+aggregateThereTable :: Table Expr c
+  => Aggregator b c
+  -> Aggregator' fold (TheseTable Expr a b) c
+aggregateThereTable = lmap there . aggregateJustTable
+
+
+-- | Lift an 'Aggregator1' to operate on an 'TheseTable'. If the input query
+-- has @'thatTable' b@s or @'thoseTable' _ b@s, the @b@s are folded into a
+-- single @'Rel8.justTable' c@ by the given aggregator — in the case where
+-- the input query is all 'thisTable's, a single 'nothingTable' row is
+-- returned.
+aggregateThereTable1 :: Table Expr c
+  => Aggregator' fold b c
+  -> Aggregator' fold' (TheseTable Expr a b) (MaybeTable Expr c)
+aggregateThereTable1 = lmap there . aggregateJustTable1
+
+
+-- | Lift a pair aggregators to operate on a 'TheseTable'. 'thisTable's,
+-- 'thatTable's are 'thoseTable's are grouped separately.
 aggregateTheseTable :: ()
   => Aggregator' fold i a
   -> Aggregator' fold' i' b

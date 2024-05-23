@@ -1,3 +1,4 @@
+{-# language ApplicativeDo #-}
 {-# language DataKinds #-}
 {-# language DeriveFunctor #-}
 {-# language DerivingStrategies #-}
@@ -19,6 +20,8 @@ module Rel8.Table.Either
   ( EitherTable(..)
   , eitherTable, leftTable, rightTable
   , isLeftTable, isRightTable
+  , aggregateLeftTable, aggregateLeftTable1
+  , aggregateRightTable, aggregateRightTable1
   , aggregateEitherTable
   , nameEitherTable
   )
@@ -37,7 +40,7 @@ import Control.Comonad ( extract )
 import Data.Profunctor (lmap)
 
 -- rel8
-import Rel8.Aggregate (Aggregator', Aggregator1, toAggregator1)
+import Rel8.Aggregate (Aggregator, Aggregator', Aggregator1, toAggregator1)
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate (groupByExprOn)
 import Rel8.Expr.Serialize ( litExpr )
@@ -54,9 +57,14 @@ import Rel8.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
+import Rel8.Table.Aggregate (filterWhere)
+import Rel8.Table.Aggregate.Maybe (filterWhereOptional)
 import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
-import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
+import Rel8.Table.Maybe (MaybeTable)
+import Rel8.Table.Nullify
+  ( Nullify, aggregateNullify, guard, unsafeUnnullifyTable
+  )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection ( Biprojectable, Projectable, biproject, project )
 import Rel8.Table.Serialize ( ToExprs )
@@ -216,6 +224,50 @@ leftTable a = EitherTable (litExpr IsLeft) (pure a) undefined
 -- | Construct a right 'EitherTable'. Like 'Right'.
 rightTable :: Table Expr a => b -> EitherTable Expr a b
 rightTable = EitherTable (litExpr IsRight) undefined . pure
+
+
+-- | Lift an 'Aggregator' to operate on an 'EitherTable'. If the input query has
+-- @'leftTable' a@s, they are folded into a single @c@ by the given aggregator
+-- — in the case where the input query is all 'rightTable's, the
+-- 'Aggregator'\'s fallback @c@ is returned.
+aggregateLeftTable :: Table Expr c
+  => Aggregator a c
+  -> Aggregator' fold (EitherTable Expr a b) c
+aggregateLeftTable =
+  filterWhere isLeftTable . lmap (unsafeUnnullifyTable . left)
+
+
+-- | Lift an 'Aggregator1' to operate on an 'EitherTable'. If the input query
+-- has @'leftTable' a@s, they are folded into a single @'Rel8.justTable' c@
+-- by the given aggregator — in the case where the input query is all
+-- 'rightTable's, a single 'nothingTable' row is returned.
+aggregateLeftTable1 :: Table Expr c
+  => Aggregator' fold a c
+  -> Aggregator' fold' (EitherTable Expr a b) (MaybeTable Expr c)
+aggregateLeftTable1 =
+  filterWhereOptional isLeftTable . lmap (unsafeUnnullifyTable . left)
+
+
+-- | Lift an 'Aggregator' to operate on an 'EitherTable'. If the input query has
+-- @'rightTable' b@s, they are folded into a single @c@ by the given aggregator
+-- — in the case where the input query is all 'rightTable's, the
+-- 'Aggregator'\'s fallback @c@ is returned.
+aggregateRightTable :: Table Expr c
+  => Aggregator b c
+  -> Aggregator' fold (EitherTable Expr a b) c
+aggregateRightTable =
+  filterWhere isRightTable . lmap (unsafeUnnullifyTable . right)
+
+
+-- | Lift an 'Aggregator1' to operate on an 'EitherTable'. If the input query
+-- has @'rightTable' b@s, they are folded into a single @'Rel8.justTable' c@
+-- by the given aggregator — in the case where the input query is all
+-- 'leftTable's, a single 'nothingTable' row is returned.
+aggregateRightTable1 :: Table Expr c
+  => Aggregator' fold a c
+  -> Aggregator' fold' (EitherTable Expr a b) (MaybeTable Expr c)
+aggregateRightTable1 =
+  filterWhereOptional isLeftTable . lmap (unsafeUnnullifyTable . left)
 
 
 -- | Lift a pair aggregators to operate on an 'EitherTable'. @leftTable@s and

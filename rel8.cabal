@@ -185,6 +185,7 @@ library
     Rel8.Table
     Rel8.Table.ADT
     Rel8.Table.Aggregate
+    Rel8.Table.Aggregate.Maybe
     Rel8.Table.Alternative
     Rel8.Table.Bool
     Rel8.Table.Cols
