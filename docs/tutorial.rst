@@ -357,7 +357,6 @@ focus on the /type/ of that query::
         author  <- each authorSchema
         project <- projectsForAuthor author
         return (author, project)
-        where
 
   >>> :t select conn authorsAndProjects
   select conn authorsAndProjects
