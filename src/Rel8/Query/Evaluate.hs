@@ -23,7 +23,7 @@ import Rel8.Expr.Opaleye ( fromPrimExpr )
 import Rel8.Query ( Query( Query ) )
 import Rel8.Query.Rebind ( rebind )
 import Rel8.Table ( Table )
-import Rel8.Table.Bool ( case_ )
+import Rel8.Table.Case ( case_ )
 import Rel8.Table.Undefined ( undefined )
 
 
