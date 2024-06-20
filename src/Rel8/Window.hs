@@ -73,7 +73,7 @@ newtype Partition a = Partition (Opaleye.Window a)
 -- | 'over' adds a 'Partition' to a 'Window' expression.
 --
 -- @
--- 'Rel8.Table.Window.cumulative' ('Rel8.Expr.Aggregate.sum' . salary) `over` 'partitionBy' department <> 'orderPartitionBy' (salary >$< 'Rel8.desc')
+--   'Rel8.Table.Window.cumulative' ('Rel8.Expr.Aggregate.sum' . salary) `over` 'partitionBy' department <> 'orderPartitionBy' (salary >$< 'Rel8.desc')
 -- @
 over :: Window a b -> Partition a -> Window a b
 over (Window (Opaleye.Windows (Opaleye.PackMap w))) (Partition p) =
