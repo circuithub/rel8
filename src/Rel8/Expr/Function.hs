@@ -11,7 +11,9 @@ module Rel8.Expr.Function
   ( Arguments
   , function
   , primFunction
+  , rawFunction
   , binaryOperator
+  , rawBinaryOperator
   )
 where
 
@@ -22,19 +24,20 @@ import Prelude
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
--- pretty
-import Text.PrettyPrint (parens, text)
-
 -- rel8
 import {-# SOURCE #-} Rel8.Expr (Expr)
 import Rel8.Expr.Opaleye
   ( castExpr
   , fromPrimExpr, toPrimExpr, zipPrimExprsWith
   )
-import Rel8.Schema.Escape (escape)
 import Rel8.Schema.HTable (hfoldMap)
 import Rel8.Schema.Null ( Sql )
-import Rel8.Schema.QualifiedName (QualifiedName (..), showQualifiedName)
+import Rel8.Schema.QualifiedName
+  ( QualifiedName (..)
+  , showQualifiedName
+  , showQualifiedOperator
+  
+  )
 import Rel8.Table (Table, toColumns)
 import Rel8.Type ( DBType )
 
@@ -59,7 +62,13 @@ instance {-# OVERLAPS #-} Arguments () where
 -- the arguments @arguments@ returning an @'Expr' a@.
 function :: (Arguments arguments, Sql DBType a)
   => QualifiedName -> arguments -> Expr a
-function qualified = castExpr . fromPrimExpr . primFunction qualified
+function qualified = castExpr . rawFunction qualified
+
+
+-- | A less safe version of 'function' that does not wrap the return value in
+-- a cast.
+rawFunction :: Arguments arguments => QualifiedName -> arguments -> Expr a
+rawFunction qualified = fromPrimExpr . primFunction qualified
 
 
 primFunction :: Arguments arguments
@@ -72,14 +81,13 @@ primFunction qualified = Opaleye.FunExpr name . arguments
 -- | Construct an expression by applying an infix binary operator to two
 -- operands.
 binaryOperator :: Sql DBType c => QualifiedName -> Expr a -> Expr b -> Expr c
-binaryOperator operator a b =
-  castExpr $ zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther name)) a b
+binaryOperator operator a b = castExpr $ rawBinaryOperator operator a b
+
+
+-- | A less safe version of 'binaryOperator' that does not wrap the return
+-- value in a cast.
+rawBinaryOperator :: QualifiedName -> Expr a -> Expr b -> Expr c
+rawBinaryOperator operator a b =
+  zipPrimExprsWith (Opaleye.BinExpr (Opaleye.OpOther name)) a b
   where
     name = showQualifiedOperator operator
-
-
-showQualifiedOperator :: QualifiedName -> String
-showQualifiedOperator QualifiedName {schema = mschema, ..} = case mschema of
-  Nothing -> name
-  Just schema ->
-    show $ text "OPERATOR" <> parens (escape schema <> text "." <> text name)
