@@ -98,7 +98,7 @@ module Rel8
 
     -- ** @ListTable@
   , ListTable
-  , listTable, ($*)
+  , listOf, listTable, ($*)
   , nameListTable
   , many
   , manyExpr
@@ -107,7 +107,7 @@ module Rel8
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
-  , nonEmptyTable, ($+)
+  , nonEmptyOf, nonEmptyTable, ($+)
   , nameNonEmptyTable
   , some
   , someExpr
@@ -396,6 +396,7 @@ import Rel8.Column.Null
 import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
+import Rel8.Expr.Array
 import Rel8.Expr.Bool
 import Rel8.Expr.Default
 import Rel8.Expr.Eq
