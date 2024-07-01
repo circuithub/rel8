@@ -3,6 +3,7 @@
 
 module Rel8.Aggregate.Function (
   aggregateFunction,
+  rawAggregateFunction,
 ) where
 
 -- base
@@ -31,10 +32,14 @@ aggregateFunction ::
   (Table Expr i, Sql DBType a) =>
   QualifiedName ->
   Aggregator1 i (Expr a)
-aggregateFunction name =
+aggregateFunction name = castExpr <$> rawAggregateFunction name
+
+
+rawAggregateFunction :: Table Expr i => QualifiedName -> Aggregator1 i (Expr a)
+rawAggregateFunction name =
   unsafeMakeAggregator
     id
-    (castExpr . fromPrimExpr . fromColumn)
+    (fromPrimExpr . fromColumn)
     Empty
     (Opaleye.makeAggrExplicit unpackspec
       (Opaleye.AggrOther (showQualifiedName name)))
