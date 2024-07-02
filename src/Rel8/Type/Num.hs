@@ -41,7 +41,7 @@ instance DBNum Scientific
 
 -- | The class of database types that can be coerced to from integral
 -- expressions. This is a Rel8 concept, and allows us to provide
--- 'fromIntegral'.
+-- 'Rel8.Expr.Num.fromIntegral'.
 type DBIntegral :: Type -> Constraint
 class (DBNum a, DBOrd a) => DBIntegral a
 instance DBIntegral Int16
