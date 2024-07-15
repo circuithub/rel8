@@ -16,6 +16,7 @@ module Rel8.Table.Nullify
   , aggregateNullify
   , guard
   , isNull
+  , unsafeUnnullifyTable
   )
 where
 
@@ -182,9 +183,7 @@ aggregateNullify :: ()
   -> Aggregator' fold (Nullify Expr i) (Nullify Expr a)
 aggregateNullify = dimap from to
   where
-    from = \case
-      Table _ a -> a
-      Fields notNullifiable _ -> absurd NExpr notNullifiable
+    from = unsafeUnnullifyTable
     to = Table NExpr
 
 
@@ -206,6 +205,12 @@ isNull =
     NotNull -> Just $ Any $ Expr.isNull a
     Null -> Nothing) .
   toColumns
+
+
+unsafeUnnullifyTable :: Nullify Expr a -> a
+unsafeUnnullifyTable = \case
+  Table _ a -> a
+  Fields notNullifiable _ -> absurd NExpr notNullifiable
 
 
 newtype Any = Any
