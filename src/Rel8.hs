@@ -66,6 +66,7 @@ module Rel8
   , optional
   , catMaybeTable
   , traverseMaybeTable
+  , aggregateJustTable, aggregateJustTable1
   , aggregateMaybeTable
   , nameMaybeTable
 
@@ -76,6 +77,8 @@ module Rel8
   , keepLeftTable
   , keepRightTable
   , bitraverseEitherTable
+  , aggregateLeftTable, aggregateLeftTable1
+  , aggregateRightTable, aggregateRightTable1
   , aggregateEitherTable
   , nameEitherTable
 
@@ -93,6 +96,11 @@ module Rel8
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
   , bitraverseTheseTable
+  , aggregateThisTable, aggregateThisTable1
+  , aggregateThatTable, aggregateThatTable1
+  , aggregateThoseTable, aggregateThoseTable1
+  , aggregateHereTable, aggregateHereTable1
+  , aggregateThereTable, aggregateThereTable1
   , aggregateTheseTable
   , nameTheseTable
 
@@ -454,6 +462,7 @@ import Rel8.Statement.View
 import Rel8.Table
 import Rel8.Table.ADT
 import Rel8.Table.Aggregate
+import Rel8.Table.Aggregate.Maybe
 import Rel8.Table.Alternative
 import Rel8.Table.Bool
 import Rel8.Table.Either

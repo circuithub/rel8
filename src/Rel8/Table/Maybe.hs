@@ -18,9 +18,9 @@ module Rel8.Table.Maybe
   , isNothingTable, isJustTable
   , fromMaybeTable
   , ($?)
-  , aggregateMaybeTable
   , nameMaybeTable
   , makeMaybeTable
+  , unsafeFromJustTable
   )
 where
 
@@ -38,13 +38,8 @@ import Control.Comonad ( extract )
 import qualified Opaleye.Field as Opaleye
 import qualified Opaleye.SqlTypes as Opaleye
 
--- profunctors
-import Data.Profunctor (lmap)
-
 -- rel8
-import Rel8.Aggregate (Aggregator', Aggregator1, toAggregator1)
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate (groupByExprOn)
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
 import Rel8.Expr.Opaleye (fromColumn, fromPrimExpr)
@@ -70,7 +65,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection ( Projectable, project )
-import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
+import Rel8.Table.Nullify (Nullify, guard, unsafeUnnullifyTable)
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
@@ -222,6 +217,10 @@ fromMaybeTable :: Table Expr a => a -> MaybeTable Expr a -> a
 fromMaybeTable fallback = maybeTable fallback id
 
 
+unsafeFromJustTable :: MaybeTable Expr a -> a
+unsafeFromJustTable (MaybeTable _ just) = unsafeUnnullifyTable just
+
+
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
 -- operator like the '$' operator, but it also has the ability to return
 -- @null@.
@@ -231,17 +230,6 @@ f $? ma@(MaybeTable _ a) = case nullable @b of
   Null -> boolExpr (f (extract a)) null (isNothingTable ma)
   NotNull -> boolExpr (nullify (f (extract a))) null (isNothingTable ma)
 infixl 4 $?
-
-
--- | Lift an aggregator to operate on a 'MaybeTable'. @nothingTable@s and
--- @justTable@s are grouped separately.
-aggregateMaybeTable :: ()
-  => Aggregator' fold i a
-  -> Aggregator1 (MaybeTable Expr i) (MaybeTable Expr a)
-aggregateMaybeTable aggregator =
-  MaybeTable
-    <$> groupByExprOn tag
-    <*> lmap just (toAggregator1 (aggregateNullify aggregator))
 
 
 -- | Construct a 'MaybeTable' in the 'Name' context. This can be useful if you

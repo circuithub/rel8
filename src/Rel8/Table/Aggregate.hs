@@ -9,9 +9,8 @@ module Rel8.Table.Aggregate
   ( groupBy, groupByOn
   , listAgg, listAggOn, nonEmptyAgg, nonEmptyAggOn
   , listCat, listCatOn, nonEmptyCat, nonEmptyCatOn
-  , filterWhere, filterWhereOptional
+  , filterWhere
   , orderAggregateBy
-  , optionalAggregate
   )
 where
 
@@ -25,11 +24,7 @@ import qualified Opaleye.Internal.Aggregate as Opaleye
 import Data.Profunctor (dimap, lmap)
 
 -- rel8
-import Rel8.Aggregate
-  ( Aggregator,  Aggregator' (Aggregator), Aggregator1
-  , toAggregator
-  )
-import Rel8.Aggregate.Fold (Fallback (Fallback))
+import Rel8.Aggregate (Aggregator,  Aggregator' (Aggregator), Aggregator1)
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Aggregate
   ( filterWhereExplicit
@@ -39,7 +34,6 @@ import Rel8.Expr.Aggregate
   , snonEmptyAggExpr
   , snonEmptyCatExpr
   )
-import Rel8.Expr.Opaleye (toColumn, toPrimExpr)
 import Rel8.Order (Order (Order))
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable (HTable, hfield, hspecs, htabulateA)
@@ -49,7 +43,6 @@ import Rel8.Schema.Spec ( Spec( Spec, info ) )
 import Rel8.Table (Table, toColumns, fromColumns)
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.List ( ListTable )
-import Rel8.Table.Maybe (MaybeTable, makeMaybeTable, justTable, nothingTable)
 import Rel8.Table.NonEmpty ( NonEmptyTable )
 import Rel8.Table.Opaleye (ifPP)
 import Rel8.Type.Eq ( DBEq )
@@ -91,20 +84,11 @@ hgroupBy eqs = htabulateA $ \field -> case hfield eqs field of
 -- predicate supplied to 'filterWhere' could return 'Rel8.false' for every
 -- row, 'filterWhere' needs an 'Aggregator' as opposed to an 'Aggregator1', so
 -- that it can return a default value in such a case. For a variant of
--- 'filterWhere' that can work with 'Aggregator1's, see 'filterWhereOptional'.
+-- 'filterWhere' that can work with 'Aggregator1's, see
+-- 'Rel8.filterWhereOptional'.
 filterWhere :: Table Expr a
   => (i -> Expr Bool) -> Aggregator i a -> Aggregator' fold i a
 filterWhere = filterWhereExplicit ifPP
-
-
--- | A variant of 'filterWhere' that can be used with an 'Aggregator1'
--- (upgrading it to an 'Aggregator' in the process). It returns
--- 'nothingTable' in the case where the predicate matches zero rows.
-filterWhereOptional :: Table Expr a
-  => (i -> Expr Bool) -> Aggregator' fold i a -> Aggregator' fold' i (MaybeTable Expr a)
-filterWhereOptional f (Aggregator _ aggregator) =
-  Aggregator (Fallback nothingTable) $
-    Opaleye.filterWhereInternal makeMaybeTable (toColumn . toPrimExpr . f) aggregator
 
 
 -- | Aggregate rows into a single row containing an array of all aggregated
@@ -184,11 +168,3 @@ nonEmptyCatOn f = lmap f nonEmptyCat
 orderAggregateBy :: Order i -> Aggregator' fold i a -> Aggregator' fold i a
 orderAggregateBy (Order order) (Aggregator fallback aggregator) =
   Aggregator fallback $ Opaleye.orderAggregate order aggregator
-
-
--- | 'optionalAggregate' upgrades an 'Aggregator1' into an 'Aggregator' by
--- having it return 'nothingTable' when aggregating over an empty collection
--- of rows.
-optionalAggregate :: Table Expr a
-  => Aggregator' fold i a -> Aggregator' fold' i (MaybeTable Expr a)
-optionalAggregate = toAggregator nothingTable . fmap justTable
