@@ -2,13 +2,15 @@
 {-# language ConstraintKinds #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
+{-# language DeriveFunctor #-}
 {-# language DeriveGeneric #-}
-{-# language DerivingStrategies #-}
+{-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
@@ -19,24 +21,37 @@
 
 module Rel8.Schema.HTable.Vectorize
   ( HVectorize
-  , hvectorize, hunvectorize
+  , hvectorize, hvectorizeA, hunvectorize
+  , hnullify
   , happend, hempty
   , hproject
+  , htraverseVectorP
   , hcolumn
+  , First (..)
   )
 where
 
 -- base
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
+import qualified Data.Semigroup as Base
 import GHC.Generics (Generic)
 import Prelude
+
+-- product-profunctors
+import Data.Profunctor.Product (ProductProfunctor)
+
+-- profunctors
+import Data.Profunctor (dimap)
 
 -- rel8
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
-import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable
+  ( HField, HTable, hfield, htabulate, htabulateA, hspecs
+  , htraversePWithField
+  )
 import Rel8.Schema.HTable.Identity ( HIdentity( HIdentity ) )
 import Rel8.Schema.HTable.MapTable
   ( HMapTable( HMapTable ), HMapTableField( HMapTableField )
@@ -44,13 +59,18 @@ import Rel8.Schema.HTable.MapTable
   , Precompose( Precompose )
   )
 import qualified Rel8.Schema.HTable.MapTable as HMapTable ( hproject )
-import Rel8.Schema.Null ( Unnullify, NotNull, Nullity( NotNull ) )
+import Rel8.Schema.HTable.Nullify (HNullify (HNullify))
+import Rel8.Schema.Null (Nullify, Unnullify, NotNull, Nullity (NotNull))
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
-import Data.Zip ( Unzip, Zip, Zippy(..) )
+import Data.Align (Semialign, alignWith)
+import Data.Zip (Unzip, Zip, Zippy(..), zipWith)
+
+-- semigroupoids
+import Data.Functor.Apply (Apply)
 
 
 type Vector :: (Type -> Type) -> Constraint
@@ -104,6 +124,16 @@ hvectorize vectorizer as = HVectorize $ htabulate $ \(HMapTableField field) ->
 {-# INLINABLE hvectorize #-}
 
 
+hvectorizeA :: (HTable t, Apply f, Vector list)
+  => (forall a. Spec a -> HField t a -> f (context' (list a)))
+  -> f (HVectorize list t context')
+hvectorizeA vectorizer = fmap HVectorize $
+  htabulateA $ \(HMapTableField field) ->
+    case hfield hspecs field of
+      spec -> vectorizer spec field
+{-# INLINABLE hvectorizeA #-}
+
+
 hunvectorize :: (HTable t, Zip f, Vector list)
   => (forall a. Spec a -> context (list a) -> f (context' a))
   -> HVectorize list t context
@@ -139,5 +169,37 @@ hproject :: ()
 hproject f (HVectorize a) = HVectorize (HMapTable.hproject f a)
 
 
+htraverseVectorP :: (HTable t, ProductProfunctor p)
+  => (forall a. HField t a -> p (f (list a)) (g (list' a)))
+  -> p (HVectorize list t f) (HVectorize list' t g)
+htraverseVectorP f =
+  dimap (\(HVectorize (HMapTable a)) -> a) (HVectorize . HMapTable) $
+    htraversePWithField $ \field ->
+      dimap (\(Precompose a) -> a) Precompose (f field)
+
+
 hcolumn :: HVectorize list (HIdentity a) context -> context (list a)
 hcolumn (HVectorize (HMapTable (HIdentity (Precompose a)))) = a
+
+
+hnullify :: forall t list context. (HTable t, Vector list)
+  => (forall a. Spec a -> context (list a) -> context (Nullify a))
+  -> HVectorize list t context
+  -> HNullify t context
+hnullify f (HVectorize table) = HNullify $
+  htabulate $ \(HMapTableField field) -> case hfield hspecs field of
+    spec -> case hfield table (HMapTableField field) of
+      a -> f spec a
+
+
+newtype First a b = First {getFirst :: a}
+  deriving stock Functor
+  deriving (Semigroup) via (Base.First a)
+
+
+instance Semialign (First a) where
+  alignWith _ (First a) _ = First a
+
+
+instance Zip (First a) where
+  zipWith _ (First a) _ = First a

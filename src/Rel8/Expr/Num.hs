@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language OverloadedStrings #-}
 {-# language TypeFamilies #-}
 
 {-# options_ghc -fno-warn-redundant-constraints #-}
@@ -18,7 +19,7 @@ import Prelude ( (+), (-), fst, negate, signum, snd )
 -- rel
 import Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Function ( function )
+import Rel8.Expr.Function (function)
 import Rel8.Expr.Opaleye ( castExpr )
 import Rel8.Schema.Null ( Homonullable, Sql )
 import Rel8.Table.Bool ( bool )
@@ -32,7 +33,7 @@ fromIntegral :: (Sql DBIntegral a, Sql DBNum b, Homonullable a b)
 fromIntegral (Expr a) = castExpr (Expr a)
 
 
--- | Cast 'DBNum' types to 'DBFractional' types. For example, his can be useful
+-- | Cast 'DBNum' types to 'DBFractional' types. For example, this can be useful
 -- to convert @Expr Float@ to @Expr Double@.
 realToFrac :: (Sql DBNum a, Sql DBFractional b, Homonullable a b)
   => Expr a -> Expr b
@@ -71,13 +72,13 @@ divMod n d = bool qr (q - 1, r + d) (signum r ==. negate (signum d))
 -- PostgreSQL, which behaves like Haskell's 'Prelude.quot' rather than
 -- 'Prelude.div'.
 quot :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-quot = function "div"
+quot n d = function "div" (n, d)
 
 
 -- | Corresponds to the @mod()@ function in PostgreSQL, which behaves like
 -- Haskell's 'Prelude.rem' rather than 'Prelude.mod'.
 rem :: Sql DBIntegral a => Expr a -> Expr a -> Expr a
-rem = function "mod"
+rem n d = function "mod" (n, d)
 
 
 -- | Simultaneous 'quot' and 'rem'.

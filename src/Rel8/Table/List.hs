@@ -15,23 +15,31 @@ module Rel8.Table.List
   , ($*)
   , listTable
   , nameListTable
+  , head
+  , index
+  , last
+  , length
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Functor.Identity (Identity (Identity))
+import Data.Int (Int32)
 import Data.Kind ( Type )
-import Prelude
+import Prelude hiding (head, last, length)
 
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sempty, slistOf )
+import Rel8.Expr.List (lengthExpr, sheadExpr, sindexExpr, slastExpr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.List ( HListTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
+  , hnullify
   , happend, hempty
   , hproject, hcolumn
+  , First (..)
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
@@ -48,6 +56,7 @@ import Rel8.Table.Alternative
   , AlternativeTable, emptyTable
   )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Null (NullTable)
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection
   ( Projectable, Projecting, Projection, project, apply
@@ -147,4 +156,38 @@ nameListTable =
   ListTable .
   hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
+  toColumns
+
+
+-- | Get the first element of a 'ListTable' (or 'Rel8.nullTable' if empty).
+head :: Table Expr a => ListTable Expr a -> NullTable Expr a
+head =
+  fromColumns .
+  hnullify (\Spec {info} -> sheadExpr info) .
+  toColumns
+
+
+-- | @'index' i as@ extracts a single element from @as@, returning
+-- 'Rel8.nullTable' if @i@ is out of range. Note that although PostgreSQL
+-- array indexes are 1-based (by default), this function is always 0-based.
+index :: Table Expr a => Expr Int32 -> ListTable Expr a -> NullTable Expr a
+index i =
+  fromColumns .
+  hnullify (\Spec {info} -> sindexExpr info i) .
+  toColumns
+
+
+-- | Get the last element of a 'ListTable' (or 'Rel8.nullTable' if empty).
+last :: Table Expr a => ListTable Expr a -> NullTable Expr a
+last =
+  fromColumns .
+  hnullify (\Spec {info} -> slastExpr info) .
+  toColumns
+
+
+-- | Get the length of a 'ListTable'
+length :: Table Expr a => ListTable Expr a -> Expr Int32
+length =
+  getFirst .
+  hunvectorize (\_ -> First . lengthExpr) .
   toColumns

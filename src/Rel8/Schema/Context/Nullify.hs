@@ -10,7 +10,6 @@ module Rel8.Schema.Context.Nullify
   ( Nullifiability(..), NonNullifiability(..), nullifiableOrNot, absurd
   , Nullifiable, nullifiability
   , guarder, nullifier, unnullifier
-  , sguard, snullify
   )
 where
 
@@ -24,7 +23,6 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Aggregate ( Aggregate(..), zipOutputs )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( nullify, unsafeUnnullify )
@@ -40,7 +38,6 @@ import Rel8.Schema.Spec ( Spec(..) )
 
 type Nullifiability :: K.Context -> Type
 data Nullifiability context where
-  NAggregate :: Nullifiability Aggregate
   NExpr :: Nullifiability Expr
   NName :: Nullifiability Name
 
@@ -48,10 +45,6 @@ data Nullifiability context where
 type Nullifiable :: K.Context -> Constraint
 class Nullifiable context where
   nullifiability :: Nullifiability context
-
-
-instance Nullifiable Aggregate where
-  nullifiability = NAggregate
 
 
 instance Nullifiable Expr where
@@ -72,7 +65,6 @@ nullifiableOrNot :: ()
   => SContext context
   -> Either (NonNullifiability context) (Nullifiability context)
 nullifiableOrNot = \case
-  SAggregate -> Right NAggregate
   SExpr -> Right NExpr
   SField -> Left NField
   SName -> Right NName
@@ -81,7 +73,6 @@ nullifiableOrNot = \case
 
 absurd :: Nullifiability context -> NonNullifiability context -> a
 absurd = \case
-  NAggregate -> \case
   NExpr -> \case
   NName -> \case
 
@@ -94,7 +85,6 @@ guarder :: ()
   -> context (Maybe a)
   -> context (Maybe a)
 guarder = \case
-  SAggregate -> \tag _ isNonNull -> zipOutputs (sguard . isNonNull) tag
   SExpr -> \tag _ isNonNull -> sguard (isNonNull tag)
   SField -> \_ _ _ -> id
   SName -> \_ _ _ -> id
@@ -108,8 +98,6 @@ nullifier :: ()
   -> context a
   -> context (Nullify a)
 nullifier = \case
-  NAggregate -> \Spec {nullity} (Aggregate a) ->
-    Aggregate $ snullify nullity <$> a
   NExpr -> \Spec {nullity} a -> snullify nullity a
   NName -> \_ (Name a) -> Name a
 
@@ -120,8 +108,6 @@ unnullifier :: ()
   -> context (Nullify a)
   -> context a
 unnullifier = \case
-  NAggregate -> \Spec {nullity} (Aggregate a) ->
-    Aggregate $ sunnullify nullity <$> a
   NExpr -> \Spec {nullity} a -> sunnullify nullity a
   NName -> \_ (Name a) -> Name a
 

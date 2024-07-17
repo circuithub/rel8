@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                rel8
-version:             1.4.1.0
+version:             1.5.0.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD3
 license-file:        LICENSE
@@ -20,15 +20,20 @@ source-repository head
 library
   build-depends:
       aeson
-    , base ^>= 4.14 || ^>=4.15 || ^>=4.16 || ^>=4.17
+    , attoparsec
+    , attoparsec-aeson
+    , base ^>= 4.16 || ^>= 4.17 || ^>= 4.18 || ^>= 4.19
+    , base16 >= 1.0
+    , base-compat ^>= 0.11 || ^>= 0.12 || ^>= 0.13
     , bifunctors
     , bytestring
     , case-insensitive
     , comonad
     , contravariant
+    , data-textual
     , hasql ^>= 1.6.1.2
     , network-ip
-    , opaleye ^>= 0.9.6.1
+    , opaleye ^>= 0.10.2.1
     , pretty
     , profunctors
     , product-profunctors
@@ -38,7 +43,11 @@ library
     , text
     , these
     , time
+    , transformers
+    , utf8-string
     , uuid
+    , vector
+
   default-language:
     Haskell2010
   ghc-options:
@@ -52,6 +61,7 @@ library
     src
   exposed-modules:
     Rel8
+    Rel8.Array
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
@@ -59,6 +69,8 @@ library
 
   other-modules:
     Rel8.Aggregate
+    Rel8.Aggregate.Fold
+    Rel8.Aggregate.Function
 
     Rel8.Column
     Rel8.Column.ADT
@@ -77,12 +89,16 @@ library
     Rel8.Expr.Default
     Rel8.Expr.Eq
     Rel8.Expr.Function
+    Rel8.Expr.List
+    Rel8.Expr.NonEmpty
     Rel8.Expr.Null
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Order
+    Rel8.Expr.Read
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
+    Rel8.Expr.Show
     Rel8.Expr.Window
 
     Rel8.FCF
@@ -110,6 +126,7 @@ library
     Rel8.Query.Evaluate
     Rel8.Query.Exists
     Rel8.Query.Filter
+    Rel8.Query.Function
     Rel8.Query.Indexed
     Rel8.Query.Limit
     Rel8.Query.List
@@ -128,6 +145,7 @@ library
 
     Rel8.Schema.Context.Nullify
     Rel8.Schema.Dict
+    Rel8.Schema.Escape
     Rel8.Schema.Field
     Rel8.Schema.HTable
     Rel8.Schema.HTable.Either
@@ -144,14 +162,18 @@ library
     Rel8.Schema.Kind
     Rel8.Schema.Name
     Rel8.Schema.Null
+    Rel8.Schema.QualifiedName
     Rel8.Schema.Result
     Rel8.Schema.Spec
     Rel8.Schema.Table
 
+    Rel8.Statement
     Rel8.Statement.Delete
     Rel8.Statement.Insert
     Rel8.Statement.OnConflict
     Rel8.Statement.Returning
+    Rel8.Statement.Rows
+    Rel8.Statement.Run
     Rel8.Statement.Select
     Rel8.Statement.Set
     Rel8.Statement.SQL
@@ -163,6 +185,7 @@ library
     Rel8.Table
     Rel8.Table.ADT
     Rel8.Table.Aggregate
+    Rel8.Table.Aggregate.Maybe
     Rel8.Table.Alternative
     Rel8.Table.Bool
     Rel8.Table.Cols
@@ -189,14 +212,20 @@ library
     Rel8.Type
     Rel8.Type.Array
     Rel8.Type.Composite
+    Rel8.Type.Decimal
+    Rel8.Type.Decoder
     Rel8.Type.Eq
     Rel8.Type.Enum
     Rel8.Type.Information
     Rel8.Type.JSONEncoded
     Rel8.Type.JSONBEncoded
     Rel8.Type.Monoid
+    Rel8.Type.Name
     Rel8.Type.Num
     Rel8.Type.Ord
+    Rel8.Type.Parser
+    Rel8.Type.Parser.ByteString
+    Rel8.Type.Parser.Time
     Rel8.Type.ReadShow
     Rel8.Type.Semigroup
     Rel8.Type.String
@@ -216,7 +245,7 @@ test-suite tests
     , data-dword
     , hasql
     , hasql-transaction
-    , hedgehog          ^>= 1.0 || ^>= 1.1
+    , hedgehog          ^>= 1.0 || ^>= 1.1 || ^>= 1.2 || ^>= 1.3 || ^>= 1.4 || ^>= 1.5
     , mmorph
     , network-ip
     , rel8
@@ -240,3 +269,4 @@ test-suite tests
     -Wno-missing-import-lists -Wno-prepositive-qualified-module
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
+    -Wno-missing-kind-signatures

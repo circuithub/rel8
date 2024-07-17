@@ -12,7 +12,7 @@ module Rel8.Expr.Array
 where
 
 -- base
-import Data.List.NonEmpty ( NonEmpty )
+import Data.List.NonEmpty (NonEmpty)
 import Prelude
 
 -- opaleye
@@ -20,14 +20,11 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
 import {-# SOURCE #-} Rel8.Expr ( Expr )
-import Rel8.Expr.Opaleye
-  ( fromPrimExpr, toPrimExpr
-  , zipPrimExprsWith
-  )
+import Rel8.Expr.Opaleye (fromPrimExpr, toPrimExpr, zipPrimExprsWith)
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array ( array )
+import Rel8.Type.Array (array)
 import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Schema.Null ( Unnullify, Sql )
+import Rel8.Schema.Null (Unnullify, Sql)
 
 
 sappend :: Expr [a] -> Expr [a] -> Expr [a]

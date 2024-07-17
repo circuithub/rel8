@@ -19,9 +19,8 @@ module Rel8.Table.HKD
   , BuildHKD, buildHKD
   , ConstructableHKD
   , ConstructHKD, constructHKD
-  , DeconstructHKD, deconstructHKD
+  , DeconstructHKD, deconstructHKD, deconstructAHKD
   , NameHKD, nameHKD
-  , AggregateHKD, aggregateHKD
   , HKDRep
   )
 where
@@ -33,7 +32,6 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Column ( TColumn )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
@@ -43,9 +41,8 @@ import Rel8.Generic.Construction
   , GGBuild, ggbuild
   , GGConstructable
   , GGConstruct, ggconstruct
-  , GGDeconstruct, ggdeconstruct
+  , GGDeconstruct, ggdeconstruct, ggdeconstructA
   , GGName, ggname
-  , GGAggregate, ggaggregate
   )
 import Rel8.Generic.Map ( GMap )
 import Rel8.Generic.Record
@@ -71,6 +68,9 @@ import Rel8.Table
   , TTable, TColumns, TContext
   , TSerialize
   )
+
+-- semigroupoids
+import Data.Functor.Apply (Apply)
 
 
 type GColumnsHKD :: Type -> K.HTable
@@ -205,23 +205,17 @@ deconstructHKD :: forall a r. (ConstructableHKD a, Table Expr r)
 deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @r (\(HKD a) -> a)
 
 
+deconstructAHKD :: forall a f r. (ConstructableHKD a, Apply f, Table Expr r)
+  => DeconstructHKD a (f r)
+deconstructAHKD = ggdeconstructA @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @f @r (\(HKD a) -> a)
+
+
 type NameHKD :: Type -> Type
 type NameHKD a = GGName (GAlgebra (Rep a)) (HKDRep a) (HKD a Name)
 
 
 nameHKD :: forall a. ConstructableHKD a => NameHKD a
 nameHKD = ggname @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Name) HKD
-
-
-type AggregateHKD :: Type -> Type
-type AggregateHKD a = forall r. GGAggregate (GAlgebra (Rep a)) (HKDRep a) r
-
-
-aggregateHKD :: forall a. ConstructableHKD a
-  => AggregateHKD a -> HKD a Expr -> HKD a Aggregate
-aggregateHKD f =
-  ggaggregate @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @(HKD a Aggregate) HKD (\(HKD a) -> a)
-    (f @(HKD a Aggregate))
 
 
 data HKDRep :: Type -> K.Context -> Exp (Type -> Type)

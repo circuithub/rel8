@@ -1,4 +1,5 @@
 {-# language DuplicateRecordFields #-}
+{-# language FlexibleContexts #-}
 {-# language GADTs #-}
 {-# language NamedFieldPuns #-}
 {-# language RecordWildCards #-}
@@ -16,9 +17,8 @@ where
 import Data.Kind ( Type )
 import Prelude
 
--- hasql
-import qualified Hasql.Encoders as Hasql
-import qualified Hasql.Statement as Hasql
+-- opaleye
+import qualified Opaleye.Internal.Tag as Opaleye
 
 -- pretty
 import Text.PrettyPrint ( Doc, (<+>), ($$), text )
@@ -28,14 +28,14 @@ import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Schema.Name ( Selects )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
-import Rel8.Statement.Returning ( Returning, decodeReturning, ppReturning )
+import Rel8.Statement (Statement)
+import Rel8.Statement.Returning (Returning, ppReturning, runReturning)
 import Rel8.Statement.Set ( ppSet )
 import Rel8.Statement.Using ( ppFrom )
 import Rel8.Statement.Where ( ppWhere )
 
--- text
-import qualified Data.Text as Text
-import Data.Text.Encoding ( encodeUtf8 )
+-- transformers
+import Control.Monad.Trans.State.Strict (State)
 
 
 -- | The constituent parts of an @UPDATE@ statement.
@@ -57,27 +57,23 @@ data Update a where
     -> Update a
 
 
-ppUpdate :: Update a -> Doc
-ppUpdate Update {..} = case ppFrom from of
-  Nothing ->
-    text "UPDATE" <+> ppTable target $$
-    ppSet target id $$
-    text "WHERE false"
-  Just (fromDoc, i) ->
-    text "UPDATE" <+> ppTable target $$
-    ppSet target (set i) $$
-    fromDoc $$
-    ppWhere target (updateWhere i) $$
-    ppReturning target returning
+-- | Build an @UPDATE@ 'Statement'.
+update :: Update a -> Statement a
+update statement@Update {returning} =
+  runReturning (ppUpdate statement) returning
 
 
--- | Run an @UPDATE@ statement.
-update :: Update a -> Hasql.Statement () a
-update u@Update {returning} = Hasql.Statement bytes params decode prepare
-  where
-    bytes = encodeUtf8 $ Text.pack sql
-    params = Hasql.noParams
-    decode = decodeReturning returning
-    prepare = False
-    sql = show doc
-    doc = ppUpdate u
+ppUpdate :: Update a -> State Opaleye.Tag Doc
+ppUpdate Update {..} = do
+  mfrom <- ppFrom from
+  pure $ case mfrom of
+    Nothing -> 
+      text "UPDATE" <+> ppTable target $$
+      ppSet target id $$
+      text "WHERE false"
+    Just (fromDoc, i) ->
+      text "UPDATE" <+> ppTable target $$
+      ppSet target (set i) $$
+      fromDoc $$
+      ppWhere target (updateWhere i) $$
+      ppReturning target returning

@@ -12,6 +12,7 @@ module Rel8.Type.Ord
 where
 
 -- base
+import Data.Fixed (Fixed)
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Kind ( Constraint, Type )
 import Data.List.NonEmpty ( NonEmpty )
@@ -26,6 +27,7 @@ import Data.CaseInsensitive ( CI )
 
 -- rel8
 import Rel8.Schema.Null ( Sql )
+import Rel8.Type.Decimal (PowerOf10)
 import Rel8.Type.Eq ( DBEq )
 
 -- scientific
@@ -53,6 +55,7 @@ instance DBOrd Char
 instance DBOrd Int16
 instance DBOrd Int32
 instance DBOrd Int64
+instance PowerOf10 n => DBOrd (Fixed n)
 instance DBOrd Float
 instance DBOrd Double
 instance DBOrd Scientific
@@ -79,6 +82,7 @@ instance DBMax Char
 instance DBMax Int16
 instance DBMax Int32
 instance DBMax Int64
+instance PowerOf10 n => DBMax (Fixed n)
 instance DBMax Float
 instance DBMax Double
 instance DBMax Scientific
@@ -104,6 +108,7 @@ instance DBMin Char
 instance DBMin Int16
 instance DBMin Int32
 instance DBMin Int64
+instance PowerOf10 n => DBMin (Fixed n)
 instance DBMin Float
 instance DBMin Double
 instance DBMin Scientific

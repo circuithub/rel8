@@ -19,8 +19,12 @@ module Rel8
 
     -- *** @TypeInformation@
   , TypeInformation(..)
+  , TypeName(..)
   , mapTypeInformation
   , parseTypeInformation
+
+    -- *** @Decoder@
+  , Decoder(..)
 
     -- ** The @DBType@ hierarchy
   , DBSemigroup(..)
@@ -62,6 +66,7 @@ module Rel8
   , optional
   , catMaybeTable
   , traverseMaybeTable
+  , aggregateJustTable, aggregateJustTable1
   , aggregateMaybeTable
   , nameMaybeTable
 
@@ -72,6 +77,8 @@ module Rel8
   , keepLeftTable
   , keepRightTable
   , bitraverseEitherTable
+  , aggregateLeftTable, aggregateLeftTable1
+  , aggregateRightTable, aggregateRightTable1
   , aggregateEitherTable
   , nameEitherTable
 
@@ -89,12 +96,17 @@ module Rel8
   , keepThatTable, loseThatTable
   , keepThoseTable, loseThoseTable
   , bitraverseTheseTable
+  , aggregateThisTable, aggregateThisTable1
+  , aggregateThatTable, aggregateThatTable1
+  , aggregateThoseTable, aggregateThoseTable1
+  , aggregateHereTable, aggregateHereTable1
+  , aggregateThereTable, aggregateThereTable1
   , aggregateTheseTable
   , nameTheseTable
 
     -- ** @ListTable@
   , ListTable
-  , listTable, ($*)
+  , listOf, listTable, ($*)
   , nameListTable
   , many
   , manyExpr
@@ -103,7 +115,7 @@ module Rel8
 
     -- ** @NonEmptyTable@
   , NonEmptyTable
-  , nonEmptyTable, ($+)
+  , nonEmptyOf, nonEmptyTable, ($+)
   , nameNonEmptyTable
   , some
   , someExpr
@@ -135,9 +147,6 @@ module Rel8
   , BuildADT, buildADT
   , ConstructADT, constructADT
 
-    -- *** Other ADT operations
-  , AggregateADT, aggregateADT
-
     -- *** Miscellaneous notes
     -- $misc-notes
 
@@ -147,10 +156,10 @@ module Rel8
   , ConstructHKD, constructHKD
   , DeconstructHKD, deconstructHKD
   , NameHKD, nameHKD
-  , AggregateHKD, aggregateHKD
 
     -- ** Table schemas
   , TableSchema(..)
+  , QualifiedName(..)
   , Name
   , namesFromLabels
   , namesFromLabelsWith
@@ -193,10 +202,10 @@ module Rel8
   , leastExpr, greatestExpr
 
     -- ** Functions
-  , Function
+  , Arguments
   , function
-  , nullaryFunction
   , binaryOperator
+  , queryFunction
 
     -- * Queries
   , Query
@@ -251,26 +260,47 @@ module Rel8
 
     -- ** @WITH RECURSIVE@
   , loop
+  , loopDistinct
 
     -- ** Aggregation
-  , Aggregate
-  , Aggregates
+  , Aggregator
+  , Aggregator1
+  , Aggregator'
+  , Fold (Semi, Full)
+  , toAggregator
+  , toAggregator1
   , aggregate
+  , aggregate1
+  , filterWhere
+  , filterWhereOptional
+  , distinctAggregate
+  , orderAggregateBy
+  , optionalAggregate
   , countRows
-  , groupBy
-  , listAgg, listAggExpr
-  , mode
-  , nonEmptyAgg, nonEmptyAggExpr
-  , DBMax, max
-  , DBMin, min
-  , DBSum, sum, sumWhere, avg
+  , groupBy, groupByOn
+  , listAgg, listAggOn, listAggExpr, listAggExprOn
+  , listCat, listCatOn, listCatExpr, listCatExprOn
+  , nonEmptyAgg, nonEmptyAggOn, nonEmptyAggExpr, nonEmptyAggExprOn
+  , nonEmptyCat, nonEmptyCatOn, nonEmptyCatExpr, nonEmptyCatExprOn
+  , DBMax, max, maxOn
+  , DBMin, min, minOn
+  , DBSum, sum, sumOn, sumWhere, avg, avgOn
   , DBString, stringAgg
-  , count
+  , count, countOn
   , countStar
-  , countDistinct
-  , countWhere
-  , and
-  , or
+  , countDistinct, countDistinctOn
+  , countWhere, countWhereOn
+  , and, andOn
+  , or, orOn
+  , aggregateFunction
+
+  , mode, modeOn
+  , percentile, percentileOn
+  , percentileContinuous, percentileContinuousOn
+  , hypotheticalRank
+  , hypotheticalDenseRank
+  , hypotheticalPercentRank
+  , hypotheticalCumeDist
 
     -- ** Ordering
   , orderBy
@@ -288,7 +318,6 @@ module Rel8
   , partitionBy
   , orderPartitionBy
   , cumulative
-  , cumulative_
   , currentRow
   , rowNumber
   , rank
@@ -296,11 +325,11 @@ module Rel8
   , percentRank
   , cumeDist
   , ntile
-  , lag
-  , lead
-  , firstValue
-  , lastValue
-  , nthValue
+  , lag, lagOn
+  , lead, leadOn
+  , firstValue, firstValueOn
+  , lastValue, lastValueOn
+  , nthValue, nthValueOn
   , indexed
 
     -- ** Bindings
@@ -313,6 +342,12 @@ module Rel8
 
     -- * Running statements
     -- $running
+  , run
+  , run_
+  , runN
+  , run1
+  , runMaybe
+  , runVector
 
     -- ** @SELECT@
   , select
@@ -338,6 +373,10 @@ module Rel8
     -- ** @.. RETURNING@
   , Returning(..)
 
+    -- ** @WITH@
+  , Statement
+  , showStatement
+
     -- ** @CREATE VIEW@
   , createView
   , createOrReplaceView
@@ -352,6 +391,8 @@ import Prelude ()
 
 -- rel8
 import Rel8.Aggregate
+import Rel8.Aggregate.Fold
+import Rel8.Aggregate.Function
 import Rel8.Column
 import Rel8.Column.ADT
 import Rel8.Column.Either
@@ -363,6 +404,7 @@ import Rel8.Column.Null
 import Rel8.Column.These
 import Rel8.Expr
 import Rel8.Expr.Aggregate
+import Rel8.Expr.Array
 import Rel8.Expr.Bool
 import Rel8.Expr.Default
 import Rel8.Expr.Eq
@@ -374,7 +416,7 @@ import Rel8.Expr.Order
 import Rel8.Expr.Serialize
 import Rel8.Expr.Sequence
 import Rel8.Expr.Text ( like, ilike )
-import Rel8.Expr.Window hiding ( cumulative )
+import Rel8.Expr.Window
 import Rel8.Generic.Rel8able ( KRel8able, Rel8able )
 import Rel8.Order
 import Rel8.Query
@@ -385,6 +427,7 @@ import Rel8.Query.Either
 import Rel8.Query.Evaluate
 import Rel8.Query.Exists
 import Rel8.Query.Filter
+import Rel8.Query.Function
 import Rel8.Query.Indexed
 import Rel8.Query.Limit
 import Rel8.Query.List
@@ -403,12 +446,15 @@ import Rel8.Schema.Field
 import Rel8.Schema.HTable
 import Rel8.Schema.Name
 import Rel8.Schema.Null hiding ( nullable )
+import Rel8.Schema.QualifiedName
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.Table
+import Rel8.Statement
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
 import Rel8.Statement.Returning
+import Rel8.Statement.Run
 import Rel8.Statement.Select
 import Rel8.Statement.SQL
 import Rel8.Statement.Update
@@ -416,6 +462,7 @@ import Rel8.Statement.View
 import Rel8.Table
 import Rel8.Table.ADT
 import Rel8.Table.Aggregate
+import Rel8.Table.Aggregate.Maybe
 import Rel8.Table.Alternative
 import Rel8.Table.Bool
 import Rel8.Table.Either
@@ -437,12 +484,14 @@ import Rel8.Table.Transpose
 import Rel8.Table.Window
 import Rel8.Type
 import Rel8.Type.Composite
+import Rel8.Type.Decoder
 import Rel8.Type.Eq
 import Rel8.Type.Enum
 import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded
 import Rel8.Type.JSONEncoded
 import Rel8.Type.Monoid
+import Rel8.Type.Name
 import Rel8.Type.Num
 import Rel8.Type.Ord
 import Rel8.Type.ReadShow
@@ -454,9 +503,17 @@ import Rel8.Window
 
 -- $running
 -- To run queries and otherwise interact with a PostgreSQL database, Rel8
--- provides 'select', 'insert', 'update' and 'delete' functions. Note that
--- 'insert', 'update' and 'delete' will generally need the
--- `DuplicateRecordFields` language extension enabled.
+-- provides the @run@ functions. These produce a 'Hasql.Statement.Statement's
+-- which can be passed to 'Hasql.Session.statement' to execute the statement
+-- against a PostgreSQL 'Hasql.Connection.Connection'.
+--
+-- 'run' takes a 'Statement', which can be constructed using either 'select',
+-- 'insert', 'update' or 'delete'. It decodes the rows returned by the
+-- statement as a list of Haskell of values. See 'run_', 'runN', 'run1',
+-- 'runMaybe' and 'runVector' for other variations.
+--
+-- Note that constructing an 'Insert', 'Update' or 'Delete' will require the
+-- @DisambiguateRecordFields@ language extension to be enabled.
 
 -- $adts
 -- Algebraic data types can be modelled between Haskell and SQL.
@@ -516,9 +573,9 @@ import Rel8.Window
 -- query = do
 --   thingExpr <- each thingSchema
 --   where_ $
---     deconstructADT @Thing
---       (\employer -> employerName employer ==. lit \"Mary\")
---       (\potato -> grower potato ==. lit \"Mary\")
+--     deconstructADT \@Thing
+--       (\\employer -> employerName employer ==. lit \"Mary\")
+--       (\\potato -> grower potato ==. lit \"Mary\")
 --       (lit False) -- Nullary case
 --       thingExpr
 --   pure thingExpr
@@ -562,10 +619,10 @@ import Rel8.Window
 -- instantiations of 'buildADT' for 'Task':
 --
 -- @
--- > :t buildADT @Task @\"Pending\"
--- buildADT @Task @\"Pending\" :: ADT Task Expr
--- > :t buildADT @Task @\"Complete\"
--- buildADT @Task @\"Complete\" :: CompletedTask Expr -> ADT Task Expr
+-- > :t buildADT \@Task \@\"Pending\"
+-- buildADT \@Task \@\"Pending\" :: ADT Task Expr
+-- > :t buildADT \@Task @\"Complete\"
+-- buildADT \@Task \@\"Complete\" :: CompletedTask Expr -> ADT Task Expr
 -- @
 --
 -- Note that as the "Pending" constructor has no fields, @buildADT
@@ -588,8 +645,8 @@ import Rel8.Window
 -- @
 -- > :{
 -- showQuery $ values
---   [ buildADT @Task @\"Pending\"
---   , buildADT @Task @\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
+--   [ buildADT \@Task \@\"Pending\"
+--   , buildADT \@Task \@\"Complete\" CompletedTask {date = Rel8.Expr.Time.now}
 --   ]
 -- :}
 -- @
@@ -638,10 +695,10 @@ import Rel8.Window
 -- @
 -- let
 --   pending :: ADT Task Expr
---   pending = constructADT @Task $ \pending _complete -> pending
+--   pending = constructADT \@Task $ \\pending _complete -> pending
 --
 --   complete :: ADT Task Expr
---   complete = constructADT @Task $ \_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
+--   complete = constructADT \@Task $ \\_pending complete -> complete CompletedTask {date = Rel8.Expr.Time.now}
 -- @
 --
 -- These values are otherwise identical to the ones we saw above with

@@ -3,6 +3,7 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
+{-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
 {-# language TypeApplications #-}
@@ -16,6 +17,7 @@ where
 
 -- base
 import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Ratio (denominator, numerator)
 import Data.String ( IsString, fromString )
 import Prelude hiding ( null )
 
@@ -23,7 +25,7 @@ import Prelude hiding ( null )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Expr.Function ( function, nullaryFunction )
+import Rel8.Expr.Function (function)
 import Rel8.Expr.Null ( liftOpNull, nullify )
 import Rel8.Expr.Opaleye
   ( castExpr
@@ -44,6 +46,9 @@ import Rel8.Type ( DBType )
 import Rel8.Type.Monoid ( DBMonoid, memptyExpr )
 import Rel8.Type.Num ( DBFloating, DBFractional, DBNum )
 import Rel8.Type.Semigroup ( DBSemigroup, (<>.) )
+
+-- scientific
+import Data.Scientific (fromRationalRepetendLimited)
 
 
 -- | Typed SQL expressions.
@@ -88,17 +93,24 @@ instance Sql DBNum a => Num (Expr a) where
 instance Sql DBFractional a => Fractional (Expr a) where
   (/) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:/))
 
-  fromRational =
-    castExpr . Expr . Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+  fromRational = castExpr . Expr . toScientific
+    where
+      toScientific r = case fromRationalRepetendLimited 20 r of
+        Right (s, Nothing) -> Opaleye.ConstExpr (Opaleye.NumericLit s)
+        _ -> Opaleye.BinExpr (Opaleye.:/) (int n) (int d)
+          where
+            int = Opaleye.ConstExpr . Opaleye.NumericLit . fromInteger
+            n = numerator r
+            d = denominator r
 
 
 instance Sql DBFloating a => Floating (Expr a) where
-  pi = nullaryFunction "PI"
+  pi = function "pi" ()
   exp = function "exp"
   log = function "ln"
   sqrt = function "sqrt"
   (**) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:^))
-  logBase = function "log"
+  logBase a b = function "log" (a, b)
   sin = function "sin"
   cos = function "cos"
   tan = function "tan"

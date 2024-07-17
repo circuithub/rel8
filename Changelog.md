@@ -1,3 +1,134 @@
+
+<a id='changelog-1.5.0.0'></a>
+# 1.5.0.0 — 2024-03-19
+
+## Removed
+
+- Removed `nullaryFunction`. Instead `function` can be called with `()`. ([#258](https://github.com/circuithub/rel8/pull/258))
+
+## Added
+
+- Support PostgreSQL's `inet` type (which maps to the Haskell `NetAddr IP` type). ([#227](https://github.com/circuithub/rel8/pull/227))
+
+- `Rel8.materialize` and `Rel8.Tabulate.materialize`, which add a materialization/optimisation fence to `SELECT` statements by binding a query to a `WITH` subquery. Note that explicitly materialized common table expressions are only supported in PostgreSQL 12 an higher. ([#180](https://github.com/circuithub/rel8/pull/180)) ([#284](https://github.com/circuithub/rel8/pull/284))
+
+- `Rel8.head`, `Rel8.headExpr`, `Rel8.last`, `Rel8.lastExpr` for accessing the first/last elements of `ListTable`s and arrays. We have also added variants for `NonEmptyTable`s/non-empty arrays with the `1` suffix (e.g., `head1`). ([#245](https://github.com/circuithub/rel8/pull/245))
+
+- Rel8 now has extensive support for `WITH` statements and data-modifying statements (https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-MODIFYING).
+
+  This work offers a lot of new power to Rel8. One new possibility is "moving" rows between tables, for example to archive rows in one table into a log table:
+
+  ```haskell
+  import Rel8
+
+  archive :: Statement ()
+  archive = do
+    deleted <-
+      delete Delete
+        { from = mainTable
+        , using = pure ()
+        , deleteWhere = \foo -> fooId foo ==. lit 123
+        , returning = Returning id
+        }
+
+    insert Insert
+      { into = archiveTable
+      , rows = deleted
+      , onConflict = DoNothing
+      , returning = NoReturninvg
+      }
+  ```
+
+  This `Statement` will compile to a single SQL statement - essentially:
+
+  ```sql
+  WITH deleted_rows (DELETE FROM main_table WHERE id = 123 RETURNING *)
+  INSERT INTO archive_table SELECT * FROM deleted_rows
+  ```
+
+  This feature is a significant performant improvement, as it avoids an entire roundtrip.
+
+  This change has necessitated a change to how a `SELECT` statement is ran: `select` now will now produce a `Rel8.Statement`, which you have to `run` to turn it into a Hasql `Statement`. Rel8 offers a variety of `run` functions depending on how many rows need to be returned - see the various family of `run` functions in Rel8's documentation for more.
+
+  [#250](https://github.com/circuithub/rel8/pull/250)
+
+- `Rel8.loop` and `Rel8.loopDistinct`, which allow writing `WITH .. RECURSIVE` queries. ([#180](https://github.com/circuithub/rel8/pull/180))
+
+- Added the `QualifiedName` type for named PostgreSQL objects (tables, views, functions, operators, sequences, etc.) that can optionally be qualified by a schema, including an `IsString` instance. ([#257](https://github.com/circuithub/rel8/pull/257)) ([#263](https://github.com/circuithub/rel8/pull/263))
+
+- Added `queryFunction` for `SELECT`ing from table-returning functions such as `jsonb_to_recordset`. ([#241](https://github.com/circuithub/rel8/pull/241))
+
+- `TypeName` record, which gives a richer representation of the components of a PostgreSQL type name (name, schema, modifiers, scalar/array). ([#263](https://github.com/circuithub/rel8/pull/263))
+
+- `Rel8.length` and `Rel8.lengthExpr` for getting the length `ListTable`s and arrays. We have also added variants for `NonEmptyTable`s/non-empty arrays with the `1` suffix (e.g., `length1`). ([#268](https://github.com/circuithub/rel8/pull/268))
+
+- Added aggregators `listCat` and `nonEmptyCat` for folding a collection of lists into a single list by concatenation. ([#270](https://github.com/circuithub/rel8/pull/270))
+
+- `DBType` instance for `Fixed` that would map (e.g.) `Micro` to `numeric(1000, 6)` and `Pico` to `numeric(1000, 12)`. ([#280](https://github.com/circuithub/rel8/pull/280))
+
+- `aggregationFunction`, which allows custom aggregation functions to be used. ([#283](https://github.com/circuithub/rel8/pull/283))
+
+- Add support for ordered-set aggregation functions, including `mode`, `percentile`, `percentileContinuous`, `hypotheticalRank`, `hypotheticalDenseRank`, `hypotheticalPercentRank` and `hypotheticalCumeDist`. ([#282](https://github.com/circuithub/rel8/pull/282))
+
+- Added `index`, `index1`, `indexExpr`, and `index1Expr` functions for extracting individual elements from `ListTable`s and `NonEmptyTable`s. ([#285](https://github.com/circuithub/rel8/pull/285))
+
+- Rel8 now supports GHC 9.8. ([#299](https://github.com/circuithub/rel8/pull/299))
+
+## Changed
+
+- Rel8's API regarding aggregation has changed significantly, and is now a closer match to Opaleye.
+
+  The previous aggregation API had `aggregate` transform a `Table` from the `Aggregate` context back into the `Expr` context:
+
+  ```haskell
+  myQuery = aggregate do
+    a <- each tableA
+    return $ liftF2 (,) (sum (foo a)) (countDistinct (bar a))
+  ```
+
+  This API seemed convenient, but has some significant shortcomings. The new API requires an explicit `Aggregator` be passed to `aggregate`:
+
+  ```haskell
+  myQuery = aggregate (liftA2 (,) (sumOn foo) (countDistinctOn bar)) do
+    each tableA
+  ```
+
+  For more details, see [#235](https://github.com/circuithub/rel8/pull/235)
+
+- `TypeInformation`'s `decoder` field has changed. Instead of taking a `Hasql.Decoder`, it now takes a `Rel8.Decoder`, which itself is comprised of a `Hasql.Decoder` and an `attoparsec` `Parser`. This is necessitated by the fix for [#168](https://github.com/circuithub/rel8/issues/168); we generally decode things in PostgreSQL's binary format (using a `Hasql.Decoder`), but for nested arrays we now get things in PostgreSQL's text format (for which we need an `attoparsec` `Parser`), so must have both. Most `DBType` instances that use `mapTypeInformation` or `ParseTypeInformation`, or `DerivingVia` helpers like `ReadShow`, `JSONBEncoded`, `Enum` and `Composite` are unaffected by this change. ([#243](https://github.com/circuithub/rel8/pull/243))
+
+- The `schema` field from `TableSchema` has been removed and the name field changed from `String` to `QualifiedName`. ([#257](https://github.com/circuithub/rel8/pull/257))
+
+- `nextval`, `function` and `binaryOperator` now take a `QualifiedName` instead of a `String`. ([#262](https://github.com/circuithub/rel8/pull/262))
+
+- `function` has been changed to accept a single argument (as opposed to variadic arguments). ([#258](https://github.com/circuithub/rel8/pull/258))
+
+- `TypeInformation`'s `typeName` parameter from `String` to `TypeName`. ([#263](https://github.com/circuithub/rel8/pull/263))
+
+- `DBEnum`'s `enumTypeName` method from `String` to `QualifiedName`. ([#263](https://github.com/circuithub/rel8/pull/263))
+
+- `DBComposite`'s `compositeTypeName` method from `String` to `QualifiedName`. ([#263](https://github.com/circuithub/rel8/pull/263))
+
+- Changed `Upsert` by adding a `predicate` field, which allows partial indexes to be specified as conflict targets. ([#264](https://github.com/circuithub/rel8/pull/264))
+
+- The window functions `lag`, `lead`, `firstValue`, `lastValue` and `nthValue` can now operate on entire rows at once as opposed to just single columns. ([#281](https://github.com/circuithub/rel8/pull/281))
+
+## Fixed
+
+- Fixed a bug with `catListTable` and `catNonEmptyTable` where invalid SQL could be produced. ([#240](https://github.com/circuithub/rel8/pull/240))
+
+- A fix for [#168](https://github.com/circuithub/rel8/issues/168), which prevented using `catListTable` on arrays of arrays. To achieve this we had to coerce arrays of arrays to text internally, which unfortunately isn't completely transparent; you can oberve it if you write something like `listTable [listTable [10]] > listTable [listTable [9]]`: previously that would be `false`, but now it's `true`. Arrays of non-arrays are unaffected by this.
+
+- Fixes [#228](https://github.com/circuithub/rel8/issues/228) where it was impossible to call `nextval` with a qualified sequence name.
+
+- Fixes [#71](https://github.com/circuithub/rel8/issues/71).
+
+- Fixed a typo in the documentation for `/=.`. ([#312](https://github.com/circuithub/rel8/pull/312))
+
+- Fixed a bug where `fromRational` could crash with repeating fractions. ([#309](https://github.com/circuithub/rel8/pull/309))
+
+- Fixed a typo in the documentation for `min`. ([#306](https://github.com/circuithub/rel8/pull/306))
+
 # 1.4.1.0 (2023-01-19)
 
 ## New features

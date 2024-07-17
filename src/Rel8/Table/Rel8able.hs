@@ -1,4 +1,3 @@
-{-# language CPP #-}
 {-# language DataKinds #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -17,10 +16,10 @@ module Rel8.Table.Rel8able
 where
 
 -- base
-#if __GLASGOW_HASKELL__ >= 904
-import Data.Type.Equality (type (~))
-#endif
 import Prelude ()
+
+-- base-compat
+import Data.Type.Equality.Compat
 
 -- rel8
 import Rel8.Expr ( Expr )

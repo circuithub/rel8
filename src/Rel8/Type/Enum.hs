@@ -38,13 +38,17 @@ import qualified Hasql.Decoders as Hasql
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Schema.QualifiedName (QualifiedName)
 import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type.Decoder (Decoder (..))
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
+import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Ord ( DBOrd, DBMax, DBMin )
 
 -- text
-import Data.Text ( pack )
+import Data.Text (pack)
+import Data.Text.Encoding (decodeUtf8)
 
 
 -- | A deriving-via helper type for column types that store an \"enum\" type
@@ -66,16 +70,26 @@ newtype Enum a = Enum
 instance DBEnum a => DBType (Enum a) where
   typeInformation = TypeInformation
     { decode =
-        Hasql.enum $
-        flip lookup $
-        map ((pack . enumValue &&& Enum) . to) $
-        genumerate @(Rep a)
+        let
+          mapping = (pack . enumValue &&& Enum) . to <$> genumerate @(Rep a)
+          unrecognised = Left "enum: unrecognised value"
+        in
+          Decoder
+            { binary = Hasql.enum (`lookup` mapping)
+            , parser = maybe unrecognised pure . (`lookup` mapping) . decodeUtf8
+            , delimiter = ','
+            }
     , encode =
         Opaleye.ConstExpr .
         Opaleye.StringLit .
         enumValue @a .
         unEnum
-    , typeName = enumTypeName @a
+    , typeName =
+        TypeName
+          { name = enumTypeName @a
+          , modifiers = []
+          , arrayDepth = 0
+          }
     }
 
 
@@ -101,7 +115,7 @@ class (DBType a, Enumable a) => DBEnum a where
   enumValue = gshow @(Rep a) . from
 
   -- | The name of the PostgreSQL @enum@ type that @a@ maps to.
-  enumTypeName :: String
+  enumTypeName :: QualifiedName
 
 
 -- | Types that are sum types, where each constructor is unary (that is, has no

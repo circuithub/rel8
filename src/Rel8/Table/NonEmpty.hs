@@ -15,11 +15,16 @@ module Rel8.Table.NonEmpty
   , ($+)
   , nonEmptyTable
   , nameNonEmptyTable
+  , head1
+  , index1
+  , last1
+  , length1
   )
 where
 
 -- base
-import Data.Functor.Identity ( Identity( Identity ) )
+import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.Int (Int32)
 import Data.Kind ( Type )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude hiding ( id )
@@ -27,12 +32,15 @@ import Prelude hiding ( id )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend1, snonEmptyOf )
+import Rel8.Expr.NonEmpty (length1Expr, shead1Expr, sindex1Expr, slast1Expr)
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import Rel8.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
+  , hnullify
   , happend
   , hproject, hcolumn
+  , First (..)
   )
 import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name( Name ) )
@@ -46,6 +54,7 @@ import Rel8.Table
   )
 import Rel8.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Table.Eq ( EqTable, eqTable )
+import Rel8.Table.Null (NullTable)
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection
   ( Projectable, Projecting, Projection, project, apply
@@ -141,4 +150,40 @@ nameNonEmptyTable =
   NonEmptyTable .
   hvectorize (\_ (Identity (Name a)) -> Name a) .
   pure .
+  toColumns
+
+
+-- | Get the first element of a 'NonEmptyTable'.
+head1 :: Table Expr a => NonEmptyTable Expr a -> a
+head1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\Spec {info} -> Identity . shead1Expr info) .
+  toColumns
+
+
+-- | @'index1' i as@ extracts a single element from @as@, returning
+-- 'Rel8.nullTable' if @i@ is out of range. Note that although PostgreSQL
+-- array indexes are 1-based (by default), this function is always 0-based.
+index1 :: Table Expr a => Expr Int32 -> NonEmptyTable Expr a -> NullTable Expr a
+index1 i =
+  fromColumns .
+  hnullify (\Spec {info} -> sindex1Expr info i) .
+  toColumns
+
+
+-- | Get the last element of a 'NonEmptyTable'.
+last1 :: Table Expr a => NonEmptyTable Expr a -> a
+last1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\Spec {info} -> Identity . slast1Expr info) .
+  toColumns
+
+
+-- | Get the length of a 'NonEmptyTable'
+length1 :: Table Expr a => NonEmptyTable Expr a -> Expr Int32
+length1 =
+  getFirst .
+  hunvectorize (\_ -> First . length1Expr) .
   toColumns

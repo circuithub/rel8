@@ -1,3 +1,5 @@
+{-# language OverloadedStrings #-}
+
 module Rel8.Expr.Time
   ( -- * Working with @Day@
     today
@@ -32,7 +34,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, nullaryFunction )
+import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
 import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral, fromPrimExpr, toPrimExpr )
 import Rel8.Type ( DBType )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -75,7 +77,7 @@ subtractDays = flip (binaryOperator "-")
 
 -- | Corresponds to @now()@.
 now :: Expr UTCTime
-now = nullaryFunction "now"
+now = function "now" ()
 
 
 -- | Add a time interval to a point in time, yielding a new point in time.

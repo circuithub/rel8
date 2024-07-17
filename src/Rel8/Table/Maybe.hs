@@ -18,8 +18,9 @@ module Rel8.Table.Maybe
   , isNothingTable, isJustTable
   , fromMaybeTable
   , ($?)
-  , aggregateMaybeTable
   , nameMaybeTable
+  , makeMaybeTable
+  , unsafeFromJustTable
   )
 where
 
@@ -33,12 +34,15 @@ import Prelude hiding ( null, undefined )
 -- comonad
 import Control.Comonad ( extract )
 
+-- opaleye
+import qualified Opaleye.Field as Opaleye
+import qualified Opaleye.SqlTypes as Opaleye
+
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( groupByExpr )
 import Rel8.Expr.Bool ( boolExpr )
 import Rel8.Expr.Null ( isNull, isNonNull, null, nullify )
+import Rel8.Expr.Opaleye (fromColumn, fromPrimExpr)
 import Rel8.Kind.Context ( Reifiable )
 import Rel8.Schema.Dict ( Dict( Dict ) )
 import qualified Rel8.Schema.Kind as K
@@ -61,7 +65,7 @@ import Rel8.Table.Bool ( bool )
 import Rel8.Table.Eq ( EqTable, eqTable )
 import Rel8.Table.Ord ( OrdTable, ordTable )
 import Rel8.Table.Projection ( Projectable, project )
-import Rel8.Table.Nullify ( Nullify, aggregateNullify, guard )
+import Rel8.Table.Nullify (Nullify, guard, unsafeUnnullifyTable)
 import Rel8.Table.Serialize ( ToExprs )
 import Rel8.Table.Undefined ( undefined )
 import Rel8.Type ( DBType )
@@ -213,6 +217,10 @@ fromMaybeTable :: Table Expr a => a -> MaybeTable Expr a -> a
 fromMaybeTable fallback = maybeTable fallback id
 
 
+unsafeFromJustTable :: MaybeTable Expr a -> a
+unsafeFromJustTable (MaybeTable _ just) = unsafeUnnullifyTable just
+
+
 -- | Project a single expression out of a 'MaybeTable'. You can think of this
 -- operator like the '$' operator, but it also has the ability to return
 -- @null@.
@@ -222,16 +230,6 @@ f $? ma@(MaybeTable _ a) = case nullable @b of
   Null -> boolExpr (f (extract a)) null (isNothingTable ma)
   NotNull -> boolExpr (nullify (f (extract a))) null (isNothingTable ma)
 infixl 4 $?
-
-
--- | Lift an aggregating function to operate on a 'MaybeTable'.
--- @nothingTable@s and @justTable@s are grouped separately.
-aggregateMaybeTable :: ()
-  => (exprs -> aggregates)
-  -> MaybeTable Expr exprs
-  -> MaybeTable Aggregate aggregates
-aggregateMaybeTable f (MaybeTable tag a) =
-  MaybeTable (groupByExpr tag) (aggregateNullify f a)
 
 
 -- | Construct a 'MaybeTable' in the 'Name' context. This can be useful if you
@@ -245,3 +243,10 @@ nameMaybeTable
      -- ^ Names of the columns in @a@.
   -> MaybeTable Name a
 nameMaybeTable tag = MaybeTable tag . pure
+
+
+makeMaybeTable :: Opaleye.FieldNullable Opaleye.SqlBool -> a -> MaybeTable Expr a
+makeMaybeTable tag a = MaybeTable
+  { tag = fromPrimExpr $ fromColumn tag
+  , just = pure a
+  }

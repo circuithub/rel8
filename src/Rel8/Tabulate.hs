@@ -2,7 +2,6 @@
 {-# language MonoLocalBinds #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
-{-# language TypeApplications #-}
 {-# language TupleSections #-}
 {-# language UndecidableInstances #-}
 
@@ -22,6 +21,7 @@ module Rel8.Tabulate
 
     -- * Aggregation and Ordering
   , aggregate
+  , aggregate1
   , distinct
   , order
 
@@ -71,7 +71,6 @@ import Data.Bifunctor.Clown ( Clown( Clown ), runClown )
 import Control.Comonad ( extract )
 
 -- opaleye
-import qualified Opaleye.Aggregate as Opaleye
 import qualified Opaleye.Order as Opaleye ( orderBy, distinctOnExplicit )
 
 -- profunctors
@@ -85,12 +84,14 @@ import Data.Profunctor.Product
 import qualified Data.Profunctor.Product as PP
 
 -- rel8
-import Rel8.Aggregate ( Aggregates )
+import Rel8.Aggregate (Aggregator' (Aggregator), Aggregator, toAggregator1)
+import Rel8.Aggregate.Fold (Fallback (Fallback))
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Aggregate ( countStar )
+import Rel8.Expr.Aggregate (countStar)
 import Rel8.Expr.Bool ( true )
 import Rel8.Order ( Order( Order ) )
 import Rel8.Query ( Query )
+import qualified Rel8.Query.Aggregate as Q
 import qualified Rel8.Query.Exists as Q ( exists, present, absent )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.List ( catNonEmptyTable )
@@ -100,17 +101,16 @@ import Rel8.Query.Opaleye ( mapOpaleye, unsafePeekQuery )
 import Rel8.Query.Rebind ( rebind )
 import Rel8.Query.These ( alignBy )
 import Rel8.Table ( Table, fromColumns, toColumns )
-import Rel8.Table.Aggregate ( hgroupBy, listAgg, nonEmptyAgg )
+import Rel8.Table.Aggregate (groupBy, listAgg, nonEmptyAgg)
 import Rel8.Table.Alternative
   ( AltTable, (<|>:)
   , AlternativeTable, emptyTable
   )
-import Rel8.Table.Cols ( fromCols, toCols )
-import Rel8.Table.Eq ( EqTable, (==:), eqTable )
-import Rel8.Table.List ( ListTable( ListTable ) )
-import Rel8.Table.Maybe ( MaybeTable( MaybeTable ), maybeTable )
-import Rel8.Table.NonEmpty ( NonEmptyTable( NonEmptyTable ) )
-import Rel8.Table.Opaleye ( aggregator, unpackspec )
+import Rel8.Table.Eq (EqTable, (==:))
+import Rel8.Table.List (ListTable)
+import Rel8.Table.Maybe (MaybeTable (MaybeTable), fromMaybeTable)
+import Rel8.Table.NonEmpty (NonEmptyTable)
+import Rel8.Table.Opaleye ( unpackspec )
 import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Order ( ascTable )
 import Rel8.Table.Projection
@@ -333,19 +333,23 @@ lookup k (Tabulation f) = do
     p = match (pure k)
 
 
--- | 'aggregate' aggregates the values within each key of a
+-- | 'aggregate' produces a \"magic\" 'Tabulation' whereby the values within
+-- each group of keys in the given 'Tabulation' is aggregated according to
+-- the given aggregator, and every other possible key contains a single
+-- \"fallback\" row is returned, composed of the identity elements of the
+-- constituent aggregation functions.
+aggregate :: (EqTable k, Table Expr i, Table Expr a)
+  => Aggregator i a -> Tabulation k i -> Tabulation k a
+aggregate aggregator@(Aggregator (Fallback fallback) _) =
+  fmap (fromMaybeTable fallback) . optional . aggregate1 aggregator
+
+
+-- | 'aggregate1' aggregates the values within each key of a
 -- 'Tabulation'. There is an implicit @GROUP BY@ on all the key columns.
-aggregate :: forall k aggregates exprs.
-  ( EqTable k
-  , Aggregates aggregates exprs
-  )
-  => Tabulation k aggregates -> Tabulation k exprs
-aggregate (Tabulation f) = Tabulation $
-  mapOpaleye (Opaleye.aggregate (keyed haggregator aggregator)) .
-  fmap (first (fmap (hgroupBy (eqTable @k) . toColumns))) .
-  f
-  where
-    haggregator = dimap fromColumns fromCols aggregator
+aggregate1 :: (EqTable k, Table Expr i)
+  => Aggregator' fold i a -> Tabulation k i -> Tabulation k a
+aggregate1 aggregator (Tabulation f) =
+  Tabulation $ Q.aggregateU (keyed unpackspec unpackspec) (keyed groupBy (toAggregator1 aggregator)) . f
 
 
 -- | 'distinct' ensures a 'Tabulation' has at most one value for
@@ -412,11 +416,7 @@ order ordering (Tabulation f) =
 -- The resulting 'Tabulation' is \"magic\" in that the value @0@ exists at
 -- every possible key that wasn't in the given 'Tabulation'.
 count :: EqTable k => Tabulation k a -> Tabulation k (Expr Int64)
-count =
-  fmap (maybeTable 0 id) .
-  optional .
-  aggregate .
-  fmap (const countStar)
+count = aggregate countStar . (true <$)
 
 
 -- | 'optional' produces a \"magic\" 'Tabulation' whereby each
@@ -443,11 +443,7 @@ optional (Tabulation f) = Tabulation $ \p -> case p of
 -- 'Tabulation'.
 many :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (ListTable Expr a)
-many =
-  fmap (maybeTable mempty (\(ListTable a) -> ListTable a)) .
-  optional .
-  aggregate .
-  fmap (listAgg . toCols)
+many = aggregate listAgg
 
 
 -- | 'some' aggregates each entry with a particular key into a
@@ -456,10 +452,7 @@ many =
 -- 'order' can be used to give this 'NonEmptyTable' a defined order.
 some :: (EqTable k, Table Expr a)
   => Tabulation k a -> Tabulation k (NonEmptyTable Expr a)
-some =
-  fmap (\(NonEmptyTable a) -> NonEmptyTable a) .
-  aggregate .
-  fmap (nonEmptyAgg . toCols)
+some = aggregate1 nonEmptyAgg
 
 
 -- | 'exists' produces a \"magic\" 'Tabulation' which contains the
@@ -534,7 +527,7 @@ alignWith f (Tabulation as) (Tabulation bs) = Tabulation $ \p -> do
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (,) left (optional right). You can also
+-- @\\left right -> liftA2 (,) left (optional right)@. You can also
 -- use @do@-notation.
 leftAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (a, MaybeTable Expr b)
@@ -547,7 +540,7 @@ leftAlign = leftAlignWith (,)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 f left (optional right). You can also
+-- @\\f left right -> liftA2 f left (optional right)@. You can also
 -- use @do@-notation.
 leftAlignWith :: EqTable k
   => (a -> MaybeTable Expr b -> c)
@@ -561,7 +554,7 @@ leftAlignWith f left right = liftA2 f left (optional right)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\left right -> liftA2 (flip (,)) right (optional left). You can
+-- @\\left right -> liftA2 (flip (,)) right (optional left)@. You can
 -- also use @do@-notation.
 rightAlign :: EqTable k
   => Tabulation k a -> Tabulation k b -> Tabulation k (MaybeTable Expr a, b)
@@ -574,7 +567,7 @@ rightAlign = rightAlignWith (,)
 --
 -- Note that you can achieve the same effect with 'optional' and the
 -- 'Applicative' instance for 'Tabulation', i.e., this is just
--- @\f left right -> liftA2 (flip f) right (optional left). You can
+-- @\\f left right -> liftA2 (flip f) right (optional left)@. You can
 -- also use @do@-notation.
 rightAlignWith :: EqTable k
   => (MaybeTable Expr a -> b -> c)
@@ -614,7 +607,7 @@ zipWith = liftA2
 --
 -- Note that you can achieve a similar effect with 'present' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* present right@. You can also use
+-- @\\left right -> left <* present right@. You can also use
 -- @do@-notation.
 similarity :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 similarity a b = a <* present b
@@ -628,14 +621,14 @@ similarity a b = a <* present b
 --
 -- Note that you can achieve a similar effect with 'absent' and the
 -- 'Applicative' instance of 'Tabulation', i.e., this is just
--- @\left right -> left <* absent right@. You can also use
+-- @\\left right -> left <* absent right@. You can also use
 -- @do@-notation.
 difference :: EqTable k => Tabulation k a -> Tabulation k b -> Tabulation k a
 difference a b = a <* absent b
 
 
 -- | 'Q.materialize' for 'Tabulation's.
-materialize :: (Table Expr k, Table Expr a)
+materialize :: (Table Expr k, Table Expr a, Table Expr b)
   => Tabulation k a -> (Tabulation k a -> Query b) -> Query b
 materialize tabulation f = case peek tabulation of
   Tabulation query -> do

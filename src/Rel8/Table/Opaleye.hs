@@ -10,22 +10,25 @@
 {-# options_ghc -Wno-deprecations #-}
 
 module Rel8.Table.Opaleye
-  ( aggregator
-  , attributes
+  ( attributes
   , binaryspec
   , distinctspec
   , exprs
   , exprsWithNames
+  , ifPP
+  , relExprPP
   , table
   , tableFields
   , unpackspec
   , valuesspec
   , view
   , castTable
+  , fromOrder
   )
 where
 
 -- base
+import Data.Foldable (traverse_)
 import Data.Functor.Const ( Const( Const ), getConst )
 import Data.List.NonEmpty ( NonEmpty )
 import Prelude
@@ -33,8 +36,11 @@ import Prelude
 -- opaleye
 import qualified Opaleye.Adaptors as Opaleye
 import qualified Opaleye.Field as Opaleye ( Field_ )
-import qualified Opaleye.Internal.Aggregate as Opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import qualified Opaleye.Internal.Operators as Opaleye
+import qualified Opaleye.Internal.Order as Opaleye
+import qualified Opaleye.Internal.PackMap as Opaleye
+import qualified Opaleye.Internal.Unpackspec as Opaleye
 import qualified Opaleye.Internal.Values as Opaleye
 import qualified Opaleye.Table as Opaleye
 
@@ -42,29 +48,26 @@ import qualified Opaleye.Table as Opaleye
 import Data.Profunctor ( dimap, lmap )
 
 -- rel8
-import Rel8.Aggregate ( Aggregate( Aggregate ), Aggregates )
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye
   ( fromPrimExpr, toPrimExpr
   , scastExpr, traverseFieldP
   )
-import Rel8.Schema.HTable ( htabulateA, hfield, hspecs, htabulate,
-                            htraverseP, htraversePWithField )
+import Rel8.Schema.HTable
+  ( htabulateA, hfield, hspecs, htabulate
+  , htraverseP, htraversePWithField
+  )
 import Rel8.Schema.Name ( Name( Name ), Selects, ppColumn )
+import Rel8.Schema.QualifiedName (QualifiedName (QualifiedName))
 import Rel8.Schema.Spec ( Spec(..) )
 import Rel8.Schema.Table ( TableSchema(..), ppTable )
 import Rel8.Table ( Table, fromColumns, toColumns )
 import Rel8.Type.Information ( typeName )
+import Rel8.Type.Name (showTypeName)
 
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
 import Data.Profunctor.Product ( ProductProfunctor )
-
-
-aggregator :: Aggregates aggregates exprs => Opaleye.Aggregator aggregates exprs
-aggregator = dimap toColumns fromColumns $
-             htraverseP $
-             lmap (\(Aggregate a) -> (a, ())) Opaleye.aggregatorApply
 
 
 attributes :: Selects names exprs => TableSchema names -> exprs
@@ -103,8 +106,16 @@ exprsWithNames names as = getConst $ htabulateA $ \field ->
     (Name name, expr) -> Const (pure (name, toPrimExpr expr))
 
 
+ifPP :: Table Expr a => Opaleye.IfPP a a
+ifPP = fromOpaleyespec Opaleye.ifPPField
+
+
+relExprPP :: Table Expr a => Opaleye.RelExprPP a a
+relExprPP = fromOpaleyespec Opaleye.relExprColumn
+
+
 table :: Selects names exprs => TableSchema names -> Opaleye.Table exprs exprs
-table (TableSchema name schema columns) =
+table (TableSchema (QualifiedName name schema) columns) =
   case schema of
     Nothing -> Opaleye.table name (tableFields columns)
     Just schemaName -> Opaleye.tableWithSchema schemaName name (tableFields columns)
@@ -131,7 +142,8 @@ unpackspec = fromOpaleyespec Opaleye.unpackspecField
 valuesspec :: Table Expr a => Opaleye.Valuesspec a a
 valuesspec = dimap toColumns fromColumns $
   htraversePWithField (traverseFieldP . Opaleye.valuesspecFieldType . typeName)
-  where typeName = Rel8.Type.Information.typeName . info . hfield hspecs
+  where
+    typeName = showTypeName . Rel8.Type.Information.typeName . info . hfield hspecs
 
 
 view :: Selects names exprs => names -> exprs
@@ -148,3 +160,9 @@ castTable (toColumns -> as) = fromColumns $ htabulate \field ->
   case hfield hspecs field of
     Spec {info} -> case hfield as field of
         expr -> scastExpr info expr
+
+
+fromOrder :: Opaleye.Order a -> Opaleye.Unpackspec a a
+fromOrder (Opaleye.Order o) =
+  Opaleye.Unpackspec $ Opaleye.PackMap $ \f a ->
+    a <$ traverse_ (f . snd) (o a)

@@ -21,11 +21,10 @@ import qualified Opaleye.Internal.MaybeFields as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Eq ( (==.) )
-import Rel8.Expr.Opaleye ( fromColumn, fromPrimExpr )
 import Rel8.Query ( Query )
 import Rel8.Query.Filter ( where_ )
 import Rel8.Query.Opaleye ( mapOpaleye )
-import Rel8.Table.Maybe ( MaybeTable(..), isJustTable )
+import Rel8.Table.Maybe (MaybeTable(..), isJustTable, makeMaybeTable)
 
 
 -- | Convert a query that might return zero rows to a query that always returns
@@ -34,10 +33,7 @@ import Rel8.Table.Maybe ( MaybeTable(..), isJustTable )
 -- To speak in more concrete terms, 'optional' is most useful to write @LEFT
 -- JOIN@s.
 optional :: Query a -> Query (MaybeTable Expr a)
-optional = mapOpaleye $ Opaleye.optionalInternal $ \tag a -> MaybeTable
-  { tag = fromPrimExpr $ fromColumn tag
-  , just = pure a
-  }
+optional = mapOpaleye $ Opaleye.optionalInternal makeMaybeTable
 
 
 -- | Filter out 'MaybeTable's, returning only the tables that are not-null.

@@ -18,9 +18,8 @@ module Rel8.Table.ADT
   , BuildADT, buildADT
   , ConstructableADT
   , ConstructADT, constructADT
-  , DeconstructADT, deconstructADT
+  , DeconstructADT, deconstructADT, deconstructAADT
   , NameADT, nameADT
-  , AggregateADT, aggregateADT
   , ADTRep
   )
 where
@@ -32,7 +31,6 @@ import GHC.TypeLits ( Symbol )
 import Prelude
 
 -- rel8
-import Rel8.Aggregate ( Aggregate )
 import Rel8.Expr ( Expr )
 import Rel8.FCF ( Eval, Exp )
 import Rel8.Generic.Construction
@@ -40,9 +38,8 @@ import Rel8.Generic.Construction
   , GGBuild, ggbuild
   , GGConstructable
   , GGConstruct, ggconstruct
-  , GGDeconstruct, ggdeconstruct
+  , GGDeconstruct, ggdeconstruct, ggdeconstructA
   , GGName, ggname
-  , GGAggregate, ggaggregate
   )
 import Rel8.Generic.Record ( Record( Record ), unrecord )
 import Rel8.Generic.Rel8able
@@ -58,6 +55,9 @@ import qualified Rel8.Schema.Kind as K
 import Rel8.Schema.Name ( Name )
 import Rel8.Schema.Result ( Result )
 import Rel8.Table ( Table, TColumns )
+
+-- semigroupoids
+import Data.Functor.Apply (Apply)
 
 
 type ADT :: K.Rel8able -> K.Rel8able
@@ -146,23 +146,18 @@ deconstructADT =
   ggdeconstruct @'K.Sum @(ADTRep t) @(ADT t Expr) @r (\(ADT a) -> a)
 
 
+deconstructAADT :: forall t f r. (ConstructableADT t, Apply f, Table Expr r)
+  => DeconstructADT t (f r)
+deconstructAADT =
+  ggdeconstructA @'K.Sum @(ADTRep t) @(ADT t Expr) @f @r (\(ADT a) -> a)
+
+
 type NameADT :: K.Rel8able -> Type
 type NameADT t = GGName 'K.Sum (ADTRep t) (ADT t Name)
 
 
 nameADT :: forall t. ConstructableADT t => NameADT t
 nameADT = ggname @'K.Sum @(ADTRep t) @(ADT t Name) ADT
-
-
-type AggregateADT :: K.Rel8able -> Type
-type AggregateADT t = forall r. GGAggregate 'K.Sum (ADTRep t) r
-
-
-aggregateADT :: forall t. ConstructableADT t
-  => AggregateADT t -> ADT t Expr -> ADT t Aggregate
-aggregateADT f =
-  ggaggregate @'K.Sum @(ADTRep t) @(ADT t Expr) @(ADT t Aggregate) ADT (\(ADT a) -> a)
-    (f @(ADT t Aggregate))
 
 
 data ADTRep :: K.Rel8able -> K.Context -> Exp (Type -> Type)

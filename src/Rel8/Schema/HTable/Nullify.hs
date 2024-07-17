@@ -32,9 +32,17 @@ import Data.Kind ( Type )
 import GHC.Generics ( Generic )
 import Prelude hiding ( null )
 
+-- profunctors
+import Data.Profunctor (lmap, rmap)
+
+-- product-profunctors
+import Data.Profunctor.Product (ProductProfunctor)
+
 -- rel8
 import Rel8.FCF ( Eval, Exp )
-import Rel8.Schema.HTable ( HTable, hfield, htabulate, htabulateA, hspecs )
+import Rel8.Schema.HTable
+  ( HTable, hfield, hspecs, htabulate, htabulateA, htabulateP
+  )
 import Rel8.Schema.HTable.MapTable
   ( HMapTable, HMapTableField( HMapTableField )
   , MapSpec, mapInfo
@@ -90,13 +98,11 @@ hnulls null = HNullify $ htabulate $ \(HMapTableField field) ->
 {-# INLINABLE hnulls #-}
 
 
-hnullify :: HTable t
-  => (forall a. Spec a -> context a -> context (Type.Nullify a))
-  -> t context
-  -> HNullify t context
-hnullify nullifier a = HNullify $ htabulate $ \(HMapTableField field) ->
-  case hfield hspecs field of
-    spec@Spec {} -> nullifier spec (hfield a field)
+hnullify :: (HTable t, ProductProfunctor p)
+  => (forall a. Spec a -> p (context a) (context (Type.Nullify a)))
+  -> p (t context) (HNullify t context)
+hnullify nullifier = rmap HNullify $ htabulateP $ \(HMapTableField field) ->
+  lmap (`hfield` field) (nullifier (hfield hspecs field))
 {-# INLINABLE hnullify #-}
 
 

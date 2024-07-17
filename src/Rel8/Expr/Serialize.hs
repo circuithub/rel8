@@ -23,6 +23,7 @@ import {-# SOURCE #-} Rel8.Expr ( Expr( Expr ) )
 import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Type ( DBType, typeInformation )
+import Rel8.Type.Decoder (Decoder (..))
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
@@ -44,6 +45,6 @@ slitExpr nullity info@TypeInformation {encode} =
 
 
 sparseValue :: Nullity a -> TypeInformation (Unnullify a) -> Hasql.Row a
-sparseValue nullity TypeInformation {decode} = case nullity of
-  Null -> Hasql.column $ Hasql.nullable decode
-  NotNull -> Hasql.column $ Hasql.nonNullable decode
+sparseValue nullity TypeInformation {decode = Decoder {binary}} = case nullity of
+  Null -> Hasql.column $ Hasql.nullable binary
+  NotNull -> Hasql.column $ Hasql.nonNullable binary
