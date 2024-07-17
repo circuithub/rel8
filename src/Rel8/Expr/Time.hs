@@ -34,7 +34,7 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function ( binaryOperator, function, nullaryFunction )
+import Rel8.Expr.Function ( binaryOperator, function )
 import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral, fromPrimExpr, toPrimExpr )
 import Rel8.Type ( DBType )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
