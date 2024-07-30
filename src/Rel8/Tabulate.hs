@@ -628,7 +628,7 @@ difference a b = a <* absent b
 
 
 -- | 'Q.materialize' for 'Tabulation's.
-materialize :: (Table Expr k, Table Expr a, Table Expr b)
+materialize :: (Table Expr k, Table Expr a)
   => Tabulation k a -> (Tabulation k a -> Query b) -> Query b
 materialize tabulation f = case peek tabulation of
   Tabulation query -> do

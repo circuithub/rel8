@@ -15,7 +15,6 @@ import Opaleye.With ( withMaterializedExplicit )
 import Rel8.Expr ( Expr )
 import Rel8.Query ( Query )
 import Rel8.Query.Opaleye ( fromOpaleye, toOpaleye )
-import Rel8.Query.Rebind ( rebind )
 import Rel8.Table ( Table )
 import Rel8.Table.Opaleye ( unpackspec )
 
@@ -31,10 +30,9 @@ import Rel8.Table.Opaleye ( unpackspec )
 -- specifically the @WITH _ AS MATERIALIZED (_)@ form introduced in PostgreSQL
 -- 12. This means that 'materialize' can only be used with PostgreSQL 12 or
 -- newer.
-materialize :: (Table Expr a, Table Expr b)
-  => Query a -> (Query a -> Query b) -> Query b
+materialize :: Table Expr a => Query a -> (Query a -> Query b) -> Query b
 materialize query f =
-  (>>= rebind "with") . fromOpaleye $
+  fromOpaleye $
     withMaterializedExplicit unpackspec
       (toOpaleye query')
       (toOpaleye . f . fromOpaleye)
