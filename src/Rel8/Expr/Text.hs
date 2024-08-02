@@ -58,9 +58,9 @@ infixr 6 ++.
 
 -- | Matches regular expression, case sensitive
 --
--- Corresponds to the @~.@ operator.
+-- Corresponds to the @~@ operator.
 (~.) :: Expr Text -> Expr Text -> Expr Bool
-(~.) = binaryOperator "~."
+(~.) = binaryOperator "~"
 infix 2 ~.
 
 
