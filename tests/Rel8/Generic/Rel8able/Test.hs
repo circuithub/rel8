@@ -515,3 +515,26 @@ genTableType = do
     linearFrac :: (Fractional a, Ord a) => Range.Range a
     linearFrac = Range.linearFrac 0 10
 
+
+data TableNumeric f = TableNumeric
+  { foo :: Column f (Fixed E2)
+  } deriving stock (Generic)
+deriving anyclass instance Rel8able TableNumeric
+deriving stock instance f ~ Result => Show (TableNumeric f)
+deriving stock instance f ~ Result => Eq (TableNumeric f)
+
+tableNumeric :: TableSchema (TableNumeric Name)
+tableNumeric = makeSchema "tableNumeric"
+
+
+data TableChar f = TableChar
+  { foo :: Column f Char
+  } deriving stock (Generic)
+deriving anyclass instance Rel8able TableChar
+deriving stock instance f ~ Result => Show (TableChar f)
+deriving stock instance f ~ Result => Eq (TableChar f)
+
+tableChar :: TableSchema (TableChar Name)
+tableChar = makeSchema "tableChar"
+
+

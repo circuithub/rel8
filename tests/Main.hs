@@ -183,13 +183,52 @@ testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
   , testTypeChecker "tableType" Rel8able.tableType Rel8able.genTableType getTestDatabase
   , testWrongTable getTestDatabase
   , testDuplicateTable getTestDatabase
+  , testCharMismatch getTestDatabase
+  , testNumericMismatch getTestDatabase
   ]
   where
+    -- confirms that the type checker works correctly for numeric modifiers
+    testNumericMismatch = databasePropertyTest "numeric mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableNumeric\" ( foo numeric(1000, 4) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableNumeric\" alter column foo set data type numeric(1000, 2);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> pure ()
+        Just _ -> failure
+
+    -- tests that the type checker works correctly for bpchar modifiers
+    testCharMismatch = databasePropertyTest "bpchar mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableChar\" ( foo bpchar(2) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableChar\" alter column foo set data type bpchar(1);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> pure ()
+        Just a -> do
+            annotate (unpack a)
+            failure
+
+
+      
+
+
     -- confirms that the type checker fails when no type errors are present in a
     -- table with duplicate column names
     testDuplicateTable = databasePropertyTest "duplicate columns" \transaction -> transaction do
       lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableDuplicate
-      typeErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema Rel8able.tableDuplicate]
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableDuplicate]
       case typeErrors of
         Nothing -> failure
         Just _ -> pure ()
@@ -197,7 +236,8 @@ testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
     -- confirms that the type checker fails if the types mismatch
     testWrongTable = databasePropertyTest "type mismatch" \transaction -> transaction do
       lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableType
-      typeErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema Rel8able.badTableType]
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.badTableType]
       case typeErrors of
         Nothing -> failure
         Just _ -> pure ()

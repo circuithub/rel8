@@ -26,54 +26,56 @@ module Rel8.Table.Verify
     ) where
 
 -- base
-import Prelude hiding ( filter )
-import qualified Prelude as P
-import Data.These
 import Control.Monad
+import Data.Bits (shiftR, (.&.))
+import Data.Either (lefts)
 import Data.Function
 import Data.Functor ((<&>))
-import Data.Maybe (isJust, mapMaybe)
+import Data.Functor.Const
+import Data.Functor.Contravariant ( (>$<) )
+import Data.Int ( Int16, Int64 )
 import qualified Data.List as L
+import Data.List.NonEmpty ( NonEmpty((:|)) )
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Maybe (isJust, mapMaybe)
+import Data.Text ( Text )
+import qualified Data.Text as T
+import GHC.Generics
+import Prelude hiding ( filter )
+import qualified Prelude as P
+
+-- containers
+import qualified Data.Map as M
 
 -- hasql
 import Hasql.Connection
 import qualified Hasql.Statement as HS
 
-import Data.Either (lefts)
-import Data.Functor.Contravariant ( (>$<) )
-import Data.Int ( Int16, Int64 )
-import Data.Text ( Text )
-import qualified Data.Text as T
-import GHC.Generics
-import Data.List.NonEmpty ( NonEmpty((:|)) )
-import qualified Data.List.NonEmpty as NonEmpty
-
--- containers
-import qualified Data.Map as M
-
 -- rel8
 import Rel8 -- not importing this seems to cause a type error???
-import Rel8.Schema.Null hiding (nullable)
-import Rel8.Generic.Rel8able (GFromExprs, Rel8able)
-import qualified Rel8.Schema.Null as Null
-import Rel8.Schema.Table ( TableSchema(..) )
-import qualified Rel8.Statement.Run as RSR
-import Rel8.Schema.Name ( Name(Name) )
+import Rel8.Column ( Column )
+import Rel8.Column.List ( HList )
 import Rel8.Expr ( Expr )
-import Rel8.Table ( Columns )
+import Rel8.Generic.Rel8able (GFromExprs, Rel8able)
+import Rel8.Query ( Query )
+import Rel8.Schema.HTable
+import Rel8.Schema.Name ( Name(Name) )
+import Rel8.Schema.Null hiding (nullable)
+import qualified Rel8.Schema.Null as Null
+import qualified Rel8.Statement.Run as RSR
+import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Schema.Spec
 import Rel8.Schema.Result ( Result )
 import Rel8.Schema.QualifiedName ( QualifiedName(..) )
-import Rel8.Query ( Query )
-import Rel8.Column ( Column )
-import Rel8.Type.Eq ( DBEq )
-import Rel8.Type ( DBType(..) )
+import Rel8.Table ( Columns )
 import Rel8.Table.List ( ListTable )
-import Rel8.Column.List ( HList )
-import Data.Functor.Const
-import Rel8.Schema.HTable
-import Rel8.Type.Name ( TypeName(..) )
 import Rel8.Table.Serialize ( ToExprs )
+import Rel8.Type ( DBType(..) )
+import Rel8.Type.Eq ( DBEq )
+import Rel8.Type.Name ( TypeName(..) )
+
+-- these
+import Data.These
 
 
 data Relkind
@@ -143,6 +145,7 @@ data PGAttribute f = PGAttribute
   , attname :: Column f Text
   , atttypid :: Column f Oid
   , attnum :: Column f Int64
+  , atttypmod :: Column f Int64
   , attnotnull :: Column f Bool
   , attndims :: Column f Int16
   }
@@ -160,6 +163,7 @@ pgattribute = TableSchema
 data PGType f = PGType
   { oid :: Column f Oid
   , typname :: Column f Text
+  , typnamespace :: Column f Oid
   }
   deriving stock (Generic)
   deriving anyclass (Rel8able)
@@ -218,6 +222,7 @@ deriving stock instance Show (PGTable Result)
 data Attribute f = Attribute
   { attribute :: PGAttribute f
   , typ :: PGType f
+  , namespace :: PGNamespace f
   }
   deriving stock (Generic)
   deriving anyclass (Rel8able)
@@ -250,7 +255,13 @@ fetchTables = many do
         each pgtype
           >>= filter (\PGType{ oid = typoid } -> atttypid ==. typoid)
 
-      return Attribute{ attribute, typ }
+      namespace <-
+        each pgnamespace
+          >>= filter (\PGNamespace{ oid = nsoid } -> nsoid ==. typ.typnamespace)
+
+
+
+      return Attribute{ attribute, typ, namespace }
 
     return PGTable
       { name = relname
@@ -322,7 +333,7 @@ checkedSchemaToTypeMap cols =
 
 
 showCreateTable_helper :: String -> M.Map String TypeInfo -> String
-showCreateTable_helper name typeMap = "CREATE TABLE IF NOT EXISTS " <> show name <> " ("
+showCreateTable_helper name typeMap = "CREATE TABLE " <> show name <> " ("
     ++ L.intercalate "," (fmap go $ M.assocs typeMap)
     ++ "\n);"
   where
@@ -339,11 +350,9 @@ showCreateTable_helper name typeMap = "CREATE TABLE IF NOT EXISTS " <> show name
 showCreateTable :: Rel8able k => TableSchema (k Name) -> String
 showCreateTable schema = showCreateTable_helper schema.name.name $ fmap NonEmpty.head $ schemaToTypeMap schema.columns
 
-
--- |@'safeShowCreateTable'@ shows an example CREATE TABLE statement for the table.
--- This does not show relationships like primary or foreign keys, but can still
--- be useful to see what types rel8 will expect of the underlying database
--- table.
+-- |@'checkedShowCreateTable'@ shows an example CREATE TABLE statement for the
+-- table. This does not show relationships like primary or foreign keys, but can
+-- still be useful to see what types rel8 will expect of the underlying database.
 --
 -- In the event multiple columns have the same name, this will return a map of
 -- names to the labels identifying the column.
@@ -352,39 +361,51 @@ checkedShowCreateTable schema = case checkedSchemaToTypeMap schema.columns of
     Left e -> Left $ (fmap . fmap) (\typ -> typ.label) e
     Right a -> Right $ showCreateTable_helper schema.name.name a
 
-
 -- implicit casts are ok as long as they're bidirectional
-checkTypeEquality :: CheckEnv -> Attribute Result -> TypeInfo -> Maybe ColumnError
-checkTypeEquality env attr ty 
-  | attrTyName == tyTyName && attrDims == tyDims = Nothing
-  | (attrTyName, tyTyName) `elem` env.casts && (tyTyName, attrTyName) `elem` env.casts
-    && attrDims == tyDims
-  = Nothing
-  | otherwise = Just BidirectionalCastDoesNotExist
+checkTypeEquality :: CheckEnv -> TypeInfo -> TypeInfo -> Maybe ColumnError
+checkTypeEquality env db hs
+  | Prelude.and [sameDims, sameMods, toName db == toName hs || castExists]
+    = Nothing
+  | otherwise
+    = Just BidirectionalCastDoesNotExist
   where
-    attrTyName = dropWhile (=='_') $ T.unpack attr.typ.typname
-    attrDims = fromIntegral attr.attribute.attndims
-    tyTyName = case ty.typeName.name of
-      QualifiedName a _ -> dropWhile (=='_') a
-    tyDims = fromIntegral ty.typeName.arrayDepth
+    castExists = Prelude.and
+      [ (toName db, toName hs) `elem` env.casts
+      , (toName hs, toName db) `elem` env.casts
+      ]
 
+    sameMods, sameDims :: Bool
+    sameMods = db.typeName.modifiers == hs.typeName.modifiers
+    sameDims = db.typeName.arrayDepth == hs.typeName.arrayDepth
+
+    sameName = equalName db.typeName.name hs.typeName.name
+
+    toName :: TypeInfo -> String
+    toName typeInfo = case typeInfo.typeName.name of
+        QualifiedName name _ -> L.dropWhile (=='_') name
+
+equalName :: QualifiedName -> QualifiedName -> Bool
+equalName (QualifiedName a (Just b)) (QualifiedName a' (Just b'))
+  = L.dropWhile (=='_') a == L.dropWhile (=='_') a' && b == b'
+equalName (QualifiedName a _) (QualifiedName a' _)
+  = dropWhile (=='_') a == dropWhile (=='_') a'
 
 -- check types for a single table
 compareTypes
     :: CheckEnv
     -> M.Map String (Attribute Result)
     -> M.Map String TypeInfo
-    -> [ColumnDiff]
+    -> [ColumnInfo]
 compareTypes env attrMap typeMap = fmap (uncurry go) $ M.assocs (disjointUnion attrMap typeMap)
   where
-    go :: String -> These (Attribute Result) TypeInfo -> ColumnDiff
-    go name (These a b) = ColumnDiff
+    go :: String -> These (Attribute Result) TypeInfo -> ColumnInfo
+    go name (These a b) = ColumnInfo
         { name = name
         , dbType = Just $ fromAttribute a
         , hsType = Just $ b
-        , error = checkTypeEquality env a b
+        , error = checkTypeEquality env (fromAttribute a) b
         }
-    go name (This a) = ColumnDiff
+    go name (This a) = ColumnInfo
         { name = name
         , dbType = Just $ fromAttribute a
         , hsType = Nothing
@@ -393,7 +414,7 @@ compareTypes env attrMap typeMap = fmap (uncurry go) $ M.assocs (disjointUnion a
             then Just DbTypeIsNotNullButNotPresentInHsType
             else Nothing
         }
-    go name (That b) = ColumnDiff
+    go name (That b) = ColumnInfo
         { name = name
         , dbType = Nothing
         , hsType = Just $ b
@@ -405,11 +426,22 @@ compareTypes env attrMap typeMap = fmap (uncurry go) $ M.assocs (disjointUnion a
         { label = [T.unpack attr.attribute.attname]
         , isNull = not attr.attribute.attnotnull
         , typeName = TypeName
-            { name = QualifiedName (T.unpack attr.typ.typname) Nothing
-            , modifiers = []
+            { name = QualifiedName
+                (T.unpack attr.typ.typname)
+                (Just $ T.unpack attr.namespace.nspname)
+            , modifiers = toModifier
+                (T.dropWhile (=='_') attr.typ.typname)
+                attr.attribute.atttypmod
             , arrayDepth = fromIntegral attr.attribute.attndims
             }
         }
+
+    toModifier :: Text -> Int64 -> [String]
+    toModifier "bpchar" (-1) = []
+    toModifier "bpchar" n = [show (n - 4)]
+    toModifier "numeric" (-1) = []
+    toModifier "numeric" n = [show $ (n - 4) `shiftR` 16, show $ (n - 4) .&. 65535]
+    toModifier _ _ = []
 
     disjointUnion :: Ord k => M.Map k a -> M.Map k b -> M.Map k (These a b)
     disjointUnion a b = M.unionWith go (fmap This a) (fmap That b)
@@ -441,11 +473,11 @@ pShowTable xs
     lengths = fmap (maximum . fmap T.length) $ xs'
 
 
-pShowErrors :: [TableDiff] -> Text
+pShowErrors :: [TableInfo] -> Text
 pShowErrors = T.intercalate "\n\n" . fmap go
   where
-    go :: TableDiff -> Text
-    go (TableDiff {tableExists, name, columns}) = "Table: " <> T.pack name
+    go :: TableInfo -> Text
+    go (TableInfo {tableExists, name, columns}) = "Table: " <> T.pack name
         <> if not tableExists then " does not exist\n" else "\n"
         <> pShowTable (["Column Name", "Implied DB type", "Current DB type", "Error"] : (columns <&> \column ->
             [ T.pack $ column.name
@@ -453,25 +485,29 @@ pShowErrors = T.intercalate "\n\n" . fmap go
             , T.pack $ maybe "" showTypeInfo column.dbType
             , T.pack $ maybe "" show column.error
             ]))
-    go (DuplicateNames {name, duplicates}) = "Table " <> T.pack name <> " has multiple columns with the same name. Using 'namesFromLabels' can ensure each column has unique names, which is the easiest way to prevent this, but may require changing names in your database to match the generated names."
-        <> pShowTable (["DB name", "Haskell label"] : (M.assocs duplicates <&> \(name, typs) ->
+    go (DuplicateNames {name, duplicates}) = mconcat
+        [ "Table "
+        , T.pack (show name)
+        , " has multiple columns with the same name. This is an error with the Haskell code generating an impossible schema, rather than an error in your current setup of the database itself. Using 'namesFromLabels' can ensure each column has unique names, which is the easiest way to prevent this, but may require changing names in your database to match the new generated names."
+        , pShowTable (["DB name", "Haskell label"] : (M.assocs duplicates <&> \(name, typs) ->
             [ T.pack name
             , T.intercalate " " $ fmap (\typ -> T.intercalate "/" $ fmap T.pack typ.label) $ NonEmpty.toList typs
             ]))
+        ]
 
 
-data TableDiff
-  = TableDiff
+data TableInfo
+  = TableInfo
     { tableExists :: Bool
     , name :: String
-    , columns :: [ColumnDiff]
+    , columns :: [ColumnInfo]
     }
   | DuplicateNames
     { name :: String
     , duplicates :: M.Map String (NonEmpty.NonEmpty TypeInfo)
     }
   deriving (Show)
-data ColumnDiff = ColumnDiff
+data ColumnInfo = ColumnInfo
     { name   :: String
     , hsType :: Maybe TypeInfo
     , dbType :: Maybe TypeInfo
@@ -485,26 +521,33 @@ data ColumnError
 
 
 showTypeInfo :: TypeInfo -> String
-showTypeInfo typeInfo = name
-    <> concat (replicate (fromIntegral typeInfo.typeName.arrayDepth) "[]")
-    <> if typeInfo.isNull then "" else " NOT NULL"
+showTypeInfo typeInfo = concat
+    [ name
+    , if Prelude.null modifiers then "" else "(" <> L.intercalate "," modifiers <> ")"
+    , concat (replicate (fromIntegral typeInfo.typeName.arrayDepth) "[]")
+    , if typeInfo.isNull then "" else " NOT NULL"
+    ]
   where
     name = case typeInfo.typeName.name of
-        QualifiedName a _ -> dropWhile (=='_') a
+        QualifiedName a Nothing -> show (dropWhile (=='_') a)
+        QualifiedName a (Just b) -> show b <> "." <> show (dropWhile (=='_') a)
+
+    modifiers :: [String]
+    modifiers = typeInfo.typeName.modifiers
 
 
-verifySchema :: Rel8able k => CheckEnv -> TableSchema (k Name) -> TableDiff
+verifySchema :: Rel8able k => CheckEnv -> TableSchema (k Name) -> TableInfo
 verifySchema env schema = case checkedSchemaToTypeMap schema.columns of
     Left dups -> DuplicateNames schema.name.name dups
     Right typeMap -> go typeMap maybeTable
   where
     maybeTable = M.lookup schema.name.name env.schemaMap
-    go typeMap Nothing = TableDiff
+    go typeMap Nothing = TableInfo
         { tableExists = False
         , name = schema.name.name
         , columns = compareTypes env mempty typeMap
         }
-    go typeMap (Just attrs) = TableDiff
+    go typeMap (Just attrs) = TableInfo
         { tableExists = True
         , name = schema.name.name
         , columns = compareTypes env (attrsToMap attrs) typeMap
@@ -585,15 +628,15 @@ getSchemaErrors someTables = fmap collectErrors fetchCheckEnv
 
     -- removes each column which is valid for use by rel8, as well as each table
     -- which contains only valid columns
-    filterErrors :: [TableDiff] -> Maybe [TableDiff]
+    filterErrors :: [TableInfo] -> Maybe [TableInfo]
     filterErrors tables = case mapMaybe go tables of
         [] -> Nothing
         xs -> Just xs
       where
-        go :: TableDiff -> Maybe TableDiff
-        go TableDiff {..} = case P.filter (\cd -> isJust cd.error) columns of
-            [] -> if tableExists then Nothing else Just $ TableDiff { name , tableExists , columns = [] }
-            xs -> Just $ TableDiff { name , tableExists , columns = xs }
+        go :: TableInfo -> Maybe TableInfo
+        go TableInfo {..} = case P.filter (\cd -> isJust cd.error) columns of
+            [] -> if tableExists then Nothing else Just $ TableInfo { name , tableExists , columns = [] }
+            xs -> Just $ TableInfo { name , tableExists , columns = xs }
         go DuplicateNames {..} = Just (DuplicateNames {..})
 
 
