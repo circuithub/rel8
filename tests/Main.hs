@@ -625,7 +625,14 @@ testFromRational = databasePropertyTest "fromRational" \transaction -> do
         pure $ fromRational rational
     diff result (~=) double
   where
-    a ~= b = abs (a - b) < 1e-15
+    wholeDigits x = fromIntegral $ length $ show $ round x
+    -- A Double gives us between 15-17 decimal digits of precision.
+    -- It's tempting to say that two numbers are equal if they differ by less than 1e15.
+    -- But this doesn't hold.
+    -- The precision is split between the whole numer part and the decimal part of the number.
+    -- For instance, a number between 10 and 99 only has around 13 digits of precision in its decimal part.
+    -- Postgres and Haskell show differing amounts of digits in these cases,
+    a ~= b = abs (a - b) < 10**(-15 + wholeDigits a)
     infix 4 ~=
 
 
