@@ -81,6 +81,7 @@ import Test.Tasty.Hedgehog ( testProperty )
 
 -- text
 import Data.Text ( Text, pack, unpack )
+import qualified Data.Text as T
 import qualified Data.Text.Lazy
 import Data.Text.Encoding ( decodeUtf8 )
 
@@ -430,14 +431,18 @@ instance Rel8.DBComposite Composite where
   compositeTypeName = "composite"
   compositeFields = Rel8.namesFromLabels
 
+-- | Postgres doesn't support the NULL character (not to be confused with a NULL value) inside strings.
+removeNull :: Text -> Text
+removeNull = T.filter (/='\0')
+
 
 testDBType :: IO TmpPostgres.DB -> TestTree
 testDBType getTestDatabase = testGroup "DBType instances"
   [ dbTypeTest "Bool" Gen.bool
   , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
   , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
-  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "CI Text" $ mk <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "CI Text" $ mk .removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "Composite" genComposite
   , dbTypeTest "Day" genDay
   , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
@@ -446,10 +451,10 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
-  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "LocalTime" genLocalTime
   , dbTypeTest "Scientific" $ (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
-  , dbTypeTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Text" $ removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
