@@ -14,6 +14,7 @@ module Rel8.Expr.Time
   , addTime
   , diffTime
   , subtractTime
+  , unsafeExtractFromTime
 
   -- * Working with @CalendarDiffTime@
   , scaleInterval
@@ -24,6 +25,7 @@ module Rel8.Expr.Time
   , week, weeks
   , month, months
   , year, years
+  , unsafeExtractFromInterval
   ) where
 
 -- base
@@ -32,8 +34,10 @@ import Prelude
 
 -- rel8
 import Rel8.Expr ( Expr )
-import Rel8.Expr.Function (binaryOperator, function)
-import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral )
+import Rel8.Expr.Function ( binaryOperator, function )
+import Rel8.Expr.Opaleye ( castExpr, unsafeCastExpr, unsafeLiteral, fromPrimExpr, toPrimExpr )
+import Rel8.Type ( DBType )
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- time
 import Data.Time.Calendar ( Day )
@@ -90,6 +94,14 @@ diffTime = binaryOperator "-"
 subtractTime :: Expr CalendarDiffTime -> Expr UTCTime -> Expr UTCTime
 subtractTime = flip (binaryOperator "-")
 
+-- | Extract a part of a point in time. See possibilities
+-- [here](https://www.postgresqltutorial.com/postgresql-date-functions/postgresql-extract/).
+-- This function is unsafe because you must decide yourself the output type.
+unsafeExtractFromTime :: DBType a => String -> Expr UTCTime -> Expr a
+unsafeExtractFromTime name expr =
+  castExpr $
+  fromPrimExpr $
+  Opaleye.FunExpr "EXTRACT" [Opaleye.FunExpr (name <> " FROM") [toPrimExpr expr]]
 
 scaleInterval :: Expr Double -> Expr CalendarDiffTime -> Expr CalendarDiffTime
 scaleInterval = binaryOperator "*"
@@ -167,3 +179,13 @@ years = (`scaleInterval` year)
 
 singleton :: String -> Expr CalendarDiffTime
 singleton unit = castExpr $ unsafeLiteral $ "'1 " ++ unit ++ "'"
+
+-- | Extract a part of an interval. See possibilities
+-- [here](https://www.postgresqltutorial.com/postgresql-date-functions/postgresql-extract/).
+-- This function is unsafe because you must decide yourself the output type.
+unsafeExtractFromInterval :: DBType a => String -> Expr CalendarDiffTime -> Expr a
+unsafeExtractFromInterval name expr =
+  castExpr $
+  fromPrimExpr $
+  Opaleye.FunExpr "EXTRACT" [Opaleye.FunExpr (name <> " FROM") [toPrimExpr expr]]
+
