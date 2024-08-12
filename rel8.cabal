@@ -28,6 +28,7 @@ library
     , bytestring
     , case-insensitive
     , comonad
+    , containers
     , contravariant
     , hasql >= 1.8 && < 1.10
     , iproute ^>= 1.7
@@ -69,6 +70,7 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
+    Rel8.Table.Verify
     Rel8.Tabulate
 
   other-modules:
@@ -264,6 +266,7 @@ test-suite tests
     , tasty
     , tasty-hedgehog
     , text
+    , these
     , time
     , tmp-postgres      ^>=1.34.1.0
     , transformers
