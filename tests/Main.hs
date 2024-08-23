@@ -66,6 +66,8 @@ import Control.Monad.Morph ( hoist )
 import Network.IP.Addr (NetAddr, IP, IP4(..), IP6(..), IP46(..), net4Addr, net6Addr, fromNetAddr46, Net4Addr, Net6Addr)
 import Data.DoubleWord (Word128(..))
 
+import qualified Data.IP
+
 -- rel8
 import Rel8 ( Result )
 import qualified Rel8
@@ -459,6 +461,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
   , dbTypeTest "INet" genNetAddrIP
+  , dbTypeTest "INet" genIPRange
   ]
 
   where
@@ -572,6 +575,23 @@ testDBType getTestDatabase = testGroup "DBType instances"
         genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
 
        in fromNetAddr46 <$> Gen.choice [ genIPv4, genIPv6 ]
+
+    genIPRange :: Gen (Data.IP.IPRange)
+    genIPRange =
+      let
+        genIP4Mask :: Gen Int
+        genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
+
+        genIPv4 :: Gen Data.IP.IPv4
+        genIPv4 = Data.IP.toIPv4w <$> genWord32
+
+        genIP6Mask :: Gen Int
+        genIP6Mask = Gen.integral (Range.linearFrom 0 0 128)
+
+        genIPv6 :: Gen (Data.IP.IPv6)
+        genIPv6 = Data.IP.toIPv6w <$> ((,,,) <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32)
+
+       in Gen.choice [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask), Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)]
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
