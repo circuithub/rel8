@@ -35,6 +35,10 @@ nullify :: NotNull a => Expr a -> Expr (Maybe a)
 nullify (Expr a) = Expr a
 
 
+-- | Assume that a nullable column's value is non-null. If the column is
+-- actually @null@, this will lead to runtime errors when you try to decode
+-- the value into Haskell, so you should prefer to use 'Rel8.nullable'
+-- unless you know what you're doing.
 unsafeUnnullify :: Expr (Maybe a) -> Expr a
 unsafeUnnullify (Expr a) = Expr a
 
