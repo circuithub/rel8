@@ -129,6 +129,7 @@ module Rel8
   , catNullTable
   , nameNullTable
   , toNullTable, toMaybeTable
+  , unsafeUnnullifyTable
 
     -- ** Algebraic data types / sum types
     -- $adts
@@ -184,6 +185,7 @@ module Rel8
   , liftOpNull
   , catNull
   , coalesce
+  , unsafeUnnullify
 
     -- ** Boolean operations
   , DBEq
