@@ -13,6 +13,8 @@
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
 
+{-# language PartialTypeSignatures #-}
+
 module Main
   ( main
   )
@@ -37,6 +39,7 @@ import GHC.Generics ( Generic )
 import Prelude hiding (truncate)
 
 -- bytestring
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy
 
 -- case-insensitive
@@ -52,10 +55,11 @@ import Hasql.Session ( sql, run )
 
 -- hasql-transaction
 import Hasql.Transaction ( Transaction, condemn, statement )
+import qualified Hasql.Transaction as Hasql
 import qualified Hasql.Transaction.Sessions as Hasql
 
 -- hedgehog
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( annotate, failure, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
@@ -69,6 +73,8 @@ import Data.DoubleWord (Word128(..))
 -- rel8
 import Rel8 ( Result )
 import qualified Rel8
+import qualified Rel8.Generic.Rel8able.Test as Rel8able
+import qualified Rel8.Table.Verify as Verify
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -139,10 +145,9 @@ tests =
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
     , testEvaluate getTestDatabase
+    , testShowCreateTable getTestDatabase
     ]
-
   where
-
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
@@ -161,6 +166,107 @@ tests =
 
 connect :: TmpPostgres.DB -> IO Connection
 connect = acquire . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
+
+
+testShowCreateTable :: IO TmpPostgres.DB -> TestTree
+testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
+  [ testTypeChecker "tableTest" Rel8able.tableTest Rel8able.genTableTest getTestDatabase
+  , testTypeChecker "tablePair" Rel8able.tablePair Rel8able.genTablePair getTestDatabase
+  , testTypeChecker "tableMaybe" Rel8able.tableMaybe Rel8able.genTableMaybe getTestDatabase
+  , testTypeChecker "tableEither" Rel8able.tableEither Rel8able.genTableEither getTestDatabase
+  , testTypeChecker "tableThese" Rel8able.tableThese Rel8able.genTableThese getTestDatabase
+  , testTypeChecker "tableList" Rel8able.tableList Rel8able.genTableList getTestDatabase
+  , testTypeChecker "tableNest" Rel8able.tableNest Rel8able.genTableNest getTestDatabase
+  , testTypeChecker "nonRecord" Rel8able.nonRecord Rel8able.genNonRecord getTestDatabase
+  , testTypeChecker "tableProduct" Rel8able.tableProduct Rel8able.genTableProduct getTestDatabase
+  , testTypeChecker "tableType" Rel8able.tableType Rel8able.genTableType getTestDatabase
+  , testWrongTable getTestDatabase
+  , testDuplicateTable getTestDatabase
+  , testCharMismatch getTestDatabase
+  , testNumericMismatch getTestDatabase
+  ]
+  where
+    -- confirms that the type checker works correctly for numeric modifiers
+    testNumericMismatch = databasePropertyTest "numeric mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableNumeric\" ( foo numeric(1000, 4) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableNumeric\" alter column foo set data type numeric(1000, 2);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> pure ()
+        Just _ -> failure
+
+    -- tests that the type checker works correctly for bpchar modifiers
+    testCharMismatch = databasePropertyTest "bpchar mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableChar\" ( foo bpchar(2) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableChar\" alter column foo set data type bpchar(1);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> pure ()
+        Just a -> do
+            annotate (unpack a)
+            failure
+
+    -- confirms that the type checker fails when no type errors are present in a
+    -- table with duplicate column names
+    testDuplicateTable = databasePropertyTest "duplicate columns" \transaction -> transaction do
+      lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableDuplicate
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableDuplicate]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+
+    -- confirms that the type checker fails if the types mismatch
+    testWrongTable = databasePropertyTest "type mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableType
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.badTableType]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+
+    testTypeChecker ::
+      ( Show (k Result), Rel8.Rel8able k, Rel8.Selects (k Rel8.Name) (k Rel8.Expr)
+      , Rel8.Serializable (k Rel8.Expr) (k Rel8.Result))
+      => TestName -> Rel8.TableSchema (k Rel8.Name) -> Gen (k Result) -> IO TmpPostgres.DB -> TestTree
+    testTypeChecker testName tableSchema genRows = databasePropertyTest testName \transaction -> do
+      rows <- forAll $ Gen.list (Range.linear 0 10) genRows
+
+      transaction do
+        lift $ Hasql.sql $ B.pack $ Verify.showCreateTable tableSchema
+        typeErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema tableSchema]
+        case typeErrors of
+          Nothing -> pure ()
+          Just typ -> do
+            annotate (unpack typ)
+            failure
+
+        selected <- lift do
+          statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
+            { into = tableSchema
+            , rows = Rel8.values $ map Rel8.lit rows
+            , onConflict = Rel8.DoNothing
+            , returning = Rel8.NoReturning
+            }
+          statement () $ Rel8.run $ Rel8.select do
+            Rel8.each tableSchema
+
+        -- not every type we use this with has an ord instance, and we're
+        -- primarily checking the type checker here, not the parser/printer,
+        -- so we this is only here as one additional check
+        length selected === length rows
 
 
 databasePropertyTest

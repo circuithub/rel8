@@ -29,6 +29,7 @@ library
     , bytestring
     , case-insensitive
     , comonad
+    , containers
     , contravariant
     , data-textual
     , hasql >= 1.6.1.2 && < 1.8
@@ -65,6 +66,7 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
+    Rel8.Table.Verify
     Rel8.Tabulate
 
   other-modules:
@@ -238,7 +240,8 @@ library
 test-suite tests
   type:             exitcode-stdio-1.0
   build-depends:
-      base
+      aeson
+    , base
     , bytestring
     , case-insensitive
     , containers
@@ -253,10 +256,12 @@ test-suite tests
     , tasty
     , tasty-hedgehog
     , text
+    , these
     , time
     , tmp-postgres      ^>=1.34.1.0
     , transformers
     , uuid
+    , vector
 
   other-modules:
     Rel8.Generic.Rel8able.Test
