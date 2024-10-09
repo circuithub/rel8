@@ -102,6 +102,7 @@ library
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
     Rel8.Expr.Show
+    Rel8.Expr.Subscript
     Rel8.Expr.Window
 
     Rel8.FCF

@@ -13,6 +13,10 @@ module Rel8.Array
   , index1, index1Expr
   , last1, last1Expr
   , length1, length1Expr
+
+    -- ** Unsafe
+  , unsafeSubscript
+  , unsafeSubscripts
   )
 where
 
@@ -22,5 +26,6 @@ import Prelude hiding (head, last, length)
 -- rel8
 import Rel8.Expr.List
 import Rel8.Expr.NonEmpty
+import Rel8.Expr.Subscript
 import Rel8.Table.List
 import Rel8.Table.NonEmpty
