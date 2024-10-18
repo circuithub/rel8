@@ -242,7 +242,8 @@ library
 test-suite tests
   type:             exitcode-stdio-1.0
   build-depends:
-      base
+      aeson
+    , base
     , bytestring
     , case-insensitive
     , containers
@@ -262,6 +263,7 @@ test-suite tests
     , tmp-postgres      ^>=1.34.1.0
     , transformers
     , uuid
+    , vector
 
   other-modules:
     Rel8.Generic.Rel8able.Test

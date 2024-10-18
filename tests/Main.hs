@@ -18,6 +18,11 @@ module Main
   )
 where
 
+-- aeson
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Aeson.Key
+import qualified Data.Aeson.KeyMap as Aeson.KeyMap
+
 -- base
 import Control.Applicative ( empty, liftA2, liftA3 )
 import Control.Exception ( bracket, throwIO )
@@ -98,6 +103,9 @@ import qualified Database.Postgres.Temp as TmpPostgres
 
 -- uuid
 import qualified Data.UUID
+
+-- vector
+import qualified Data.Vector as Vector
 
 
 main :: IO ()
@@ -455,13 +463,16 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
   , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "LocalTime" genLocalTime
-  , dbTypeTest "Scientific" $ (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
+  , dbTypeTest "Scientific" $ genScientific
   , dbTypeTest "Text" $ removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
   , dbTypeTest "INet" genNetAddrIP
   , dbTypeTest "INet" genIPRange
+  , dbTypeTest "Value" genValue
+  , dbTypeTest "JSONEncoded" genJSONEncoded
+  , dbTypeTest "JSONBEncoded" genJSONBEncoded
   ]
 
   where
@@ -517,7 +528,8 @@ testDBType getTestDatabase = testGroup "DBType instances"
         diff res''''' (==) (concat xsss)
       
 
-      
+    genScientific :: Gen Scientific
+    genScientific = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
 
     genComposite :: Gen Composite
     genComposite = do
@@ -592,6 +604,22 @@ testDBType getTestDatabase = testGroup "DBType instances"
         genIPv6 = Data.IP.toIPv6w <$> ((,,,) <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32)
 
        in Gen.choice [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask), Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)]
+
+    genKey :: Gen Aeson.Key
+    genKey = Aeson.Key.fromText <$> Gen.text (Range.linear 0 10) Gen.unicode
+
+    genValue :: Gen Aeson.Value
+    genValue = Gen.recursive Gen.choice
+     [ pure Aeson.Null
+     , Aeson.Bool <$> Gen.bool
+     , Aeson.Number <$> genScientific
+     , Aeson.String <$> Gen.text (Range.linear 0 10) Gen.unicode]
+     [ Aeson.Object . Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
+     , Aeson.Array . Vector.fromList <$> Gen.list (Range.linear 0 10) genValue
+     ]
+
+    genJSONEncoded = Rel8.JSONEncoded <$> genValue
+    genJSONBEncoded = Rel8.JSONBEncoded <$> genValue
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
