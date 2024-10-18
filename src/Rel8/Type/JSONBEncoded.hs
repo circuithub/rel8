@@ -30,7 +30,7 @@ import Data.Text ( pack )
 -- | Like 'Rel8.JSONEncoded', but works for @jsonb@ columns.
 type JSONBEncoded :: Type -> Type
 newtype JSONBEncoded a = JSONBEncoded { fromJSONBEncoded :: a }
-
+  deriving (Show, Eq, Ord)
 
 instance (FromJSON a, ToJSON a) => DBType (JSONBEncoded a) where
   typeInformation = TypeInformation
