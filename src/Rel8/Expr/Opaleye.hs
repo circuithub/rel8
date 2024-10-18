@@ -9,6 +9,8 @@
 module Rel8.Expr.Opaleye
   ( castExpr, unsafeCastExpr
   , scastExpr, sunsafeCastExpr
+  , unsafeCoerceExpr
+  , unsafePrimExpr
   , unsafeLiteral
   , fromPrimExpr, toPrimExpr, mapPrimExpr, zipPrimExprsWith, traversePrimExpr
   , toColumn, fromColumn, traverseFieldP
@@ -44,6 +46,22 @@ unsafeCastExpr = case typeInformation @(Unnullify b) of
   TypeInformation {typeName} -> sunsafeCastExpr typeName
 
 
+-- | Change the type of an 'Expr', without a cast. Even more unsafe than
+-- 'unsafeCastExpr'. Only use this if you are certain that the @typeName@s of
+-- @a@ and @b@ refer to exactly the same PostgreSQL type.
+unsafeCoerceExpr :: Expr a -> Expr b
+unsafeCoerceExpr (Expr a) = Expr a
+
+
+-- | Import a raw 'Opaleye.PrimExpr' from @opaleye@, without a cast.
+--
+-- This is an escape hatch, and can be used if Rel8 cannot adequately express
+-- the expression you need. If you find yourself using this function, please
+-- let us know, as it may indicate that something is missing from Rel8!
+unsafePrimExpr :: Opaleye.PrimExpr -> Expr a
+unsafePrimExpr = fromPrimExpr
+
+
 scastExpr :: TypeInformation (Unnullify a) -> Expr a -> Expr a
 scastExpr TypeInformation {typeName} = sunsafeCastExpr typeName
 
@@ -56,9 +74,9 @@ sunsafeCastExpr name =
 
 -- | Unsafely construct an expression from literal SQL.
 --
--- This is an escape hatch, and can be used if Rel8 can not adequately express
--- the query you need. If you find yourself using this function, please let us
--- know, as it may indicate that something is missing from Rel8!
+-- This is an escape hatch, and can be used if Rel8 cannot adequately express
+-- the expression you need. If you find yourself using this function, please let
+-- us know, as it may indicate that something is missing from Rel8!
 unsafeLiteral :: String -> Expr a
 unsafeLiteral = Expr . Opaleye.ConstExpr . Opaleye.OtherLit
 
