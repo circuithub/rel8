@@ -168,6 +168,7 @@ class HTable (GColumns t) => Rel8able t where
   type GColumns t = G.GColumns TColumns (GRep t Expr)
   type GFromExprs t = t Result
 
+  {-# NOINLINE gfromColumns #-} -- See Note [Generics and Inlining]
   default gfromColumns :: forall context.
     ( SRel8able t Expr
     , forall table. SRel8able t (Field table)
@@ -181,6 +182,7 @@ class HTable (GColumns t) => Rel8able t where
     SName -> sfromColumns
     SResult -> sfromResult
 
+  {-# NOINLINE gtoColumns #-} -- See Note [Generics and Inlining]
   default gtoColumns :: forall context.
     ( SRel8able t Expr
     , forall table. SRel8able t (Field table)
@@ -194,10 +196,12 @@ class HTable (GColumns t) => Rel8able t where
     SName -> stoColumns
     SResult -> stoResult
 
+  {-# NOINLINE gfromResult #-} -- See Note [Generics and Inlining]
   default gfromResult :: (SSerialize t, GFromExprs t ~ t Result)
     => GColumns t Result -> GFromExprs t
   gfromResult = sfromResult
 
+  {-# NOINLINE gtoResult #-} -- See Note [Generics and Inlining]
   default gtoResult :: (SSerialize t, GFromExprs t ~ t Result)
     => GFromExprs t -> GColumns t Result
   gtoResult = stoResult
@@ -274,3 +278,11 @@ stoResult =
     (\(_ :: proxy x) -> serialize @_ @x) .
   from .
   Record
+
+-- Note [Generics and Inlining]
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- We want to make sure that Generics derived functions (by default)
+-- do not expose their unfoldings. These are always unoptimised code and can
+-- therefore be quite large, and bloat our interfaces.
+-- By marking these as NOINLINE we can considerably speed up our compile times.
+-- If users do want these INLINEd, they can locally override the default using a pragma.
