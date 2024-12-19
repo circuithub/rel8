@@ -1,3 +1,9 @@
 packages: .
-constraints: ansi-wl-pprint < 1.0.0
+
+source-repository-package
+  type: git
+  location: https://github.com/jfischoff/tmp-postgres
+  tag: 7f2467a6d6d5f6db7eed59919a6773fe006cf22b
+
 allow-newer: base16:base, base16:deepseq, base16:text
+allow-newer: *:base, *:template-haskell, *:ghc-prim
