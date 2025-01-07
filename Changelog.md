@@ -1,4 +1,46 @@
 
+<a id='changelog-1.6.0.0'></a>
+# 1.6.0.0 — 2024-12-13
+
+## Removed
+
+- Remove `Table Expr b` constraint from `materialize`. ([#334](https://github.com/circuithub/rel8/pull/334))
+
+## Added
+
+- Support GHC-9.10. ([#340](https://github.com/circuithub/rel8/pull/340))
+
+- Support hasql-1.8 ([#345](https://github.com/circuithub/rel8/pull/345))
+
+- Add `aggregateJustTable`, `aggregateJustTable` aggregator functions. These provide another way to do aggregation of `MaybeTable`s than the existing `aggregateMaybeTable` function. ([#333](https://github.com/circuithub/rel8/pull/333))
+
+- Add `aggregateLeftTable`, `aggregateLeftTable1`, `aggregateRightTable` and `aggregateRightTable1` aggregator functions. These provide another way to do aggregation of `EitherTable`s than the existing `aggregateEitherTable` function. ([#333](https://github.com/circuithub/rel8/pull/333))
+
+- Add `aggregateThisTable`, `aggregateThisTable1`, `aggregateThatTable`, `aggregateThatTable1`, `aggregateThoseTable`, `aggregateThoseTable1`, `aggregateHereTable`, `aggregateHereTable1`, `aggregateThereTable` and `aggregateThereTable1` aggregation functions. These provide another way to do aggregation of `TheseTable`s than the existing `aggregateTheseTable` function. ([#333](https://github.com/circuithub/rel8/pull/333))
+
+- Add `rawFunction`, `rawBinaryOperator`, `rawAggregateFunction`, `unsafeCoerceExpr`, `unsafePrimExpr`, `unsafeSubscript`, `unsafeSubscripts` — these give more options for generating SQL expressions that Rel8 does not support natively. ([#331](https://github.com/circuithub/rel8/pull/331))
+
+- Expose `unsafeUnnullify` and `unsafeUnnullifyTable` from `Rel8`. ([#343](https://github.com/circuithub/rel8/pull/343))
+
+- Expose `listOf` and `nonEmptyOf`. ([#330](https://github.com/circuithub/rel8/pull/330))
+
+- Add `NOINLINE` pragmas to `Generic` derived default methods of `Rel8able`. This should speed up
+  compilation times. If users wish for these methods to be `INLINE`d, they can override with a
+  pragma in their own code. ([#346](https://github.com/circuithub/rel8/pull/346))
+
+## Fixed
+
+- `JSONEncoded` should be encoded as `json` not `jsonb`. ([#347](https://github.com/circuithub/rel8/pull/347))
+
+- Disallow NULL characters in Hedgehog generated text values. ([#339](https://github.com/circuithub/rel8/pull/339))
+
+- Fix fromRational bug. ([#338](https://github.com/circuithub/rel8/pull/338))
+
+- Fix regex match operator. ([#336](https://github.com/circuithub/rel8/pull/336))
+
+- Fix some documentation formatting issues. ([#332](https://github.com/circuithub/rel8/pull/332)), ([#329](https://github.com/circuithub/rel8/pull/329)), ([#327](https://github.com/circuithub/rel8/pull/327)), and ([#318](https://github.com/circuithub/rel8/pull/318))
+
+
 <a id='changelog-1.5.0.0'></a>
 # 1.5.0.0 — 2024-03-19
 

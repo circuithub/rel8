@@ -8,6 +8,7 @@ module Rel8.Schema.QualifiedName
   ( QualifiedName (..)
   , ppQualifiedName
   , showQualifiedName
+  , showQualifiedOperator
   )
 where
 
@@ -17,7 +18,7 @@ import Data.String (IsString, fromString)
 import Prelude
 
 -- pretty
-import Text.PrettyPrint (Doc, text)
+import Text.PrettyPrint (Doc, parens, text)
 
 -- rel8
 import Rel8.Schema.Escape (escape)
@@ -52,3 +53,10 @@ ppQualifiedName QualifiedName {schema = mschema, ..} = case mschema of
 
 showQualifiedName :: QualifiedName -> String
 showQualifiedName = show . ppQualifiedName
+
+
+showQualifiedOperator :: QualifiedName -> String
+showQualifiedOperator QualifiedName {schema = mschema, ..} = case mschema of
+  Nothing -> name
+  Just schema ->
+    show $ text "OPERATOR" <> parens (escape schema <> text "." <> text name)

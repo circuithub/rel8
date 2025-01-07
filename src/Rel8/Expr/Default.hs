@@ -24,7 +24,7 @@ import Rel8.Expr.Opaleye ( fromPrimExpr )
 -- @DEFAULT@ value. Trying to use @unsafeDefault@ where there is no default
 -- will cause a runtime crash
 --
--- 3. @DEFAULT@ values can not be transformed. For example, the innocuous Rel8
+-- 3. @DEFAULT@ values cannot be transformed. For example, the innocuous Rel8
 -- code @unsafeDefault + 1@ will crash, despite type checking.
 --
 -- Also note, PostgreSQL's syntax rules mean that @DEFAULT@ can only appear in

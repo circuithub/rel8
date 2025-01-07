@@ -126,6 +126,7 @@ nullifyTable :: a -> NullTable Expr a
 nullifyTable = NullTable . pure
 
 
+-- | Assume that a 'NullTable' is non-null. Like 'Rel8.unsafeUnnullify'.
 unsafeUnnullifyTable :: NullTable Expr a -> a
 unsafeUnnullifyTable (NullTable a) = extract a
 

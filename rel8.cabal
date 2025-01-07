@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                rel8
-version:             1.5.0.0
+version:             1.6.0.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD3
 license-file:        LICENSE
@@ -26,14 +26,17 @@ library
     , base16 >= 1.0
     , base-compat ^>= 0.11 || ^>= 0.12 || ^>= 0.13 || ^>= 0.14
     , bifunctors
+    , binary-parser ^>= 0.5
+    , data-dword ^>= 0.3
     , bytestring
     , case-insensitive
     , comonad
     , containers
     , contravariant
     , data-textual
-    , hasql >= 1.6.1.2 && < 1.8
-    , network-ip
+    , hasql >= 1.6.1.2 && < 1.9
+    , network-ip ^>= 0.3
+    , iproute ^>= 1.7
     , opaleye ^>= 0.10.2.1
     , pretty
     , profunctors
@@ -101,6 +104,7 @@ library
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
     Rel8.Expr.Show
+    Rel8.Expr.Subscript
     Rel8.Expr.Window
 
     Rel8.FCF
@@ -251,6 +255,7 @@ test-suite tests
     , hedgehog          ^>= 1.0 || ^>= 1.1 || ^>= 1.2 || ^>= 1.3 || ^>= 1.4 || ^>= 1.5
     , mmorph
     , network-ip
+    , iproute
     , rel8
     , scientific
     , tasty

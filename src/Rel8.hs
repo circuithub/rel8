@@ -129,6 +129,7 @@ module Rel8
   , catNullTable
   , nameNullTable
   , toNullTable, toMaybeTable
+  , unsafeUnnullifyTable
 
     -- ** Algebraic data types / sum types
     -- $adts
@@ -169,7 +170,9 @@ module Rel8
   , Sql
   , litExpr
   , unsafeCastExpr
+  , unsafeCoerceExpr
   , unsafeLiteral
+  , unsafePrimExpr
 
     -- ** @null@
   , NotNull
@@ -184,6 +187,7 @@ module Rel8
   , liftOpNull
   , catNull
   , coalesce
+  , unsafeUnnullify
 
     -- ** Boolean operations
   , DBEq
@@ -206,6 +210,8 @@ module Rel8
   , function
   , binaryOperator
   , queryFunction
+  , rawFunction
+  , rawBinaryOperator
 
     -- * Queries
   , Query
@@ -293,6 +299,7 @@ module Rel8
   , and, andOn
   , or, orOn
   , aggregateFunction
+  , rawAggregateFunction
 
   , mode, modeOn
   , percentile, percentileOn
@@ -410,7 +417,7 @@ import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null
-import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeLiteral)
+import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral, unsafePrimExpr)
 import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize

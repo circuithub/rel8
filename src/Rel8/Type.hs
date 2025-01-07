@@ -27,14 +27,19 @@ import qualified Data.Aeson.Parser as Aeson
 -- base
 import Control.Applicative ((<|>))
 import Data.Fixed (Fixed)
-import Data.Int ( Int16, Int32, Int64 )
+import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Word (Word8, Word32)
 import Data.List.NonEmpty ( NonEmpty )
 import Data.Kind ( Constraint, Type )
 import Prelude
+import Data.Bits (Bits (..))
+import Data.DoubleWord (fromHiAndLo)
+import Text.Read (readMaybe)
 
 -- bytestring
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import qualified Data.ByteString.Lazy as ByteString ( fromStrict, toStrict )
 
@@ -50,6 +55,9 @@ import qualified Hasql.Decoders as Hasql
 
 -- network-ip
 import qualified Network.IP.Addr as IP
+
+import qualified Data.IP
+import qualified BinaryParser
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -433,7 +441,9 @@ instance DBType (IP.NetAddr IP.IP) where
         Opaleye.ConstExpr . Opaleye.StringLit . IP.printNetAddr
     , decode =
         Decoder
-          { binary = Hasql.inet
+          { binary = (Hasql.custom . const . BinaryParser.run $ netaddrParser
+                      (\netmask x -> IP.netAddr (IP.IPv4 $ IP.IP4 x) netmask)
+                      (\netmask x1 x2 x3 x4 -> IP.netAddr (IP.IPv6 $ IP.IP6 $ fromHiAndLo (fromHiAndLo x1 x2) (fromHiAndLo x3 x4)) netmask) :: Hasql.Value (IP.NetAddr IP.IP))
           , parser = parse $
               textual
                 <|> (`IP.netAddr` 32) . IP.IPv4 <$> textual
@@ -442,6 +452,53 @@ instance DBType (IP.NetAddr IP.IP) where
           }
     , typeName = "inet"
     }
+
+-- | Corresponds to @inet@
+instance DBType Data.IP.IPRange where
+  typeInformation = TypeInformation
+    { encode =
+        Opaleye.ConstExpr . Opaleye.StringLit . show
+    , decode =
+        Decoder
+          { binary = (Hasql.custom . const . BinaryParser.run $ netaddrParser
+                      (\netmask x -> Data.IP.IPv4Range $ Data.IP.makeAddrRange (Data.IP.toIPv4w x) $ fromIntegral netmask)
+                      (\netmask x1 x2 x3 x4 -> Data.IP.IPv6Range $ Data.IP.makeAddrRange (Data.IP.toIPv6w (x1, x2, x3, x4)) $ fromIntegral netmask))
+          , parser = \str -> case readMaybe $ BS8.unpack str of
+              Just x -> Right x
+              Nothing -> Left "Failed to parse inet"
+          , delimiter = ','
+          }
+    , typeName = "inet"
+    }
+
+-- | Address family AF_INET
+inetAddressFamily :: Word8
+inetAddressFamily =
+  2
+
+-- | Address family AF_INET6
+inet6AddressFamily :: Word8
+inet6AddressFamily =
+  3
+
+-- | This is vendored from `postgresql-binary`.
+netaddrParser :: (Word8 -> Word32 -> ip) -> (Word8 -> Word32 -> Word32 -> Word32 ->  Word32 -> ip) -> BinaryParser.BinaryParser ip
+netaddrParser mkIpv4 mkIpv6 = do
+  af <- intOfSize 1
+  netmask <- intOfSize 1
+  isCidr <- intOfSize @Int8 1
+  ipSize <- intOfSize @Int8 1
+  if | af == inetAddressFamily ->
+         mkIpv4 netmask <$> intOfSize 4
+     | af == inet6AddressFamily ->
+         mkIpv6 netmask <$> intOfSize 4 <*> intOfSize 4  <*> intOfSize 4 <*> intOfSize 4
+     | otherwise -> BinaryParser.failure ("Unknown address family: " <> Text.pack (show af))
+
+intOfSize :: (Integral a, Bits a) => Int -> BinaryParser.BinaryParser a
+intOfSize x =
+  fmap integralPack (BinaryParser.bytesOfSize x)
+  where
+    integralPack = BS.foldl' (\n h -> shiftL n 8 .|. fromIntegral h) 0
 
 
 instance Sql DBType a => DBType [a] where
