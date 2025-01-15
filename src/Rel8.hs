@@ -552,8 +552,7 @@ import Rel8.Window
 -- thingSchema :: TableSchema (ADT Thing Name)
 -- thingSchema =
 --   TableSchema
---     { schema = Nothing,
---       name = \"thing\",
+--     { name = \"thing\",
 --       columns =
 --         nameADT @Thing
 --           \"tag\"
