@@ -18,6 +18,7 @@ module Rel8.Table.Maybe
   , isNothingTable, isJustTable
   , fromMaybeTable
   , ($?)
+  , projectMaybe
   , nameMaybeTable
   , makeMaybeTable
   , unsafeFromJustTable
@@ -230,6 +231,17 @@ f $? ma@(MaybeTable _ a) = case nullable @b of
   Null -> boolExpr (f (extract a)) null (isNothingTable ma)
   NotNull -> boolExpr (nullify (f (extract a))) null (isNothingTable ma)
 infixl 4 $?
+
+
+-- | If a @'MaybeTable' 'Expr'@ contains a single column, it can be
+-- projected into a @'Expr' Maybe@. This is a simple application of
+-- @('$?')@, provided for readability.
+--
+-- @
+-- projectMaybe = (id '$?')
+-- @
+projectMaybe :: DBType a => MaybeTable Expr (Expr a) -> Expr (Maybe a)
+projectMaybe = (id $?)
 
 
 -- | Construct a 'MaybeTable' in the 'Name' context. This can be useful if you
