@@ -67,7 +67,6 @@ deriveRel8able name = do
 
           gfromColumns $( varP contextName ) $unpackP =
             case $( varE contextName ) of
-              SAggregate -> $( mk $ varE <$> allNames )
               SExpr      -> $( mk $ varE <$> allNames )
               SField     -> $( mk $ varE <$> allNames )
               SName      -> $( mk $ varE <$> allNames )
@@ -75,7 +74,6 @@ deriveRel8able name = do
 
           gtoColumns $(varP contextName) $( conP constructorName (map varP (name1:names)) ) =
             case $( varE contextName ) of
-              SAggregate -> $( unmk $ varE <$> allNames )
               SExpr      -> $( unmk $ varE <$> allNames )
               SField     -> $( unmk $ varE <$> allNames )
               SName      -> $( unmk $ varE <$> allNames )
