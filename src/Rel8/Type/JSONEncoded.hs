@@ -1,35 +1,41 @@
+{-# language DisambiguateRecordFields #-}
 {-# language StandaloneKindSignatures #-}
-{-# language OverloadedStrings        #-}
-{-# language TypeApplications         #-}
+{-# language OverloadedStrings #-}
+{-# language TypeApplications #-}
 
-module Rel8.Type.JSONEncoded ( JSONEncoded(..) ) where
+module Rel8.Type.JSONEncoded (
+  JSONEncoded(..),
+) where
 
 -- aeson
-import Data.Aeson ( FromJSON, ToJSON, parseJSON )
-import Data.Aeson.Types ( parseEither )
+import Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict, parseJSON, toJSON)
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Text as Aeson
+import Data.Aeson.Types (parseEither)
 
 -- base
-import Data.Kind ( Type )
 import Data.Bifunctor (first)
+import Data.Functor.Contravariant ((>$<))
+import Data.Kind ( Type )
 import Prelude
 
 -- hasql
-import qualified Hasql.Decoders as Hasql
+import qualified Hasql.Decoders as Decoders
+import qualified Hasql.Encoders as Encoders
 
 -- rel8
 import Rel8.Type ( DBType(..) )
+import Rel8.Type.Decoder (Decoder (..))
+import Rel8.Type.Encoder (Encoder (..))
 import Rel8.Type.Information ( TypeInformation(..) )
-import Rel8.Type.Decoder ( Decoder(..) )
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
 -- text
-import qualified Data.Text as Text
-import qualified Data.Text.Lazy as Lazy
-import qualified Data.Text.Lazy.Encoding as Lazy
+import Data.Text (pack)
+import Data.Text.Lazy (unpack)
 
 
 -- | A deriving-via helper type for column types that store a Haskell value
@@ -43,14 +49,21 @@ newtype JSONEncoded a = JSONEncoded { fromJSONEncoded :: a }
 instance (FromJSON a, ToJSON a) => DBType (JSONEncoded a) where
   typeInformation = TypeInformation
     { encode =
-        Opaleye.ConstExpr . Opaleye.OtherLit . Opaleye.quote .
-        Lazy.unpack . Lazy.decodeUtf8 .
-        Aeson.encode . fromJSONEncoded
+        Encoder
+          { binary = toJSON . fromJSONEncoded >$< Encoders.json
+          , text = Aeson.fromEncoding . Aeson.toEncoding . fromJSONEncoded
+          , quote =
+              Opaleye.ConstExpr . Opaleye.OtherLit . Opaleye.quote .
+              unpack . Aeson.encodeToLazyText . fromJSONEncoded
+          }
     , decode =
         Decoder
-          { binary = Hasql.refine (first Text.pack . fmap JSONEncoded . parseEither parseJSON) Hasql.json
-          , parser = fmap JSONEncoded . Aeson.eitherDecodeStrict
-          , delimiter = ','
+          { binary =
+              Decoders.refine
+                (first pack . fmap JSONEncoded . parseEither parseJSON)
+                Decoders.json
+          , text = fmap JSONEncoded . eitherDecodeStrict
           }
+    , delimiter = ','
     , typeName = "json"
     }

@@ -1,3 +1,4 @@
+{-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language NamedFieldPuns #-}
 {-# language TypeFamilies #-}
@@ -24,6 +25,7 @@ import Rel8.Expr.Opaleye ( scastExpr )
 import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ), Sql, nullable )
 import Rel8.Type ( DBType, typeInformation )
 import Rel8.Type.Decoder (Decoder (..))
+import Rel8.Type.Encoder (Encoder (..))
 import Rel8.Type.Information ( TypeInformation(..) )
 
 
@@ -36,12 +38,12 @@ litExpr = slitExpr nullable typeInformation
 
 
 slitExpr :: Nullity a -> TypeInformation (Unnullify a) -> a -> Expr a
-slitExpr nullity info@TypeInformation {encode} =
+slitExpr nullity info@TypeInformation {encode = Encoder {quote}} =
   scastExpr info . Expr . encoder
   where
     encoder = case nullity of
-      Null -> maybe (Opaleye.ConstExpr Opaleye.NullLit) encode
-      NotNull -> encode
+      Null -> maybe (Opaleye.ConstExpr Opaleye.NullLit) quote
+      NotNull -> quote
 
 
 sparseValue :: Nullity a -> TypeInformation (Unnullify a) -> Hasql.Row a
