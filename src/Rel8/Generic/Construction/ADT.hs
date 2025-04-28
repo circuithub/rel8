@@ -77,10 +77,10 @@ type Unnullifier context = forall a. Spec a -> context (Nullify a) -> context a
 
 type NoConstructor :: Symbol -> Symbol -> ErrorMessage
 type NoConstructor datatype constructor =
-  ( 'Text "The type `" ':<>:
-    'Text datatype ':<>:
-    'Text "` has no constructor `" ':<>:
-    'Text constructor ':<>:
+  ( 'Text "The type `" ' :<>:
+    'Text datatype ' :<>:
+    'Text "` has no constructor `" ' :<>:
+    'Text constructor ' :<>:
     'Text "`."
   )
 
