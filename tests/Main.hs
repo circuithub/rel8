@@ -1,5 +1,6 @@
 {-# language BangPatterns #-}
 {-# language BlockArguments #-}
+{-# LANGUAGE CPP #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingVia #-}
@@ -43,6 +44,7 @@ import Prelude hiding (truncate)
 
 -- bytestring
 import qualified Data.ByteString.Lazy
+import Data.ByteString ( ByteString )
 
 -- case-insensitive
 import Data.CaseInsensitive ( mk )
@@ -52,7 +54,11 @@ import Data.Containers.ListUtils ( nubOrdOn )
 import qualified Data.Map.Strict as Map
 
 -- hasql
-import Hasql.Connection ( Connection, acquire, release )
+import Hasql.Connection ( Connection, ConnectionError, acquire, release )
+#if MIN_VERSION_hasql(1,9,0)
+import qualified Hasql.Connection.Setting
+import qualified Hasql.Connection.Setting.Connection
+#endif
 import Hasql.Session ( sql, run )
 
 -- hasql-transaction
@@ -156,7 +162,7 @@ tests =
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
-      bracket (either (error . show) return =<< acquire (TmpPostgres.toConnectionString db)) release \conn -> void do
+      bracket (either (error . show) return =<< acquireFromConnectionString (TmpPostgres.toConnectionString db)) release \conn -> void do
         flip run conn do
           sql "CREATE EXTENSION citext"
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
@@ -170,8 +176,17 @@ tests =
 
 
 connect :: TmpPostgres.DB -> IO Connection
-connect = acquire . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
+connect = acquireFromConnectionString . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
 
+acquireFromConnectionString :: ByteString -> IO (Either ConnectionError Connection)
+acquireFromConnectionString connectionString =
+#if MIN_VERSION_hasql(1,9,0)
+  acquire 
+    [ Hasql.Connection.Setting.connection . Hasql.Connection.Setting.Connection.string . decodeUtf8 $ connectionString
+    ]
+#else
+  acquire connectionString
+#endif
 
 databasePropertyTest
   :: TestName
