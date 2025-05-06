@@ -26,6 +26,9 @@ module Rel8
     -- *** @Decoder@
   , Decoder(..)
 
+    -- *** @Encoder@
+  , Encoder(..)
+
     -- ** The @DBType@ hierarchy
   , DBSemigroup(..)
   , DBMonoid(..)
@@ -355,6 +358,7 @@ module Rel8
   , run1
   , runMaybe
   , runVector
+  , prepared
 
     -- ** @SELECT@
   , select
@@ -383,6 +387,7 @@ module Rel8
     -- ** @WITH@
   , Statement
   , showStatement
+  , showPreparedStatement
 
     -- ** @CREATE VIEW@
   , createView
@@ -460,6 +465,7 @@ import Rel8.Statement
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
+import Rel8.Statement.Prepared
 import Rel8.Statement.Returning
 import Rel8.Statement.Run
 import Rel8.Statement.Select
@@ -493,6 +499,7 @@ import Rel8.Type
 import Rel8.Type.Composite
 import Rel8.Type.Decoder
 import Rel8.Type.Eq
+import Rel8.Type.Encoder
 import Rel8.Type.Enum
 import Rel8.Type.Information
 import Rel8.Type.JSONBEncoded

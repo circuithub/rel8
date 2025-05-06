@@ -3,25 +3,21 @@
 {-# language StandaloneKindSignatures #-}
 {-# language StrictData #-}
 
-module Rel8.Type.Information
-  ( TypeInformation(..)
-  , mapTypeInformation
-  , parseTypeInformation
-  )
-where
+module Rel8.Type.Information (
+  TypeInformation(..),
+  mapTypeInformation,
+  parseTypeInformation,
+) where
 
 -- base
-import Data.Kind ( Type )
+import Data.Functor.Contravariant ((>$<))
+import Data.Kind (Type)
 import Prelude
 
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
-
 -- rel8
-import Rel8.Type.Name (TypeName)
-
--- text
 import Rel8.Type.Decoder (Decoder, parseDecoder)
+import Rel8.Type.Encoder (Encoder)
+import Rel8.Type.Name (TypeName)
 
 
 -- | @TypeInformation@ describes how to encode and decode a Haskell type to and
@@ -29,14 +25,17 @@ import Rel8.Type.Decoder (Decoder, parseDecoder)
 -- database, which is used to accurately type literals. 
 type TypeInformation :: Type -> Type
 data TypeInformation a = TypeInformation
-  { encode :: a -> Opaleye.PrimExpr
-    -- ^ How to encode a single Haskell value as a SQL expression.
+  { encode :: Encoder a
+    -- ^ How to serialize a Haskell value to PostgreSQL.
   , decode :: Decoder a
-    -- ^ How to deserialize a single result back to Haskell.
+    -- ^ How to deserialize a PostgreSQL result back to Haskell.
+  , delimiter :: Char
+    -- ^ The delimiter that is used in PostgreSQL's text format in arrays of
+    -- this type (this is almost always ',').
   , typeName :: TypeName
     -- ^ The name of the SQL type.
   }
-
+ 
 
 -- | Simultaneously map over how a type is both encoded and decoded, while
 -- retaining the name of the type. This operation is useful if you want to
@@ -59,9 +58,10 @@ mapTypeInformation = parseTypeInformation . fmap pure
 parseTypeInformation :: ()
   => (a -> Either String b) -> (b -> a)
   -> TypeInformation a -> TypeInformation b
-parseTypeInformation to from TypeInformation {encode, decode, typeName} =
+parseTypeInformation to from TypeInformation {encode, decode, delimiter, typeName} =
   TypeInformation
-    { encode = encode . from
-    , decode = parseDecoder to decode
+    { decode = parseDecoder to decode
+    , encode = from >$< encode
+    , delimiter
     , typeName
     }

@@ -57,16 +57,15 @@ runN = makeRun RowsAffected
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as a single row. If the statement returns a number
 -- of rows other than 1, a runtime exception is thrown.
-run1 :: Serializable exprs 
-  a=> Statement (Query exprs) -> Hasql.Statement () a
+run1 :: Serializable exprs a => Statement (Query exprs) -> Hasql.Statement () a
 run1 = makeRun Single
 
 
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as 'Maybe' a single row. If the statement returns
 -- a number of rows other than 0 or 1, a runtime exception is thrown.
-runMaybe :: Serializable exprs 
-  a=> Statement (Query exprs) -> Hasql.Statement () (Maybe a)
+runMaybe :: Serializable exprs a
+  => Statement (Query exprs) -> Hasql.Statement () (Maybe a)
 runMaybe = makeRun Maybe
 
 
