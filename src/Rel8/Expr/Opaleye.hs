@@ -9,6 +9,7 @@
 module Rel8.Expr.Opaleye
   ( castExpr, unsafeCastExpr
   , scastExpr, sunsafeCastExpr
+  , coerceExpr
   , unsafeCoerceExpr
   , unsafePrimExpr
   , unsafeLiteral
@@ -19,6 +20,7 @@ where
 
 -- base
 import Prelude
+import Data.Coerce ( Coercible )
 
 -- opaleye
 import qualified Opaleye.Internal.Column as Opaleye
@@ -37,6 +39,23 @@ import Data.Profunctor ( Profunctor, dimap )
 
 castExpr :: Sql DBType a => Expr a -> Expr a
 castExpr = scastExpr typeInformation
+
+
+-- | Change the type of an 'Expr' without using @CAST()@, if the
+-- Haskell type can be safely coerced.
+--
+-- This is useful for writing function that use @nextval()@ over @newtype@'d IDs:
+--
+-- @
+-- newtype AuthorId = AuthorId Int64
+--   deriving newtype (DBType, DBEq)
+--
+-- nextId :: Expr AuthorId
+-- nextId = coerceExpr $ nextVal "authors_id_seq"
+-- @
+--
+coerceExpr :: forall b a. Coercible a b => Expr a -> Expr b
+coerceExpr = unsafeCoerceExpr
 
 
 -- | Cast an expression to a different type. Corresponds to a @CAST()@ function

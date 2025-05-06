@@ -169,6 +169,7 @@ module Rel8
   , Expr
   , Sql
   , litExpr
+  , coerceExpr
   , unsafeCastExpr
   , unsafeCoerceExpr
   , unsafeLiteral
@@ -417,7 +418,7 @@ import Rel8.Expr.Default
 import Rel8.Expr.Eq
 import Rel8.Expr.Function
 import Rel8.Expr.Null
-import Rel8.Expr.Opaleye (unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral, unsafePrimExpr)
+import Rel8.Expr.Opaleye (coerceExpr, unsafeCastExpr, unsafeCoerceExpr, unsafeLiteral, unsafePrimExpr)
 import Rel8.Expr.Ord
 import Rel8.Expr.Order
 import Rel8.Expr.Serialize
