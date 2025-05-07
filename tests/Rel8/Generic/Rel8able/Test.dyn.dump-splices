@@ -1,0 +1,153 @@
+/home/teo/git/rel8/tests/Rel8/Generic/Rel8able/Test.hs:42:1-26: Splicing declarations
+    deriveRel8able ''TableTest
+  ======>
+    instance Rel8able TableTest where
+      type rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.GColumns TableTest = rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel "foo" (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity Bool)) (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel "bar" (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity (Maybe Bool)))
+      type rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.GFromExprs TableTest = TableTest Result
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gfromColumns
+        context_a149L
+        (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a149H))
+                                                                  (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a149J)))
+        = case context_a149L of
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SResult
+              -> TableTest
+                   (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+                      x_a149H)
+                   (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+                      x_a149J)
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SExpr
+              -> TableTest x_a149H x_a149J
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SField
+              -> TableTest x_a149H x_a149J
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SName
+              -> TableTest x_a149H x_a149J
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gtoColumns
+        context_a149L
+        (TableTest x_a149H x_a149J)
+        = case context_a149L of
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SExpr
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149H))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149J))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SField
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149H))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149J))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SName
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149H))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a149J))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SResult
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                            x_a149H)))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                            x_a149J)))
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gfromResult
+        (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a149H))
+                                                                  (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a149J)))
+        = TableTest
+            (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+               x_a149H)
+            (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+               x_a149J)
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gtoResult
+        (TableTest x_a149H x_a149J)
+        = rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+            (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+               (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                  (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                     x_a149H)))
+            (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+               (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                  (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                     x_a149J)))
+/home/teo/git/rel8/tests/Rel8/Generic/Rel8able/Test.hs:54:1-26: Splicing declarations
+    deriveRel8able ''TablePair
+  ======>
+    instance Rel8able TablePair where
+      type rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.GColumns TablePair = rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel "foo" (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity Bool)) (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel "bars" (Columns (TableTest Expr)))
+      type rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.GFromExprs TablePair = TablePair Result
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gfromColumns
+        context_a14xP
+        (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a14xK))
+                                                                  (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel x_a14xL))
+        = case context_a14xP of
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SResult
+              -> TablePair
+                   (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+                      x_a14xK)
+                   (fromColumns x_a14xL)
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SExpr
+              -> TablePair x_a14xK (fromColumns x_a14xL)
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SField
+              -> TablePair x_a14xK (fromColumns x_a14xL)
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SName
+              -> TablePair x_a14xK (fromColumns x_a14xL)
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gtoColumns
+        context_a14xP
+        (TablePair x_a14xK x_a14xL)
+        = case context_a14xP of
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SExpr
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a14xK))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (toColumns x_a14xL))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SField
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a14xK))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (toColumns x_a14xL))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SName
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         x_a14xK))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (toColumns x_a14xL))
+            rel8-1.6.0.0-inplace:Rel8.Kind.Context.SResult
+              -> rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                         (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                            x_a14xK)))
+                   (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+                      (toColumns x_a14xL))
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gfromResult
+        (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity x_a14xK))
+                                                                  (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel x_a14xL))
+        = TablePair
+            (ghc-internal:GHC.Internal.Data.Functor.Identity.runIdentity
+               x_a14xK)
+            (rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gfromResult
+               @TableTest x_a14xL)
+      rel8-1.6.0.0-inplace:Rel8.Generic.Rel8able.gtoResult
+        (TablePair x_a14xK x_a14xL)
+        = rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Product.HProduct
+            (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+               (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Identity.HIdentity
+                  (ghc-internal:GHC.Internal.Data.Functor.Identity.Identity
+                     x_a14xK)))
+            (rel8-1.6.0.0-inplace:Rel8.Schema.HTable.Label.HLabel
+               (toResult (x_a14xL :: TableTest Result) ::
+                  Columns (TableTest Result) Result))

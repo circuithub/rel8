@@ -1,0 +1,52 @@
+[formatter.cabal]
+command = "cabal-fmt"
+options = [ "--tabular", "-i" ]
+includes = [ "*.cabal" ]
+excludes = []
+
+[formatter.elm]
+command = "elm-format"
+options = [ "--elm-version", "0.19", "--yes" ]
+includes = [ "*.elm" ]
+excludes = [ "client/elm-semantic-ui/*" ]
+
+[formatter.nix]
+command = "nixpkgs-fmt"
+options = []
+includes = ["*.nix"]
+excludes = [ "factory-infrastructure/secrets/*.nix" ]
+
+[formatter.terraform]
+command = "terraform"
+options = ["fmt"]
+includes = ["*.tf"]
+
+# A bit of a hack, but until https://github.com/numtide/treefmt/issues/77 is
+# resolved we need to manually sequence our Haskell formatters.
+[formatter.haskell]
+command = "/bin/sh"
+options = [
+  "-euc",
+  """
+fourmolu -i "$@"
+ch-hs-imports --overwrite --local-modules-from-current-dir --report-progress "$@"
+  """,
+  "format-haskell"
+]
+includes = [ "*.hs" ]
+
+excludes = [
+  # These fail to parse
+  "ch-eda-all/ch-eda/src/CircuitHub/WebSockets.hs",
+  "basler/lib/Basler/Context.hs",
+]
+
+[formatter.prettier]
+command = "prettier"
+options = [ "--write" ]
+includes = [ "client/*.js", "client/*.css", "client/*.json", "picofactory/pallet-markup/client/main.js", "retool/**/*.tsx" ]
+excludes = [ "client/semantic/*", "client/elm-semantic-ui/*", "client/js/lib/**/*.css" ]
+
+[formatter.black]
+command = "black"
+includes = [ "*.py" ]

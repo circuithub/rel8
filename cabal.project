@@ -1,3 +1,5 @@
 packages: .
 constraints: ansi-wl-pprint < 1.0.0
 allow-newer: base16:base, base16:deepseq, base16:text
+
+tests: true

@@ -1,0 +1,62 @@
+
+commit b384871b242cef11e717f2671e0128f75887e3b0
+Author: remeike <r.j.b.forbes@gmail.com>
+Date:   Mon Aug 5 09:07:59 2024 -0400
+
+    Fix regex match operator (#336)
+
+commit e214b75565439461302342083a9bca59894cf34f
+Author: Shane <shane.obrien@circuithub.com>
+Date:   Tue Jul 30 18:08:25 2024 +0100
+
+    Remove `Table Expr b` constraint from `materialize` (#334)
+    
+    Not only is this not necessary, it can actually act as a barrier to optimisation. The reason I added it was because it seemed like a cheap way to stop someone writing `query' <- materialize query id` — if you return the materialized query from `materialized`, it won't work. Really we would need some sort of `runST` type trick here to do this properly, but that would be too invasive a change.
+
+commit 149ec23c6f32ff677940ca39d6598cfc3a9593bb
+Author: Shane <shane.obrien@circuithub.com>
+Date:   Mon Jul 15 11:54:22 2024 +0100
+
+    Add `aggregate{Just,Left,Right,This,That,Those,Here,There}Table{,1}` aggregators (#333)
+    
+    These provide another way to do aggregation of `MaybeTable`, `EitherTable` and `TheseTable`s than the existing `aggregate{Maybe,Either,These}Table`.
+
+commit dbda2da7bc94da0b4118be1ff689aab67f2f56ed
+Author: Teo Camarasu <teofil.camarasu@circuithub.com>
+Date:   Tue Jul 2 16:41:09 2024 +0100
+
+    docs: fix haddock link (#332)
+    
+    Previously this linked to Prelude.fromIntegral, but we mean Rel8.Num.fromIntegral
+
+commit 6b0721b4ca53f228775501bbe7e56722aec27a47
+Author: Shane <shane.obrien@circuithub.com>
+Date:   Mon Jul 1 12:56:48 2024 +0100
+
+    Expose `listOf` and `nonEmptyOf` (#330)
+    
+    It was an oversight that these were ever not exported.
+
+commit d8ca92fe85ceec0ff4cf55c9156678bd55a23fc1
+Author: Teo Camarasu <teofil.camarasu@circuithub.com>
+Date:   Thu Jun 20 17:28:57 2024 +0100
+
+    Fix code block format (#329)
+    
+    Without the indentation, this doesn't parse properly
+
+commit 21b17334864a2abbeac3f953710f9f0e6ac95f10
+Author: Teo Camarasu <teofilcamarasu@gmail.com>
+Date:   Wed May 29 15:56:49 2024 +0100
+
+    docs: remove empty 'where' clause (#327)
+    
+    This hanging where statement seems like a typo or the ghost of a proper where long gone
+
+commit 6ec03667c472b102f9e447c682cc00c680f1a152
+Author: abigailalice <95150492+abigailalice@users.noreply.github.com>
+Date:   Wed Apr 3 07:57:50 2024 -0700
+
+    Fix some markup in haddocks (#318)
+    
+    Fixes #315.

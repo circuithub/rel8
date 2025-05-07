@@ -1,0 +1,20 @@
+
+==================== Simplified expression ====================
+2025-10-24 17:29:07.289753702 UTC
+
+Rel8.TH.deriveRel8able
+  (Language.Haskell.TH.Syntax.mkNameG_tc
+     (GHC.CString.unpackCString# "rel8-1.6.0.0-inplace-tests"#)
+     (GHC.CString.unpackCString# "Rel8.Generic.Rel8able.Test"#)
+     (GHC.CString.unpackCString# "TableTest"#))
+
+
+==================== Simplified expression ====================
+2025-10-24 17:29:07.334209392 UTC
+
+Rel8.TH.deriveRel8able
+  (Language.Haskell.TH.Syntax.mkNameG_tc
+     (GHC.CString.unpackCString# "rel8-1.6.0.0-inplace-tests"#)
+     (GHC.CString.unpackCString# "Rel8.Generic.Rel8able.Test"#)
+     (GHC.CString.unpackCString# "TablePair"#))
+
