@@ -36,7 +36,7 @@ library
     , hasql >= 1.6.1.2 && < 1.9
     , network-ip ^>= 0.3
     , iproute ^>= 1.7
-    , opaleye ^>= 0.10.2.1
+    , opaleye ^>= 0.10.5.0
     , pretty
     , profunctors
     , product-profunctors
