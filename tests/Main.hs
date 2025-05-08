@@ -1,6 +1,6 @@
 {-# language BangPatterns #-}
 {-# language BlockArguments #-}
-{-# LANGUAGE CPP #-}
+{-# language CPP #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingVia #-}
