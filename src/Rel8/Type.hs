@@ -196,7 +196,7 @@ instance DBType Int64 where
     }
 
 
--- | Corresponds to @float4@
+-- | Corresponds to @float4@ and @real@
 instance DBType Float where
   typeInformation = TypeInformation
     { encode = \x -> Opaleye.ConstExpr
@@ -214,7 +214,7 @@ instance DBType Float where
     }
 
 
--- | Corresponds to @float8@
+-- | Corresponds to @float8@ and @double precision@
 instance DBType Double where
   typeInformation = TypeInformation
     { encode = \x -> Opaleye.ConstExpr
