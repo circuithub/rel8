@@ -22,4 +22,4 @@ jobs:
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
     - run: nix build .#devShells.x86_64-linux.default --print-build-logs
-    - run: nix flake check --print-build-logs
+    - run: nix build .#checks.x86_64-linux.tests --print-build-logs
