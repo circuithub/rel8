@@ -2,3 +2,8 @@
 -- will interpret them as local packages, and try to build them when we cabal
 -- build. The only reason we have to specify these is for Haskell.nix to know to
 -- override these packages by fetching them rather than using Hackage.
+
+-- Workaround a build failure until the fix mentioned in https://github.com/NixOS/nixpkgs/issues/370138
+-- is merged to nixpkgs-unstable
+package postgresql-libpq
+  flags: +use-pkg-config
