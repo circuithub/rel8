@@ -1,5 +1,6 @@
 {-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
+{-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language LambdaCase #-}
@@ -13,7 +14,7 @@
 
 module Rel8.Type.Enum
   ( Enum( Enum )
-  , DBEnum( enumValue, enumTypeName )
+  , DBEnum( enumValue, enumTypeName, enumerate )
   , Enumable
   )
 where
@@ -71,7 +72,7 @@ instance DBEnum a => DBType (Enum a) where
   typeInformation = TypeInformation
     { decode =
         let
-          mapping = (pack . enumValue &&& Enum) . to <$> genumerate @(Rep a)
+          mapping = (pack . enumValue &&& Enum) <$> enumerate
           unrecognised = Left "enum: unrecognised value"
         in
           Decoder
@@ -107,15 +108,23 @@ instance DBEnum a => DBMin (Enum a)
 
 -- | @DBEnum@ contains the necessary metadata to describe a PostgreSQL @enum@ type.
 type DBEnum :: Type -> Constraint
-class (DBType a, Enumable a) => DBEnum a where
+class DBType a => DBEnum a where
   -- | Map Haskell values to the corresponding element of the @enum@ type. The
   -- default implementation of this method will use the exact name of the
   -- Haskell constructors.
   enumValue :: a -> String
-  enumValue = gshow @(Rep a) . from
 
   -- | The name of the PostgreSQL @enum@ type that @a@ maps to.
   enumTypeName :: QualifiedName
+
+  -- | List of all possible values of the enum type.
+  enumerate :: [a]
+
+  default enumValue :: Enumable a => a -> String
+  enumValue = gshow @(Rep a) . from
+
+  default enumerate :: Enumable a => [a]
+  enumerate = to <$> genumerate @(Rep a)
 
 
 -- | Types that are sum types, where each constructor is unary (that is, has no
