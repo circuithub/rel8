@@ -37,8 +37,7 @@ import Data.Int ( Int32, Int64 )
 import Data.List ( nub, sort )
 import Data.Maybe ( catMaybes )
 import Data.Ratio ((%))
-import Data.String ( fromString )
-import Data.Word (Word32, Word8)
+import Data.Word (Word32)
 import GHC.Generics ( Generic )
 import Prelude hiding (truncate)
 
@@ -70,14 +69,11 @@ import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT,
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
+-- iproute
+import qualified Data.IP
+
 -- mmorph
 import Control.Monad.Morph ( hoist )
-
--- network-ip
-import Network.IP.Addr (NetAddr, IP, IP4(..), IP6(..), IP46(..), net4Addr, net6Addr, fromNetAddr46, Net4Addr, Net6Addr)
-import Data.DoubleWord (Word128(..))
-
-import qualified Data.IP
 
 -- rel8
 import Rel8 ( Result )
@@ -93,7 +89,7 @@ import Test.Tasty
 import Test.Tasty.Hedgehog ( testProperty )
 
 -- text
-import Data.Text ( Text, pack, unpack )
+import Data.Text ( Text, unpack )
 import qualified Data.Text as T
 import qualified Data.Text.Lazy
 import Data.Text.Encoding ( decodeUtf8 )
@@ -140,7 +136,6 @@ tests =
     , testDBEq getTestDatabase
     , testTableEquality getTestDatabase
     , testFromRational getTestDatabase
-    , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testCatMaybe getTestDatabase
     , testMaybeTable getTestDatabase
@@ -168,7 +163,7 @@ tests =
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
           sql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
           sql "CREATE SEQUENCE test_seq"
-          sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" char, \"array\" int4[])"
+          sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
 
       return db
 
@@ -445,7 +440,7 @@ testAp = databasePropertyTest "Cartesian product (<*>)" \transaction -> do
 
 data Composite = Composite
   { bool :: !Bool
-  , char :: !Char
+  , char :: !Text
   , array :: ![Int32]
   }
   deriving stock (Eq, Show, Generic)
@@ -456,18 +451,15 @@ instance Rel8.DBComposite Composite where
   compositeTypeName = "composite"
   compositeFields = Rel8.namesFromLabels
 
--- | Postgres doesn't support the NULL character (not to be confused with a NULL value) inside strings.
-removeNull :: Text -> Text
-removeNull = T.filter (/='\0')
-
 
 testDBType :: IO TmpPostgres.DB -> TestTree
 testDBType getTestDatabase = testGroup "DBType instances"
   [ dbTypeTest "Bool" Gen.bool
   , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
   , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
-  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "CI Text" $ mk .removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Char" Gen.unicode
+  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> genText
+  , dbTypeTest "CI Text" $ mk <$> genText
   , dbTypeTest "Composite" genComposite
   , dbTypeTest "Day" genDay
   , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
@@ -476,14 +468,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
-  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> genText
   , dbTypeTest "LocalTime" genLocalTime
   , dbTypeTest "Scientific" $ genScientific
-  , dbTypeTest "Text" $ removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Text" genText
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
-  , dbTypeTest "INet" genNetAddrIP
   , dbTypeTest "INet" genIPRange
   , dbTypeTest "Value" genValue
   , dbTypeTest "JSONEncoded" genJSONEncoded
@@ -497,10 +488,10 @@ testDBType getTestDatabase = testGroup "DBType instances"
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a)
+    t :: forall a. (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a)
       => Gen a
-      -> (TestT Transaction () -> PropertyT IO b)
-      -> PropertyT IO b
+      -> (TestT Transaction () -> PropertyT IO ())
+      -> PropertyT IO ()
     t generator transaction = do
       x <- forAll generator
       y <- forAll generator
@@ -541,7 +532,31 @@ testDBType getTestDatabase = testGroup "DBType instances"
             Rel8.aggregate Rel8.listCatExpr $
               Rel8.values $ map Rel8.litExpr xsss
         diff res''''' (==) (concat xsss)
-      
+
+      transaction do
+        res <- lift do
+          statement x $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.Expr _) .
+            pure
+        diff res (==) x
+
+        res' <- lift do
+          statement [x, y] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.Expr _)) .
+            Rel8.many . Rel8.catListTable
+        diff res' (==) [x, y]
+
+        res'' <- lift do
+          statement [[x, y]] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _))) .
+            Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable)
+        diff res'' (==) [[x, y]]
+
+        res''' <- lift do
+          statement [[[x, y]]] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _)))) .
+            Rel8.many . Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable >=> Rel8.catListTable)
+        diff res''' (==) [[[x, y]]]
 
     genScientific :: Gen Scientific
     genScientific = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
@@ -549,7 +564,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     genComposite :: Gen Composite
     genComposite = do
       bool <- Gen.bool
-      char <- Gen.unicode
+      char <- genText
       array <- Gen.list (Range.linear 0 10) (Gen.int32 (Range.linear (-10000) 10000))
       pure Composite {..}
 
@@ -583,29 +598,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
     genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
 
-    genWord128 :: Gen Word128
-    genWord128 = Gen.integral Range.linearBounded
-
-    genNetAddrIP  :: Gen (NetAddr IP)
-    genNetAddrIP =
-      let
-        genIP4Mask :: Gen Word8
-        genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
-
-        genIPv4 :: Gen (IP46 Net4Addr Net6Addr)
-        genIPv4 = IPv4 <$> (liftA2 net4Addr (IP4 <$> genWord32) genIP4Mask)
-
-        genIP6Mask :: Gen Word8
-        genIP6Mask = Gen.integral (Range.linearFrom 0 0 128)
-
-        genIPv6 :: Gen (IP46 Net4Addr Net6Addr)
-        genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
-
-       in fromNetAddr46 <$> Gen.choice [ genIPv4, genIPv6 ]
-
     genIPRange :: Gen (Data.IP.IPRange)
     genIPRange =
-      let
+      Gen.choice
+        [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask)
+        , Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)
+        ]
+      where
         genIP4Mask :: Gen Int
         genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
 
@@ -618,17 +617,16 @@ testDBType getTestDatabase = testGroup "DBType instances"
         genIPv6 :: Gen (Data.IP.IPv6)
         genIPv6 = Data.IP.toIPv6w <$> ((,,,) <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32)
 
-       in Gen.choice [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask), Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)]
-
     genKey :: Gen Aeson.Key
-    genKey = Aeson.Key.fromText <$> Gen.text (Range.linear 0 10) Gen.unicode
+    genKey = Aeson.Key.fromText <$> genText
 
     genValue :: Gen Aeson.Value
     genValue = Gen.recursive Gen.choice
      [ pure Aeson.Null
      , Aeson.Bool <$> Gen.bool
      , Aeson.Number <$> genScientific
-     , Aeson.String <$> Gen.text (Range.linear 0 10) Gen.unicode]
+     , Aeson.String <$> genText
+     ]
      [ Aeson.Object . Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
      , Aeson.Array . Vector.fromList <$> Gen.list (Range.linear 0 10) genValue
      ]
@@ -642,7 +640,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   [ dbEqTest "Bool" Gen.bool
   , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
-  , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbEqTest "Text" $ genText
   ]
 
   where
@@ -664,6 +662,15 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
           statement () $ Rel8.run1 $ Rel8.select do
             pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
+
+
+genText :: Gen Text
+genText = removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  where
+    -- | Postgres doesn't support the NULL character (not to be confused with a NULL value) inside strings.
+    removeNull :: Text -> Text
+    removeNull = T.filter (/= '\0')
+
 
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
@@ -693,26 +700,15 @@ testFromRational = databasePropertyTest "fromRational" \transaction -> do
         pure $ fromRational rational
     diff result (~=) double
   where
-    wholeDigits x = fromIntegral $ length $ show $ round x
+    wholeDigits x = fromIntegral $ length $ show $ round @_ @Integer x
     -- A Double gives us between 15-17 decimal digits of precision.
     -- It's tempting to say that two numbers are equal if they differ by less than 1e15.
     -- But this doesn't hold.
     -- The precision is split between the whole numer part and the decimal part of the number.
     -- For instance, a number between 10 and 99 only has around 13 digits of precision in its decimal part.
     -- Postgres and Haskell show differing amounts of digits in these cases,
-    a ~= b = abs (a - b) < 10**(-15 + wholeDigits a)
+    a ~= b = abs (a - b) < 10 ** (-15 + wholeDigits a)
     infix 4 ~=
-
-
-testFromString :: IO TmpPostgres.DB -> TestTree
-testFromString = databasePropertyTest "fromString" \transaction -> do
-  str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
-
-  transaction do
-    result <- lift do
-      statement () $ Rel8.run1 $ Rel8.select do
-        pure $ fromString str
-    result === pack str
 
 
 testCatMaybeTable :: IO TmpPostgres.DB -> TestTree
@@ -824,7 +820,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
   where
     genRows :: PropertyT IO [TestTable Result]
     genRows = forAll do
-      Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
+      Gen.list (Range.linear 0 10) $ liftA2 TestTable genText (pure True)
 
 
 genTestTable :: Gen (TestTable Result)

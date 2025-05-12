@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                rel8
-version:             1.6.0.0
+version:             1.7.0.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD3
 license-file:        LICENSE
@@ -21,20 +21,15 @@ library
   build-depends:
       aeson
     , attoparsec
-    , attoparsec-aeson
     , base ^>= 4.16 || ^>= 4.17 || ^>= 4.18 || ^>= 4.19 || ^>= 4.20
     , base16 >= 1.0
     , base-compat ^>= 0.11 || ^>= 0.12 || ^>= 0.13 || ^>= 0.14
     , bifunctors
-    , binary-parser ^>= 0.5
-    , data-dword ^>= 0.3
     , bytestring
     , case-insensitive
     , comonad
     , contravariant
-    , data-textual
-    , hasql >= 1.6.1.2 && < 1.10
-    , network-ip ^>= 0.3
+    , hasql >= 1.8 && < 1.10
     , iproute ^>= 1.7
     , opaleye ^>= 0.10.2.1
     , pretty
@@ -60,6 +55,10 @@ library
     -Wno-monomorphism-restriction
     -Wno-missing-local-signatures
     -Wno-missing-kind-signatures
+    -Wno-missing-role-annotations
+    -Wno-missing-deriving-strategies
+    -Wno-term-variable-capture
+
   hs-source-dirs:
     src
   exposed-modules:
@@ -175,6 +174,7 @@ library
     Rel8.Statement.Delete
     Rel8.Statement.Insert
     Rel8.Statement.OnConflict
+    Rel8.Statement.Prepared
     Rel8.Statement.Returning
     Rel8.Statement.Rows
     Rel8.Statement.Run
@@ -215,16 +215,21 @@ library
 
     Rel8.Type
     Rel8.Type.Array
+    Rel8.Type.Builder.ByteString
+    Rel8.Type.Builder.Fold
+    Rel8.Type.Builder.Time
     Rel8.Type.Composite
     Rel8.Type.Decimal
     Rel8.Type.Decoder
     Rel8.Type.Eq
+    Rel8.Type.Encoder
     Rel8.Type.Enum
     Rel8.Type.Information
     Rel8.Type.JSONEncoded
     Rel8.Type.JSONBEncoded
     Rel8.Type.Monoid
     Rel8.Type.Name
+    Rel8.Type.Nullable
     Rel8.Type.Num
     Rel8.Type.Ord
     Rel8.Type.Parser
@@ -247,12 +252,10 @@ test-suite tests
     , bytestring
     , case-insensitive
     , containers
-    , data-dword
     , hasql
     , hasql-transaction
     , hedgehog          ^>= 1.0 || ^>= 1.1 || ^>= 1.2 || ^>= 1.3 || ^>= 1.4 || ^>= 1.5
     , mmorph
-    , network-ip
     , iproute
     , rel8
     , scientific
@@ -277,3 +280,4 @@ test-suite tests
     -Wno-deprecations -Wno-monomorphism-restriction
     -Wno-missing-local-signatures -Wno-implicit-prelude
     -Wno-missing-kind-signatures
+    -Wno-missing-role-annotations
