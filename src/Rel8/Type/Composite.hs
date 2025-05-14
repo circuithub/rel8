@@ -18,6 +18,7 @@ module Rel8.Type.Composite
   ( Composite( Composite )
   , DBComposite( compositeFields, compositeTypeName )
   , compose, decompose
+  , decodeComposite, encodeComposite
   )
 where
 
@@ -52,7 +53,7 @@ import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye ( castExpr, fromPrimExpr, toPrimExpr )
-import Rel8.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulateA )
+import Rel8.Schema.HTable (HTable, hfield, hfoldMap, hspecs, htabulate, htabulateA)
 import Rel8.Schema.Name ( Name( Name ) )
 import Rel8.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Schema.QualifiedName (QualifiedName)
@@ -97,19 +98,27 @@ newtype Composite a = Composite
   }
 
 
+decodeComposite :: HTable t => Decoder (t Result)
+decodeComposite =
+  Decoder
+    { binary = Decoders.composite decoder
+    , text = parser
+    }
+
+
+encodeComposite :: forall t. HTable t => Encoder (t Result)
+encodeComposite =
+  Encoder
+    { binary = Encoders.composite (encoder @t)
+    , text = builder
+    , quote = quoter . litHTable
+    }
+
+
 instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
-    { decode =
-        Decoder
-          { binary = Decoders.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
-          , text = fmap (Composite . fromResult @_ @(HKD a Expr)) . parser
-          }
-    , encode =
-        Encoder
-          { binary = Encoders.composite (toResult @_ @(HKD a Expr) . unComposite >$< encoder)
-          , text = builder . toResult @_ @(HKD a Expr) . unComposite
-          , quote = quoter . litHTable . toResult @_ @(HKD a Expr) . unComposite
-          }
+    { decode = Composite . fromResult @_ @(HKD a Expr) <$> decodeComposite
+    , encode = toResult @_ @(HKD a Expr) . unComposite >$< encodeComposite
     , delimiter = ','
     , typeName =
         TypeName
@@ -256,7 +265,4 @@ buildRow elements =
 
 
 quoter :: HTable t => t Expr -> Opaleye.PrimExpr
-quoter a = Opaleye.FunExpr "ROW" exprs
-  where
-    exprs = getConst $ htabulateA \field -> case hfield a field of
-      expr -> Const [toPrimExpr expr]
+quoter = Opaleye.FunExpr "ROW" . hfoldMap (pure . toPrimExpr)
