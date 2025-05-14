@@ -43,6 +43,10 @@ makeRun rows statement = Hasql.Statement bytes params decode prepare
 
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', disregarding the
 -- results of that statement (if any).
+--
+-- @
+-- run_ :: Rel8.'Statement' exprs -> Hasql.'Hasql.Statement' () ()
+-- @
 run_ :: Statement exprs -> Hasql.Statement () ()
 run_ = makeRun Void
 
@@ -50,6 +54,10 @@ run_ = makeRun Void
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', returning the
 -- number of rows affected by that statement (for 'Rel8.insert's,
 -- 'Rel8.update's or Rel8.delete's with 'Rel8.NoReturning').
+--
+-- @
+-- runN :: Rel8.'Statement' () -> Hasql.'Hasql.Statement' () 'Int64'
+-- @
 runN :: Statement () -> Hasql.Statement () Int64
 runN = makeRun RowsAffected
 
@@ -57,6 +65,10 @@ runN = makeRun RowsAffected
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as a single row. If the statement returns a number
 -- of rows other than 1, a runtime exception is thrown.
+--
+-- @
+-- run1 :: 'Serializable' exprs a => Rel8.'Statement' ('Query' exprs) -> Hasql.'Hasql.Statement' () a
+-- @
 run1 :: Serializable exprs a => Statement (Query exprs) -> Hasql.Statement () a
 run1 = makeRun Single
 
@@ -64,6 +76,10 @@ run1 = makeRun Single
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as 'Maybe' a single row. If the statement returns
 -- a number of rows other than 0 or 1, a runtime exception is thrown.
+--
+-- @
+-- runMaybe :: 'Serializable' exprs a => Rel8.'Statement' ('Query' exprs) -> Hasql.'Hasql.Statement' () ('Maybe' a)
+-- @
 runMaybe :: Serializable exprs a
   => Statement (Query exprs) -> Hasql.Statement () (Maybe a)
 runMaybe = makeRun Maybe
@@ -71,6 +87,10 @@ runMaybe = makeRun Maybe
 
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as a list of rows.
+--
+-- @
+-- run :: 'Serializable' exprs a => Rel8.'Statement' ('Query' exprs) -> Hasql.'Hasql.Statement' () [a]
+-- @
 run :: Serializable exprs a
   => Statement (Query exprs) -> Hasql.Statement () [a]
 run = makeRun List
@@ -78,6 +98,10 @@ run = makeRun List
 
 -- | Convert a 'Statement' to a runnable 'Hasql.Statement', processing the
 -- result of the statement as a 'Vector' of rows.
+--
+-- @
+-- runVector :: 'Serializable' exprs a => Rel8.'Statement' ('Query' exprs) -> Hasql.'Hasql.Statement' () ('Vector' a)
+-- @
 runVector :: Serializable exprs a
   => Statement (Query exprs) -> Hasql.Statement () (Vector a)
 runVector = makeRun Vector
