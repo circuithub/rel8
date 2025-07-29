@@ -3,6 +3,7 @@
 {-# language RecordWildCards #-}
 {-# language StandaloneKindSignatures #-}
 {-# language StrictData #-}
+{-# language DuplicateRecordFields #-}
 
 module Rel8.Type.Encoder (
   Encoder (..),

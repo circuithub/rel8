@@ -64,6 +64,8 @@ library
   exposed-modules:
     Rel8
     Rel8.Array
+    Rel8.Decoder
+    Rel8.Encoder
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
