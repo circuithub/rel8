@@ -2,6 +2,7 @@
 {-# language DeriveFunctor #-}
 {-# language NamedFieldPuns #-}
 {-# language StandaloneKindSignatures #-}
+{-# language DuplicateRecordFields #-}
 
 module Rel8.Type.Decoder (
   Decoder (..),
