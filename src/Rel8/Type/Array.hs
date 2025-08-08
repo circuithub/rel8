@@ -196,9 +196,10 @@ buildArray delimiter elements =
       Just a
         | BS.null a -> "\"\""
         | CI.mk a == "null" -> escaped
-        | BS.any (A.inClass (delimiter : "\\\"{}")) a -> escaped
+        | BS.any (A.inClass escapeClass) a -> escaped
         | otherwise -> unescaped
         where
+          escapeClass = delimiter : "\\\"{}\t\n"
           unescaped = B.byteString a
           escaped =
             B.char8 '"' <> BS.foldr ((<>) . escape) mempty a <> B.char8 '"'

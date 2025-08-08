@@ -245,10 +245,11 @@ buildRow elements =
   where
     element a
         | BS.null a = "\"\""
-        | BS.all (A.notInClass ",\\\"()") a = B.byteString a
+        | BS.all (A.notInClass escapeClass) a = B.byteString a
         | otherwise =
             B.char8 '"' <> BS.foldr ((<>) . escape) mempty a <> B.char8 '"'
         where
+          escapeClass = ",\\\"()\t\n"
           escape = \case
             '"' -> B.string7 "\"\""
             '\\' -> B.string7 "\\\\"
