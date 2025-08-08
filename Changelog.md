@@ -1,4 +1,42 @@
 
+<a id='changelog-1.7.0.0'></a>
+# 1.7.0.0 — 2025-07-31
+
+## Removed
+
+- Removed support for `network-ip`. We still support `iproute`.
+
+## Added
+
+- Add support for prepared statements. To use prepared statements, simply use `prepare run` instead of `run` with a function that passes the parameters to your statement.
+
+- Added new `Encoder` type with three members: `binary`, which is the Hasql binary encoder, `text` which encodes a type in PostgreSQL's text format (needed for nested arrays) and `quote`, which is the does the thing that the function we previously called `encode` does (i.e., `a -> Opaleye.PrimExpr`).
+
+- Support hasql-1.9
+
+- Add `elem` and `elem1` to `Rel8.Array` for testing if an element is contained in `[]` and `NonEmpty` `Expr`s.
+
+## Changed
+
+- Several changes to `TypeInformation`:
+
+  * Changed the `encode` field of `TypeInformation` to be `Encoder a` instead of `a -> Opaleye.PrimExpr`.
+
+  * Moved the `delimiter` field of `Decoder` into the top level of `TypeInformation`, as it's not "decoding" specific, it's also used when "encoding".
+
+  * Renamed the `parser` field of `Decoder` to `text`, to mirror the `text` field of the new `Encoder` type.
+
+  All of this will break any downstream code that uses a completely custom `DBType` implementation, but anything that uses `ReadShow`, `Enum`, `Composite`, `JSONBEncoded` or `parseTypeInformation` will continue working as before (which should cover all common cases).
+
+- Stop exporting `Decoder` and `Encoder` from the `Rel8` module. These can now be found in `Rel8.Decoder` and `Rel8.Encoder`.
+
+- Some changes were made to the `DBEnum` type class:
+
+  * `Enumable` was removed as a superclass constraint. It is still used to provide the default implementation of the `DBEnum` class.
+  * A new method, `enumerate`, was added to the `DBEnum` class (with the default implementation provided by `Enumable`).
+
+  This is unlikely to break any existing `DBEnum` instances, it just allows some instances that weren't possible before (e.g., for types that are not `Generic`).
+
 <a id='changelog-1.6.0.0'></a>
 # 1.6.0.0 — 2024-12-13
 
