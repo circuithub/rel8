@@ -32,7 +32,7 @@ library
     , contravariant
     , hasql >= 1.8 && < 1.10
     , iproute ^>= 1.7
-    , opaleye ^>= 0.10.2.1
+    , opaleye ^>= 0.10.5.0
     , pretty
     , profunctors
     , product-profunctors
