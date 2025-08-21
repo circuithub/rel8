@@ -57,6 +57,9 @@ import Data.IP (IPRange)
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 
+-- postgresql-binary
+import qualified PostgreSQL.Binary.Range as Range
+
 -- rel8
 import Rel8.Schema.Null ( NotNull, Sql, nullable )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
@@ -68,7 +71,9 @@ import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Parser (parse)
 import qualified Rel8.Type.Builder.ByteString as Builder
 import qualified Rel8.Type.Parser.ByteString as Parser
+import qualified Rel8.Type.Builder.Range as Builder
 import qualified Rel8.Type.Builder.Time as Builder
+import qualified Rel8.Type.Parser.Range as Parser
 import qualified Rel8.Type.Parser.Time as Parser
 
 -- scientific
@@ -541,6 +546,124 @@ instance DBType IPRange where
     , delimiter = ','
     , typeName = "inet"
     }
+
+
+-- | Corresponds to @int4range@
+instance DBType (Range.Range Int32) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.int4range
+          , text = Builder.int4range
+          , quote = quoteBuilder . Builder.int4range
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.int4range
+          , text = parse Parser.int4range
+          }
+    , delimiter = ','
+    , typeName = "int4range"
+    }
+
+
+-- | Corresponds to @int8range@
+instance DBType (Range.Range Int64) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.int8range
+          , text = Builder.int8range
+          , quote = quoteBuilder . Builder.int8range
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.int8range
+          , text = parse Parser.int8range
+          }
+    , delimiter = ','
+    , typeName = "int8range"
+    }
+
+
+-- | Corresponds to @numrange@
+instance DBType (Range.Range Scientific) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.numrange
+          , text = Builder.numrange
+          , quote = quoteBuilder . Builder.numrange
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.numrange
+          , text = parse Parser.numrange
+          }
+    , delimiter = ','
+    , typeName = "numrange"
+    }
+
+
+-- | Corresponds to @tsrange@
+instance DBType (Range.Range LocalTime) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.tsrange
+          , text = Builder.tsrange
+          , quote = quoteBuilder . Builder.tsrange
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.tsrange
+          , text = parse Parser.tsrange
+          }
+    , delimiter = ','
+    , typeName = "tsrange"
+    }
+
+
+-- | Corresponds to @tstzrange@
+instance DBType (Range.Range UTCTime) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.tstzrange
+          , text = Builder.tstzrange
+          , quote = quoteBuilder . Builder.tstzrange
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.tstzrange
+          , text = parse Parser.tstzrange
+          }
+    , delimiter = ','
+    , typeName = "tstzrange"
+    }
+
+-- | Corresponds to @daterange@
+instance DBType (Range.Range Day) where
+  typeInformation = TypeInformation
+    { encode =
+        Encoder
+          { binary = Encoders.daterange
+          , text = Builder.daterange
+          , quote = quoteBuilder . Builder.daterange
+          }
+    , decode =
+        Decoder
+          { binary = Decoders.daterange
+          , text = parse Parser.daterange
+          }
+    , delimiter = ','
+    , typeName = "daterange"
+    }
+
+
+quoteBuilder :: B.Builder -> Opaleye.PrimExpr
+quoteBuilder =
+  Opaleye.ConstExpr . Opaleye.OtherLit . BS8.unpack . ByteString.toStrict . B.toLazyByteString
 
 
 instance Sql DBType a => DBType [a] where

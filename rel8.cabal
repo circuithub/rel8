@@ -30,9 +30,10 @@ library
     , comonad
     , containers
     , contravariant
-    , hasql >= 1.8 && < 1.10
+    , hasql >= 1.9.3 && < 1.10
     , iproute ^>= 1.7
     , opaleye ^>= 0.10.2.1
+    , postgresql-binary >= 0.14.2 && < 0.15
     , pretty
     , profunctors
     , product-profunctors
@@ -221,6 +222,7 @@ library
     Rel8.Type.Array
     Rel8.Type.Builder.ByteString
     Rel8.Type.Builder.Fold
+    Rel8.Type.Builder.Range
     Rel8.Type.Builder.Time
     Rel8.Type.Composite
     Rel8.Type.Decimal
@@ -238,6 +240,7 @@ library
     Rel8.Type.Ord
     Rel8.Type.Parser
     Rel8.Type.Parser.ByteString
+    Rel8.Type.Parser.Range
     Rel8.Type.Parser.Time
     Rel8.Type.ReadShow
     Rel8.Type.Semigroup
