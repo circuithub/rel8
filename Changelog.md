@@ -12,9 +12,11 @@
 
 - Added new `Encoder` type with three members: `binary`, which is the Hasql binary encoder, `text` which encodes a type in PostgreSQL's text format (needed for nested arrays) and `quote`, which is the does the thing that the function we previously called `encode` does (i.e., `a -> Opaleye.PrimExpr`).
 
+- Add `elem` and `elem1` to `Rel8.Array` for testing if an element is contained in `[]` and `NonEmpty` `Expr`s.
+
 - Support hasql-1.9
 
-- Add `elem` and `elem1` to `Rel8.Array` for testing if an element is contained in `[]` and `NonEmpty` `Expr`s.
+- Support GHC-9.12
 
 ## Changed
 
