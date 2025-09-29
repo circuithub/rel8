@@ -534,11 +534,11 @@ import Rel8.Window
 -- data Thing f = ThingEmployer (Employer f) | ThingPotato (Potato f) | Nullary
 --     deriving stock Generic
 --
--- data Employer f = Employer { employerId :: f Int32, employerName :: f Text}
+-- data Employer f = Employer { employerId :: Column f Int32, employerName :: Column f Text}
 --   deriving stock Generic
 --   deriving anyclass Rel8able
 --
--- data Potato f = Potato { size :: f Int32, grower :: f Text }
+-- data Potato f = Potato { size :: Column f Int32, grower :: Column f Text }
 --   deriving stock Generic
 --   deriving anyclass Rel8able
 -- @
