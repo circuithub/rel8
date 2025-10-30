@@ -1,35 +1,34 @@
-
 {-# language BlockArguments #-}
-{-# language LambdaCase #-}
-{-# language RecordWildCards #-}
-{-# language RankNTypes #-}
-{-# language DuplicateRecordFields #-}
-{-# language DerivingStrategies #-}
-{-# language OverloadedRecordDot #-}
-{-# language TypeApplications #-}
-{-# language NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
-{-# language StandaloneDeriving #-}
 {-# language DeriveAnyClass #-}
+{-# language DeriveGeneric #-}
+{-# language DerivingStrategies #-}
+{-# language DuplicateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language DeriveGeneric #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language OverloadedStrings #-}
 {-# language GADTs #-}
+{-# language GeneralizedNewtypeDeriving #-}
+{-# language LambdaCase #-}
+{-# language NamedFieldPuns #-}
+{-# language OverloadedRecordDot #-}
+{-# language OverloadedStrings #-}
+{-# language RankNTypes #-}
+{-# language RecordWildCards #-}
+{-# language ScopedTypeVariables #-}
+{-# language StandaloneDeriving #-}
+{-# language TypeApplications #-}
+{-# options_ghc -Wno-partial-fields #-}
 
 module Rel8.Table.Verify
-    ( getSchemaErrors
-    , SomeTableSchema(..)
-    , showCreateTable
-    , checkedShowCreateTable
-    ) where
+  ( getSchemaErrors
+  , SomeTableSchema(..)
+  , showCreateTable
+  , checkedShowCreateTable
+  )
+where
 
 -- base
-import Control.Monad
 import Data.Bits (shiftR, (.&.))
-import Data.Either (lefts)
-import Data.Function
+import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Functor.Const
 import Data.Functor.Contravariant ( (>$<) )
@@ -48,31 +47,44 @@ import qualified Prelude as P
 import qualified Data.Map as M
 
 -- hasql
-import Hasql.Connection
 import qualified Hasql.Statement as HS
 
 -- rel8
-import Rel8 -- not importing this seems to cause a type error???
 import Rel8.Column ( Column )
 import Rel8.Column.List ( HList )
 import Rel8.Expr ( Expr )
+import Rel8.Expr.Eq ((==.))
+import Rel8.Expr.Ord ((>.))
+import Rel8.Expr.Order (asc)
 import Rel8.Generic.Rel8able (GFromExprs, Rel8able)
 import Rel8.Query ( Query )
+import Rel8.Query.Each (each)
+import Rel8.Query.Filter (filter)
+import Rel8.Query.List (many)
+import Rel8.Query.Order (orderBy)
 import Rel8.Schema.HTable
 import Rel8.Schema.Name ( Name(Name) )
 import Rel8.Schema.Null hiding (nullable)
-import qualified Rel8.Schema.Null as Null
-import qualified Rel8.Statement.Run as RSR
-import Rel8.Schema.Table ( TableSchema(..) )
-import Rel8.Schema.Spec
-import Rel8.Schema.Result ( Result )
 import Rel8.Schema.QualifiedName ( QualifiedName(..) )
-import Rel8.Table ( Columns )
+import Rel8.Schema.Result ( Result )
+import Rel8.Schema.Spec (Spec (Spec))
+import qualified Rel8.Schema.Spec
+import Rel8.Schema.Table ( TableSchema(..) )
+import Rel8.Statement.Run (run1)
+import Rel8.Statement.Select (select)
+import Rel8.Table (Columns, toColumns)
 import Rel8.Table.List ( ListTable )
-import Rel8.Table.Serialize ( ToExprs )
+import Rel8.Table.Name (namesFromLabelsWith)
+import Rel8.Table.Rel8able ()
+import Rel8.Table.Serialize (ToExprs, lit)
 import Rel8.Type ( DBType(..) )
 import Rel8.Type.Eq ( DBEq )
+import Rel8.Type.Information (parseTypeInformation)
+import qualified Rel8.Type.Information
 import Rel8.Type.Name ( TypeName(..) )
+
+-- semialign
+import Data.Semialign (align)
 
 -- these
 import Data.These
@@ -338,7 +350,7 @@ showCreateTable_helper name typeMap = "CREATE TABLE " <> show name <> " ("
     ++ "\n);"
   where
     go :: (String, TypeInfo) -> String
-    go (name, typeInfo) = "\n    " ++ show name ++ " " ++ showTypeInfo typeInfo
+    go (name', typeInfo) = "\n    " ++ show name' ++ " " ++ showTypeInfo typeInfo
 
 
 -- |@'showCreateTable'@ shows an example CREATE TABLE statement for the table.
@@ -378,17 +390,9 @@ checkTypeEquality env db hs
     sameMods = db.typeName.modifiers == hs.typeName.modifiers
     sameDims = db.typeName.arrayDepth == hs.typeName.arrayDepth
 
-    sameName = equalName db.typeName.name hs.typeName.name
-
     toName :: TypeInfo -> String
     toName typeInfo = case typeInfo.typeName.name of
-        QualifiedName name _ -> L.dropWhile (=='_') name
-
-equalName :: QualifiedName -> QualifiedName -> Bool
-equalName (QualifiedName a (Just b)) (QualifiedName a' (Just b'))
-  = L.dropWhile (=='_') a == L.dropWhile (=='_') a' && b == b'
-equalName (QualifiedName a _) (QualifiedName a' _)
-  = dropWhile (=='_') a == dropWhile (=='_') a'
+        QualifiedName name _ -> L.dropWhile (== '_') name
 
 -- check types for a single table
 compareTypes
@@ -430,7 +434,7 @@ compareTypes env attrMap typeMap = fmap (uncurry go) $ M.assocs (disjointUnion a
                 (T.unpack attr.typ.typname)
                 (Just $ T.unpack attr.namespace.nspname)
             , modifiers = toModifier
-                (T.dropWhile (=='_') attr.typ.typname)
+                (T.dropWhile (== '_') attr.typ.typname)
                 attr.attribute.atttypmod
             , arrayDepth = fromIntegral attr.attribute.attndims
             }
@@ -444,14 +448,10 @@ compareTypes env attrMap typeMap = fmap (uncurry go) $ M.assocs (disjointUnion a
     toModifier _ _ = []
 
     disjointUnion :: Ord k => M.Map k a -> M.Map k b -> M.Map k (These a b)
-    disjointUnion a b = M.unionWith go (fmap This a) (fmap That b)
-      where
-        go :: These a b -> These a b -> These a b
-        go (This a) (That b) = These a b
-        go _ _ = undefined
+    disjointUnion = align
 
 
--- |@pShowTable@ is a helper function which takes a grid of text and prints it
+-- |@pShowTable@ i's a helper f'unction which takes a grid of text and prints' it'
 -- as a table, with padding so that cells are lined in columns, and a bordered
 -- header for the first row
 pShowTable :: [[Text]] -> Text
@@ -464,7 +464,7 @@ pShowTable xs
   where
     addHeaderBorder :: [Text] -> [Text]
     addHeaderBorder [] = []
-    addHeaderBorder (x : xs) = x : T.replicate (T.length x) "-" : xs
+    addHeaderBorder (a : as) = a : T.replicate (T.length a) "-" : as
 
     xs' :: [[Text]]
     xs' = L.transpose xs
@@ -489,8 +489,8 @@ pShowErrors = T.intercalate "\n\n" . fmap go
         [ "Table "
         , T.pack (show name)
         , " has multiple columns with the same name. This is an error with the Haskell code generating an impossible schema, rather than an error in your current setup of the database itself. Using 'namesFromLabels' can ensure each column has unique names, which is the easiest way to prevent this, but may require changing names in your database to match the new generated names."
-        , pShowTable (["DB name", "Haskell label"] : (M.assocs duplicates <&> \(name, typs) ->
-            [ T.pack name
+        , pShowTable (["DB name", "Haskell label"] : (M.assocs duplicates <&> \(name', typs) ->
+            [ T.pack name'
             , T.intercalate " " $ fmap (\typ -> T.intercalate "/" $ fmap T.pack typ.label) $ NonEmpty.toList typs
             ]))
         ]
@@ -531,8 +531,8 @@ showTypeInfo typeInfo = concat
     ]
   where
     name = case typeInfo.typeName.name of
-        QualifiedName a Nothing -> show (dropWhile (=='_') a)
-        QualifiedName a (Just b) -> show b <> "." <> show (dropWhile (=='_') a)
+        QualifiedName a Nothing -> show (dropWhile (== '_') a)
+        QualifiedName a (Just b) -> show b <> "." <> show (dropWhile (== '_') a)
 
     modifiers :: [String]
     modifiers = typeInfo.typeName.modifiers

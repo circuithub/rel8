@@ -24,7 +24,6 @@ where
 
 -- aeson
 import Data.Aeson ( Value(..) )
-import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson
 
 -- base
@@ -53,7 +52,29 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 -- rel8
-import Rel8
+import Rel8 (
+  Column,
+  DBType,
+  Expr,
+  HADT,
+  HEither,
+  HKD,
+  HList,
+  HMaybe,
+  HNonEmpty,
+  HThese,
+  KRel8able,
+  Lift,
+  Name,
+  QualifiedName,
+  Rel8able,
+  Result,
+  TableSchema (TableSchema),
+  ToExprs,
+  namesFromLabels,
+  namesFromLabelsWith,
+ )
+import qualified Rel8
 
 -- scientific
 import Data.Scientific ( Scientific, fromFloatDigits )
@@ -79,7 +100,6 @@ import Data.UUID ( UUID )
 import qualified Data.UUID as UUID
 
 -- vector
-import Data.Vector ( Vector )
 import qualified Data.Vector as Vector
 
 
@@ -477,7 +497,7 @@ genTableType = do
   int64 <- Gen.int64 range
   float <- Gen.float linearFrac
   double <- Gen.double linearFrac
-  scientific <- fromFloatDigits <$> Gen.realFloat linearFrac
+  scientific <- fromFloatDigits @Double <$> Gen.realFloat linearFrac
   utctime <- UTCTime <$> (toEnum <$> Gen.integral range) <*> fmap secondsToDiffTime (Gen.integral range)
   day <- toEnum <$> Gen.integral range
   localtime <- LocalTime <$> (toEnum <$> Gen.integral range) <*> timeOfDay
@@ -494,7 +514,7 @@ genTableType = do
     [ Object <$> Aeson.fromMapText <$> Map.fromList <$> Gen.list range (liftA2 (,) (Gen.text range Gen.alpha) (pure Null))
     , Array <$> Vector.fromList <$> Gen.list range (pure Null)
     , String <$> Gen.text range Gen.alpha
-    , Number <$> fromFloatDigits <$> Gen.realFloat linearFrac
+    , Number <$> fromFloatDigits @Double <$> Gen.realFloat linearFrac
     , Bool <$> Gen.bool
     , pure Null
     ]

@@ -11,13 +11,14 @@
 
 module Rel8.Statement.OnConflict
   ( OnConflict(..)
+  , Conflict (..)
+  , Index (..)
   , Upsert(..)
   , ppOnConflict
   )
 where
 
 -- base
-import Data.Foldable ( toList )
 import Data.Kind ( Type )
 import Prelude
 
@@ -31,28 +32,32 @@ import Text.PrettyPrint ( Doc, (<+>), ($$), parens, text )
 -- rel8
 import Rel8.Expr ( Expr )
 import Rel8.Expr.Opaleye (toPrimExpr)
-import Rel8.Schema.Name ( Name, Selects, ppColumn )
+import Rel8.Schema.Escape (escape)
+import Rel8.Schema.Name ( Selects )
+import Rel8.Schema.HTable (hfoldMap)
 import Rel8.Schema.Table ( TableSchema(..) )
 import Rel8.Statement.Set ( ppSet )
 import Rel8.Statement.Where ( ppWhere )
 import Rel8.Table ( Table, toColumns )
-import Rel8.Table.Cols ( Cols( Cols ) )
-import Rel8.Table.Name ( showNames )
 import Rel8.Table.Opaleye (attributes, view)
-import Rel8.Table.Projection ( Projecting, Projection, apply )
 
 
 -- | 'OnConflict' represents the @ON CONFLICT@ clause of an @INSERT@
 -- statement. This specifies what ought to happen when one or more of the
 -- rows proposed for insertion conflict with an existing row in the table.
 type OnConflict :: Type -> Type
-data OnConflict names
+data OnConflict exprs
   = Abort
     -- ^ Abort the transaction if there are conflicting rows (Postgres' default)
-  | DoNothing
-    -- ^ @ON CONFLICT DO NOTHING@
-  | DoUpdate (Upsert names)
-    -- ^ @ON CONFLICT DO UPDATE@
+  | DoNothing (Maybe (Conflict exprs))
+    -- ^ @ON CONFLICT DO NOTHING@, or @ON CONFLICT (...) DO NOTHING@ if an
+    -- explicit conflict target  is supplied. Specifying a conflict target is
+    -- essential when your table has has deferrable constraints — @ON
+    -- CONFLICT@ can't work on deferrable constraints, so it's necessary
+    -- to explicitly name one of its non-deferrable constraints in order to
+    -- use @ON CONFLICT@.
+  | DoUpdate (Upsert exprs)
+    -- ^ @ON CONFLICT (...) DO UPDATE ...@
 
 
 -- | The @ON CONFLICT (...) DO UPDATE@ clause of an @INSERT@ statement, also
@@ -69,35 +74,75 @@ data OnConflict names
 -- are specified by listing the columns that comprise them along with an
 -- optional predicate in the case of partial indexes.
 type Upsert :: Type -> Type
-data Upsert names where
-  Upsert :: (Selects names exprs, Projecting names index, excluded ~ exprs) =>
-    { index :: Projection names index
-      -- ^ The set of columns comprising the @UNIQUE@ index that forms our
-      -- conflict target, projected from the set of columns for the whole
-      -- table
-    , predicate :: Maybe (exprs -> Expr Bool)
-      -- ^ An optional predicate used to specify a
-      -- [partial index](https://www.postgresql.org/docs/current/indexes-partial.html).
+data Upsert exprs where
+  Upsert :: excluded ~ exprs =>
+    { conflict :: Conflict exprs
+      -- ^ The conflict target to supply to @DO UPDATE@.
     , set :: excluded -> exprs -> exprs
       -- ^ How to update each selected row.
     , updateWhere :: excluded -> exprs -> Expr Bool
       -- ^ Which rows to select for update.
     }
-    -> Upsert names
+    -> Upsert exprs
 
 
-ppOnConflict :: TableSchema names -> OnConflict names -> Doc
-ppOnConflict schema = \case
+-- | Represents what PostgreSQL calls a
+-- [@conflict_target@](https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT)
+-- in an @ON CONFLICT@ clause of an @INSERT@ statement.
+type Conflict :: Type -> Type
+data Conflict exprs
+  = OnConstraint String
+  -- ^ Use a specific named constraint for the conflict target. This
+  -- corresponds the the syntax @ON CONFLICT constraint@ in PostgreSQL.
+  | OnIndex (Index exprs)
+  -- ^ Have PostgreSQL perform what it calls _unique index inference_ by
+  -- giving it a description of the target index.
+
+
+-- | A description of the target unique index — its columns (and/or
+-- expressions) and, in the case of partial indexes, a predicate.
+type Index :: Type -> Type
+data Index exprs where
+  Index :: Table Expr index =>
+    { columns :: exprs -> index
+      -- ^ The set of columns and/or expressions comprising the @UNIQUE@ index
+    , predicate :: Maybe (exprs -> Expr Bool)
+      -- ^ An optional predicate used to specify a
+      -- [partial index](https://www.postgresql.org/docs/current/indexes-partial.html).
+    }
+    -> Index exprs
+
+
+ppOnConflict :: Selects names exprs => TableSchema names -> OnConflict exprs -> Doc
+ppOnConflict schema@TableSchema {columns} = \case
   Abort -> mempty
-  DoNothing -> text "ON CONFLICT DO NOTHING"
-  DoUpdate upsert -> ppUpsert schema upsert
+  DoNothing conflict -> text "ON CONFLICT" <+> foldMap (ppConflict row) conflict <+> text "DO NOTHING"
+  DoUpdate upsert -> ppUpsert schema row upsert
+  where
+    row = view columns
 
 
-ppUpsert :: TableSchema names -> Upsert names -> Doc
-ppUpsert schema@TableSchema {columns} Upsert {..} =
-  text "ON CONFLICT" <+>
-  ppIndex columns index <+> foldMap (ppPredicate columns) predicate <+>
-  text "DO UPDATE" $$
+ppConflict :: exprs -> Conflict exprs -> Doc
+ppConflict row = \case
+  OnConstraint name -> "ON CONSTRAINT" <+> escape name
+  OnIndex index -> ppIndex row index
+
+
+ppIndex :: exprs -> Index exprs -> Doc
+ppIndex row Index {columns, predicate} =
+  parens (Opaleye.commaH id exprs) <>
+  foldMap (ppPredicate . ($ row)) predicate
+  where
+    exprs = hfoldMap (pure . parens . ppExpr) $ toColumns $ columns row
+
+
+ppPredicate :: Expr Bool -> Doc
+ppPredicate condition = text "WHERE" <+> ppExpr condition
+
+
+ppUpsert :: Selects names exprs => TableSchema names -> exprs -> Upsert exprs -> Doc
+ppUpsert schema@TableSchema {columns} row Upsert {..} =
+  text "ON CONFLICT" <+> ppConflict row conflict <+> "DO UPDATE" $$
   ppSet schema (set excluded) $$
   ppWhere schema (updateWhere excluded)
   where
@@ -107,16 +152,5 @@ ppUpsert schema@TableSchema {columns} Upsert {..} =
       }
 
 
-ppIndex :: (Table Name names, Projecting names index)
-  => names -> Projection names index -> Doc
-ppIndex columns index =
-  parens $ Opaleye.commaV ppColumn $ toList $
-    showNames $ Cols $ apply index $ toColumns columns
-
-
-ppPredicate :: Selects names exprs
-  => names -> (exprs -> Expr Bool) -> Doc
-ppPredicate schema where_ = text "WHERE" <+> ppExpr condition
-  where
-    ppExpr = Opaleye.ppSqlExpr . Opaleye.sqlExpr . toPrimExpr
-    condition = where_ (view schema)
+ppExpr :: Expr a -> Doc
+ppExpr = Opaleye.ppSqlExpr . Opaleye.sqlExpr . toPrimExpr

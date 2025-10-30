@@ -360,6 +360,8 @@ module Rel8
     -- ** @INSERT@
   , Insert(..)
   , OnConflict(..)
+  , Conflict (..)
+  , Index (..)
   , Upsert(..)
   , insert
   , unsafeDefault

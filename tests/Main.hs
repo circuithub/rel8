@@ -277,7 +277,7 @@ testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
           statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
             { into = tableSchema
             , rows = Rel8.values $ map Rel8.lit rows
-            , onConflict = Rel8.DoNothing
+            , onConflict = Rel8.DoNothing Nothing
             , returning = Rel8.NoReturning
             }
           statement () $ Rel8.run $ Rel8.select do
@@ -335,7 +335,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -945,7 +945,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -989,7 +989,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -1029,7 +1029,7 @@ testWithStatement genTestDatabase =
               inserted <- Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = values
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.Returning id
                 }
 
@@ -1047,7 +1047,7 @@ testWithStatement genTestDatabase =
               Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.NoReturning
                 }
 
@@ -1063,7 +1063,7 @@ testWithStatement genTestDatabase =
               Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.Returning id
                 }
 
@@ -1123,7 +1123,7 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> as
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -1131,8 +1131,12 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> bs
         , onConflict = Rel8.DoUpdate Rel8.Upsert
-            { index = uniqueTableKey
-            , predicate = Nothing
+            { conflict =
+                Rel8.OnIndex
+                  Rel8.Index
+                    { columns = uniqueTableKey
+                    , predicate = Nothing
+                    }
             , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
             , updateWhere = \_ _ -> Rel8.true
             }
