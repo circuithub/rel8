@@ -66,7 +66,7 @@ manyExpr :: Sql DBType a => Query (Expr a) -> Query (Expr [a])
 manyExpr = aggregate listAggExpr
 
 
--- | A version of 'many' specialised to single expressions.
+-- | A version of 'some' specialised to single expressions.
 someExpr :: Sql DBType a => Query (Expr a) -> Query (Expr (NonEmpty a))
 someExpr = aggregate1 nonEmptyAggExpr
 
