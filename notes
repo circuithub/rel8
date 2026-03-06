@@ -1,0 +1,52 @@
+standing for ‘rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                    "foo" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Bool))
+                (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                    "bars"
+                    (rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                        (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                            "_1" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))
+                        (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                            "_2" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))))
+                Expr
+rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                        (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                           "foo" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Bool))
+                        (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                           "bars"
+                           (rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                              (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                 "_1" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))
+                              (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                 "_2" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))))
+                        Expr
+    • Found type wildcard ‘_’
+        standing for ‘rel8-1.7.0.0:Rel8.Kind.Context.SContext Identity
+                      -> rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                           (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                              "foo" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Bool))
+                           (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                              "bars"
+                              (rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                                 (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                    "_1" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))
+                                 (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                    "_2"
+                                    (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))))
+                           Identity
+                      -> TablePair Identity’
+    • Found type wildcard ‘_’
+        standing for ‘rel8-1.7.0.0:Rel8.Kind.Context.SContext Identity
+                      -> rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                           (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                              "foo" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Bool))
+                           (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                              "bars"
+                              (rel8-1.7.0.0:Rel8.Schema.HTable.Product.HProduct
+                                 (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                    "_1" (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))
+                                 (rel8-1.7.0.0:Rel8.Schema.HTable.Label.HLabel
+                                    "_2"
+                                    (rel8-1.7.0.0:Rel8.Schema.HTable.Identity.HIdentity Text))))
+                           Identity
+                      -> TablePair Identity’
