@@ -16,7 +16,7 @@ module Rel8.Type
 where
 
 -- aeson
-import Data.Aeson ( Value )
+import Data.Aeson ( Value, Object )
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Text as Aeson
 
@@ -63,7 +63,7 @@ import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Decimal (PowerOf10, resolution)
 import Rel8.Type.Decoder (Decoder (..))
 import Rel8.Type.Encoder (Encoder (..))
-import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
+import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation, parseTypeInformation )
 import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Parser (parse)
 import qualified Rel8.Type.Builder.ByteString as Builder
@@ -521,6 +521,16 @@ instance DBType Value where
     , typeName = "jsonb"
     }
 
+-- | Corresponds to @jsonb@
+instance DBType Object where
+  typeInformation = parseTypeInformation
+    (aesonResultToEither . Aeson.fromJSON)
+    Aeson.Object
+    typeInformation
+    where
+      aesonResultToEither = \case
+        Aeson.Success o -> Right o
+        Aeson.Error   e -> Left e
 
 -- | Corresponds to @inet@
 instance DBType IPRange where
