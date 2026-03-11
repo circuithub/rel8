@@ -585,6 +585,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Value" genValue
   , dbTypeTest "JSONEncoded" genJSONEncoded
   , dbTypeTest "JSONBEncoded" genJSONBEncoded
+  , dbTypeTest "Object" genObject
   ]
 
   where
@@ -733,12 +734,15 @@ testDBType getTestDatabase = testGroup "DBType instances"
      , Aeson.Number <$> genScientific
      , Aeson.String <$> genText
      ]
-     [ Aeson.Object . Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
+     [ Aeson.Object <$> genObject
      , Aeson.Array . Vector.fromList <$> Gen.list (Range.linear 0 10) genValue
      ]
 
     genJSONEncoded = Rel8.JSONEncoded <$> genValue
     genJSONBEncoded = Rel8.JSONBEncoded <$> genValue
+
+    genObject :: Gen Aeson.Object
+    genObject = Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
