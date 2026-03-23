@@ -33,6 +33,7 @@ library
     , hasql >= 1.8 && < 1.10
     , iproute ^>= 1.7
     , opaleye ^>= 0.10.2.1
+    , postgresql-binary ^>= 0.14.2
     , pretty
     , profunctors
     , product-profunctors
@@ -70,6 +71,7 @@ library
     Rel8.Expr.Num
     Rel8.Expr.Text
     Rel8.Expr.Time
+    Rel8.Range
     Rel8.Table.Verify
     Rel8.Tabulate
 
@@ -77,6 +79,7 @@ library
     Rel8.Aggregate
     Rel8.Aggregate.Fold
     Rel8.Aggregate.Function
+    Rel8.Aggregate.Range
 
     Rel8.Column
     Rel8.Column.ADT
@@ -87,6 +90,8 @@ library
     Rel8.Column.NonEmpty
     Rel8.Column.Null
     Rel8.Column.These
+
+    Rel8.Data.Range
 
     Rel8.Expr
     Rel8.Expr.Aggregate
@@ -101,6 +106,7 @@ library
     Rel8.Expr.Opaleye
     Rel8.Expr.Ord
     Rel8.Expr.Order
+    Rel8.Expr.Range
     Rel8.Expr.Read
     Rel8.Expr.Sequence
     Rel8.Expr.Serialize
@@ -239,6 +245,7 @@ library
     Rel8.Type.Parser
     Rel8.Type.Parser.ByteString
     Rel8.Type.Parser.Time
+    Rel8.Type.Range
     Rel8.Type.ReadShow
     Rel8.Type.Semigroup
     Rel8.Type.String

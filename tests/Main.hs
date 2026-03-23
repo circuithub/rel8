@@ -6,6 +6,7 @@
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language LambdaCase #-}
 {-# language MonoLocalBinds #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
@@ -13,8 +14,6 @@
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneDeriving #-}
 {-# language TypeApplications #-}
-
-{-# language PartialTypeSignatures #-}
 
 module Main
   ( main
@@ -84,6 +83,11 @@ import Rel8 ( Result )
 import qualified Rel8
 import qualified Rel8.Generic.Rel8able.Test as Rel8able
 import qualified Rel8.Table.Verify as Verify
+import Rel8.Range (
+  Bound (Incl, Excl, Inf),
+  Range (Empty, Range),
+  Multirange (Multirange),
+ )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -586,6 +590,8 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "JSONEncoded" genJSONEncoded
   , dbTypeTest "JSONBEncoded" genJSONBEncoded
   , dbTypeTest "Object" genObject
+  , dbTypeTest "Range" genRange
+  , dbTypeTest "Multirange" genMultirange
   ]
 
   where
@@ -743,6 +749,80 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
     genObject :: Gen Aeson.Object
     genObject = Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
+
+    genRange :: Gen (Range Scientific)
+    genRange =
+      Gen.choice
+        [ pure Empty
+        , do
+            (lower, upper) <- genBounds
+            pure (Range lower upper)
+        ]
+
+    genBound :: Gen a -> Gen (Bound a)
+    genBound a =
+      Gen.choice
+        [ Incl <$> a
+        , Excl <$> a
+        , pure Inf
+        ]
+
+    genNum :: Gen Scientific
+    genNum = genNumFrom (-1000)
+
+    genNumFrom :: Scientific -> Gen Scientific
+    genNumFrom x = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear i 10000)
+      where
+        i = round (x * 10)
+
+    genBounds :: Gen (Bound Scientific, Bound Scientific)
+    genBounds = do
+      lower <- genBound genNum
+      upper <- genUpperFrom lower
+      pure (lower, upper)
+
+    genUpperFrom :: Bound Scientific -> Gen (Bound Scientific)
+    genUpperFrom = \case
+      Inf -> genBound genNum
+      Incl x -> genBoundGT x
+      Excl x -> genBoundGT x
+      where
+        genBoundGT x
+          | x' < 1000 = genBound $ genNumFrom x'
+          | otherwise = pure Inf
+          where
+            x' = x + 0.1
+
+    genMultirange :: Gen (Multirange Scientific)
+    genMultirange = Multirange <$> do
+      n <- Gen.integral (Range.linear @Int 0 10)
+      if n == 0
+        then pure []
+        else do
+          (lower, upper) <- genBounds
+          ranges <- go (n - 1) upper
+          pure (Range lower upper : ranges)
+      where
+        go n bound
+          | n == 0 = pure []
+          | otherwise = case bound of
+              Inf -> pure []
+              Incl x -> next x
+              Excl x -> next x
+          where
+            next x
+              | x' >= 1000 = pure []
+              | otherwise = do
+                  lower <-
+                    Gen.choice
+                      [ Incl <$> genNumFrom x'
+                      , Excl <$> genNumFrom x'
+                      ]
+                  upper <- genUpperFrom lower
+                  ranges <- go (n - 1) upper
+                  pure (Range lower upper : ranges)
+              where
+                x' = x + 0.1
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
