@@ -35,7 +35,7 @@ import Data.Foldable ( for_ )
 import Data.Fixed (Centi)
 import Data.Functor (void)
 import Data.Int ( Int32, Int64 )
-import Data.List ( nub, sort )
+import Data.List ( isInfixOf, nub, sort )
 import Data.Maybe ( catMaybes )
 import Data.Ratio ((%))
 import Data.Word (Word32)
@@ -68,7 +68,7 @@ import qualified Hasql.Transaction as Hasql
 import qualified Hasql.Transaction.Sessions as Hasql
 
 -- hedgehog
-import Hedgehog ( annotate, failure, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( annotate, assert, failure, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
@@ -160,6 +160,7 @@ tests =
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
     , testEvaluate getTestDatabase
+    , testSelectTruncated getTestDatabase
     , testShowCreateTable getTestDatabase
     ]
   where
@@ -1344,3 +1345,53 @@ testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect
     normalize :: [(x, (Int64, Int64))] -> [(x, (Int64, Int64))]
     normalize [] = []
     normalize xs@((_, (i, _)) : _) = map (fmap (\(a, b) -> (a - i, b - i))) xs
+
+
+-- Field name is 42 chars
+data LongLabelTable f = LongLabelTable
+  { aFieldNameDefinitelyLongerThanThirtyCharsA :: Rel8.Column f Text
+  , aFieldNameDefinitelyLongerThanThirtyCharsB :: Rel8.Column f Text
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.Rel8able
+
+deriving stock instance Eq (LongLabelTable Result)
+deriving stock instance Ord (LongLabelTable Result)
+deriving stock instance Show (LongLabelTable Result)
+
+
+-- Field name is 51 chars, nested with the 42 above, we'll get more than 63,
+-- triggering truncation.
+data NestedForLargerThan63 f = NestedForLargerThan63
+  { aFieldNameDefinitelyLongerThanThirtyCharsNestedWith :: LongLabelTable f
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.Rel8able
+
+deriving stock instance Eq (NestedForLargerThan63 Result)
+deriving stock instance Ord (NestedForLargerThan63 Result)
+deriving stock instance Show (NestedForLargerThan63 Result)
+
+
+testSelectTruncated :: IO TmpPostgres.DB -> TestTree
+testSelectTruncated = databasePropertyTest "select truncates long column aliases" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) ((,) <$> genText <*> genText)
+
+  let q = Rel8.values $ map (\(tA, tB) -> NestedForLargerThan63 (LongLabelTable (Rel8.lit tA) (Rel8.lit tB))) rows
+      sqlText = Rel8.showStatement (Rel8.select q)
+  annotate sqlText
+
+  -- Check that long names do not exist
+  assert $ not $ "aFieldNameDefinitelyLongerThanThirtyCharsA" `isInfixOf` sqlText
+  assert $ not $ "aFieldNameDefinitelyLongerThanThirtyCharsB" `isInfixOf` sqlText
+
+  -- Find the short names
+  assert $ "aFieldNameDefinitelyLongerThanThirtyCharsNestedWith/aFieldN_1_1" `isInfixOf` sqlText
+  assert $ "aFieldNameDefinitelyLongerThanThirtyCharsNestedWith/aFieldN_2_1" `isInfixOf` sqlText
+
+  transaction do
+    selected <- lift do
+      statement () $ Rel8.run $ Rel8.select q
+    sort (map (((,) <$> aFieldNameDefinitelyLongerThanThirtyCharsA <*>  aFieldNameDefinitelyLongerThanThirtyCharsB)
+      . aFieldNameDefinitelyLongerThanThirtyCharsNestedWith) selected)
+      === sort rows
