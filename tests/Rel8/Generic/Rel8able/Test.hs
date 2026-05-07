@@ -28,6 +28,7 @@ import qualified Data.Aeson.KeyMap as Aeson
 
 -- base
 import Data.Fixed ( Fixed ( MkFixed ), E2 )
+import Data.Foldable ( fold )
 import Data.Int ( Int16, Int32, Int64 )
 import Data.Functor.Identity ( Identity(..) )
 import qualified Data.List.NonEmpty as NonEmpty
@@ -71,7 +72,6 @@ import Rel8 (
   Result,
   TableSchema (TableSchema),
   ToExprs,
-  namesFromLabels,
   namesFromLabelsWith,
  )
 import qualified Rel8
@@ -106,7 +106,7 @@ import qualified Data.Vector as Vector
 makeSchema :: forall f. Rel8able f => QualifiedName -> TableSchema (f Name)
 makeSchema name = TableSchema
   { name = name
-  , columns = namesFromLabels @(f Name)
+  , columns = namesFromLabelsWith @(f Name) (fold . NonEmpty.intersperse "/")
   }
 
 
