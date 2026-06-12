@@ -127,6 +127,7 @@ associated with the ``Author`` type::
   authorSchema :: TableSchema (Author Name)
   authorSchema = TableSchema
     { name = "author"
+    , schema = Nothing
     , columns = Author
         { authorId = "author_id"
         , authorName = "name"
@@ -139,6 +140,7 @@ And likewise for ``project`` and ``Project``::
   projectSchema :: TableSchema (Project Name)
   projectSchema = TableSchema
     { name = "project"
+    , schema = Nothing
     , columns = Project
         { projectAuthorId = "author_id"
         , projectName = "name"
@@ -151,6 +153,7 @@ information from your ``Rel8able`` type::
   projectSchema :: TableSchema (Project Name)
   projectSchema = TableSchema
     { name = "project"
+    , schema = Nothing
     , columns = namesFromLabels @(Project Name)
     }
 

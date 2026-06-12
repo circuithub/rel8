@@ -4,7 +4,6 @@
 {-# language DisambiguateRecordFields #-}
 {-# language FlexibleContexts #-}
 {-# language GADTs #-}
-{-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
 {-# language ScopedTypeVariables #-}
@@ -28,8 +27,7 @@ import qualified Data.Attoparsec.ByteString.Char8 as A
 import Control.Applicative ((<|>), many, optional)
 import Data.Foldable (fold)
 import Data.Functor.Const (Const (Const), getConst)
-import Data.Functor.Contravariant ((>$<))
-import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.Functor.Identity (Identity (Identity))
 import Data.Kind ( Constraint, Type )
 import Data.List (uncons)
 import Prelude
@@ -37,14 +35,9 @@ import Prelude
 -- bytestring
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import Data.ByteString.Builder (Builder)
-import Data.ByteString.Builder (toLazyByteString)
-import qualified Data.ByteString.Builder as B
-import Data.ByteString.Lazy (toStrict)
 
 -- hasql
-import qualified Hasql.Decoders as Decoders
-import qualified Hasql.Encoders as Encoders
+import qualified Hasql.Decoders as Hasql
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -65,11 +58,8 @@ import Rel8.Table.Ord ( OrdTable )
 import Rel8.Table.Rel8able ()
 import Rel8.Table.Serialize ( litHTable )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Builder.Fold (interfoldMap)
 import Rel8.Type.Decoder (Decoder (Decoder), Parser)
 import qualified Rel8.Type.Decoder as Decoder
-import Rel8.Type.Encoder (Encoder (Encoder))
-import qualified Rel8.Type.Encoder as Encoder
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information ( TypeInformation(..) )
 import Rel8.Type.Name (TypeName (..))
@@ -101,16 +91,11 @@ instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
     { decode =
         Decoder
-          { binary = Decoders.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
-          , text = fmap (Composite . fromResult @_ @(HKD a Expr)) . parser
+          { binary = Hasql.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
+          , parser = fmap (Composite . fromResult @_ @(HKD a Expr)) . parser
+          , delimiter = ','
           }
-    , encode =
-        Encoder
-          { binary = Encoders.composite (toResult @_ @(HKD a Expr) . unComposite >$< encoder)
-          , text = builder . toResult @_ @(HKD a Expr) . unComposite
-          , quote = quoter . litHTable . toResult @_ @(HKD a Expr) . unComposite
-          }
-    , delimiter = ','
+    , encode = encoder . litHTable . toResult @_ @(HKD a Expr) . unComposite
     , typeName =
         TypeName
           { name = compositeTypeName @a
@@ -150,7 +135,7 @@ class (DBType a, HKDable a) => DBComposite a where
 -- single column expression, by combining them into a PostgreSQL composite
 -- type.
 compose :: DBComposite a => HKD a Expr -> Expr a
-compose = castExpr . fromPrimExpr . quoter . toColumns
+compose = castExpr . fromPrimExpr . encoder . toColumns
 
 
 -- | Expand a composite type into a 'HKD'.
@@ -165,13 +150,20 @@ decompose (toPrimExpr -> a) = fromColumns $ htabulate \field ->
     names = toColumns (compositeFields @a)
 
 
-decoder :: HTable t => Decoders.Composite (t Result)
+decoder :: HTable t => Hasql.Composite (t Result)
 decoder = unwrapApplicative $ htabulateA \field ->
   case hfield hspecs field of
     Spec {nullity, info} -> WrapApplicative $ Identity <$>
       case nullity of
-        Null -> Decoders.field $ Decoders.nullable $ Decoder.binary $ decode info
-        NotNull -> Decoders.field $ Decoders.nonNullable $ Decoder.binary $ decode info
+        Null -> Hasql.field $ Hasql.nullable $ Decoder.binary $ decode info
+        NotNull -> Hasql.field $ Hasql.nonNullable $ Decoder.binary $ decode info
+
+
+encoder :: HTable t => t Expr -> Opaleye.PrimExpr
+encoder a = Opaleye.FunExpr "ROW" exprs
+  where
+    exprs = getConst $ htabulateA \field -> case hfield a field of
+      expr -> Const [toPrimExpr expr]
 
 
 parser :: HTable t => Parser (t Result)
@@ -186,10 +178,10 @@ parser input = do
       mbytes <- StateT $ maybe missing pure . uncons
       lift $ Identity <$> case hfield hspecs field of
         Spec {nullity, info} -> case nullity of
-          Null -> traverse (Decoder.text (decode info)) mbytes
+          Null -> traverse (Decoder.parser (decode info)) mbytes
           NotNull -> case mbytes of
             Nothing -> Left "composite: unexpected null"
-            Just bytes -> Decoder.text (decode info) bytes
+            Just bytes -> Decoder.parser (decode info) bytes
     missing = Left "composite: missing fields"
 
 
@@ -209,55 +201,3 @@ parseRow = parse $ do
                   BS.singleton <$> do
                     A.char '\\' <|> A.char '"'
                 quote = "\"" <$ A.string "\"\""
-
-
-encoder :: forall t. HTable t => Encoders.Composite (t Result)
-encoder = getConst $ htabulateA @t \field ->
-  case hfield hspecs field of
-    Spec {nullity, info} -> Const $
-      runIdentity . (`hfield` field) >$<
-        case nullity of
-          Null -> Encoders.field $ Encoders.nullable build
-          NotNull -> Encoders.field $ Encoders.nonNullable build
-        where
-          build = Encoder.binary (encode info)
-
-
-builder :: HTable t => t Result -> Builder
-builder input = buildRow $ getConst $ htabulateA \field ->
-  Const $ pure $
-    case hfield input field of
-      Identity a ->
-        case hfield hspecs field of
-          Spec {nullity, info} -> case nullity of
-            Null -> build <$> a
-            NotNull -> Just $ build a
-            where
-              build =
-                toStrict . toLazyByteString . Encoder.text (encode info)
-
-
-buildRow :: [Maybe ByteString] -> Builder
-buildRow elements =
-  B.char8 '(' <>
-  interfoldMap (B.char8 ',') (foldMap element) elements <>
-  B.char8 ')'
-  where
-    element a
-        | BS.null a = "\"\""
-        | BS.all (A.notInClass escapeClass) a = B.byteString a
-        | otherwise =
-            B.char8 '"' <> BS.foldr ((<>) . escape) mempty a <> B.char8 '"'
-        where
-          escapeClass = ",\\\"()\t\n"
-          escape = \case
-            '"' -> B.string7 "\"\""
-            '\\' -> B.string7 "\\\\"
-            c -> B.char8 c
-
-
-quoter :: HTable t => t Expr -> Opaleye.PrimExpr
-quoter a = Opaleye.FunExpr "ROW" exprs
-  where
-    exprs = getConst $ htabulateA \field -> case hfield a field of
-      expr -> Const [toPrimExpr expr]

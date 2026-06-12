@@ -76,7 +76,7 @@ import Data.Functor.Apply (Apply, liftF2)
 --   { customerId :: Column f CustomerId
 --   , totalOrders :: Column f Int64
 --   , productsOrdered :: Column f Int64
---   , totalPrice :: Column f Scientific
+--   , totalPrice :: Column Scientific
 --   }
 --   deriving (Generic, Rel8able)
 --

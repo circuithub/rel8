@@ -19,7 +19,7 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, haskellNix }:
-    flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachSystem ["x86_64-linux"] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -28,7 +28,7 @@
         };
 
         rel8 = pkgs.haskell-nix.project {
-          compiler-nix-name = "ghc9121";
+          compiler-nix-name = "ghc982";
 
           cabalProjectLocal = builtins.readFile ./cabal.project.haskell-nix;
 
