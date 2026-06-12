@@ -24,13 +24,11 @@ import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import Data.CaseInsensitive ( CI )
 
 -- rel8
-import Rel8.Data.Range (Multirange (Multirange))
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sempty )
 import Rel8.Expr.Serialize ( litExpr )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Range (DBRange)
 import Rel8.Type.Semigroup ( DBSemigroup )
 
 -- text
@@ -79,7 +77,3 @@ instance DBMonoid ByteString where
 
 instance DBMonoid Lazy.ByteString where
   memptyExpr = litExpr ""
-
-
-instance DBRange a => DBMonoid (Multirange a) where
-  memptyExpr = litExpr (Multirange [])

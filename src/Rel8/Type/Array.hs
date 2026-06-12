@@ -1,4 +1,3 @@
-{-# language DisambiguateRecordFields #-}
 {-# language GADTs #-}
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
@@ -7,7 +6,7 @@
 {-# language ViewPatterns #-}
 
 module Rel8.Type.Array
-  ( array, quoteArrayElement, extractArrayElement
+  ( array, encodeArrayElement, extractArrayElement
   , arrayTypeName
   , listTypeInformation
   , nonEmptyTypeInformation
@@ -22,48 +21,35 @@ import qualified Data.Attoparsec.ByteString.Char8 as A
 import Control.Applicative ((<|>), many)
 import Data.Bifunctor (first)
 import Data.Foldable (fold, toList)
-import Data.Functor.Contravariant ((>$<))
-import Data.List.NonEmpty (NonEmpty, nonEmpty)
-import Prelude hiding (head, last, length, null, repeat, zipWith)
+import Data.List.NonEmpty ( NonEmpty, nonEmpty )
+import Prelude hiding ( head, last, length, null, repeat, zipWith )
 
 -- bytestring
 import Data.ByteString (ByteString)
-import Data.ByteString.Builder (Builder, toLazyByteString)
-import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as L
-
--- case-insensitive
-import qualified Data.CaseInsensitive as CI
 
 -- hasql
-import qualified Hasql.Decoders as Decoders
-import qualified Hasql.Encoders as Encoders
+import qualified Hasql.Decoders as Hasql
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Schema.Null (Unnullify, Nullity (Null, NotNull))
-import Rel8.Type.Builder.Fold (interfoldMap)
-import Rel8.Type.Decoder (Decoder (..), Parser)
-import Rel8.Type.Encoder (Encoder (..))
-import Rel8.Type.Information (TypeInformation(..), parseTypeInformation)
+import Rel8.Schema.Null ( Unnullify, Nullity( Null, NotNull ) )
+import Rel8.Type.Decoder (Decoder (..), NullableOrNot (..), Parser)
+import Rel8.Type.Information ( TypeInformation(..), parseTypeInformation )
 import Rel8.Type.Name (TypeName (..), showTypeName)
-import Rel8.Type.Nullable (NullableOrNot (..))
 import Rel8.Type.Parser (parse)
 
 -- text
 import qualified Data.Text as Text
-import qualified Data.Text.Lazy as Text (toStrict)
-import qualified Data.Text.Lazy.Encoding as Lazy (decodeUtf8)
 
 
 array :: Foldable f
   => TypeInformation a -> f Opaleye.PrimExpr -> Opaleye.PrimExpr
 array info =
   Opaleye.CastExpr (showTypeName (arrayType info) <> "[]") .
-  Opaleye.ArrayExpr . map (quoteArrayElement info) . toList
+  Opaleye.ArrayExpr . map (encodeArrayElement info) . toList
 {-# INLINABLE array #-}
 
 
@@ -71,34 +57,25 @@ listTypeInformation :: ()
   => Nullity a
   -> TypeInformation (Unnullify a)
   -> TypeInformation [a]
-listTypeInformation nullity info@TypeInformation {decode, encode, delimiter} =
+listTypeInformation nullity info@TypeInformation {encode, decode} =
   TypeInformation
     { decode =
         Decoder
-          { binary = Decoders.listArray $ case nullity of
-              Null -> Decoders.nullable (decodeArrayElement info decode)
-              NotNull -> Decoders.nonNullable (decodeArrayElement info decode)
-          , text = case nullity of
-              Null -> arrayParser delimiter (Nullable decode)
-              NotNull -> arrayParser delimiter (NonNullable decode)
+          { binary = Hasql.listArray $ case nullity of
+              Null -> Hasql.nullable (decodeArrayElement info decode)
+              NotNull -> Hasql.nonNullable (decodeArrayElement info decode)
+          , parser = case nullity of
+              Null -> arrayParser (Nullable decode)
+              NotNull -> arrayParser (NonNullable decode)
+          , delimiter = ','
           }
-    , encode =
-        Encoder
-          { binary = Encoders.foldableArray $ case nullity of
-              Null -> Encoders.nullable (encodeArrayElement info encode)
-              NotNull -> Encoders.nonNullable (encodeArrayElement info encode)
-          , text = case nullity of
-              Null -> arrayBuild delimiter (Nullable encode)
-              NotNull -> arrayBuild delimiter (NonNullable encode)
-          , quote = case nullity of
-              Null ->
-                Opaleye.ArrayExpr .
-                fmap (quoteArrayElement info . maybe null (quote encode))
-              NotNull ->
-                Opaleye.ArrayExpr .
-                fmap (quoteArrayElement info . quote encode)
-          }
-    , delimiter = ','
+    , encode = case nullity of
+        Null ->
+          Opaleye.ArrayExpr .
+          fmap (encodeArrayElement info . maybe null encode)
+        NotNull ->
+          Opaleye.ArrayExpr .
+          fmap (encodeArrayElement info . encode)
     , typeName = arrayTypeName info
     }
   where
@@ -130,21 +107,15 @@ arrayType info
   | otherwise = typeName info
 
 
-decodeArrayElement :: TypeInformation a -> Decoder x -> Decoders.Value x
-decodeArrayElement info Decoder {binary, text}
-  | isArray info =
-      Decoders.refine (first Text.pack . text) Decoders.bytea
+decodeArrayElement :: TypeInformation a -> Decoder x -> Hasql.Value x
+decodeArrayElement info
+  | isArray info = \decoder ->
+      Hasql.refine (first Text.pack . parser decoder) Hasql.bytea
   | otherwise = binary
 
 
-encodeArrayElement :: TypeInformation a -> Encoder x -> Encoders.Value x
-encodeArrayElement info Encoder {binary, text}
-  | isArray info = Text.toStrict . Lazy.decodeUtf8 . toLazyByteString . text >$< Encoders.text
-  | otherwise = binary
-
-
-quoteArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
-quoteArrayElement info
+encodeArrayElement :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+encodeArrayElement info
   | isArray info = Opaleye.CastExpr "text" . Opaleye.CastExpr (showTypeName (typeName info))
   | otherwise = id
 
@@ -175,49 +146,14 @@ parseArray delimiter = parse $ do
                         A.char '\\' <|> A.char '"'
 
 
-arrayParser :: Char -> NullableOrNot Decoder a -> Parser [a]
-arrayParser delimiter = \case
-  Nullable Decoder {text} -> \input -> do
+arrayParser :: NullableOrNot Decoder a -> Parser [a]
+arrayParser = \case
+  Nullable Decoder {parser, delimiter} -> \input -> do
     elements <- parseArray delimiter input
-    traverse (traverse text) elements
-  NonNullable Decoder {text} -> \input -> do
+    traverse (traverse parser) elements
+  NonNullable Decoder {parser, delimiter} -> \input -> do
     elements <- parseArray delimiter input
-    traverse (maybe (Left "array: unexpected null") text) elements
-
-
-buildArray :: Char -> [Maybe ByteString] -> Builder
-buildArray delimiter elements =
-  B.char8 '{' <>
-  interfoldMap (B.char8 delimiter) element elements <>
-  B.char8 '}'
-  where
-    element = \case
-      Nothing -> B.string7 "NULL"
-      Just a
-        | BS.null a -> "\"\""
-        | CI.mk a == "null" -> escaped
-        | BS.any (A.inClass escapeClass) a -> escaped
-        | otherwise -> unescaped
-        where
-          escapeClass = delimiter : "\\\"{}\t\n"
-          unescaped = B.byteString a
-          escaped =
-            B.char8 '"' <> BS.foldr ((<>) . escape) mempty a <> B.char8 '"'
-            where
-              escape = \case
-                '"' -> B.string7 "\\\""
-                '\\' -> B.string7 "\\\\"
-                c -> B.char8 c
-
-
-arrayBuild :: Char -> NullableOrNot Encoder a -> [a] -> Builder
-arrayBuild delimiter = \case
-  Nullable Encoder {text} ->
-    buildArray delimiter .
-    map (fmap (L.toStrict . toLazyByteString . text))
-  NonNullable Encoder {text} ->
-    buildArray delimiter .
-    map (Just . L.toStrict . toLazyByteString . text)
+    traverse (maybe (Left "array: unexpected null") parser) elements
 
 
 head :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr

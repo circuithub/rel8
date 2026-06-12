@@ -46,7 +46,7 @@ import Rel8.Schema.Name ( Selects )
 import Rel8.Statement (Statement, statementReturning)
 import Rel8.Table ( Table )
 import Rel8.Table.Cols ( toCols )
-import Rel8.Table.Name ( namesFromLabelsTagged )
+import Rel8.Table.Name ( namesFromLabels )
 import Rel8.Table.Opaleye ( castTable, exprsWithNames )
 import qualified Rel8.Table.Opaleye as T
 import Rel8.Table.Undefined ( undefined )
@@ -62,16 +62,15 @@ select query = statementReturning (ppSelect query)
 
 ppSelect :: Table Expr a => Query a -> State Opaleye.Tag Doc
 ppSelect query = do
-  relationTag <- Opaleye.fresh
   (exprs, primQuery) <- Opaleye.runSimpleSelect (toOpaleye query)
   let
-    names = namesFromLabelsTagged relationTag
     (exprs', primQuery') = case optimize primQuery of
       Empty -> (undefined, Opaleye.Product (pure (pure Opaleye.Unit)) never)
       Unit -> (exprs, Opaleye.Unit)
       Optimized pq -> (exprs, pq)
   pure $ Opaleye.ppSql $ primSelectWith names (toCols exprs') primQuery'
   where
+    names = namesFromLabels
     never = pure (toPrimExpr false)
 
 

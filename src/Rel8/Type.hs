@@ -1,7 +1,6 @@
-{-# language DisambiguateRecordFields #-}
+{-# language LambdaCase #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language LambdaCase #-}
 {-# language MonoLocalBinds #-}
 {-# language MultiWayIf #-}
 {-# language OverloadedStrings #-}
@@ -16,21 +15,25 @@ module Rel8.Type
 where
 
 -- aeson
-import Data.Aeson ( Value, Object )
+import Data.Aeson ( Value )
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Text as Aeson
 
 -- attoparsec
 import qualified Data.Attoparsec.ByteString.Char8 as A
 
+-- attoparsec-aeson
+import qualified Data.Aeson.Parser as Aeson
+
 -- base
 import Control.Applicative ((<|>))
 import Data.Fixed (Fixed)
-import Data.Functor.Contravariant ((>$<))
-import Data.Int (Int16, Int32, Int64)
+import Data.Int ( Int8, Int16, Int32, Int64 )
+import Data.Word (Word8, Word32)
 import Data.List.NonEmpty ( NonEmpty )
 import Data.Kind ( Constraint, Type )
 import Prelude
+import Data.Bits (Bits (..))
+import Data.DoubleWord (fromHiAndLo)
 import Text.Read (readMaybe)
 
 -- bytestring
@@ -39,19 +42,22 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as Lazy ( ByteString )
 import qualified Data.ByteString.Lazy as ByteString ( fromStrict, toStrict )
-import qualified Data.ByteString.Builder as B
-import Data.ByteString.Builder.Prim (primBounded)
 
 -- case-insensitive
 import Data.CaseInsensitive ( CI )
 import qualified Data.CaseInsensitive as CI
 
--- hasql
-import qualified Hasql.Decoders as Decoders
-import qualified Hasql.Encoders as Encoders
+-- data-textual
+import Data.Textual (textual)
 
--- iproute
-import Data.IP (IPRange)
+-- hasql
+import qualified Hasql.Decoders as Hasql
+
+-- network-ip
+import qualified Network.IP.Addr as IP
+
+import qualified Data.IP
+import qualified BinaryParser
 
 -- opaleye
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
@@ -61,30 +67,27 @@ import qualified Opaleye.Internal.HaskellDB.Sql.Default as Opaleye ( quote )
 import Rel8.Schema.Null ( NotNull, Sql, nullable )
 import Rel8.Type.Array ( listTypeInformation, nonEmptyTypeInformation )
 import Rel8.Type.Decimal (PowerOf10, resolution)
-import Rel8.Type.Decoder (Decoder (..))
-import Rel8.Type.Encoder (Encoder (..))
-import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation, parseTypeInformation )
+import Rel8.Type.Decoder ( Decoder(..) )
+import Rel8.Type.Information ( TypeInformation(..), mapTypeInformation )
 import Rel8.Type.Name (TypeName (..))
 import Rel8.Type.Parser (parse)
-import qualified Rel8.Type.Builder.ByteString as Builder
-import qualified Rel8.Type.Parser.ByteString as Parser
-import qualified Rel8.Type.Builder.Time as Builder
-import qualified Rel8.Type.Parser.Time as Parser
+import Rel8.Type.Parser.ByteString (bytestring)
+import qualified Rel8.Type.Parser.Time as Time
 
 -- scientific
-import Data.ByteString.Builder.Scientific (scientificBuilder)
-import Data.Scientific (Scientific)
+import Data.Scientific ( Scientific )
 
 -- text
 import Data.Text ( Text )
 import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8Builder)
-import qualified Data.Text.Lazy as Lazy (Text, unpack)
-import qualified Data.Text.Lazy as Text (fromStrict, toStrict)
+import qualified Data.Text.Encoding as Text (decodeUtf8)
+import qualified Data.Text.Lazy as Lazy ( Text, unpack )
+import qualified Data.Text.Lazy as Text ( fromStrict, toStrict )
+import qualified Data.Text.Lazy.Encoding as Lazy ( decodeUtf8 )
 
 -- time
 import Data.Time.Calendar (Day)
-import Data.Time.Clock (DiffTime, UTCTime)
+import Data.Time.Clock (UTCTime)
 import Data.Time.LocalTime
   ( CalendarDiffTime (CalendarDiffTime)
   , LocalTime
@@ -116,23 +119,16 @@ class NotNull a => DBType a where
 -- | Corresponds to @bool@
 instance DBType Bool where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.bool
-          , text = \case
-              False -> "f"
-              True -> "t"
-          , quote = Opaleye.ConstExpr . Opaleye.BoolLit
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.BoolLit
     , decode =
         Decoder
-          { binary = Decoders.bool
-          , text = \case
+          { binary = Hasql.bool
+          , parser = \case
               "t" -> pure True
               "f" -> pure False
               input -> Left $ "bool: bad bool " <> show input
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "bool"
     }
 
@@ -140,25 +136,20 @@ instance DBType Bool where
 -- | Corresponds to @char@
 instance DBType Char where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.char
-          , text = B.charUtf8
-          , quote = Opaleye.ConstExpr . Opaleye.StringLit . pure
-          }
-    , decode = 
-        Decoder
-          { binary = Decoders.char
-          , text = \input -> case UTF8.uncons input of
-              Just (char, rest) | BS.null rest -> pure char
-              _ -> Left $ "char: bad char " <> show input
-          }
-    , delimiter = ','
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit . pure
     , typeName =
         TypeName
           { name = "bpchar"
           , modifiers = ["1"]
           , arrayDepth = 0
+          }
+    , decode = 
+        Decoder
+          { binary = Hasql.char
+          , parser = \input -> case UTF8.uncons input of
+              Just (char, rest) | BS.null rest -> pure char
+              _ -> Left $ "char: bad char " <> show input
+          , delimiter = ','
           }
     }
 
@@ -166,18 +157,13 @@ instance DBType Char where
 -- | Corresponds to @int2@
 instance DBType Int16 where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.int2
-          , text = B.int16Dec
-          , quote = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode =
         Decoder
-          { binary = Decoders.int2
-          , text = parse (A.signed A.decimal)
+          { binary = Hasql.int2
+          , parser = parse (A.signed A.decimal)
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "int2"
     }
 
@@ -185,18 +171,13 @@ instance DBType Int16 where
 -- | Corresponds to @int4@
 instance DBType Int32 where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.int4
-          , text = B.int32Dec
-          , quote = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode =
         Decoder
-          { binary = Decoders.int4
-          , text = parse (A.signed A.decimal)
+          { binary = Hasql.int4
+          , parser = parse (A.signed A.decimal)
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "int4"
     }
 
@@ -204,76 +185,49 @@ instance DBType Int32 where
 -- | Corresponds to @int8@
 instance DBType Int64 where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.int8
-          , text = B.int64Dec
-          , quote = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.IntegerLit . toInteger
     , decode =
         Decoder
-          { binary = Decoders.int8
-          , text = parse (A.signed A.decimal)
+          { binary = Hasql.int8
+          , parser = parse (A.signed A.decimal)
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "int8"
     }
 
 
--- | Corresponds to @float4@ and @real@
+-- | Corresponds to @float4@
 instance DBType Float where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.float4
-          , text =
-              \x ->
-                if | x == (1 / 0)  -> "Infinity"
-                   | isNaN x       -> "NaN"
-                   | x == (-1 / 0) -> "-Infinity"
-                   | otherwise     -> B.floatDec x
-          , quote =
-              \x -> Opaleye.ConstExpr
-                if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
-                   | isNaN x       -> Opaleye.OtherLit "'NaN'"
-                   | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-                   | otherwise     -> Opaleye.DoubleLit $ realToFrac x
-          }
+    { encode = \x -> Opaleye.ConstExpr
+        if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
+           | isNaN x       -> Opaleye.OtherLit "'NaN'"
+           | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
+           | otherwise     -> Opaleye.DoubleLit $ realToFrac x
     , decode =
         Decoder
-          { binary = Decoders.float4
-          , text = parse (floating (realToFrac <$> A.double))
+          { binary = Hasql.float4
+          , parser = parse (floating (realToFrac <$> A.double))
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "float4"
     }
 
 
--- | Corresponds to @float8@ and @double precision@
+-- | Corresponds to @float8@
 instance DBType Double where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.float8
-          , text =
-              \x ->
-                if | x == (1 / 0)  -> "Infinity"
-                   | isNaN x       -> "NaN"
-                   | x == (-1 / 0) -> "-Infinity"
-                   | otherwise     -> B.doubleDec x
-          , quote =
-              \x -> Opaleye.ConstExpr
-                if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
-                   | isNaN x       -> Opaleye.OtherLit "'NaN'"
-                   | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
-                   | otherwise     -> Opaleye.DoubleLit x
-          }
+    { encode = \x -> Opaleye.ConstExpr
+        if | x == (1 / 0)  -> Opaleye.OtherLit "'Infinity'"
+           | isNaN x       -> Opaleye.OtherLit "'NaN'"
+           | x == (-1 / 0) -> Opaleye.OtherLit "'-Infinity'"
+           | otherwise     -> Opaleye.DoubleLit x
     , decode =
         Decoder
-          { binary = Decoders.float8
-          , text = parse (floating A.double)
+          { binary = Hasql.float8
+          , parser = parse (floating A.double)
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "float8"
     }
 
@@ -281,52 +235,49 @@ instance DBType Double where
 -- | Corresponds to @numeric@
 instance DBType Scientific where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.numeric
-          , text = scientificBuilder
-          , quote = Opaleye.ConstExpr . Opaleye.NumericLit
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit
     , decode =
         Decoder
-          { binary = Decoders.numeric
-          , text = parse A.scientific
+          { binary = Hasql.numeric
+          , parser = parse A.scientific
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "numeric"
     }
 
 
 -- | Corresponds to @numeric(1000, log₁₀ n)@
 instance PowerOf10 n => DBType (Fixed n) where
-  typeInformation =
-    mapTypeInformation realToFrac realToFrac (typeInformation @Scientific)
-      { typeName =
-          TypeName
-            { name = "numeric"
-            , modifiers = ["1000", show (resolution @n)]
-            , arrayDepth = 0
-            }
-      }
+  typeInformation = TypeInformation
+    { encode = Opaleye.ConstExpr . Opaleye.NumericLit . realToFrac
+    , decode =
+        realToFrac <$>
+        Decoder
+          { binary = Hasql.numeric
+          , parser = parse A.scientific
+          , delimiter = ','
+          }
+    , typeName =
+        TypeName
+          { name = "numeric"
+          , modifiers = ["1000", show (resolution @n)]
+          , arrayDepth = 0
+          }
+    }
 
 
 -- | Corresponds to @timestamptz@
 instance DBType UTCTime where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.timestamptz
-          , text = primBounded Builder.utcTime
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit .
-              formatTime defaultTimeLocale "'%FT%T%QZ'"
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        formatTime defaultTimeLocale "'%FT%T%QZ'"
     , decode =
         Decoder
-          { binary = Decoders.timestamptz
-          , text = parse Parser.utcTime
+          { binary = Hasql.timestamptz
+          , parser = parse Time.utcTime
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "timestamptz"
     }
 
@@ -335,19 +286,14 @@ instance DBType UTCTime where
 instance DBType Day where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.date
-          , text = primBounded Builder.day
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit .
-              formatTime defaultTimeLocale "'%F'"
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        formatTime defaultTimeLocale "'%F'"
     , decode =
         Decoder
-          { binary = Decoders.date
-          , text = parse Parser.day
+          { binary = Hasql.date
+          , parser = parse Time.day
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "date"
     }
 
@@ -356,19 +302,14 @@ instance DBType Day where
 instance DBType LocalTime where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.timestamp
-          , text = primBounded Builder.localTime
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit .
-              formatTime defaultTimeLocale "'%FT%T%Q'"
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        formatTime defaultTimeLocale "'%FT%T%Q'"
     , decode =
         Decoder
-          { binary = Decoders.timestamp
-          , text = parse Parser.localTime
+          { binary = Hasql.timestamp
+          , parser = parse Time.localTime
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "timestamp"
     }
 
@@ -377,19 +318,14 @@ instance DBType LocalTime where
 instance DBType TimeOfDay where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.time
-          , text = primBounded Builder.timeOfDay
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit .
-              formatTime defaultTimeLocale "'%T%Q'"
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        formatTime defaultTimeLocale "'%T%Q'"
     , decode =
         Decoder
-          { binary = Decoders.time
-          , text = parse Parser.timeOfDay
+          { binary = Hasql.time
+          , parser = parse Time.timeOfDay
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "time"
     }
 
@@ -398,19 +334,14 @@ instance DBType TimeOfDay where
 instance DBType CalendarDiffTime where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = toDiffTime >$< Encoders.interval
-          , text = Builder.calendarDiffTime
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit .
-              formatTime defaultTimeLocale "'%bmon %0Es'"
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        formatTime defaultTimeLocale "'%bmon %0Es'"
     , decode =
         Decoder
-          { binary = CalendarDiffTime 0 . realToFrac <$> Decoders.interval
-          , text = parse Parser.calendarDiffTime
+          { binary = CalendarDiffTime 0 . realToFrac <$> Hasql.interval
+          , parser = parse Time.calendarDiffTime
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "interval"
     }
 
@@ -418,18 +349,13 @@ instance DBType CalendarDiffTime where
 -- | Corresponds to @text@
 instance DBType Text where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.text
-          , text = Text.encodeUtf8Builder
-          , quote = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit . Text.unpack
     , decode =
         Decoder
-          { binary = Decoders.text
-          , text = pure . Text.decodeUtf8
+          { binary = Hasql.text
+          , parser = pure . Text.decodeUtf8
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "text"
     }
 
@@ -457,18 +383,13 @@ instance DBType (CI Lazy.Text) where
 -- | Corresponds to @bytea@
 instance DBType ByteString where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.bytea
-          , text = Builder.bytestring
-          , quote = Opaleye.ConstExpr . Opaleye.ByteStringLit
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.ByteStringLit
     , decode =
         Decoder
-          { binary = Decoders.bytea
-          , text = parse Parser.bytestring
+          { binary = Hasql.bytea
+          , parser = parse bytestring
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "bytea"
     }
 
@@ -483,20 +404,15 @@ instance DBType Lazy.ByteString where
 -- | Corresponds to @uuid@
 instance DBType UUID where
   typeInformation = TypeInformation
-    { encode =
-        Encoder
-          { binary = Encoders.uuid
-          , text = B.byteString . UUID.toASCIIBytes
-          , quote = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
-          }
+    { encode = Opaleye.ConstExpr . Opaleye.StringLit . UUID.toString
     , decode =
         Decoder
-          { binary = Decoders.uuid
-          , text = \input -> case UUID.fromASCIIBytes input of
+          { binary = Hasql.uuid
+          , parser = \input -> case UUID.fromASCIIBytes input of
               Just a -> pure a
               Nothing -> Left $ "uuid: bad UUID " <> show input
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "uuid"
     }
 
@@ -505,52 +421,84 @@ instance DBType UUID where
 instance DBType Value where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.jsonb
-          , text = Aeson.fromEncoding . Aeson.toEncoding
-          , quote =
-              Opaleye.ConstExpr . Opaleye.OtherLit . Opaleye.quote .
-              Lazy.unpack . Aeson.encodeToLazyText
-          }
+        Opaleye.ConstExpr . Opaleye.OtherLit .
+        Opaleye.quote .
+        Lazy.unpack . Lazy.decodeUtf8 . Aeson.encode
     , decode =
         Decoder
-          { binary = Decoders.jsonb
-          , text = Aeson.eitherDecodeStrict
+          { binary = Hasql.jsonb
+          , parser = parse Aeson.value
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "jsonb"
     }
 
--- | Corresponds to @jsonb@
-instance DBType Object where
-  typeInformation = parseTypeInformation
-    (aesonResultToEither . Aeson.fromJSON)
-    Aeson.Object
-    typeInformation
-    where
-      aesonResultToEither = \case
-        Aeson.Success o -> Right o
-        Aeson.Error   e -> Left e
 
 -- | Corresponds to @inet@
-instance DBType IPRange where
+instance DBType (IP.NetAddr IP.IP) where
   typeInformation = TypeInformation
     { encode =
-        Encoder
-          { binary = Encoders.inet
-          , text = B.string7 . show
-          , quote = Opaleye.ConstExpr . Opaleye.StringLit . show
-          }
+        Opaleye.ConstExpr . Opaleye.StringLit . IP.printNetAddr
     , decode =
         Decoder
-          { binary = Decoders.inet
-          , text = \str -> case readMaybe $ BS8.unpack str of
-              Just x -> Right x
-              Nothing -> Left "Failed to parse inet"
+          { binary = (Hasql.custom . const . BinaryParser.run $ netaddrParser
+                      (\netmask x -> IP.netAddr (IP.IPv4 $ IP.IP4 x) netmask)
+                      (\netmask x1 x2 x3 x4 -> IP.netAddr (IP.IPv6 $ IP.IP6 $ fromHiAndLo (fromHiAndLo x1 x2) (fromHiAndLo x3 x4)) netmask) :: Hasql.Value (IP.NetAddr IP.IP))
+          , parser = parse $
+              textual
+                <|> (`IP.netAddr` 32) . IP.IPv4 <$> textual
+                <|> (`IP.netAddr` 128) . IP.IPv6 <$> textual
+          , delimiter = ','
           }
-    , delimiter = ','
     , typeName = "inet"
     }
+
+-- | Corresponds to @inet@
+instance DBType Data.IP.IPRange where
+  typeInformation = TypeInformation
+    { encode =
+        Opaleye.ConstExpr . Opaleye.StringLit . show
+    , decode =
+        Decoder
+          { binary = (Hasql.custom . const . BinaryParser.run $ netaddrParser
+                      (\netmask x -> Data.IP.IPv4Range $ Data.IP.makeAddrRange (Data.IP.toIPv4w x) $ fromIntegral netmask)
+                      (\netmask x1 x2 x3 x4 -> Data.IP.IPv6Range $ Data.IP.makeAddrRange (Data.IP.toIPv6w (x1, x2, x3, x4)) $ fromIntegral netmask))
+          , parser = \str -> case readMaybe $ BS8.unpack str of
+              Just x -> Right x
+              Nothing -> Left "Failed to parse inet"
+          , delimiter = ','
+          }
+    , typeName = "inet"
+    }
+
+-- | Address family AF_INET
+inetAddressFamily :: Word8
+inetAddressFamily =
+  2
+
+-- | Address family AF_INET6
+inet6AddressFamily :: Word8
+inet6AddressFamily =
+  3
+
+-- | This is vendored from `postgresql-binary`.
+netaddrParser :: (Word8 -> Word32 -> ip) -> (Word8 -> Word32 -> Word32 -> Word32 ->  Word32 -> ip) -> BinaryParser.BinaryParser ip
+netaddrParser mkIpv4 mkIpv6 = do
+  af <- intOfSize 1
+  netmask <- intOfSize 1
+  isCidr <- intOfSize @Int8 1
+  ipSize <- intOfSize @Int8 1
+  if | af == inetAddressFamily ->
+         mkIpv4 netmask <$> intOfSize 4
+     | af == inet6AddressFamily ->
+         mkIpv6 netmask <$> intOfSize 4 <*> intOfSize 4  <*> intOfSize 4 <*> intOfSize 4
+     | otherwise -> BinaryParser.failure ("Unknown address family: " <> Text.pack (show af))
+
+intOfSize :: (Integral a, Bits a) => Int -> BinaryParser.BinaryParser a
+intOfSize x =
+  fmap integralPack (BinaryParser.bytesOfSize x)
+  where
+    integralPack = BS.foldl' (\n h -> shiftL n 8 .|. fromIntegral h) 0
 
 
 instance Sql DBType a => DBType [a] where
@@ -563,8 +511,3 @@ instance Sql DBType a => DBType (NonEmpty a) where
 
 floating :: Floating a => A.Parser a -> A.Parser a
 floating p = p <|> A.signed (1.0 / 0 <$ "Infinity") <|> 0.0 / 0 <$ "NaN"
-
-
-toDiffTime :: CalendarDiffTime -> DiffTime
-toDiffTime (CalendarDiffTime months seconds) =
-  realToFrac (months * 30 * 24 * 60 * 60) + realToFrac seconds

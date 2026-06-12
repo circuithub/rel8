@@ -50,7 +50,7 @@ data Insert a where
     , rows :: Query exprs
       -- ^ The rows to insert. This can be an arbitrary query — use
       -- 'Rel8.values' insert a static list of rows.
-    , onConflict :: OnConflict exprs
+    , onConflict :: OnConflict names
       -- ^ What to do if the inserted rows conflict with data already in the
       -- table.
     , returning :: Returning names a
