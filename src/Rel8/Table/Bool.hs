@@ -20,7 +20,7 @@ import Rel8.Schema.HTable ( htabulate, hfield )
 import Rel8.Table ( Table, fromColumns, toColumns )
 
 
--- | An if-then-else expression on tables.
+-- | Case analysis for an @Expr Bool@. Corresponds to 'Data.Bool.bool'.
 --
 -- @bool x y p@ returns @x@ if @p@ is @False@, and returns @y@ if @p@ is
 -- @True@.

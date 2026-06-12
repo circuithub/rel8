@@ -1,8 +1,11 @@
+{-# language FlexibleContexts #-}
+
 module Rel8.Statement.SQL
   ( showDelete
   , showInsert
   , showUpdate
   , showStatement
+  , showPreparedStatement
   )
 where
 
@@ -13,12 +16,15 @@ import Prelude
 import qualified Opaleye.Internal.Tag as Opaleye
 
 -- rel8
+import Rel8.Expr (Expr)
 import Rel8.Statement (Statement, ppDecodeStatement)
 import Rel8.Statement.Delete ( Delete, ppDelete )
 import Rel8.Statement.Insert ( Insert, ppInsert )
+import Rel8.Statement.Prepared (input)
 import Rel8.Statement.Rows (Rows (Void))
 import Rel8.Statement.Select (ppSelect)
 import Rel8.Statement.Update ( Update, ppUpdate )
+import Rel8.Table (Table)
 
 -- transformers
 import Control.Monad.Trans.State.Strict (evalState)
@@ -42,3 +48,9 @@ showUpdate = show . (`evalState` Opaleye.start) . ppUpdate
 -- | Convert a 'Statement' to a 'String' containing an SQL statement.
 showStatement :: Statement a -> String
 showStatement = show . fst . ppDecodeStatement ppSelect Void
+
+
+-- | Convert a parameterized 'Statement' to a 'String' containing an SQL
+-- statement.
+showPreparedStatement :: Table Expr i => (i -> Statement a) -> String
+showPreparedStatement = showStatement . ($ input)

@@ -1,10 +1,12 @@
 {-# language BangPatterns #-}
 {-# language BlockArguments #-}
+{-# language CPP #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingVia #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language LambdaCase #-}
 {-# language MonoLocalBinds #-}
 {-# language NamedFieldPuns #-}
 {-# language OverloadedStrings #-}
@@ -33,16 +35,17 @@ import Data.Foldable ( for_ )
 import Data.Fixed (Centi)
 import Data.Functor (void)
 import Data.Int ( Int32, Int64 )
-import Data.List ( nub, sort )
+import Data.List ( isInfixOf, nub, sort )
 import Data.Maybe ( catMaybes )
 import Data.Ratio ((%))
-import Data.String ( fromString )
-import Data.Word (Word32, Word8)
+import Data.Word (Word32)
 import GHC.Generics ( Generic )
 import Prelude hiding (truncate)
 
 -- bytestring
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy
+import Data.ByteString ( ByteString )
 
 -- case-insensitive
 import Data.CaseInsensitive ( mk )
@@ -52,30 +55,39 @@ import Data.Containers.ListUtils ( nubOrdOn )
 import qualified Data.Map.Strict as Map
 
 -- hasql
-import Hasql.Connection ( Connection, acquire, release )
+import Hasql.Connection ( Connection, ConnectionError, acquire, release )
+#if MIN_VERSION_hasql(1,9,0)
+import qualified Hasql.Connection.Setting
+import qualified Hasql.Connection.Setting.Connection
+#endif
 import Hasql.Session ( sql, run )
 
 -- hasql-transaction
 import Hasql.Transaction ( Transaction, condemn, statement )
+import qualified Hasql.Transaction as Hasql
 import qualified Hasql.Transaction.Sessions as Hasql
 
 -- hedgehog
-import Hedgehog ( property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
+import Hedgehog ( annotate, assert, failure, property, (===), forAll, cover, diff, evalM, PropertyT, TestT, test, Gen )
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
+-- iproute
+import qualified Data.IP
 
 -- mmorph
 import Control.Monad.Morph ( hoist )
 
--- network-ip
-import Network.IP.Addr (NetAddr, IP, IP4(..), IP6(..), IP46(..), net4Addr, net6Addr, fromNetAddr46, Net4Addr, Net6Addr)
-import Data.DoubleWord (Word128(..))
-
-import qualified Data.IP
-
 -- rel8
 import Rel8 ( Result )
 import qualified Rel8
+import qualified Rel8.Generic.Rel8able.Test as Rel8able
+import qualified Rel8.Table.Verify as Verify
+import Rel8.Range (
+  Bound (Incl, Excl, Inf),
+  Range (Empty, Range),
+  Multirange (Multirange),
+ )
 
 -- scientific
 import Data.Scientific ( Scientific )
@@ -87,7 +99,7 @@ import Test.Tasty
 import Test.Tasty.Hedgehog ( testProperty )
 
 -- text
-import Data.Text ( Text, pack, unpack )
+import Data.Text ( Text, unpack )
 import qualified Data.Text as T
 import qualified Data.Text.Lazy
 import Data.Text.Encoding ( decodeUtf8 )
@@ -134,7 +146,6 @@ tests =
     , testDBEq getTestDatabase
     , testTableEquality getTestDatabase
     , testFromRational getTestDatabase
-    , testFromString getTestDatabase
     , testCatMaybeTable getTestDatabase
     , testCatMaybe getTestDatabase
     , testMaybeTable getTestDatabase
@@ -149,20 +160,20 @@ tests =
     , testSelectArray getTestDatabase
     , testNestedMaybeTable getTestDatabase
     , testEvaluate getTestDatabase
+    , testSelectTruncated getTestDatabase
+    , testShowCreateTable getTestDatabase
     ]
-
   where
-
     startTestDatabase = do
       db <- TmpPostgres.start >>= either throwIO return
 
-      bracket (either (error . show) return =<< acquire (TmpPostgres.toConnectionString db)) release \conn -> void do
+      bracket (either (error . show) return =<< acquireFromConnectionString (TmpPostgres.toConnectionString db)) release \conn -> void do
         flip run conn do
           sql "CREATE EXTENSION citext"
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
           sql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
           sql "CREATE SEQUENCE test_seq"
-          sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" char, \"array\" int4[])"
+          sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
 
       return db
 
@@ -170,7 +181,117 @@ tests =
 
 
 connect :: TmpPostgres.DB -> IO Connection
-connect = acquire . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
+connect = acquireFromConnectionString . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
+
+acquireFromConnectionString :: ByteString -> IO (Either ConnectionError Connection)
+acquireFromConnectionString connectionString =
+#if MIN_VERSION_hasql(1,9,0)
+  acquire 
+    [ Hasql.Connection.Setting.connection . Hasql.Connection.Setting.Connection.string . decodeUtf8 $ connectionString
+    ]
+#else
+  acquire connectionString
+#endif
+
+testShowCreateTable :: IO TmpPostgres.DB -> TestTree
+testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
+  [ testTypeChecker "tableTest" Rel8able.tableTest Rel8able.genTableTest getTestDatabase
+  , testTypeChecker "tablePair" Rel8able.tablePair Rel8able.genTablePair getTestDatabase
+  , testTypeChecker "tableMaybe" Rel8able.tableMaybe Rel8able.genTableMaybe getTestDatabase
+  , testTypeChecker "tableEither" Rel8able.tableEither Rel8able.genTableEither getTestDatabase
+  , testTypeChecker "tableThese" Rel8able.tableThese Rel8able.genTableThese getTestDatabase
+  , testTypeChecker "tableList" Rel8able.tableList Rel8able.genTableList getTestDatabase
+  , testTypeChecker "tableNest" Rel8able.tableNest Rel8able.genTableNest getTestDatabase
+  , testTypeChecker "nonRecord" Rel8able.nonRecord Rel8able.genNonRecord getTestDatabase
+  , testTypeChecker "tableProduct" Rel8able.tableProduct Rel8able.genTableProduct getTestDatabase
+  , testTypeChecker "tableType" Rel8able.tableType Rel8able.genTableType getTestDatabase
+  , testWrongTable getTestDatabase
+  , testDuplicateTable getTestDatabase
+  , testCharMismatch getTestDatabase
+  , testNumericMismatch getTestDatabase
+  ]
+  where
+    -- confirms that the type checker works correctly for numeric modifiers
+    testNumericMismatch = databasePropertyTest "numeric mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableNumeric\" ( foo numeric(1000, 4) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableNumeric\" alter column foo set data type numeric(1000, 2);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableNumeric]
+      case typeErrors of
+        Nothing -> pure ()
+        Just _ -> failure
+
+    -- tests that the type checker works correctly for bpchar modifiers
+    testCharMismatch = databasePropertyTest "bpchar mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ "create table \"tableChar\" ( foo bpchar(2) not null );"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+      lift $ Hasql.sql $ "alter table \"tableChar\" alter column foo set data type bpchar(1);"
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableChar]
+      case typeErrors of
+        Nothing -> pure ()
+        Just a -> do
+            annotate (unpack a)
+            failure
+
+    -- confirms that the type checker fails when no type errors are present in a
+    -- table with duplicate column names
+    testDuplicateTable = databasePropertyTest "duplicate columns" \transaction -> transaction do
+      lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableDuplicate
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.tableDuplicate]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+
+    -- confirms that the type checker fails if the types mismatch
+    testWrongTable = databasePropertyTest "type mismatch" \transaction -> transaction do
+      lift $ Hasql.sql $ B.pack $ Verify.showCreateTable Rel8able.tableType
+      typeErrors <- lift $ statement () $ Verify.getSchemaErrors
+        [Verify.SomeTableSchema Rel8able.badTableType]
+      case typeErrors of
+        Nothing -> failure
+        Just _ -> pure ()
+
+    testTypeChecker ::
+      ( Show (k Result), Rel8.Rel8able k, Rel8.Selects (k Rel8.Name) (k Rel8.Expr)
+      , Rel8.Serializable (k Rel8.Expr) (k Rel8.Result))
+      => TestName -> Rel8.TableSchema (k Rel8.Name) -> Gen (k Result) -> IO TmpPostgres.DB -> TestTree
+    testTypeChecker testName tableSchema genRows = databasePropertyTest testName \transaction -> do
+      rows <- forAll $ Gen.list (Range.linear 0 10) genRows
+
+      transaction do
+        lift $ Hasql.sql $ B.pack $ Verify.showCreateTable tableSchema
+        typeErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema tableSchema]
+        case typeErrors of
+          Nothing -> pure ()
+          Just typ -> do
+            annotate (unpack typ)
+            failure
+
+        selected <- lift do
+          statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
+            { into = tableSchema
+            , rows = Rel8.values $ map Rel8.lit rows
+            , onConflict = Rel8.DoNothing Nothing
+            , returning = Rel8.NoReturning
+            }
+          statement () $ Rel8.run $ Rel8.select do
+            Rel8.each tableSchema
+
+        -- not every type we use this with has an ord instance, and we're
+        -- primarily checking the type checker here, not the parser/printer,
+        -- so we this is only here as one additional check
+        length selected === length rows
 
 
 databasePropertyTest
@@ -219,7 +340,7 @@ testSelectTestTable = databasePropertyTest "Can SELECT TestTable" \transaction -
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -430,7 +551,7 @@ testAp = databasePropertyTest "Cartesian product (<*>)" \transaction -> do
 
 data Composite = Composite
   { bool :: !Bool
-  , char :: !Char
+  , char :: !Text
   , array :: ![Int32]
   }
   deriving stock (Eq, Show, Generic)
@@ -441,18 +562,15 @@ instance Rel8.DBComposite Composite where
   compositeTypeName = "composite"
   compositeFields = Rel8.namesFromLabels
 
--- | Postgres doesn't support the NULL character (not to be confused with a NULL value) inside strings.
-removeNull :: Text -> Text
-removeNull = T.filter (/='\0')
-
 
 testDBType :: IO TmpPostgres.DB -> TestTree
 testDBType getTestDatabase = testGroup "DBType instances"
   [ dbTypeTest "Bool" Gen.bool
   , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
   , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
-  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
-  , dbTypeTest "CI Text" $ mk .removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Char" Gen.unicode
+  , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> genText
+  , dbTypeTest "CI Text" $ mk <$> genText
   , dbTypeTest "Composite" genComposite
   , dbTypeTest "Day" genDay
   , dbTypeTest "Double" $ (/ 10) . fromIntegral @Int @Double <$> Gen.integral (Range.linear (-100) 100)
@@ -461,18 +579,20 @@ testDBType getTestDatabase = testGroup "DBType instances"
   , dbTypeTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbTypeTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
   , dbTypeTest "Lazy ByteString" $ Data.ByteString.Lazy.fromStrict <$> Gen.bytes (Range.linear 0 128)
-  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict . removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Lazy Text" $ Data.Text.Lazy.fromStrict <$> genText
   , dbTypeTest "LocalTime" genLocalTime
   , dbTypeTest "Scientific" $ genScientific
-  , dbTypeTest "Text" $ removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  , dbTypeTest "Text" genText
   , dbTypeTest "TimeOfDay" genTimeOfDay
   , dbTypeTest "UTCTime" $ UTCTime <$> genDay <*> genDiffTime
   , dbTypeTest "UUID" $ Data.UUID.fromWords <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32
-  , dbTypeTest "INet" genNetAddrIP
   , dbTypeTest "INet" genIPRange
   , dbTypeTest "Value" genValue
   , dbTypeTest "JSONEncoded" genJSONEncoded
   , dbTypeTest "JSONBEncoded" genJSONBEncoded
+  , dbTypeTest "Object" genObject
+  , dbTypeTest "Range" genRange
+  , dbTypeTest "Multirange" genMultirange
   ]
 
   where
@@ -482,10 +602,10 @@ testDBType getTestDatabase = testGroup "DBType instances"
       , databasePropertyTest ("Maybe " <> name) (t (Gen.maybe generator)) getTestDatabase
       ]
 
-    t :: forall a b. (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a)
+    t :: forall a. (Eq a, Show a, Rel8.Sql Rel8.DBType a, Rel8.ToExprs (Rel8.Expr a) a)
       => Gen a
-      -> (TestT Transaction () -> PropertyT IO b)
-      -> PropertyT IO b
+      -> (TestT Transaction () -> PropertyT IO ())
+      -> PropertyT IO ()
     t generator transaction = do
       x <- forAll generator
       y <- forAll generator
@@ -526,7 +646,31 @@ testDBType getTestDatabase = testGroup "DBType instances"
             Rel8.aggregate Rel8.listCatExpr $
               Rel8.values $ map Rel8.litExpr xsss
         diff res''''' (==) (concat xsss)
-      
+
+      transaction do
+        res <- lift do
+          statement x $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.Expr _) .
+            pure
+        diff res (==) x
+
+        res' <- lift do
+          statement [x, y] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.Expr _)) .
+            Rel8.many . Rel8.catListTable
+        diff res' (==) [x, y]
+
+        res'' <- lift do
+          statement [[x, y]] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _))) .
+            Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable)
+        diff res'' (==) [[x, y]]
+
+        res''' <- lift do
+          statement [[[x, y]]] $ Rel8.prepared Rel8.run1 $
+            Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _)))) .
+            Rel8.many . Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable >=> Rel8.catListTable)
+        diff res''' (==) [[[x, y]]]
 
     genScientific :: Gen Scientific
     genScientific = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
@@ -534,7 +678,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
     genComposite :: Gen Composite
     genComposite = do
       bool <- Gen.bool
-      char <- Gen.unicode
+      char <- genText
       array <- Gen.list (Range.linear 0 10) (Gen.int32 (Range.linear (-10000) 10000))
       pure Composite {..}
 
@@ -568,29 +712,13 @@ testDBType getTestDatabase = testGroup "DBType instances"
     genWord32 :: Gen Word32
     genWord32 = Gen.integral Range.linearBounded
 
-    genWord128 :: Gen Word128
-    genWord128 = Gen.integral Range.linearBounded
-
-    genNetAddrIP  :: Gen (NetAddr IP)
-    genNetAddrIP =
-      let
-        genIP4Mask :: Gen Word8
-        genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
-
-        genIPv4 :: Gen (IP46 Net4Addr Net6Addr)
-        genIPv4 = IPv4 <$> (liftA2 net4Addr (IP4 <$> genWord32) genIP4Mask)
-
-        genIP6Mask :: Gen Word8
-        genIP6Mask = Gen.integral (Range.linearFrom 0 0 128)
-
-        genIPv6 :: Gen (IP46 Net4Addr Net6Addr)
-        genIPv6 = IPv6 <$> (liftA2 net6Addr (IP6 <$> genWord128) genIP6Mask)
-
-       in fromNetAddr46 <$> Gen.choice [ genIPv4, genIPv6 ]
-
     genIPRange :: Gen (Data.IP.IPRange)
     genIPRange =
-      let
+      Gen.choice
+        [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask)
+        , Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)
+        ]
+      where
         genIP4Mask :: Gen Int
         genIP4Mask = Gen.integral (Range.linearFrom 0 0 32)
 
@@ -603,23 +731,99 @@ testDBType getTestDatabase = testGroup "DBType instances"
         genIPv6 :: Gen (Data.IP.IPv6)
         genIPv6 = Data.IP.toIPv6w <$> ((,,,) <$> genWord32 <*> genWord32 <*> genWord32 <*> genWord32)
 
-       in Gen.choice [ Data.IP.IPv4Range <$> (Data.IP.makeAddrRange <$> genIPv4 <*> genIP4Mask), Data.IP.IPv6Range <$> (Data.IP.makeAddrRange <$> genIPv6 <*> genIP6Mask)]
-
     genKey :: Gen Aeson.Key
-    genKey = Aeson.Key.fromText <$> Gen.text (Range.linear 0 10) Gen.unicode
+    genKey = Aeson.Key.fromText <$> genText
 
     genValue :: Gen Aeson.Value
     genValue = Gen.recursive Gen.choice
      [ pure Aeson.Null
      , Aeson.Bool <$> Gen.bool
      , Aeson.Number <$> genScientific
-     , Aeson.String <$> Gen.text (Range.linear 0 10) Gen.unicode]
-     [ Aeson.Object . Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
+     , Aeson.String <$> genText
+     ]
+     [ Aeson.Object <$> genObject
      , Aeson.Array . Vector.fromList <$> Gen.list (Range.linear 0 10) genValue
      ]
 
     genJSONEncoded = Rel8.JSONEncoded <$> genValue
     genJSONBEncoded = Rel8.JSONBEncoded <$> genValue
+
+    genObject :: Gen Aeson.Object
+    genObject = Aeson.KeyMap.fromMap <$> Gen.map (Range.linear 0 10) ((,) <$> genKey <*> genValue)
+
+    genRange :: Gen (Range Scientific)
+    genRange =
+      Gen.choice
+        [ pure Empty
+        , do
+            (lower, upper) <- genBounds
+            pure (Range lower upper)
+        ]
+
+    genBound :: Gen a -> Gen (Bound a)
+    genBound a =
+      Gen.choice
+        [ Incl <$> a
+        , Excl <$> a
+        , pure Inf
+        ]
+
+    genNum :: Gen Scientific
+    genNum = genNumFrom (-1000)
+
+    genNumFrom :: Scientific -> Gen Scientific
+    genNumFrom x = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear i 10000)
+      where
+        i = round (x * 10)
+
+    genBounds :: Gen (Bound Scientific, Bound Scientific)
+    genBounds = do
+      lower <- genBound genNum
+      upper <- genUpperFrom lower
+      pure (lower, upper)
+
+    genUpperFrom :: Bound Scientific -> Gen (Bound Scientific)
+    genUpperFrom = \case
+      Inf -> genBound genNum
+      Incl x -> genBoundGT x
+      Excl x -> genBoundGT x
+      where
+        genBoundGT x
+          | x' < 1000 = genBound $ genNumFrom x'
+          | otherwise = pure Inf
+          where
+            x' = x + 0.1
+
+    genMultirange :: Gen (Multirange Scientific)
+    genMultirange = Multirange <$> do
+      n <- Gen.integral (Range.linear @Int 0 10)
+      if n == 0
+        then pure []
+        else do
+          (lower, upper) <- genBounds
+          ranges <- go (n - 1) upper
+          pure (Range lower upper : ranges)
+      where
+        go n bound
+          | n == 0 = pure []
+          | otherwise = case bound of
+              Inf -> pure []
+              Incl x -> next x
+              Excl x -> next x
+          where
+            next x
+              | x' >= 1000 = pure []
+              | otherwise = do
+                  lower <-
+                    Gen.choice
+                      [ Incl <$> genNumFrom x'
+                      , Excl <$> genNumFrom x'
+                      ]
+                  upper <- genUpperFrom lower
+                  ranges <- go (n - 1) upper
+                  pure (Range lower upper : ranges)
+              where
+                x' = x + 0.1
 
 
 testDBEq :: IO TmpPostgres.DB -> TestTree
@@ -627,7 +831,7 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
   [ dbEqTest "Bool" Gen.bool
   , dbEqTest "Int32" $ Gen.integral @_ @Int32 Range.linearBounded
   , dbEqTest "Int64" $ Gen.integral @_ @Int64 Range.linearBounded
-  , dbEqTest "Text" $ Gen.text (Range.linear 0 10) Gen.unicode
+  , dbEqTest "Text" $ genText
   ]
 
   where
@@ -649,6 +853,15 @@ testDBEq getTestDatabase = testGroup "DBEq instances"
           statement () $ Rel8.run1 $ Rel8.select do
             pure $ Rel8.litExpr x Rel8.==. Rel8.litExpr y
         res === (x == y)
+
+
+genText :: Gen Text
+genText = removeNull <$> Gen.text (Range.linear 0 10) Gen.unicode
+  where
+    -- | Postgres doesn't support the NULL character (not to be confused with a NULL value) inside strings.
+    removeNull :: Text -> Text
+    removeNull = T.filter (/= '\0')
+
 
 
 testTableEquality :: IO TmpPostgres.DB -> TestTree
@@ -678,26 +891,15 @@ testFromRational = databasePropertyTest "fromRational" \transaction -> do
         pure $ fromRational rational
     diff result (~=) double
   where
-    wholeDigits x = fromIntegral $ length $ show $ round x
+    wholeDigits x = fromIntegral $ length $ show $ round @_ @Integer x
     -- A Double gives us between 15-17 decimal digits of precision.
     -- It's tempting to say that two numbers are equal if they differ by less than 1e15.
     -- But this doesn't hold.
     -- The precision is split between the whole numer part and the decimal part of the number.
     -- For instance, a number between 10 and 99 only has around 13 digits of precision in its decimal part.
     -- Postgres and Haskell show differing amounts of digits in these cases,
-    a ~= b = abs (a - b) < 10**(-15 + wholeDigits a)
+    a ~= b = abs (a - b) < 10 ** (-15 + wholeDigits a)
     infix 4 ~=
-
-
-testFromString :: IO TmpPostgres.DB -> TestTree
-testFromString = databasePropertyTest "fromString" \transaction -> do
-  str <- forAll $ Gen.list (Range.linear 0 10) Gen.unicode
-
-  transaction do
-    result <- lift do
-      statement () $ Rel8.run1 $ Rel8.select do
-        pure $ fromString str
-    result === pack str
 
 
 testCatMaybeTable :: IO TmpPostgres.DB -> TestTree
@@ -809,7 +1011,7 @@ testMaybeTableApplicative = databasePropertyTest "MaybeTable (<*>)" \transaction
   where
     genRows :: PropertyT IO [TestTable Result]
     genRows = forAll do
-      Gen.list (Range.linear 0 10) $ liftA2 TestTable (Gen.text (Range.linear 0 10) Gen.unicode) (pure True)
+      Gen.list (Range.linear 0 10) $ liftA2 TestTable genText (pure True)
 
 
 genTestTable :: Gen (TestTable Result)
@@ -828,7 +1030,7 @@ testUpdate = databasePropertyTest "Can UPDATE TestTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit $ Map.keys rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -872,7 +1074,7 @@ testDelete = databasePropertyTest "Can DELETE TestTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = testTableSchema
         , rows = Rel8.values $ map Rel8.lit rows
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -912,7 +1114,7 @@ testWithStatement genTestDatabase =
               inserted <- Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = values
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.Returning id
                 }
 
@@ -930,7 +1132,7 @@ testWithStatement genTestDatabase =
               Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.NoReturning
                 }
 
@@ -946,7 +1148,7 @@ testWithStatement genTestDatabase =
               Rel8.insert $ Rel8.Insert
                 { into = testTableSchema
                 , rows = Rel8.values $ map Rel8.lit rows
-                , onConflict = Rel8.DoNothing
+                , onConflict = Rel8.DoNothing Nothing
                 , returning = Rel8.Returning id
                 }
 
@@ -1006,7 +1208,7 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
       statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> as
-        , onConflict = Rel8.DoNothing
+        , onConflict = Rel8.DoNothing Nothing
         , returning = Rel8.NoReturning
         }
 
@@ -1014,8 +1216,12 @@ testUpsert = databasePropertyTest "Can UPSERT UniqueTable" \transaction -> do
         { into = uniqueTableSchema
         , rows = Rel8.values $ Rel8.lit <$> bs
         , onConflict = Rel8.DoUpdate Rel8.Upsert
-            { index = uniqueTableKey
-            , predicate = Nothing
+            { conflict =
+                Rel8.OnIndex
+                  Rel8.Index
+                    { columns = uniqueTableKey
+                    , predicate = Nothing
+                    }
             , set = \UniqueTable {uniqueTableValue} old -> old {uniqueTableValue}
             , updateWhere = \_ _ -> Rel8.true
             }
@@ -1139,3 +1345,53 @@ testEvaluate = databasePropertyTest "evaluate has the evaluation order we expect
     normalize :: [(x, (Int64, Int64))] -> [(x, (Int64, Int64))]
     normalize [] = []
     normalize xs@((_, (i, _)) : _) = map (fmap (\(a, b) -> (a - i, b - i))) xs
+
+
+-- Field name is 42 chars
+data LongLabelTable f = LongLabelTable
+  { aFieldNameDefinitelyLongerThanThirtyCharsA :: Rel8.Column f Text
+  , aFieldNameDefinitelyLongerThanThirtyCharsB :: Rel8.Column f Text
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.Rel8able
+
+deriving stock instance Eq (LongLabelTable Result)
+deriving stock instance Ord (LongLabelTable Result)
+deriving stock instance Show (LongLabelTable Result)
+
+
+-- Field name is 51 chars, nested with the 42 above, we'll get more than 63,
+-- triggering truncation.
+data NestedForLargerThan63 f = NestedForLargerThan63
+  { aFieldNameDefinitelyLongerThanThirtyCharsNestedWith :: LongLabelTable f
+  }
+  deriving stock Generic
+  deriving anyclass Rel8.Rel8able
+
+deriving stock instance Eq (NestedForLargerThan63 Result)
+deriving stock instance Ord (NestedForLargerThan63 Result)
+deriving stock instance Show (NestedForLargerThan63 Result)
+
+
+testSelectTruncated :: IO TmpPostgres.DB -> TestTree
+testSelectTruncated = databasePropertyTest "select truncates long column aliases" \transaction -> do
+  rows <- forAll $ Gen.list (Range.linear 0 10) ((,) <$> genText <*> genText)
+
+  let q = Rel8.values $ map (\(tA, tB) -> NestedForLargerThan63 (LongLabelTable (Rel8.lit tA) (Rel8.lit tB))) rows
+      sqlText = Rel8.showStatement (Rel8.select q)
+  annotate sqlText
+
+  -- Check that long names do not exist
+  assert $ not $ "aFieldNameDefinitelyLongerThanThirtyCharsA" `isInfixOf` sqlText
+  assert $ not $ "aFieldNameDefinitelyLongerThanThirtyCharsB" `isInfixOf` sqlText
+
+  -- Find the short names
+  assert $ "aFieldNameDefinitelyLongerThanThirtyCharsNestedWith/aFieldN_1_1" `isInfixOf` sqlText
+  assert $ "aFieldNameDefinitelyLongerThanThirtyCharsNestedWith/aFieldN_2_1" `isInfixOf` sqlText
+
+  transaction do
+    selected <- lift do
+      statement () $ Rel8.run $ Rel8.select q
+    sort (map (((,) <$> aFieldNameDefinitelyLongerThanThirtyCharsA <*>  aFieldNameDefinitelyLongerThanThirtyCharsB)
+      . aFieldNameDefinitelyLongerThanThirtyCharsNestedWith) selected)
+      === sort rows

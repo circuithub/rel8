@@ -59,7 +59,7 @@ nullsFirst (Order (Opaleye.Order f)) =
     g orderOp = orderOp { Opaleye.orderNulls = Opaleye.NullsFirst }
 
 
--- | Transform an ordering so that @null@ values appear first. This corresponds
+-- | Transform an ordering so that @null@ values appear last. This corresponds
 -- to @NULLS LAST@ in SQL.
 nullsLast :: Order (Expr a) -> Order (Expr (Maybe a))
 nullsLast (Order (Opaleye.Order f)) =

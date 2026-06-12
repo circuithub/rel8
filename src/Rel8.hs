@@ -23,9 +23,6 @@ module Rel8
   , mapTypeInformation
   , parseTypeInformation
 
-    -- *** @Decoder@
-  , Decoder(..)
-
     -- ** The @DBType@ hierarchy
   , DBSemigroup(..)
   , DBMonoid(..)
@@ -356,6 +353,7 @@ module Rel8
   , run1
   , runMaybe
   , runVector
+  , prepared
 
     -- ** @SELECT@
   , select
@@ -363,6 +361,8 @@ module Rel8
     -- ** @INSERT@
   , Insert(..)
   , OnConflict(..)
+  , Conflict (..)
+  , Index (..)
   , Upsert(..)
   , insert
   , unsafeDefault
@@ -384,6 +384,7 @@ module Rel8
     -- ** @WITH@
   , Statement
   , showStatement
+  , showPreparedStatement
 
     -- ** @CREATE VIEW@
   , createView
@@ -462,6 +463,7 @@ import Rel8.Statement
 import Rel8.Statement.Delete
 import Rel8.Statement.Insert
 import Rel8.Statement.OnConflict
+import Rel8.Statement.Prepared
 import Rel8.Statement.Returning
 import Rel8.Statement.Run
 import Rel8.Statement.Select
@@ -493,7 +495,6 @@ import Rel8.Table.Transpose
 import Rel8.Table.Window
 import Rel8.Type
 import Rel8.Type.Composite
-import Rel8.Type.Decoder
 import Rel8.Type.Eq
 import Rel8.Type.Enum
 import Rel8.Type.Information
@@ -537,11 +538,11 @@ import Rel8.Window
 -- data Thing f = ThingEmployer (Employer f) | ThingPotato (Potato f) | Nullary
 --     deriving stock Generic
 --
--- data Employer f = Employer { employerId :: f Int32, employerName :: f Text}
+-- data Employer f = Employer { employerId :: Column f Int32, employerName :: Column f Text}
 --   deriving stock Generic
 --   deriving anyclass Rel8able
 --
--- data Potato f = Potato { size :: f Int32, grower :: f Text }
+-- data Potato f = Potato { size :: Column f Int32, grower :: Column f Text }
 --   deriving stock Generic
 --   deriving anyclass Rel8able
 -- @
@@ -554,8 +555,7 @@ import Rel8.Window
 -- thingSchema :: TableSchema (ADT Thing Name)
 -- thingSchema =
 --   TableSchema
---     { schema = Nothing,
---       name = \"thing\",
+--     { name = \"thing\",
 --       columns =
 --         nameADT @Thing
 --           \"tag\"

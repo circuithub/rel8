@@ -80,7 +80,7 @@ import Rel8.Schema.Null ( Sql, Unnullify )
 import Rel8.Table.Opaleye (fromOrder, unpackspec)
 import Rel8.Table.Order (ascTable)
 import Rel8.Type ( DBType, typeInformation )
-import Rel8.Type.Array (arrayTypeName, encodeArrayElement)
+import Rel8.Type.Array (arrayTypeName, quoteArrayElement)
 import Rel8.Type.Eq ( DBEq )
 import Rel8.Type.Information (TypeInformation)
 import Rel8.Type.Num (DBFractional, DBNum)
@@ -451,7 +451,7 @@ slistAggExpr :: ()
   => TypeInformation (Unnullify a) -> Aggregator' fold (Expr a) (Expr [a])
 slistAggExpr info =
   unsafeMakeAggregator
-    (toColumn . encodeArrayElement info . toPrimExpr)
+    (toColumn . quoteArrayElement info . toPrimExpr)
     (fromPrimExpr . fromColumn)
     (Fallback (sempty info))
     Opaleye.arrayAgg
@@ -461,7 +461,7 @@ snonEmptyAggExpr :: ()
   => TypeInformation (Unnullify a) -> Aggregator1 (Expr a) (Expr (NonEmpty a))
 snonEmptyAggExpr info =
   unsafeMakeAggregator
-    (toColumn . encodeArrayElement info . toPrimExpr)
+    (toColumn . quoteArrayElement info . toPrimExpr)
     (fromPrimExpr . fromColumn)
     Empty
     Opaleye.arrayAgg

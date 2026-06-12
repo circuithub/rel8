@@ -59,7 +59,7 @@ import Rel8.Schema.Table (TableSchema (..))
 import Rel8.Statement.Rows (Rows (..))
 import Rel8.Table (Table)
 import Rel8.Table.Cols (fromCols)
-import Rel8.Table.Name (namesFromLabelsWithA, showNames)
+import Rel8.Table.Name (namesFromLabelsTagged, showNames)
 import Rel8.Table.Serialize (parse)
 
 -- semigroupoids
@@ -192,14 +192,7 @@ statementReturning pp = Statement $ do
     tag <- Opaleye.fresh
     let
       relation = Opaleye.tagWith tag "statement"
-      symbol labels = do
-        subtag <- Opaleye.fresh
-        let
-          suffix = Opaleye.tagWith tag (Opaleye.tagWith subtag "")
-        pure $ take (63 - length suffix) label ++ suffix
-        where
-          label = fold (intersperse "/" labels)
-      names = namesFromLabelsWithA symbol `evalState` Opaleye.start
+      names = namesFromLabelsTagged tag
       columns = Just $ showNames names
       query =
         fromCols <$> each

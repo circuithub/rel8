@@ -100,4 +100,4 @@ type IsPowerOf10' :: Bool -> Nat -> Constraint
 type family IsPowerOf10' bool n where
   IsPowerOf10' 'True _n = ()
   IsPowerOf10' 'False n =
-    TypeError ('ShowType n ':<>: 'Text " is not a power of 10")
+    TypeError ('ShowType n ' :<>: 'Text " is not a power of 10")

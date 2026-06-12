@@ -63,8 +63,8 @@ type GConstructor :: (Type -> Type) -> Symbol
 type family GConstructor rep where
   GConstructor (M1 D _ (M1 C ('MetaCons name _ _) _)) = name
   GConstructor (M1 D ('MetaData name _ _ _) _) = TypeError (
-    'Text "`" ':<>:
-    'Text name ':<>:
+    'Text "`" ' :<>:
+    'Text name ' :<>:
     'Text "` does not appear to have exactly 1 constructor"
    )
 

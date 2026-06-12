@@ -28,11 +28,13 @@ import Data.CaseInsensitive ( CI )
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
+import Rel8.Data.Range (Multirange)
 import {-# SOURCE #-} Rel8.Expr ( Expr )
 import Rel8.Expr.Array ( sappend, sappend1 )
 import Rel8.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Schema.Null ( Sql )
 import Rel8.Type ( DBType )
+import Rel8.Type.Range (DBRange)
 
 -- text
 import Data.Text ( Text )
@@ -85,3 +87,7 @@ instance DBSemigroup ByteString where
 
 instance DBSemigroup Lazy.ByteString where
   (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:||))
+
+
+instance DBRange a => DBSemigroup (Multirange a) where
+  (<>.) = zipPrimExprsWith (Opaleye.BinExpr (Opaleye.:+))
