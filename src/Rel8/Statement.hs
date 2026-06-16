@@ -8,6 +8,7 @@
 {-# language RecordWildCards #-}
 {-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeAbstractions #-}
 {-# language TypeApplications #-}
 
 module Rel8.Statement

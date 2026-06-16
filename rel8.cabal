@@ -21,7 +21,7 @@ library
   build-depends:
       aeson
     , attoparsec
-    , base >= 4.16 && < 4.22
+    , base >= 4.16 && < 4.23
     , base16 >= 1.0
     , base-compat >= 0.11 && < 0.15
     , bifunctors
