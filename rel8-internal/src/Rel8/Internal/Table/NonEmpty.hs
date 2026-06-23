@@ -1,0 +1,189 @@
+{-# language DataKinds #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
+{-# language NamedFieldPuns #-}
+{-# language ScopedTypeVariables #-}
+{-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+{-# language TypeOperators #-}
+{-# language UndecidableInstances #-}
+
+module Rel8.Internal.Table.NonEmpty
+  ( NonEmptyTable(..)
+  , ($+)
+  , nonEmptyTable
+  , nameNonEmptyTable
+  , head1
+  , index1
+  , last1
+  , length1
+  )
+where
+
+-- base
+import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.Int (Int32)
+import Data.Kind ( Type )
+import Data.List.NonEmpty ( NonEmpty )
+import Prelude hiding ( id )
+
+-- rel8
+import Rel8.Internal.Expr ( Expr )
+import Rel8.Internal.Expr.Array ( sappend1, snonEmptyOf )
+import Rel8.Internal.Expr.NonEmpty (length1Expr, shead1Expr, sindex1Expr, slast1Expr)
+import Rel8.Internal.Schema.Dict ( Dict( Dict ) )
+import Rel8.Internal.Schema.HTable.NonEmpty ( HNonEmptyTable )
+import Rel8.Internal.Schema.HTable.Vectorize
+  ( hvectorize, hunvectorize
+  , hnullify
+  , happend
+  , hproject, hcolumn
+  , First (..)
+  )
+import qualified Rel8.Internal.Schema.Kind as K
+import Rel8.Internal.Schema.Name ( Name( Name ) )
+import Rel8.Internal.Schema.Null ( Nullity( Null, NotNull ) )
+import Rel8.Internal.Schema.Result ( vectorizer, unvectorizer )
+import Rel8.Internal.Schema.Spec ( Spec(..) )
+import Rel8.Internal.Table
+  ( Table, Context, Columns, fromColumns, toColumns
+  , FromExprs, fromResult, toResult
+  , Transpose
+  )
+import Rel8.Internal.Table.Alternative ( AltTable, (<|>:) )
+import Rel8.Internal.Table.Eq ( EqTable, eqTable )
+import Rel8.Internal.Table.Null (NullTable)
+import Rel8.Internal.Table.Ord ( OrdTable, ordTable )
+import Rel8.Internal.Table.Projection
+  ( Projectable, Projecting, Projection, project, apply
+  )
+import Rel8.Internal.Table.Serialize ( ToExprs )
+
+
+-- | A @NonEmptyTable@ value contains one or more instances of @a@. You
+-- construct @NonEmptyTable@s with 'Rel8.some' or 'nonEmptyAgg'.
+type NonEmptyTable :: K.Context -> Type -> Type
+newtype NonEmptyTable context a =
+  NonEmptyTable (HNonEmptyTable (Columns a) (Context a))
+
+
+instance Projectable (NonEmptyTable context) where
+  project f (NonEmptyTable a) = NonEmptyTable (hproject (apply f) a)
+
+
+instance (Table context a, context ~ context') =>
+  Table context' (NonEmptyTable context a)
+ where
+  type Columns (NonEmptyTable context a) = HNonEmptyTable (Columns a)
+  type Context (NonEmptyTable context a) = Context a
+  type FromExprs (NonEmptyTable context a) = NonEmpty (FromExprs a)
+  type Transpose to (NonEmptyTable context a) =
+    NonEmptyTable to (Transpose to a)
+
+  fromColumns = NonEmptyTable
+  toColumns (NonEmptyTable a) = a
+  fromResult = fmap (fromResult @_ @a) . hunvectorize unvectorizer
+  toResult = hvectorize vectorizer . fmap (toResult @_ @a)
+
+
+instance (EqTable a, context ~ Expr) =>
+  EqTable (NonEmptyTable context a)
+ where
+  eqTable =
+    hvectorize
+      (\Spec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
+      (Identity (eqTable @a))
+
+
+instance (OrdTable a, context ~ Expr) =>
+  OrdTable (NonEmptyTable context a)
+ where
+  ordTable =
+    hvectorize
+      (\Spec {nullity} (Identity Dict) -> case nullity of
+        Null -> Dict
+        NotNull -> Dict)
+      (Identity (ordTable @a))
+
+
+instance (ToExprs exprs a, context ~ Expr) =>
+  ToExprs (NonEmptyTable context exprs) (NonEmpty a)
+
+
+instance context ~ Expr => AltTable (NonEmptyTable context) where
+  (<|>:) = (<>)
+
+
+instance (Table Expr a, context ~ Expr) => Semigroup (NonEmptyTable context a)
+ where
+  NonEmptyTable as <> NonEmptyTable bs = NonEmptyTable $
+    happend (const sappend1) as bs
+
+
+-- | Project a single expression out of a 'NonEmptyTable'.
+($+) :: Projecting a (Expr b)
+  => Projection a (Expr b) -> NonEmptyTable Expr a -> Expr (NonEmpty b)
+f $+ NonEmptyTable a = hcolumn $ hproject (apply f) a
+infixl 4 $+
+
+
+-- | Construct a @NonEmptyTable@ from a non-empty list of expressions.
+nonEmptyTable :: Table Expr a => NonEmpty a -> NonEmptyTable Expr a
+nonEmptyTable =
+  NonEmptyTable .
+  hvectorize (\Spec {info} -> snonEmptyOf info) .
+  fmap toColumns
+
+
+-- | Construct a 'NonEmptyTable' in the 'Name' context. This can be useful if
+-- you have a 'NonEmptyTable' that you are storing in a table and need to
+-- construct a 'TableSchema'.
+nameNonEmptyTable
+  :: Table Name a
+  => a -- ^ The names of the columns of elements of the list.
+  -> NonEmptyTable Name a
+nameNonEmptyTable =
+  NonEmptyTable .
+  hvectorize (\_ (Identity (Name a)) -> Name a) .
+  pure .
+  toColumns
+
+
+-- | Get the first element of a 'NonEmptyTable'.
+head1 :: Table Expr a => NonEmptyTable Expr a -> a
+head1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\Spec {info} -> Identity . shead1Expr info) .
+  toColumns
+
+
+-- | @'index1' i as@ extracts a single element from @as@, returning
+-- 'Rel8.nullTable' if @i@ is out of range. Note that although PostgreSQL
+-- array indexes are 1-based (by default), this function is always 0-based.
+index1 :: Table Expr a => Expr Int32 -> NonEmptyTable Expr a -> NullTable Expr a
+index1 i =
+  fromColumns .
+  hnullify (\Spec {info} -> sindex1Expr info i) .
+  toColumns
+
+
+-- | Get the last element of a 'NonEmptyTable'.
+last1 :: Table Expr a => NonEmptyTable Expr a -> a
+last1 =
+  fromColumns .
+  runIdentity .
+  hunvectorize (\Spec {info} -> Identity . slast1Expr info) .
+  toColumns
+
+
+-- | Get the length of a 'NonEmptyTable'
+length1 :: Table Expr a => NonEmptyTable Expr a -> Expr Int32
+length1 =
+  getFirst .
+  hunvectorize (\_ -> First . length1Expr) .
+  toColumns
