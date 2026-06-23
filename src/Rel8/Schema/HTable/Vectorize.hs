@@ -67,7 +67,7 @@ import Rel8.Type.Information ( TypeInformation )
 
 -- semialign
 import Data.Align (Semialign, alignWith)
-import Data.Zip (Unzip, Zip, Zippy(..), zipWith)
+import Data.Zip (Unzip, Zip, Zippy(..), unzipWith, zipWith)
 
 -- semigroupoids
 import Data.Functor.Apply (Apply)
@@ -203,3 +203,7 @@ instance Semialign (First a) where
 
 instance Zip (First a) where
   zipWith _ (First a) _ = First a
+
+
+instance Unzip (First a) where
+  unzipWith _ (First a) = (First a, First a)
