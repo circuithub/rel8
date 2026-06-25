@@ -1,0 +1,25 @@
+module Rel8.Internal.Expr.Sequence
+  ( nextval
+  )
+where
+
+-- base
+import Data.Int ( Int64 )
+import Prelude
+
+-- opaleye
+import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+
+-- rel8
+import Rel8.Internal.Expr ( Expr )
+import Rel8.Internal.Expr.Opaleye (fromPrimExpr)
+import Rel8.Internal.Schema.QualifiedName (QualifiedName, showQualifiedName)
+
+
+-- | See https://www.postgresql.org/docs/current/functions-sequence.html
+nextval :: QualifiedName -> Expr Int64
+nextval name =
+  fromPrimExpr $
+    Opaleye.FunExpr "nextval"
+      [ Opaleye.ConstExpr (Opaleye.StringLit (showQualifiedName name))
+      ]

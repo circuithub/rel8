@@ -1,4 +1,6 @@
-packages: .
+packages:
+  rel8/rel8.cabal,
+  rel8-internal/rel8-internal.cabal
 
 source-repository-package
   type: git
