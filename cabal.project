@@ -7,3 +7,5 @@ source-repository-package
 
 allow-newer: base16:base, base16:deepseq, base16:text
 allow-newer: *:base, *:template-haskell, *:ghc-prim
+
+tests: true
