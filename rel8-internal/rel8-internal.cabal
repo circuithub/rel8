@@ -1,0 +1,244 @@
+cabal-version:       3.0
+name:                rel8-internal
+version:             1.7.0.0
+synopsis:            Internals of rel8
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Oliver Charles
+maintainer:          ollie@ocharles.org.uk
+homepage:            https://github.com/circuithub/rel8
+bug-reports:         https://github.com/circuithub/rel8/issues
+build-type:          Simple
+
+source-repository head
+    type: git
+    location: https://github.com/circuithub/rel8
+    subdir: rel8-internal
+
+library 
+  build-depends:
+      aeson
+    , attoparsec
+    , base >= 4.16 && < 4.23
+    , base16 >= 1.0
+    , base-compat >= 0.11 && < 0.15
+    , bytestring
+    , case-insensitive
+    , comonad
+    , containers
+    , contravariant
+    , hasql >= 1.8 && < 1.10
+    , iproute ^>= 1.7
+    , opaleye ^>= 0.10.2.1
+    , postgresql-binary ^>= 0.14.2
+    , pretty
+    , profunctors
+    , product-profunctors
+    , scientific
+    , semialign
+    , semigroupoids
+    , text
+    , these
+    , time
+    , transformers
+    , utf8-string
+    , uuid
+    , vector
+
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Werror=missing-methods -Werror=incomplete-patterns -Werror=missing-fields
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures
+    -Wno-missing-kind-signatures
+    -Wno-missing-role-annotations
+    -Wno-missing-deriving-strategies
+    -Wno-term-variable-capture
+    -Wno-missed-specializations
+
+  hs-source-dirs:
+    src
+
+  exposed-modules:
+    Rel8.Internal.Aggregate
+    Rel8.Internal.Aggregate.Fold
+    Rel8.Internal.Aggregate.Function
+    Rel8.Internal.Aggregate.Range
+
+    Rel8.Internal.Column
+    Rel8.Internal.Column.ADT
+    Rel8.Internal.Column.Either
+    Rel8.Internal.Column.Lift
+    Rel8.Internal.Column.List
+    Rel8.Internal.Column.Maybe
+    Rel8.Internal.Column.NonEmpty
+    Rel8.Internal.Column.Null
+    Rel8.Internal.Column.These
+
+    Rel8.Internal.Data.Range
+
+    Rel8.Internal.Expr
+    Rel8.Internal.Expr.Aggregate
+    Rel8.Internal.Expr.Array
+    Rel8.Internal.Expr.Bool
+    Rel8.Internal.Expr.Default
+    Rel8.Internal.Expr.Eq
+    Rel8.Internal.Expr.Function
+    Rel8.Internal.Expr.List
+    Rel8.Internal.Expr.NonEmpty
+    Rel8.Internal.Expr.Null
+    Rel8.Internal.Expr.Opaleye
+    Rel8.Internal.Expr.Ord
+    Rel8.Internal.Expr.Order
+    Rel8.Internal.Expr.Range
+    Rel8.Internal.Expr.Read
+    Rel8.Internal.Expr.Sequence
+    Rel8.Internal.Expr.Serialize
+    Rel8.Internal.Expr.Show
+    Rel8.Internal.Expr.Subscript
+    Rel8.Internal.Expr.Text
+    Rel8.Internal.Expr.Window
+
+    Rel8.Internal.FCF
+
+    Rel8.Internal.Kind.Algebra
+    Rel8.Internal.Kind.Context
+
+    Rel8.Internal.Generic.Construction
+    Rel8.Internal.Generic.Construction.ADT
+    Rel8.Internal.Generic.Construction.Record
+    Rel8.Internal.Generic.Map
+    Rel8.Internal.Generic.Record
+    Rel8.Internal.Generic.Rel8able
+    Rel8.Internal.Generic.Table
+    Rel8.Internal.Generic.Table.ADT
+    Rel8.Internal.Generic.Table.Record
+
+    Rel8.Internal.Order
+
+    Rel8.Internal.Query
+    Rel8.Internal.Query.Aggregate
+    Rel8.Internal.Query.Distinct
+    Rel8.Internal.Query.Each
+    Rel8.Internal.Query.Either
+    Rel8.Internal.Query.Evaluate
+    Rel8.Internal.Query.Exists
+    Rel8.Internal.Query.Filter
+    Rel8.Internal.Query.Function
+    Rel8.Internal.Query.Indexed
+    Rel8.Internal.Query.Limit
+    Rel8.Internal.Query.List
+    Rel8.Internal.Query.Loop
+    Rel8.Internal.Query.Materialize
+    Rel8.Internal.Query.Maybe
+    Rel8.Internal.Query.Null
+    Rel8.Internal.Query.Opaleye
+    Rel8.Internal.Query.Order
+    Rel8.Internal.Query.Rebind
+    Rel8.Internal.Query.Set
+    Rel8.Internal.Query.SQL
+    Rel8.Internal.Query.These
+    Rel8.Internal.Query.Values
+    Rel8.Internal.Query.Window
+
+    Rel8.Internal.Schema.Context.Nullify
+    Rel8.Internal.Schema.Dict
+    Rel8.Internal.Schema.Escape
+    Rel8.Internal.Schema.Field
+    Rel8.Internal.Schema.HTable
+    Rel8.Internal.Schema.HTable.Either
+    Rel8.Internal.Schema.HTable.Identity
+    Rel8.Internal.Schema.HTable.Label
+    Rel8.Internal.Schema.HTable.List
+    Rel8.Internal.Schema.HTable.MapTable
+    Rel8.Internal.Schema.HTable.Maybe
+    Rel8.Internal.Schema.HTable.NonEmpty
+    Rel8.Internal.Schema.HTable.Nullify
+    Rel8.Internal.Schema.HTable.Product
+    Rel8.Internal.Schema.HTable.These
+    Rel8.Internal.Schema.HTable.Vectorize
+    Rel8.Internal.Schema.Kind
+    Rel8.Internal.Schema.Name
+    Rel8.Internal.Schema.Null
+    Rel8.Internal.Schema.QualifiedName
+    Rel8.Internal.Schema.Result
+    Rel8.Internal.Schema.Spec
+    Rel8.Internal.Schema.Table
+
+    Rel8.Internal.Statement
+    Rel8.Internal.Statement.Delete
+    Rel8.Internal.Statement.Insert
+    Rel8.Internal.Statement.OnConflict
+    Rel8.Internal.Statement.Prepared
+    Rel8.Internal.Statement.Returning
+    Rel8.Internal.Statement.Rows
+    Rel8.Internal.Statement.Run
+    Rel8.Internal.Statement.Select
+    Rel8.Internal.Statement.Set
+    Rel8.Internal.Statement.SQL
+    Rel8.Internal.Statement.Update
+    Rel8.Internal.Statement.Using
+    Rel8.Internal.Statement.View
+    Rel8.Internal.Statement.Where
+
+    Rel8.Internal.Table
+    Rel8.Internal.Table.ADT
+    Rel8.Internal.Table.Aggregate
+    Rel8.Internal.Table.Aggregate.Maybe
+    Rel8.Internal.Table.Alternative
+    Rel8.Internal.Table.Bool
+    Rel8.Internal.Table.Cols
+    Rel8.Internal.Table.Either
+    Rel8.Internal.Table.Eq
+    Rel8.Internal.Table.HKD
+    Rel8.Internal.Table.List
+    Rel8.Internal.Table.Maybe
+    Rel8.Internal.Table.Name
+    Rel8.Internal.Table.NonEmpty
+    Rel8.Internal.Table.Null
+    Rel8.Internal.Table.Nullify
+    Rel8.Internal.Table.Opaleye
+    Rel8.Internal.Table.Ord
+    Rel8.Internal.Table.Order
+    Rel8.Internal.Table.Projection
+    Rel8.Internal.Table.Rel8able
+    Rel8.Internal.Table.Serialize
+    Rel8.Internal.Table.These
+    Rel8.Internal.Table.Transpose
+    Rel8.Internal.Table.Undefined
+    Rel8.Internal.Table.Verify
+    Rel8.Internal.Table.Window
+
+    Rel8.Internal.Type
+    Rel8.Internal.Type.Array
+    Rel8.Internal.Type.Builder.ByteString
+    Rel8.Internal.Type.Builder.Fold
+    Rel8.Internal.Type.Builder.Time
+    Rel8.Internal.Type.Composite
+    Rel8.Internal.Type.Decimal
+    Rel8.Internal.Type.Decoder
+    Rel8.Internal.Type.Eq
+    Rel8.Internal.Type.Encoder
+    Rel8.Internal.Type.Enum
+    Rel8.Internal.Type.Information
+    Rel8.Internal.Type.JSONEncoded
+    Rel8.Internal.Type.JSONBEncoded
+    Rel8.Internal.Type.Monoid
+    Rel8.Internal.Type.Name
+    Rel8.Internal.Type.Nullable
+    Rel8.Internal.Type.Num
+    Rel8.Internal.Type.Ord
+    Rel8.Internal.Type.Parser
+    Rel8.Internal.Type.Parser.ByteString
+    Rel8.Internal.Type.Parser.Time
+    Rel8.Internal.Type.Range
+    Rel8.Internal.Type.ReadShow
+    Rel8.Internal.Type.Semigroup
+    Rel8.Internal.Type.String
+    Rel8.Internal.Type.Sum
+    Rel8.Internal.Type.Tag
+
+    Rel8.Internal.Window

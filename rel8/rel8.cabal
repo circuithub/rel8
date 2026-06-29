@@ -1,0 +1,96 @@
+cabal-version:       3.0
+name:                rel8
+version:             1.7.0.0
+synopsis:            Hey! Hey! Can u rel8?
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Oliver Charles
+maintainer:          ollie@ocharles.org.uk
+homepage:            https://github.com/circuithub/rel8
+bug-reports:         https://github.com/circuithub/rel8/issues
+build-type:          Simple
+extra-doc-files:
+    Changelog.md
+
+source-repository head
+    type: git
+    location: https://github.com/circuithub/rel8
+
+library
+  build-depends:
+      rel8-internal ==1.7.0.0
+    , base >= 4.16 && < 4.23
+    , bifunctors
+    , bytestring
+    , comonad
+    , opaleye ^>= 0.10.2.1
+    , profunctors
+    , product-profunctors
+    , semigroupoids
+    , time
+
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Werror=missing-methods -Werror=incomplete-patterns -Werror=missing-fields
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures
+    -Wno-missing-kind-signatures
+    -Wno-missing-role-annotations
+    -Wno-missing-deriving-strategies
+    -Wno-term-variable-capture
+
+  hs-source-dirs:
+    src
+  exposed-modules:
+    Rel8
+    Rel8.Array
+    Rel8.Decoder
+    Rel8.Encoder
+    Rel8.Expr.Num
+    Rel8.Expr.Text
+    Rel8.Expr.Time
+    Rel8.Range
+    Rel8.Tabulate
+
+test-suite tests
+  type:             exitcode-stdio-1.0
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , case-insensitive
+    , containers
+    , hasql
+    , hasql-transaction
+    , hedgehog          >= 1.0 && < 1.6
+    , mmorph
+    , iproute
+    , rel8
+    , rel8-internal
+    , scientific
+    , tasty
+    , tasty-hedgehog
+    , text
+    , these
+    , time
+    , tmp-postgres >=1.34 && <1.36
+    , transformers
+    , uuid
+    , vector
+
+  other-modules:
+    Rel8.Generic.Rel8able.Test
+
+  main-is:          Main.hs
+  hs-source-dirs:   tests
+  default-language: Haskell2010
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-safe -Wno-missing-safe-haskell-mode
+    -Wno-missing-import-lists -Wno-prepositive-qualified-module
+    -Wno-deprecations -Wno-monomorphism-restriction
+    -Wno-missing-local-signatures -Wno-implicit-prelude
+    -Wno-missing-kind-signatures
+    -Wno-missing-role-annotations
