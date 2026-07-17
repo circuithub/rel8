@@ -41,6 +41,7 @@ library
     -Wno-missing-role-annotations
     -Wno-missing-deriving-strategies
     -Wno-term-variable-capture
+    -Wno-all-missed-specializations
 
   hs-source-dirs:
     src

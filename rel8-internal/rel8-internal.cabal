@@ -58,6 +58,7 @@ library
     -Wno-missing-deriving-strategies
     -Wno-term-variable-capture
     -Wno-missed-specializations
+    -Wno-all-missed-specializations
 
   hs-source-dirs:
     src
