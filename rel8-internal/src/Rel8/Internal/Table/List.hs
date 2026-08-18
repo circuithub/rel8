@@ -19,6 +19,8 @@ module Rel8.Internal.Table.List
   , index
   , last
   , length
+  , take
+  , drop
   )
 where
 
@@ -26,19 +28,20 @@ where
 import Data.Functor.Identity (Identity (Identity))
 import Data.Int (Int32)
 import Data.Kind ( Type )
-import Prelude hiding (head, last, length)
+import Prelude hiding (drop, head, last, length, take)
 
 -- rel8
 import Rel8.Internal.Expr ( Expr )
 import Rel8.Internal.Expr.Array ( sappend, sempty, slistOf )
-import Rel8.Internal.Expr.List (lengthExpr, sheadExpr, sindexExpr, slastExpr)
+import Rel8.Internal.Expr.List
+  ( dropExpr, lengthExpr, sheadExpr, sindexExpr, slastExpr, takeExpr )
 import Rel8.Internal.Schema.Dict ( Dict( Dict ) )
 import Rel8.Internal.Schema.HTable.List ( HListTable )
 import Rel8.Internal.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
   , hnullify
   , happend, hempty
-  , hproject, hcolumn
+  , hproject, htraverseVectorP, hcolumn
   , First (..)
   )
 import qualified Rel8.Internal.Schema.Kind as K
@@ -190,4 +193,20 @@ length :: Table Expr a => ListTable Expr a -> Expr Int32
 length =
   getFirst .
   hunvectorize (\_ -> First . lengthExpr) .
+  toColumns
+
+
+-- | @'take' n as@ returns the first @n@ elements of @as@.
+take :: Table Expr a => Expr Int32 -> ListTable Expr a -> ListTable Expr a
+take n =
+  fromColumns .
+  htraverseVectorP (\_ -> takeExpr n) .
+  toColumns
+
+
+-- | @'drop' n as@ returns the suffix of @as@ after the first @n@ elements.
+drop :: Table Expr a => Expr Int32 -> ListTable Expr a -> ListTable Expr a
+drop n =
+  fromColumns .
+  htraverseVectorP (\_ -> dropExpr n) .
   toColumns

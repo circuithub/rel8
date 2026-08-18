@@ -11,7 +11,7 @@ module Rel8.Internal.Type.Array
   , arrayTypeName
   , listTypeInformation
   , nonEmptyTypeInformation
-  , head, index, last, length
+  , head, index, last, length, take, drop
   )
 where
 
@@ -24,7 +24,7 @@ import Data.Bifunctor (first)
 import Data.Foldable (fold, toList)
 import Data.Functor.Contravariant ((>$<))
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
-import Prelude hiding (head, last, length, null, repeat, zipWith)
+import Prelude hiding (drop, head, last, length, null, repeat, take, zipWith)
 
 -- bytestring
 import Data.ByteString (ByteString)
@@ -236,12 +236,32 @@ index :: TypeInformation a -> Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.Pr
 index info i a = extractArrayElement info $ subscript (plus (lower a) i) a
 
 
+take :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+take n a = slice (lowerBound a) (plus (lowerBound a) (minus n one)) a
+
+
+drop :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+drop n a = slice (plus (lowerBound a) n) (upperBound a) a
+
+
+slice :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+slice i j a = Opaleye.ArraySlice a i j
+
+
 lower :: Opaleye.PrimExpr -> Opaleye.PrimExpr
 lower a = Opaleye.FunExpr "array_lower" [a, one]
 
 
+lowerBound :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+lowerBound a = Opaleye.FunExpr "coalesce" [lower a, one]
+
+
 upper :: Opaleye.PrimExpr -> Opaleye.PrimExpr
-upper a = Opaleye.FunExpr "array_lower" [a, one]
+upper a = Opaleye.FunExpr "array_upper" [a, one]
+
+
+upperBound :: Opaleye.PrimExpr -> Opaleye.PrimExpr
+upperBound a = Opaleye.FunExpr "coalesce" [upper a, zero]
 
 
 length :: Opaleye.PrimExpr -> Opaleye.PrimExpr
@@ -258,3 +278,7 @@ zero = Opaleye.ConstExpr (Opaleye.IntegerLit 0)
 
 plus :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
 plus = Opaleye.BinExpr (Opaleye.:+)
+
+
+minus :: Opaleye.PrimExpr -> Opaleye.PrimExpr -> Opaleye.PrimExpr
+minus = Opaleye.BinExpr (Opaleye.:-)

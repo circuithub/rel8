@@ -9,6 +9,8 @@ module Rel8.Internal.Expr.List (
   sindexExpr,
   slastExpr,
   lengthExpr,
+  takeExpr,
+  dropExpr,
 ) where
 
 -- base
@@ -50,3 +52,11 @@ slastExpr info = mapPrimExpr (Prim.last info)
 
 lengthExpr :: Expr [a] -> Expr Int32
 lengthExpr = mapPrimExpr (Prim.length)
+
+
+takeExpr :: Expr Int32 -> Expr [a] -> Expr [a]
+takeExpr n = mapPrimExpr (Prim.take (toPrimExpr n))
+
+
+dropExpr :: Expr Int32 -> Expr [a] -> Expr [a]
+dropExpr n = mapPrimExpr (Prim.drop (toPrimExpr n))

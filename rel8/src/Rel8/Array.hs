@@ -10,6 +10,8 @@ module Rel8.Array
   , index, indexExpr
   , last, lastExpr
   , length, lengthExpr
+  , take, takeExpr
+  , drop, dropExpr
   , elem
 
     -- ** @NonEmptyTable@
@@ -18,6 +20,8 @@ module Rel8.Array
   , index1, index1Expr
   , last1, last1Expr
   , length1, length1Expr
+  , take1, take1Expr
+  , drop1, drop1Expr
   , elem1
 
     -- ** Unsafe
@@ -28,7 +32,7 @@ where
 
 -- base
 import Data.List.NonEmpty (NonEmpty)
-import Prelude hiding (elem, head, last, length)
+import Prelude hiding (drop, elem, head, last, length, take)
 
 -- rel8
 import Rel8.Internal.Expr (Expr)
