@@ -19,6 +19,8 @@ module Rel8.Internal.Table.NonEmpty
   , index1
   , last1
   , length1
+  , take1
+  , drop1
   )
 where
 
@@ -32,14 +34,15 @@ import Prelude hiding ( id )
 -- rel8
 import Rel8.Internal.Expr ( Expr )
 import Rel8.Internal.Expr.Array ( sappend1, snonEmptyOf )
-import Rel8.Internal.Expr.NonEmpty (length1Expr, shead1Expr, sindex1Expr, slast1Expr)
+import Rel8.Internal.Expr.NonEmpty
+  ( drop1Expr, length1Expr, shead1Expr, sindex1Expr, slast1Expr, take1Expr )
 import Rel8.Internal.Schema.Dict ( Dict( Dict ) )
 import Rel8.Internal.Schema.HTable.NonEmpty ( HNonEmptyTable )
 import Rel8.Internal.Schema.HTable.Vectorize
   ( hvectorize, hunvectorize
   , hnullify
   , happend
-  , hproject, hcolumn
+  , hproject, htraverseVectorP, hcolumn
   , First (..)
   )
 import qualified Rel8.Internal.Schema.Kind as K
@@ -54,6 +57,7 @@ import Rel8.Internal.Table
   )
 import Rel8.Internal.Table.Alternative ( AltTable, (<|>:) )
 import Rel8.Internal.Table.Eq ( EqTable, eqTable )
+import Rel8.Internal.Table.List (ListTable)
 import Rel8.Internal.Table.Null (NullTable)
 import Rel8.Internal.Table.Ord ( OrdTable, ordTable )
 import Rel8.Internal.Table.Projection
@@ -186,4 +190,20 @@ length1 :: Table Expr a => NonEmptyTable Expr a -> Expr Int32
 length1 =
   getFirst .
   hunvectorize (\_ -> First . length1Expr) .
+  toColumns
+
+
+-- | @'take1' n as@ returns the first @n@ elements of @as@.
+take1 :: Table Expr a => Expr Int32 -> NonEmptyTable Expr a -> ListTable Expr a
+take1 n =
+  fromColumns .
+  htraverseVectorP (\_ -> take1Expr n) .
+  toColumns
+
+
+-- | @'drop1' n as@ returns the suffix of @as@ after the first @n@ elements.
+drop1 :: Table Expr a => Expr Int32 -> NonEmptyTable Expr a -> ListTable Expr a
+drop1 n =
+  fromColumns .
+  htraverseVectorP (\_ -> drop1Expr n) .
   toColumns
