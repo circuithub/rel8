@@ -23,7 +23,7 @@ library
     , bifunctors
     , bytestring
     , comonad
-    , opaleye ^>= 0.10.2.1
+    , opaleye ^>= 0.10.8.0
     , profunctors
     , product-profunctors
     , semigroupoids

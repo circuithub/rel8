@@ -1,6 +1,3 @@
-{-# language DataKinds #-}
-{-# language OverloadedStrings #-}
-
 module Rel8.Expr.Text
   (
     -- * String concatenation
@@ -25,19 +22,7 @@ module Rel8.Expr.Text
 where
 
 -- base
-import Data.Bool ( Bool )
-import Data.Int ( Int32 )
-import Data.Maybe ( Maybe( Nothing, Just ) )
-import Prelude ( flip )
-
--- bytestring
-import Data.ByteString ( ByteString )
-
--- opaleye
-import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
+import Prelude hiding (length, repeat, reverse)
 
 -- rel8
-import Rel8.Internal.Expr ( Expr )
-import Rel8.Internal.Expr.Function (binaryOperator, function)
-import Rel8.Internal.Expr.Opaleye (zipPrimExprsWith)
 import Rel8.Internal.Expr.Text 
