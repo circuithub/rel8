@@ -5,10 +5,12 @@
     extra-substituters = [
       "https://rel8.cachix.org"
       "https://cache.iog.io"
+      "https://cache.zw3rk.com"
     ];
     extra-trusted-public-keys = [
       "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
       "rel8.cachix.org-1:C/hVFTPHIOp7S/jRleuLL0Cg/dE0dQzEuEB5szaszTc="
+      "loony-tools:pr9m4BkM/5/eSTZlkQyRt57Jz7OMBxNSUiMC4FkcNfk="
     ];
   };
 
@@ -28,7 +30,7 @@
         };
 
         rel8 = pkgs.haskell-nix.project {
-          compiler-nix-name = "ghc9121";
+          compiler-nix-name = "ghc9141";
 
           cabalProjectLocal = builtins.readFile ./cabal.project.haskell-nix;
 
