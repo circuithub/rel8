@@ -352,7 +352,12 @@ module Rel8
   , run1
   , runMaybe
   , runVector
-  , prepared
+  , preparedRun
+  , preparedRun_
+  , preparedRunN
+  , preparedRun1
+  , preparedRunMaybe
+  , preparedRunVector
 
     -- ** @SELECT@
   , select

@@ -13,6 +13,8 @@
 {-# language UndecidableInstances #-}
 {-# language UndecidableSuperClasses #-}
 {-# language ViewPatterns #-}
+{-# language CPP #-}
+{-# language OverloadedRecordDot #-}
 
 module Rel8.Internal.Type.Composite
   ( Composite( Composite )
@@ -56,6 +58,7 @@ import Rel8.Internal.Schema.HTable ( HTable, hfield, hspecs, htabulate, htabulat
 import Rel8.Internal.Schema.Name ( Name( Name ) )
 import Rel8.Internal.Schema.Null ( Nullity( Null, NotNull ) )
 import Rel8.Internal.Schema.QualifiedName (QualifiedName)
+import qualified Rel8.Internal.Schema.QualifiedName 
 import Rel8.Internal.Schema.Result ( Result )
 import Rel8.Internal.Schema.Spec ( Spec( Spec, nullity, info ) )
 import Rel8.Internal.Table ( fromColumns, toColumns, fromResult, toResult )
@@ -79,6 +82,9 @@ import Rel8.Internal.Type.Parser (parse)
 -- semigroupoids
 import Data.Functor.Apply ( WrappedApplicative(..) )
 
+-- text
+import qualified Data.Text as Text
+
 -- transformers
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Strict (StateT (StateT), runStateT)
@@ -101,12 +107,22 @@ instance DBComposite a => DBType (Composite a) where
   typeInformation = TypeInformation
     { decode =
         Decoder
-          { binary = Decoders.composite (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
+          { binary = Decoders.composite
+#if MIN_VERSION_hasql(1,10,0)
+              (Text.pack <$> (compositeTypeName @a).schema)
+              (Text.pack (compositeTypeName @a).name)
+#endif
+              (Composite . fromResult @_ @(HKD a Expr) <$> decoder)
           , text = fmap (Composite . fromResult @_ @(HKD a Expr)) . parser
           }
     , encode =
         Encoder
-          { binary = Encoders.composite (toResult @_ @(HKD a Expr) . unComposite >$< encoder)
+          { binary = Encoders.composite
+#if MIN_VERSION_hasql(1,10,0)
+              (Text.pack <$> (compositeTypeName @a).schema)
+              (Text.pack (compositeTypeName @a).name)
+#endif
+              (toResult @_ @(HKD a Expr) . unComposite >$< encoder)
           , text = builder . toResult @_ @(HKD a Expr) . unComposite
           , quote = quoter . litHTable . toResult @_ @(HKD a Expr) . unComposite
           }

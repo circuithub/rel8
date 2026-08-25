@@ -27,7 +27,7 @@ import qualified Data.Aeson.KeyMap as Aeson.KeyMap
 
 -- base
 import Control.Applicative ( empty, liftA2, liftA3 )
-import Control.Exception ( bracket, throwIO )
+import Control.Exception ( Exception, bracket, throwIO )
 import Control.Monad ((>=>))
 import Data.Bifunctor ( bimap )
 import Data.Fixed (Fixed (MkFixed))
@@ -55,12 +55,19 @@ import Data.Containers.ListUtils ( nubOrdOn )
 import qualified Data.Map.Strict as Map
 
 -- hasql
-import Hasql.Connection ( Connection, ConnectionError, acquire, release )
-#if MIN_VERSION_hasql(1,9,0)
+import Hasql.Connection ( Connection, acquire, release, use )
+import Hasql.Errors ( SessionError, ConnectionError )
+#if MIN_VERSION_hasql(1,10,0)
+import qualified Hasql.Connection.Settings as Hasql.Connection.Setting
+#elif MIN_VERSION_hasql(1,9,0)
 import qualified Hasql.Connection.Setting
 import qualified Hasql.Connection.Setting.Connection
 #endif
-import Hasql.Session ( sql, run )
+#if MIN_VERSION_hasql(1,10,0)
+import Hasql.Session ( script )
+#else
+import Hasql.Session ( sql )
+#endif
 
 -- hasql-transaction
 import Hasql.Transaction ( Transaction, condemn, statement )
@@ -168,12 +175,12 @@ tests =
       db <- TmpPostgres.start >>= either throwIO return
 
       bracket (either (error . show) return =<< acquireFromConnectionString (TmpPostgres.toConnectionString db)) release \conn -> void do
-        flip run conn do
-          sql "CREATE EXTENSION citext"
-          sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
-          sql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
-          sql "CREATE SEQUENCE test_seq"
-          sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
+        use conn do
+          hasqlSql "CREATE EXTENSION citext"
+          hasqlSql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
+          hasqlSql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
+          hasqlSql "CREATE SEQUENCE test_seq"
+          hasqlSql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
 
       return db
 
@@ -181,16 +188,29 @@ tests =
 
 
 connect :: TmpPostgres.DB -> IO Connection
+#if MIN_VERSION_hasql(1,10,0)
+connect = acquireFromConnectionString . TmpPostgres.toConnectionString >=> either (fail . show) pure
+#else
 connect = acquireFromConnectionString . TmpPostgres.toConnectionString >=> either (maybe empty (fail . unpack . decodeUtf8)) pure
+#endif
 
 acquireFromConnectionString :: ByteString -> IO (Either ConnectionError Connection)
 acquireFromConnectionString connectionString =
-#if MIN_VERSION_hasql(1,9,0)
+#if MIN_VERSION_hasql(1,10,0)
+  acquire 
+    (Hasql.Connection.Setting.connectionString . decodeUtf8 $ connectionString)
+#elif MIN_VERSION_hasql(1,9,0)
   acquire 
     [ Hasql.Connection.Setting.connection . Hasql.Connection.Setting.Connection.string . decodeUtf8 $ connectionString
     ]
 #else
   acquire connectionString
+#endif
+
+#if MIN_VERSION_hasql(1,10,0)
+hasqlSql = script
+#else
+hasqlSql = sql
 #endif
 
 testShowCreateTable :: IO TmpPostgres.DB -> TestTree
@@ -293,6 +313,9 @@ testShowCreateTable getTestDatabase = testGroup "CREATE TABLE"
         -- so we this is only here as one additional check
         length selected === length rows
 
+#if MIN_VERSION_hasql(1,10,0)
+instance Exception Hasql.Errors.SessionError
+#endif
 
 databasePropertyTest
   :: TestName
@@ -303,7 +326,7 @@ databasePropertyTest testName f getTestDatabase =
   testProperty testName $ property do
     connection <- lift c
     f $ test . hoist \m -> do
-      e <- run (Hasql.transaction Hasql.Serializable Hasql.Write (m <* condemn)) connection
+      e <- use connection (Hasql.transaction Hasql.Serializable Hasql.Write (m <* condemn))
       either throwIO pure e
 
 
@@ -649,25 +672,25 @@ testDBType getTestDatabase = testGroup "DBType instances"
 
       transaction do
         res <- lift do
-          statement x $ Rel8.prepared Rel8.run1 $
+          statement x $ Rel8.preparedRun1 $
             Rel8.select @(Rel8.Expr _) .
             pure
         diff res (==) x
 
         res' <- lift do
-          statement [x, y] $ Rel8.prepared Rel8.run1 $
+          statement [x, y] $ Rel8.preparedRun1 $
             Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.Expr _)) .
             Rel8.many . Rel8.catListTable
         diff res' (==) [x, y]
 
         res'' <- lift do
-          statement [[x, y]] $ Rel8.prepared Rel8.run1 $
+          statement [[x, y]] $ Rel8.preparedRun1 $
             Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _))) .
             Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable)
         diff res'' (==) [[x, y]]
 
         res''' <- lift do
-          statement [[[x, y]]] $ Rel8.prepared Rel8.run1 $
+          statement [[[x, y]]] $ Rel8.preparedRun1 $
             Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _)))) .
             Rel8.many . Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable >=> Rel8.catListTable)
         diff res''' (==) [[[x, y]]]

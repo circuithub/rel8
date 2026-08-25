@@ -10,12 +10,14 @@
 {-# language StandaloneKindSignatures #-}
 {-# language TypeAbstractions #-}
 {-# language TypeApplications #-}
+{-# language CPP #-}
 
 module Rel8.Internal.Statement
   ( Statement
   , statementReturning
   , statementNoReturning
   , ppDecodeStatement
+  , encodeDoc
   )
 where
 
@@ -29,6 +31,9 @@ import Data.List.NonEmpty (NonEmpty, intersperse)
 import Data.Monoid (Endo (Endo))
 import Data.String (fromString)
 import Prelude
+
+-- bytestring
+import Data.ByteString (ByteString)
 
 -- hasql
 import qualified Hasql.Decoders as Hasql
@@ -67,10 +72,15 @@ import Rel8.Internal.Table.Serialize (parse)
 import Data.Functor.Apply (Apply, WrappedApplicative (..))
 import Data.Functor.Bind (Bind, (>>-))
 
+-- text
+import qualified Data.Text as Text
+import Data.Text.Encoding (encodeUtf8)
+
 -- transformers
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Strict (State, evalState)
 import Control.Monad.Trans.Writer.CPS (WriterT, runWriterT, tell)
+
 
 
 type Binding :: Type
@@ -286,6 +296,20 @@ ppDecodeStatement ppSelect rows (Statement m) = evalState go Opaleye.start
                 doc <- ppWith bindings' <$> ppSelect query
                 pure (doc, Hasql.rowVector (parse @exprs @a))
 
+-- | Encode a document into the text type that Hasql expects
+#if MIN_VERSION_hasql(1,10,0)
+encodeDoc :: Doc -> Text.Text
+#else
+encodeDoc :: Doc -> ByteString
+#endif
+encodeDoc doc = bytes
+  where
+    bytes =
+#if !MIN_VERSION_hasql(1,10,0)
+      encodeUtf8  $
+#endif
+      Text.pack sql
+    sql = show doc
 
 ppWith :: [Binding] -> Doc -> Doc
 ppWith bindings after = pre $$ after
@@ -311,3 +335,4 @@ ppAlias Binding {relation, columns = mcolumns} = case mcolumns of
 
 unsnoc :: [a] -> Maybe ([a], a)
 unsnoc = foldr (\x -> Just . maybe ([], x) (\(~(a, b)) -> (x : a, b))) Nothing
+
