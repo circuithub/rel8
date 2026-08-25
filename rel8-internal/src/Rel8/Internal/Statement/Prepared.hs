@@ -54,8 +54,9 @@ prepared :: forall a b i o.
   (Statement b -> Hasql.Statement () o) ->
   (a -> Statement b) ->
   Hasql.Statement i o
-prepared run mkStatement = Hasql.Statement sql (encoder @a) decode True
+prepared run mkStatement = Hasql.preparable sql (encoder @a) decode
   where
+    -- TODO: We can't pattern match here any more sigh
     Hasql.Statement sql _ decode _ = run $ mkStatement input
 
 

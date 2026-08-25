@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Rel8.Internal.Statement.Run
   ( run_
   , runN
@@ -32,11 +33,14 @@ import Data.Vector (Vector)
 
 
 makeRun :: Rows exprs a -> Statement exprs -> Hasql.Statement () a
-makeRun rows statement = Hasql.Statement bytes params decode prepare
+makeRun rows statement = Hasql.unpreparable bytes params decode 
   where
-    bytes = encodeUtf8 $ Text.pack sql
+    bytes =
+#if !MIN_VERSION_hasql(1,10,0)
+      encodeUtf8  $
+#endif
+      Text.pack sql
     params = Hasql.noParams
-    prepare = False
     sql = show doc
     (doc, decode) = ppDecodeStatement ppSelect rows statement
 
