@@ -53,7 +53,7 @@ module Rel8.Tabulate
 where
 
 -- base
-import Control.Applicative ( (<|>), empty, liftA2 )
+import Control.Applicative ( (<|>), empty )
 import Control.Monad ( liftM2 )
 import Data.Bifunctor ( Bifunctor, bimap, first, second )
 import Data.Foldable ( traverse_ )
