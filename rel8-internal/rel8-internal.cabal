@@ -21,7 +21,7 @@ library
     , attoparsec
     , base >= 4.16 && < 4.23
     , base16 >= 1.0
-    , base-compat >= 0.11 && < 0.15
+    , base-compat >= 0.11 && < 0.16
     , bytestring
     , case-insensitive
     , comonad
@@ -30,7 +30,7 @@ library
     , hasql >= 1.8 && < 1.10
     , iproute ^>= 1.7
     , opaleye ^>= 0.10.2.1
-    , postgresql-binary ^>= 0.14.2
+    , postgresql-binary >= 0.14.2 && < 0.15.1
     , pretty
     , profunctors
     , product-profunctors
