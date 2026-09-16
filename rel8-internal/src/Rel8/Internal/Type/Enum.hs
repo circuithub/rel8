@@ -12,6 +12,8 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language UndecidableInstances #-}
+{-# language CPP #-}
+{-# language OverloadedRecordDot #-}
 
 module Rel8.Internal.Type.Enum
   ( Enum( Enum )
@@ -41,7 +43,7 @@ import qualified Hasql.Encoders as Encoders
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as Opaleye
 
 -- rel8
-import Rel8.Internal.Schema.QualifiedName (QualifiedName)
+import Rel8.Internal.Schema.QualifiedName (QualifiedName(schema, name))
 import Rel8.Internal.Type ( DBType, typeInformation )
 import Rel8.Internal.Type.Decoder (Decoder (..))
 import Rel8.Internal.Type.Encoder (Encoder (..))
@@ -76,9 +78,18 @@ instance DBEnum a => DBType (Enum a) where
     { encode =
         let
           toText (Enum a) = pack $ enumValue a
+#if MIN_VERSION_hasql(1,10,0)
+          schemaName = pack <$> (enumTypeName @a).schema
+          enumName = pack (enumTypeName @a).name
+#endif
         in
         Encoder
-          { binary = Encoders.enum toText
+          { binary = Encoders.enum
+#if MIN_VERSION_hasql(1,10,0)
+                      schemaName
+                      enumName
+#endif
+                      toText
           , text = encodeUtf8Builder . toText
           , quote =
               Opaleye.ConstExpr .
@@ -90,9 +101,18 @@ instance DBEnum a => DBType (Enum a) where
         let
           mapping = (pack . enumValue &&& Enum) <$> enumerate
           unrecognised = Left "enum: unrecognised value"
+#if MIN_VERSION_hasql(1,10,0)
+          schemaName = pack <$> (enumTypeName @a).schema
+          enumName = pack (enumTypeName @a).name
+#endif
         in
           Decoder
-            { binary = Decoders.enum (`lookup` mapping)
+            { binary = Decoders.enum
+#if MIN_VERSION_hasql(1,10,0)
+                         schemaName
+                         enumName
+#endif
+                         (`lookup` mapping)
             , text = maybe unrecognised pure . (`lookup` mapping) . decodeUtf8
             }
     , delimiter = ','

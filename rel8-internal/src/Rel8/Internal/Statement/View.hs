@@ -1,5 +1,6 @@
 {-# language FlexibleContexts #-}
 {-# language MonoLocalBinds #-}
+{-# language CPP #-}
 
 module Rel8.Internal.Statement.View
   ( createView
@@ -62,12 +63,15 @@ createOrReplaceView =
 createViewGeneric :: Selects names exprs
   => CreateView -> TableSchema names -> Query exprs -> Hasql.Statement () ()
 createViewGeneric replace schema query =
-  Hasql.Statement bytes params decode prepare
+  Hasql.unpreparable bytes params decode
   where
-    bytes = encodeUtf8 (Text.pack sql)
+    bytes =
+#if !MIN_VERSION_hasql(1,10,0)
+      encodeUtf8 $
+#endif
+      Text.pack sql
     params = Hasql.noParams
     decode = Hasql.noResult
-    prepare = False
     sql = show doc
     doc = ppCreateView schema query replace
 
