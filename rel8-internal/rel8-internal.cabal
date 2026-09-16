@@ -1,6 +1,6 @@
 cabal-version:       3.0
 name:                rel8-internal
-version:             1.7.0.0
+version:             1.8.0.0
 synopsis:            Internals of rel8
 license:             BSD-3-Clause
 license-file:        LICENSE

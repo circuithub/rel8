@@ -1,4 +1,45 @@
 
+<a id='changelog-1.8.0.0'></a>
+# 1.8.0.0 — 2026-09-16
+
+## Added
+
+- Added `Rel8.TH.deriveRel8able` and `Rel8.TH.deriveRel8ables` for deriving `Rel8able` instances using `TemplateHaskell`. 
+  This can be significantly faster than using `Generics`. In testing, we have seen 80% reductions in build time!
+  
+- Expose all `rel8` internal modules from the `rel8-internal` package.
+
+- Added new `Conflict` and `Index` types. `Conflict` represents a [`conflict_target`](https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT) in an `ON CONFLICT`. It can be either a named constraint (`ON CONSTRAINT`) or a an `Index`.
+
+- Added `Index`. `Index` is a description of a unique index which PostgreSQL can use for *unique index inference*. This is an alternative to specifying an explicit named constraint in a `conflict_target`.
+
+- Add `notElem` and `notElem1` to `Rel8.Array`
+
+- Added preliminary support for PostgreSQL ranges.
+
+- Support GHC-9.14 and `semialign >= 1.4`.
+
+- Added `notElem` and `notElem1` to `Rel8.Array`.
+
+- Added `DBType Aeson.Object` instance.
+
+- Bumped a variety of bounds.
+
+## Changed
+
+- The `Upsert` type was changed. Previously it had the columns (`index`, `predicate`) of what is now the `Index` type baked into its record. It now instead has a single `conflict` column (of type `Conflict`, which can be either an `Index` or a named constraint).
+- The `DoNothing` constructor of `OnConflict` was changed to also take an optional `Conflict` value. Even though `ON CONFLICT DO NOTHING` does not generally require a `conflict_target`, there are cases where it can be necessary, e.g., if you have table that has both deferrable and non-deferrable constraints.
+
+- `rel8` now requires at least version `0.10.8.0` of `opaleye`
+
+## Fixed
+
+- `elem` and `elem1` now use `IS NOT DISTINCT FROM` semantics (matching `(==.)`) when the element type is nullable, so `null` is found in an array containing `null`. Previously they were implemented with the array containment operator `<@`, which never matches `null`.
+
+- Fixed some issues around the truncation of long column names.
+
+- Improved documentation.
+
 <a id='changelog-1.7.0.0'></a>
 # 1.7.0.0 — 2025-07-31
 

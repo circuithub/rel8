@@ -1,6 +1,6 @@
 cabal-version:       3.0
 name:                rel8
-version:             1.7.0.0
+version:             1.8.0.0
 synopsis:            Hey! Hey! Can u rel8?
 license:             BSD-3-Clause
 license-file:        LICENSE
@@ -18,7 +18,7 @@ source-repository head
 
 library
   build-depends:
-      rel8-internal ==1.7.0.0
+      rel8-internal ==1.8.0.0
     , base >= 4.16 && < 4.23
     , bifunctors
     , bytestring
@@ -71,7 +71,7 @@ test-suite tests
     , containers
     , hasql
     , hasql-transaction
-    , hedgehog          >= 1.0 && < 1.6
+    , hedgehog          >= 1.0 && < 1.8
     , mmorph
     , iproute
     , rel8
