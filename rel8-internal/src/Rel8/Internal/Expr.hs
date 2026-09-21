@@ -9,6 +9,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language RoleAnnotations #-}
 
 module Rel8.Internal.Expr
   ( Expr(..)
@@ -53,6 +54,7 @@ import Data.Scientific (fromRationalRepetendLimited)
 
 -- | Typed SQL expressions.
 type Expr :: K.Context
+type role Expr nominal
 newtype Expr a = Expr Opaleye.PrimExpr
   deriving stock Show
 
