@@ -34,7 +34,7 @@ import Data.Fixed (Fixed (MkFixed))
 import Data.Foldable ( for_ )
 import Data.Fixed (Centi)
 import Data.Functor (void)
-import Data.Int ( Int32, Int64 )
+import Data.Int ( Int16, Int32, Int64 )
 import Data.List ( isInfixOf, nub, sort )
 import Data.Maybe ( catMaybes )
 import Data.Ratio ((%))
@@ -162,6 +162,7 @@ tests =
     , testEvaluate getTestDatabase
     , testSelectTruncated getTestDatabase
     , testShowCreateTable getTestDatabase
+    , testNextVal getTestDatabase
     ]
   where
     startTestDatabase = do
@@ -173,6 +174,8 @@ tests =
           sql "CREATE TABLE test_table ( column1 text not null, column2 bool not null )"
           sql "CREATE TABLE unique_table ( \"key\" text not null unique, \"value\" text not null )"
           sql "CREATE SEQUENCE test_seq"
+          sql "CREATE SEQUENCE test_seq_small AS smallint"
+          sql "CREATE SEQUENCE test_seq_integer AS integer"
           sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
 
       return db
@@ -1400,3 +1403,20 @@ testSelectTruncated = databasePropertyTest "select truncates long column aliases
     sort (map (((,) <$> aFieldNameDefinitelyLongerThanThirtyCharsA <*>  aFieldNameDefinitelyLongerThanThirtyCharsB)
       . aFieldNameDefinitelyLongerThanThirtyCharsNestedWith) selected)
       === sort rows
+
+testNextVal :: IO TmpPostgres.DB -> TestTree
+testNextVal = databasePropertyTest "next_val works with all integer types" \transaction -> do
+
+  transaction do
+    (r1:: [Int64]) <- getNextVal "test_seq"
+    length r1 === 1
+      
+    (r2 :: [Int32]) <- getNextVal "test_seq_integer"
+    length r2 === 1
+      
+    (r3 :: [Int16]) <- getNextVal "test_seq_small"
+    length r3 === 1
+
+    pure ()
+  where
+    getNextVal seq = lift $ statement () $ Rel8.run $ Rel8.select $ pure $ Rel8.nextval seq

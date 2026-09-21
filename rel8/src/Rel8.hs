@@ -390,6 +390,7 @@ module Rel8
   , createOrReplaceView
 
     -- ** Sequences
+  , DBSequence
   , nextval
   , evaluate
   ) where

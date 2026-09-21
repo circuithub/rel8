@@ -1,10 +1,11 @@
 module Rel8.Internal.Expr.Sequence
-  ( nextval
+  ( DBSequence
+  , nextval
   )
 where
 
 -- base
-import Data.Int ( Int64 )
+import Data.Int ( Int16, Int32, Int64 )
 import Prelude
 
 -- opaleye
@@ -15,9 +16,17 @@ import Rel8.Internal.Expr ( Expr )
 import Rel8.Internal.Expr.Opaleye (fromPrimExpr)
 import Rel8.Internal.Schema.QualifiedName (QualifiedName, showQualifiedName)
 
+-- | The class of database types that can be sequences and support 'nextval'.
+-- 'Int64' is recommended.
+-- See: https://www.postgresql.org/docs/current/sql-createsequence.html
+class DBSequence a
+instance DBSequence Int16
+instance DBSequence Int32
+instance DBSequence Int64
+
 
 -- | See https://www.postgresql.org/docs/current/functions-sequence.html
-nextval :: QualifiedName -> Expr Int64
+nextval :: DBSequence a => QualifiedName -> Expr a
 nextval name =
   fromPrimExpr $
     Opaleye.FunExpr "nextval"
