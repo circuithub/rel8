@@ -568,7 +568,7 @@ testDBType getTestDatabase = testGroup "DBType instances"
   [ dbTypeTest "Bool" Gen.bool
   , dbTypeTest "ByteString" $ Gen.bytes (Range.linear 0 128)
   , dbTypeTest "CalendarDiffTime" genCalendarDiffTime
-  , dbTypeTest "Char" Gen.unicode
+  , dbTypeTest "Char" genChar 
   , dbTypeTest "CI Lazy Text" $ mk . Data.Text.Lazy.fromStrict <$> genText
   , dbTypeTest "CI Text" $ mk <$> genText
   , dbTypeTest "Composite" genComposite
@@ -671,6 +671,11 @@ testDBType getTestDatabase = testGroup "DBType instances"
             Rel8.select @(Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.ListTable Rel8.Expr (Rel8.Expr _)))) .
             Rel8.many . Rel8.many . Rel8.many . (Rel8.catListTable >=> Rel8.catListTable >=> Rel8.catListTable)
         diff res''' (==) [[[x, y]]]
+
+    genChar :: Gen Char
+    genChar =
+      -- Filter out NULL as that isn't accepted by Postgres
+      Gen.filter (/= '\0') Gen.unicode
 
     genScientific :: Gen Scientific
     genScientific = (/ 10) . fromIntegral @Int @Scientific <$> Gen.integral (Range.linear (-100) 100)
