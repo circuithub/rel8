@@ -1,5 +1,6 @@
 {-# language DataKinds #-}
 {-# language StandaloneKindSignatures #-}
+{-# language RoleAnnotations #-}
 
 module Rel8.Internal.Expr
   ( Expr(..)
@@ -17,4 +18,5 @@ import Rel8.Internal.Schema.Kind ( Context )
 
 
 type Expr :: Context
+type role Expr nominal
 newtype Expr a = Expr Opaleye.PrimExpr
