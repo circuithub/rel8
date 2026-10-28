@@ -1,6 +1,7 @@
 {-# language BangPatterns #-}
 {-# language BlockArguments #-}
 {-# language CPP #-}
+{-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DeriveGeneric #-}
 {-# language DerivingVia #-}
@@ -81,6 +82,7 @@ import Control.Monad.Morph ( hoist )
 -- rel8
 import Rel8 ( Result )
 import qualified Rel8
+import qualified Rel8.ADTWith.Test as ADTWith
 import qualified Rel8.Generic.Rel8able.Test as Rel8able
 import qualified Rel8.Internal.Table.Verify as Verify
 import Rel8.Range (
@@ -163,6 +165,7 @@ tests =
     , testSelectTruncated getTestDatabase
     , testShowCreateTable getTestDatabase
     , testNextVal getTestDatabase
+    , testADTWith getTestDatabase
     ]
   where
     startTestDatabase = do
@@ -177,6 +180,7 @@ tests =
           sql "CREATE SEQUENCE test_seq_small AS smallint"
           sql "CREATE SEQUENCE test_seq_integer AS integer"
           sql "CREATE TYPE composite AS (\"bool\" bool, \"char\" text, \"array\" int4[])"
+          for_ ADTWith.createEnumTypes (sql . B.pack)
 
       return db
 
@@ -1420,3 +1424,97 @@ testNextVal = databasePropertyTest "next_val works with all integer types" \tran
     pure ()
   where
     getNextVal seq = lift $ statement () $ Rel8.run $ Rel8.select $ pure $ Rel8.nextval seq
+
+
+testADTWith :: IO TmpPostgres.DB -> TestTree
+testADTWith getTestDatabase = testGroup "ADTWith (enum tag)"
+  [ roundTrip "round trip, prefixed TagConstructor" ADTWith.shapeKindTable
+      (Rel8.deconstructADTWith @ADTWith.ShapeKind @ADTWith.Shape sizeCircle sizeSquare 0)
+      getTestDatabase
+  , roundTrip "round trip, closed-family TagConstructor" ADTWith.shapeKindSnakeTable
+      (Rel8.deconstructADTWith @ADTWith.ShapeKindSnake @ADTWith.Shape sizeCircle sizeSquare 0)
+      getTestDatabase
+  , roundTrip "round trip, tag constructors in a different order" ADTWith.shapeKindShuffledTable
+      (Rel8.deconstructADTWith @ADTWith.ShapeKindShuffled @ADTWith.Shape sizeCircle sizeSquare 0)
+      getTestDatabase
+  , testBuild getTestDatabase
+  , testNested getTestDatabase
+  ]
+  where
+    sizeCircle r = r
+    sizeSquare s _ = s * s
+
+    roundTrip
+      :: ( Rel8.Rel8able (Rel8.ADTWith tag ADTWith.Shape)
+         , Rel8.Selects (Rel8.ADTWith tag ADTWith.Shape Rel8.Name) (Rel8.ADTWith tag ADTWith.Shape Rel8.Expr)
+         , Rel8.Serializable (Rel8.ADTWith tag ADTWith.Shape Rel8.Expr) (ADTWith.Shape Result)
+         )
+      => TestName
+      -> Rel8.TableSchema (Rel8.ADTWith tag ADTWith.Shape Rel8.Name)
+      -> (Rel8.ADTWith tag ADTWith.Shape Rel8.Expr -> Rel8.Expr Int32)
+      -> IO TmpPostgres.DB -> TestTree
+    roundTrip testName table size = databasePropertyTest testName \transaction -> do
+      rows <- forAll $ Gen.list (Range.linear 0 10) ADTWith.genShape
+
+      transaction do
+        lift $ Hasql.sql $ B.pack $ Verify.showCreateTable table
+        schemaErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema table]
+        for_ schemaErrors \e -> annotate (unpack e) *> failure
+
+        -- Postgres rejects any label not in the enum, so a successful insert
+        -- also checks the stored tag values.
+        lift $ statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
+          { into = table
+          , rows = Rel8.values $ map Rel8.lit rows
+          , onConflict = Rel8.DoNothing Nothing
+          , returning = Rel8.NoReturning
+          }
+
+        selected <- lift $ statement () $ Rel8.run $ Rel8.select $ Rel8.each table
+        sort selected === sort rows
+
+        sizes <- lift $ statement () $ Rel8.run $ Rel8.select $ size <$> Rel8.each table
+        sort sizes === sort (map ADTWith.shapeSize rows)
+
+    testBuild = databasePropertyTest "buildADTWith / constructADTWith" \transaction -> transaction do
+      let table = ADTWith.shapeKindSnakeTable
+      lift $ Hasql.sql $ B.pack $ Verify.showCreateTable table
+      lift $ statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
+        { into = table
+        , rows = Rel8.values
+            [ Rel8.buildADTWith @ADTWith.ShapeKindSnake @ADTWith.Shape @"Dot"
+            , Rel8.buildADTWith @ADTWith.ShapeKindSnake @ADTWith.Shape @"Circle" (Rel8.lit 5)
+            , Rel8.constructADTWith @ADTWith.ShapeKindSnake @ADTWith.Shape \_circle square _dot ->
+                square (Rel8.lit 3) (Rel8.lit "red")
+            ]
+        , onConflict = Rel8.DoNothing Nothing
+        , returning = Rel8.NoReturning
+        }
+      selected <- lift $ statement () $ Rel8.run $ Rel8.select $ Rel8.each table
+      sort selected === sort [ADTWith.Dot, ADTWith.Circle 5, ADTWith.Square 3 "red"]
+
+    testNested = databasePropertyTest "HADTWith field" \transaction -> do
+      rows <- forAll $ Gen.list (Range.linear 0 10) ADTWith.genLabelled
+
+      transaction do
+        let table = ADTWith.labelledTable
+        lift $ Hasql.sql $ B.pack $ Verify.showCreateTable table
+        schemaErrors <- lift $ statement () $ Verify.getSchemaErrors [Verify.SomeTableSchema table]
+        for_ schemaErrors \e -> annotate (unpack e) *> failure
+
+        lift $ statement () $ Rel8.run_ $ Rel8.insert Rel8.Insert
+          { into = table
+          , rows = Rel8.values $ map Rel8.lit rows
+          , onConflict = Rel8.DoNothing Nothing
+          , returning = Rel8.NoReturning
+          }
+
+        selected <- lift $ statement () $ Rel8.run $ Rel8.select $ Rel8.each table
+        sort selected === sort rows
+
+        sizes <- lift $ statement () $ Rel8.run $ Rel8.select do
+          row <- Rel8.each table
+          pure $ Rel8.deconstructADTWith @ADTWith.ShapeKind @ADTWith.Shape
+            sizeCircle sizeSquare 0 (ADTWith.shape row)
+        sort sizes === sort (map (ADTWith.shapeSize . ADTWith.shape) rows)
+

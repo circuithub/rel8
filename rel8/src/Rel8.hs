@@ -35,6 +35,7 @@ module Rel8
   , Rel8able, KRel8able
   , Column
   , HADT
+  , HADTWith
   , HEither
   , HMaybe
   , HList
@@ -135,6 +136,15 @@ module Rel8
     -- $naming
   , NameADT, nameADT
   , ADT, ADTable
+
+    -- *** ADTs with a custom tag type
+    -- $custom-tags
+  , ADTWith, ADTableWith
+  , ADTTag( TagConstructor )
+  , NameADTWith, nameADTWith
+  , DeconstructADTWith, deconstructADTWith, deconstructAADTWith
+  , BuildableADTWith, BuildADTWith, buildADTWith
+  , ConstructableADTWith, constructADTWith
 
     -- *** Deconstruction of ADTs
     -- $deconstruction
@@ -507,6 +517,7 @@ import Rel8.Internal.Type.ReadShow
 import Rel8.Internal.Type.Semigroup
 import Rel8.Internal.Type.String
 import Rel8.Internal.Type.Sum
+import Rel8.Internal.Type.Tag ( ADTTag( TagConstructor ) )
 import Rel8.Internal.Window
 
 
@@ -527,7 +538,9 @@ import Rel8.Internal.Window
 -- $adts
 -- Algebraic data types can be modelled between Haskell and SQL.
 --
--- * Your SQL table needs a certain text field that tags which Haskell constructor is in use.
+-- * Your SQL table needs a tag field that says which Haskell constructor is in
+--   use. With 'ADT' this is a @text@ column holding the constructor name; see
+--   'ADTWith' to use another type, such as a PostgreSQL @enum@.
 -- * You have to use a few combinators to specify the sum type's individual constructors.
 -- * If you want to do case analysis at the @Expr@ (SQL) level, you can use 'maybe'/'either'-like eliminators.
 --
@@ -712,6 +725,16 @@ import Rel8.Internal.Window
 -- These values are otherwise identical to the ones we saw above with
 -- @buildADT@, it's just a different style of constructing them.
 --
+
+-- $custom-tags
+--
+-- Use 'ADTWith' and 'ADTableWith' when the tag column has a type other than
+-- @text@, such as a PostgreSQL @enum@. The tag type must be an instance of
+-- 'ADTTag'. It must be a non-null 'DBType' with 'Eq' and 'DBEq' instances.
+-- Its associated 'TagConstructor' type maps each ADT constructor name to the
+-- corresponding tag constructor name. The tag type's constructors must be
+-- nullary and must match the ADT constructors one-to-one. Mismatches are
+-- reported as type errors.
 
 -- $misc-notes
 --

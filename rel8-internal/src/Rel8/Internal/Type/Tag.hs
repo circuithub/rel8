@@ -1,20 +1,41 @@
+{-# language AllowAmbiguousTypes #-}
 {-# language DataKinds #-}
 {-# language DeriveAnyClass #-}
 {-# language DerivingVia #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
 {-# language StandaloneKindSignatures #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+{-# language TypeOperators #-}
+{-# language UndecidableInstances #-}
 
 module Rel8.Internal.Type.Tag
   ( EitherTag( IsLeft, IsRight ), isLeft, isRight
   , MaybeTag( IsJust )
   , Tag( Tag )
+  , ADTTag( TagConstructor )
+  , ADTTagFor( tagValue ), isTag
+  , HasConstructor
   )
 where
 
 -- base
 import Data.Bool ( bool )
-import Data.Kind ( Type )
+import Data.Kind ( Constraint, Type )
+import Data.Proxy ( Proxy( Proxy ) )
 import Data.Semigroup ( Min( Min ) )
+import Data.Type.Bool ( type (||) )
+import GHC.Generics
+  ( Generic, Rep
+  , (:+:)( L1, R1 ), M1( M1 ), U1( U1 )
+  , C, D, Meta( MetaCons )
+  , to
+  )
+import GHC.TypeLits ( KnownSymbol, Symbol, symbolVal )
 import Prelude
 
 -- opaleye
@@ -25,6 +46,7 @@ import Rel8.Internal.Expr ( Expr )
 import Rel8.Internal.Expr.Eq ( (==.) )
 import Rel8.Internal.Expr.Opaleye ( zipPrimExprsWith )
 import Rel8.Internal.Expr.Serialize ( litExpr )
+import Rel8.Internal.Schema.Null ( NotNull )
 import Rel8.Internal.Type.Eq ( DBEq )
 import Rel8.Internal.Type ( DBType, typeInformation )
 import Rel8.Internal.Type.Information ( mapTypeInformation, parseTypeInformation )
@@ -33,7 +55,7 @@ import Rel8.Internal.Type.Ord ( DBOrd )
 import Rel8.Internal.Type.Semigroup ( DBSemigroup, (<>.) )
 
 -- text
-import Data.Text ( Text )
+import Data.Text ( Text, pack )
 
 
 type EitherTag :: Type
@@ -96,3 +118,75 @@ newtype Tag = Tag Text
     ( Eq, Ord, Read, Show
     , DBType, DBEq, DBOrd
     )
+
+
+type ADTTag :: Type -> Constraint
+class (Eq tag, DBType tag, DBEq tag, NotNull tag) => ADTTag tag where
+  type TagConstructor tag (name :: Symbol) :: Symbol
+  type TagConstructor _tag name = name
+
+
+type ADTTagFor :: Type -> Symbol -> Constraint
+class ADTTag tag => ADTTagFor tag name where
+  tagValue :: tag
+
+
+isTag :: forall tag name. ADTTagFor tag name => tag -> Bool
+isTag = (== tagValue @tag @name)
+
+
+instance ADTTag Tag
+
+
+instance KnownSymbol name => ADTTagFor Tag name where
+  tagValue = Tag (pack (symbolVal (Proxy @name)))
+
+
+instance {-# OVERLAPPABLE #-}
+  ( ADTTag tag
+  , Generic tag
+  , GTagConstructor (TagConstructor tag name) (Rep tag)
+  )
+  => ADTTagFor tag name
+ where
+  tagValue = to (gtagConstructor @(TagConstructor tag name))
+
+
+type GTagConstructor :: Symbol -> (Type -> Type) -> Constraint
+class GTagConstructor target rep where
+  gtagConstructor :: rep x
+
+
+instance GTagConstructor target rep => GTagConstructor target (M1 D meta rep) where
+  gtagConstructor = M1 (gtagConstructor @target)
+
+
+instance GTagConstructorSum (HasConstructor target a) target a b =>
+  GTagConstructor target (a :+: b)
+ where
+  gtagConstructor = gtagConstructorSum @(HasConstructor target a) @target
+
+
+instance rep ~ U1 => GTagConstructor target (M1 C meta rep) where
+  gtagConstructor = M1 U1
+
+
+type GTagConstructorSum :: Bool -> Symbol -> (Type -> Type) -> (Type -> Type) -> Constraint
+class GTagConstructorSum inLeft target a b where
+  gtagConstructorSum :: (a :+: b) x
+
+
+instance GTagConstructor target a => GTagConstructorSum 'True target a b where
+  gtagConstructorSum = L1 (gtagConstructor @target)
+
+
+instance GTagConstructor target b => GTagConstructorSum 'False target a b where
+  gtagConstructorSum = R1 (gtagConstructor @target)
+
+
+type HasConstructor :: Symbol -> (Type -> Type) -> Bool
+type family HasConstructor name rep where
+  HasConstructor name (M1 D _meta rep) = HasConstructor name rep
+  HasConstructor name (a :+: b) = HasConstructor name a || HasConstructor name b
+  HasConstructor name (M1 C ('MetaCons name _fixity _isRecord) _rep) = 'True
+  HasConstructor _name _rep = 'False
