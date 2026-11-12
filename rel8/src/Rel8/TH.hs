@@ -20,7 +20,7 @@ module Rel8.TH
 import Control.Monad (zipWithM)
 import Data.Foldable (toList)
 import Data.Foldable1 (foldr1)
-import Data.List (unsnoc)
+import Data.List (unsnoc, foldl')
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import qualified Data.Map.Strict as M
 import Data.Proxy (Proxy (Proxy))
