@@ -88,6 +88,7 @@ test-suite tests
     , vector
 
   other-modules:
+    Rel8.ADTWith.Test
     Rel8.Generic.Rel8able.Test
     Rel8.TH.Rel8able.Test
 

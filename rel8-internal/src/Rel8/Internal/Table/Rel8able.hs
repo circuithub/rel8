@@ -39,7 +39,7 @@ import Rel8.Internal.Table
   , FromExprs, fromResult, toResult
   , Transpose
   )
-import Rel8.Internal.Table.ADT ( ADT )
+import Rel8.Internal.Table.ADT ( ADT, ADTWith, ADTableWith )
 import Rel8.Internal.Table.Eq ( EqTable, eqTable )
 import Rel8.Internal.Table.Ord ( OrdTable, ordTable )
 import Rel8.Internal.Table.Serialize ( ToExprs )
@@ -88,6 +88,13 @@ instance
   , result ~ Result
   )
   => ToExprs x (t result)
+
+
+instance {-# INCOHERENT #-}
+  ( ADTableWith tag t
+  , result ~ Result
+  )
+  => ToExprs (ADTWith tag t Expr) (t result)
 
 
 type Choose :: K.Algebra -> K.Rel8able -> K.Rel8able

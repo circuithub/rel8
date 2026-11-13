@@ -39,6 +39,7 @@ import Rel8.Internal.Schema.Result ( Result )
 
 data GGSerialize
   :: Algebra
+  -> Type
   -> (Type -> Type -> Exp Constraint)
   -> (Type -> Exp K.HTable)
   -> (Type -> Type)
@@ -46,25 +47,26 @@ data GGSerialize
   -> Exp Constraint
 
 
-type instance Eval (GGSerialize 'Product _Serialize _Columns exprs rep) =
+type instance Eval (GGSerialize 'Product _tag _Serialize _Columns exprs rep) =
   GSerialize _Serialize _Columns exprs rep
 
 
-type instance Eval (GGSerialize 'Sum _Serialize _Columns exprs rep) =
-  GSerializeADT _Serialize _Columns exprs rep
+type instance Eval (GGSerialize 'Sum tag _Serialize _Columns exprs rep) =
+  GSerializeADT tag _Serialize _Columns exprs rep
 
 
 data GGColumns
   :: Algebra
+  -> Type
   -> (Type -> Exp K.HTable)
   -> (Type -> Type)
   -> Exp K.HTable
 
 
-type instance Eval (GGColumns 'Product _Columns rep) = GColumns _Columns rep
+type instance Eval (GGColumns 'Product _tag _Columns rep) = GColumns _Columns rep
 
 
-type instance Eval (GGColumns 'Sum _Columns rep) = GColumnsADT _Columns rep
+type instance Eval (GGColumns 'Sum tag _Columns rep) = GColumnsADT tag _Columns rep
 
 
 type GAlgebra :: (Type -> Type) -> Algebra
@@ -77,27 +79,27 @@ type family GAlgebra rep where
   GAlgebra (K1 _ _) = 'Product
 
 
-ggfromResult :: forall algebra _Serialize _Columns exprs rep x.
+ggfromResult :: forall algebra tag _Serialize _Columns exprs rep x.
   ( KnownAlgebra algebra
-  , Eval (GGSerialize algebra _Serialize _Columns exprs rep)
+  , Eval (GGSerialize algebra tag _Serialize _Columns exprs rep)
   )
   => (forall expr a proxy. Eval (_Serialize expr a)
       => proxy expr -> Eval (_Columns expr) Result -> a)
-  -> Eval (GGColumns algebra _Columns exprs) Result
+  -> Eval (GGColumns algebra tag _Columns exprs) Result
   -> rep x
 ggfromResult f x = case algebraSing @algebra of
   SProduct -> gfromResult @_Serialize @_Columns @exprs @rep f x
-  SSum -> gfromResultADT @_Serialize @_Columns @exprs @rep f x
+  SSum -> gfromResultADT @tag @_Serialize @_Columns @exprs @rep f x
 
 
-ggtoResult :: forall algebra _Serialize _Columns exprs rep x.
+ggtoResult :: forall algebra tag _Serialize _Columns exprs rep x.
   ( KnownAlgebra algebra
-  , Eval (GGSerialize algebra _Serialize _Columns exprs rep)
+  , Eval (GGSerialize algebra tag _Serialize _Columns exprs rep)
   )
   => (forall expr a proxy. Eval (_Serialize expr a)
       => proxy expr -> a -> Eval (_Columns expr) Result)
   -> rep x
-  -> Eval (GGColumns algebra _Columns exprs) Result
+  -> Eval (GGColumns algebra tag _Columns exprs) Result
 ggtoResult f x = case algebraSing @algebra of
   SProduct -> gtoResult @_Serialize @_Columns @exprs @rep f x
-  SSum -> gtoResultADT @_Serialize @_Columns @exprs @rep f x
+  SSum -> gtoResultADT @tag @_Serialize @_Columns @exprs @rep f x

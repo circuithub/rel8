@@ -116,6 +116,7 @@ library
     Rel8.Internal.Generic.Rel8able
     Rel8.Internal.Generic.Table
     Rel8.Internal.Generic.Table.ADT
+    Rel8.Internal.Generic.Table.ADT.Tag
     Rel8.Internal.Generic.Table.Record
 
     Rel8.Internal.Order

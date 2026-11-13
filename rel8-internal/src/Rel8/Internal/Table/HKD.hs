@@ -68,6 +68,7 @@ import Rel8.Internal.Table
   , TTable, TColumns, TContext
   , TSerialize
   )
+import Rel8.Internal.Type.Tag ( Tag )
 
 -- semigroupoids
 import Data.Functor.Apply (Apply)
@@ -75,7 +76,7 @@ import Data.Functor.Apply (Apply)
 
 type GColumnsHKD :: Type -> K.HTable
 type GColumnsHKD a =
-  Eval (GGColumns (GAlgebra (Rep a)) TColumns (GRecord (GMap (TColumn Expr) (Rep a))))
+  Eval (GGColumns (GAlgebra (Rep a)) Tag TColumns (GRecord (GMap (TColumn Expr) (Rep a))))
 
 
 type HKD :: Type -> K.Rel8able
@@ -94,6 +95,7 @@ instance HKDable a => Rel8able (HKD a) where
     to .
     ggfromResult
       @(GAlgebra (Rep a))
+      @Tag
       @TSerialize
       @TColumns
       @(Eval (HKDRep a Expr))
@@ -103,6 +105,7 @@ instance HKDable a => Rel8able (HKD a) where
   gtoResult =
     ggtoResult
       @(GAlgebra (Rep a))
+      @Tag
       @TSerialize
       @TColumns
       @(Eval (HKDRep a Expr))
@@ -144,7 +147,7 @@ class
   ( Generic (Record a)
   , HTable (GColumns (HKD a))
   , KnownAlgebra (GAlgebra (Rep a))
-  , Eval (GGSerialize (GAlgebra (Rep a)) TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
+  , Eval (GGSerialize (GAlgebra (Rep a)) Tag TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
   , GRecord (GMap (TColumn Result) (Rep a)) ~ Rep (Record a)
   )
   => HKDable a
@@ -152,7 +155,7 @@ instance
   ( Generic (Record a)
   , HTable (GColumns (HKD a))
   , KnownAlgebra (GAlgebra (Rep a))
-  , Eval (GGSerialize (GAlgebra (Rep a)) TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
+  , Eval (GGSerialize (GAlgebra (Rep a)) Tag TSerialize TColumns (Eval (HKDRep a Expr)) (Eval (HKDRep a Result)))
   , GRecord (GMap (TColumn Result) (Rep a)) ~ Rep (Record a)
   )
   => HKDable a
@@ -168,8 +171,8 @@ type instance Eval (Top _) = Top_
 
 
 type BuildableHKD :: Type -> Symbol -> Constraint
-class GGBuildable (GAlgebra (Rep a)) name (HKDRep a) => BuildableHKD a name
-instance GGBuildable (GAlgebra (Rep a)) name (HKDRep a) => BuildableHKD a name
+class GGBuildable (GAlgebra (Rep a)) Tag name (HKDRep a) => BuildableHKD a name
+instance GGBuildable (GAlgebra (Rep a)) Tag name (HKDRep a) => BuildableHKD a name
 
 
 type BuildHKD :: Type -> Symbol -> Type
@@ -178,12 +181,12 @@ type BuildHKD a name = GGBuild (GAlgebra (Rep a)) name (HKDRep a) (HKD a Expr)
 
 buildHKD :: forall a name. BuildableHKD a name => BuildHKD a name
 buildHKD =
-  ggbuild @(GAlgebra (Rep a)) @name @(HKDRep a) @(HKD a Expr) HKD
+  ggbuild @(GAlgebra (Rep a)) @Tag @name @(HKDRep a) @(HKD a Expr) HKD
 
 
 type ConstructableHKD :: Type -> Constraint
-class GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
-instance GGConstructable (GAlgebra (Rep a)) (HKDRep a) => ConstructableHKD a
+class GGConstructable (GAlgebra (Rep a)) Tag (HKDRep a) => ConstructableHKD a
+instance GGConstructable (GAlgebra (Rep a)) Tag (HKDRep a) => ConstructableHKD a
 
 
 type ConstructHKD :: Type -> Type
@@ -192,7 +195,7 @@ type ConstructHKD a = forall r. GGConstruct (GAlgebra (Rep a)) (HKDRep a) r
 
 constructHKD :: forall a. ConstructableHKD a => ConstructHKD a -> HKD a Expr
 constructHKD f =
-  ggconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) HKD
+  ggconstruct @(GAlgebra (Rep a)) @Tag @(HKDRep a) @(HKD a Expr) HKD
     (f @(HKD a Expr))
 
 
@@ -202,20 +205,20 @@ type DeconstructHKD a r = GGDeconstruct (GAlgebra (Rep a)) (HKDRep a) (HKD a Exp
 
 deconstructHKD :: forall a r. (ConstructableHKD a, Table Expr r)
   => DeconstructHKD a r
-deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @r (\(HKD a) -> a)
+deconstructHKD = ggdeconstruct @(GAlgebra (Rep a)) @Tag @(HKDRep a) @(HKD a Expr) @r (\(HKD a) -> a)
 
 
 deconstructAHKD :: forall a f r. (ConstructableHKD a, Apply f, Table Expr r)
   => DeconstructHKD a (f r)
-deconstructAHKD = ggdeconstructA @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Expr) @f @r (\(HKD a) -> a)
+deconstructAHKD = ggdeconstructA @(GAlgebra (Rep a)) @Tag @(HKDRep a) @(HKD a Expr) @f @r (\(HKD a) -> a)
 
 
 type NameHKD :: Type -> Type
-type NameHKD a = GGName (GAlgebra (Rep a)) (HKDRep a) (HKD a Name)
+type NameHKD a = GGName (GAlgebra (Rep a)) Tag (HKDRep a) (HKD a Name)
 
 
 nameHKD :: forall a. ConstructableHKD a => NameHKD a
-nameHKD = ggname @(GAlgebra (Rep a)) @(HKDRep a) @(HKD a Name) HKD
+nameHKD = ggname @(GAlgebra (Rep a)) @Tag @(HKDRep a) @(HKD a Name) HKD
 
 
 data HKDRep :: Type -> K.Context -> Exp (Type -> Type)
